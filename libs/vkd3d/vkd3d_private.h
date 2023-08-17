@@ -144,6 +144,7 @@ struct vkd3d_vulkan_info
     bool EXT_fragment_shader_interlock;
     bool EXT_mutable_descriptor_type;
     bool EXT_robustness2;
+    bool EXT_sampler_filter_minmax;
     bool EXT_shader_demote_to_helper_invocation;
     bool EXT_shader_stencil_export;
     bool EXT_shader_viewport_index_layer;
