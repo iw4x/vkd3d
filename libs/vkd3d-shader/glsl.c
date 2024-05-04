@@ -1480,6 +1480,9 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
         case VSIR_OP_CONTINUE:
             shader_glsl_continue(gen);
             break;
+        case VSIR_OP_COS:
+            shader_glsl_intrinsic(gen, ins, "cos");
+            break;
         case VSIR_OP_DCL_INDEXABLE_TEMP:
             shader_glsl_dcl_indexable_temp(gen, ins);
             break;
