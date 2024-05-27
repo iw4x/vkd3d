@@ -373,3 +373,61 @@ if(!llvmpipe) todo(mvk) probe (0, 0, 640, 480) f32(0.75, 0.5, 0.0, 1.0)
 uniform 0 uint 1
 if(!llvmpipe) todo(glsl | mvk & vulkan) draw 3 control point patch list 3
 if(!llvmpipe) todo(mvk) probe (0, 0, 640, 480) f32(0.25, 0.25, 0.0, 1.0)
+
+[hull shader]
+uniform uint foo;
+
+struct data
+{
+    float4 position : SV_Position;
+    float r : RED;
+    float g : GREEN;
+    float b : BLUE;
+};
+
+struct patch_constant_data
+{
+    float edges[3] : SV_TessFactor;
+    float inside : SV_InsideTessFactor;
+};
+
+void patch_constant(InputPatch<data, 3> input, out patch_constant_data output)
+{
+    if (foo & 1)
+    {
+        output.edges[0] = output.edges[1] = output.edges[2] = 1.0f;
+        output.inside = 1.0f;
+    }
+    else
+    {
+        output.edges[0] = output.edges[1] = output.edges[2] = 3.0f;
+        output.inside = 2.0f;
+    }
+}
+
+    [domain("tri")]
+    [outputcontrolpoints(3)]
+    [partitioning("integer")]
+    [outputtopology("triangle_cw")]
+    [patchconstantfunc("patch_constant")]
+data main(InputPatch<data, 3> input, uint i : SV_OutputControlPointID)
+{
+    data ret = input[i];
+    if (foo & 2)
+        ret.b += foo >> 2;
+    return ret;
+}
+
+[test]
+uniform 0 uint 0
+if(!llvmpipe) todo(glsl | mvk & vulkan) draw 3 control point patch list 3
+if(!llvmpipe) todo(mvk) probe (0, 0, 640, 480) f32(0.75, 0.5, 0.0, 1.0)
+uniform 0 uint 1
+if(!llvmpipe) todo(glsl | mvk & vulkan) draw 3 control point patch list 3
+if(!llvmpipe) todo(mvk) probe (0, 0, 640, 480) f32(0.25, 0.25, 0.0, 1.0)
+uniform 0 uint 6
+if(!llvmpipe) todo(glsl | mvk & vulkan) draw 3 control point patch list 3
+if(!llvmpipe) todo(mvk) probe (0, 0, 640, 480) f32(0.75, 0.5, 1.0, 1.0)
+uniform 0 uint 7
+if(!llvmpipe) todo(glsl | mvk & vulkan) draw 3 control point patch list 3
+if(!llvmpipe) todo(mvk) probe (0, 0, 640, 480) f32(0.25, 0.25, 1.0, 1.0)
