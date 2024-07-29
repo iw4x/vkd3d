@@ -718,6 +718,7 @@ enum hlsl_ir_expr_op
     HLSL_OP1_BIT_NOT,
     HLSL_OP1_CAST,
     HLSL_OP1_CEIL,
+    HLSL_OP1_CLZ,
     HLSL_OP1_COS,
     HLSL_OP1_COS_REDUCED,    /* Reduced range [-pi, pi], writes to .x */
     HLSL_OP1_COUNTBITS,
@@ -730,6 +731,7 @@ enum hlsl_ir_expr_op
     HLSL_OP1_EXP2,
     HLSL_OP1_F16TOF32,
     HLSL_OP1_F32TOF16,
+    HLSL_OP1_FIND_MSB,
     HLSL_OP1_FLOOR,
     HLSL_OP1_FRACT,
     HLSL_OP1_ISINF,
@@ -1792,6 +1794,7 @@ bool hlsl_type_is_integer(const struct hlsl_type *type);
 bool hlsl_type_is_floating_point(const struct hlsl_type *type);
 bool hlsl_type_is_row_major(const struct hlsl_type *type);
 bool hlsl_type_is_signed_integer(const struct hlsl_type *type);
+bool hlsl_type_is_unsigned_integer(const struct hlsl_type *type);
 unsigned int hlsl_type_minor_size(const struct hlsl_type *type);
 unsigned int hlsl_type_major_size(const struct hlsl_type *type);
 unsigned int hlsl_type_element_count(const struct hlsl_type *type);

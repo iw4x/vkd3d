@@ -250,6 +250,35 @@ static bool fold_ceil(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
     return true;
 }
 
+static bool fold_clz(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
+        const struct hlsl_type *dst_type, const struct hlsl_ir_constant *src)
+{
+    enum hlsl_base_type type = src->node.data_type->e.numeric.type;
+    unsigned int k, v;
+
+    for (k = 0; k < dst_type->e.numeric.dimx; ++k)
+    {
+        switch (type)
+        {
+            case HLSL_TYPE_INT:
+                v = src->value.u[k].i < 0 ? ~src->value.u[k].u : src->value.u[k].u;
+                break;
+
+            case HLSL_TYPE_UINT:
+                v = src->value.u[k].u;
+                break;
+
+            default:
+                FIXME("Fold 'clz' for type %s.\n", debug_hlsl_type(ctx, dst_type));
+                return false;
+        }
+
+        dst->u[k].u = v ? vkd3d_log2i(v) ^ 0x1f : ~0u;
+    }
+
+    return true;
+}
+
 static bool fold_cos(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
         const struct hlsl_type *dst_type, const struct hlsl_ir_constant *src)
 {
@@ -1426,6 +1455,10 @@ bool hlsl_fold_constant_exprs(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
 
         case HLSL_OP1_CEIL:
             success = fold_ceil(ctx, &res, instr->data_type, arg1);
+            break;
+
+        case HLSL_OP1_CLZ:
+            success = fold_clz(ctx, &res, instr->data_type, arg1);
             break;
 
         case HLSL_OP1_COS:

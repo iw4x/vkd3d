@@ -3181,6 +3181,20 @@ static bool elementwise_intrinsic_float_convert_args(struct hlsl_ctx *ctx,
     return true;
 }
 
+static bool elementwise_intrinsic_int_convert_args(struct hlsl_ctx *ctx,
+        const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
+{
+    struct hlsl_type *type;
+
+    if (!(type = elementwise_intrinsic_get_common_type(ctx, params, loc)))
+        return false;
+
+    type = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_INT, type->e.numeric.dimx, type->e.numeric.dimy);
+
+    convert_args(ctx, params, type, loc);
+    return true;
+}
+
 static bool elementwise_intrinsic_uint_convert_args(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
@@ -3937,6 +3951,58 @@ static bool intrinsic_f32tof16(struct hlsl_ctx *ctx,
 
     operands[0] = params->args[0];
     return add_expr(ctx, params->instrs, HLSL_OP1_F32TOF16, operands, type, loc);
+}
+
+static bool intrinsic_firstbithigh(struct hlsl_ctx *ctx,
+        const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
+{
+    struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS] = {0};
+    struct hlsl_type *type = params->args[0]->data_type;
+    struct hlsl_ir_node *c, *clz, *eq, *xor;
+    struct hlsl_constant_value v;
+
+    if (hlsl_version_lt(ctx, 4, 0))
+        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INCOMPATIBLE_PROFILE,
+                "The 'firstbithigh' intrinsic requires shader model 4.0 or higher.");
+
+    if (hlsl_type_is_unsigned_integer(type))
+    {
+        if (!elementwise_intrinsic_uint_convert_args(ctx, params, loc))
+            return false;
+    }
+    else
+    {
+        if (!elementwise_intrinsic_int_convert_args(ctx, params, loc))
+            return false;
+    }
+    type = convert_numeric_type(ctx, type, HLSL_TYPE_UINT);
+
+    operands[0] = params->args[0];
+    if (hlsl_version_lt(ctx, 5, 0))
+        return add_expr(ctx, params->instrs, HLSL_OP1_FIND_MSB, operands, type, loc);
+
+    v.u[0].u = 0x1f;
+    if (!(c = hlsl_new_constant(ctx, hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT), &v, loc)))
+        return false;
+    hlsl_block_add_instr(params->instrs, c);
+
+    if (!(clz = add_expr(ctx, params->instrs, HLSL_OP1_CLZ, operands, type, loc)))
+        return false;
+    if (!(xor = add_binary_arithmetic_expr(ctx, params->instrs, HLSL_OP2_BIT_XOR, c, clz, loc)))
+        return false;
+
+    v.u[0].i = -1;
+    if (!(c = hlsl_new_constant(ctx, hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT), &v, loc)))
+        return false;
+    hlsl_block_add_instr(params->instrs, c);
+
+    if (!(eq = add_binary_comparison_expr(ctx, params->instrs, HLSL_OP2_EQUAL, clz, c, loc)))
+        return false;
+
+    operands[0] = eq;
+    operands[1] = add_implicit_conversion(ctx, params->instrs, c, type, loc);
+    operands[2] = xor;
+    return add_expr(ctx, params->instrs, HLSL_OP3_TERNARY, operands, type, loc);
 }
 
 static bool intrinsic_floor(struct hlsl_ctx *ctx,
@@ -5349,6 +5415,7 @@ intrinsic_functions[] =
     {"f16tof32",                            1, true,  intrinsic_f16tof32},
     {"f32tof16",                            1, true,  intrinsic_f32tof16},
     {"faceforward",                         3, true,  intrinsic_faceforward},
+    {"firstbithigh",                        1, true,  intrinsic_firstbithigh},
     {"floor",                               1, true,  intrinsic_floor},
     {"fmod",                                2, true,  intrinsic_fmod},
     {"frac",                                1, true,  intrinsic_frac},

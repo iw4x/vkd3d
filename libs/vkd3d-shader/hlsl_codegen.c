@@ -11057,6 +11057,15 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_ROUND_PI, 0, 0, true);
             return true;
 
+        case HLSL_OP1_CLZ:
+            VKD3D_ASSERT(hlsl_type_is_integer(dst_type));
+            VKD3D_ASSERT(hlsl_version_ge(ctx, 5, 0));
+            if (hlsl_type_is_signed_integer(src_type))
+                generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_FIRSTBIT_SHI, 0, 0, true);
+            else
+                generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_FIRSTBIT_HI, 0, 0, true);
+            return true;
+
         case HLSL_OP1_COS:
             VKD3D_ASSERT(type_is_float(dst_type));
             sm4_generate_vsir_expr_with_two_destinations(ctx, program, VSIR_OP_SINCOS, expr, 1);
@@ -14290,6 +14299,69 @@ static bool lower_f32tof16(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, stru
     return true;
 }
 
+static bool lower_find_msb(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, struct hlsl_block *block)
+{
+    struct hlsl_ir_function_decl *func;
+    struct hlsl_ir_node *call, *rhs;
+    struct hlsl_ir_expr *expr;
+    struct hlsl_ir_var *lhs;
+    char *body;
+
+    /* For positive numbers, find_msb() returns the bit number of the most
+     * significant 1-bit. For negative numbers, it returns the bit number of
+     * the most significant 0-bit. Bit numbers count from the least
+     * significant bit. */
+    static const char template[] =
+            "typedef %s intX;\n"
+            "uint%u find_msb(intX v)\n"
+            "{\n"
+            "    intX c, mask;\n"
+            "    v = v < 0 ? ~v : v;\n"
+            "    mask = v & 0xffff0000;\n"
+            "    v = mask ? mask : v;\n"
+            "    c = mask ? 16 : v ? 0 : -1;\n"
+            "    mask = v & 0xff00ff00;\n"
+            "    v = mask ? mask : v;\n"
+            "    c = mask ? c + 8 : c;\n"
+            "    mask = v & 0xf0f0f0f0;\n"
+            "    v = mask ? mask : v;\n"
+            "    c = mask ? c + 4 : c;\n"
+            "    mask = v & 0xcccccccc;\n"
+            "    v = mask ? mask : v;\n"
+            "    c = mask ? c + 2 : c;\n"
+            "    mask = v & 0xaaaaaaaa;\n"
+            "    v = mask ? mask : v;\n"
+            "    c = mask ? c + 1 : c;\n"
+            "    return c;\n"
+            "}\n";
+
+    if (node->type != HLSL_IR_EXPR)
+        return false;
+
+    expr = hlsl_ir_expr(node);
+    if (expr->op != HLSL_OP1_FIND_MSB)
+        return false;
+
+    rhs = expr->operands[0].node;
+    if (!(body = hlsl_sprintf_alloc(ctx, template, rhs->data_type->name, hlsl_type_component_count(rhs->data_type))))
+        return false;
+    func = hlsl_compile_internal_function(ctx, "find_msb", body);
+    vkd3d_free(body);
+    if (!func)
+        return false;
+
+    lhs = func->parameters.vars[0];
+    hlsl_block_add_simple_store(ctx, block, lhs, rhs);
+
+    if (!(call = hlsl_new_call(ctx, func, &node->loc)))
+        return false;
+    hlsl_block_add_instr(block, call);
+
+    hlsl_block_add_simple_load(ctx, block, func->return_var, &node->loc);
+
+    return true;
+}
+
 static bool lower_isinf(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, struct hlsl_block *block)
 {
     struct hlsl_ir_function_decl *func;
@@ -14409,6 +14481,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
         lower_ir(ctx, lower_countbits, body);
         lower_ir(ctx, lower_f16tof32, body);
         lower_ir(ctx, lower_f32tof16, body);
+        lower_ir(ctx, lower_find_msb, body);
     }
 
     lower_ir(ctx, lower_isinf, body);
