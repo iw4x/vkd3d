@@ -334,6 +334,34 @@ static bool fold_countbits(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst
     return true;
 }
 
+static bool fold_ctz(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
+        const struct hlsl_type *dst_type, const struct hlsl_ir_constant *src)
+{
+    enum hlsl_base_type type = dst_type->e.numeric.type;
+    unsigned int k;
+
+    VKD3D_ASSERT(type == src->node.data_type->e.numeric.type);
+
+    for (k = 0; k < dst_type->e.numeric.dimx; ++k)
+    {
+        switch (type)
+        {
+            case HLSL_TYPE_UINT:
+                if (!src->value.u[k].u)
+                    dst->u[k].u = ~0u;
+                else
+                    dst->u[k].u = vkd3d_ctz(src->value.u[k].u);
+                break;
+
+            default:
+                FIXME("Fold 'ctz' for type %s.\n", debug_hlsl_type(ctx, dst_type));
+                return false;
+        }
+    }
+
+    return true;
+}
+
 static bool fold_exp2(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
         const struct hlsl_type *dst_type, const struct hlsl_ir_constant *src)
 {
@@ -1467,6 +1495,10 @@ bool hlsl_fold_constant_exprs(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
 
         case HLSL_OP1_COUNTBITS:
             success = fold_countbits(ctx, &res, instr->data_type, arg1);
+            break;
+
+        case HLSL_OP1_CTZ:
+            success = fold_ctz(ctx, &res, instr->data_type, arg1);
             break;
 
         case HLSL_OP1_EXP2:

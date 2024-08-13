@@ -3733,6 +3733,7 @@ const char *debug_hlsl_expr_op(enum hlsl_ir_expr_op op)
         [HLSL_OP1_COS]          = "cos",
         [HLSL_OP1_COS_REDUCED]  = "cos_reduced",
         [HLSL_OP1_COUNTBITS]    = "countbits",
+        [HLSL_OP1_CTZ]          = "ctz",
         [HLSL_OP1_DSX]          = "dsx",
         [HLSL_OP1_DSX_COARSE]   = "dsx_coarse",
         [HLSL_OP1_DSX_FINE]     = "dsx_fine",

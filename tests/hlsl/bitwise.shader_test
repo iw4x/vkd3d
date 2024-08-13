@@ -254,7 +254,7 @@ probe (0, 0) rgba (0.0, 1.0, 1.0, 0.0)
 format r32g32b32a32-uint
 size (2d, 640, 480)
 
-[pixel shader todo]
+[pixel shader]
 uint4 u;
 
 uint4 main() : sv_target
@@ -264,10 +264,10 @@ uint4 main() : sv_target
 
 [test]
 uniform 0 uint4 0 0xffffffff 0x00001000 0x00760400
-todo(sm<6 | msl & sm>=6) draw quad
+todo(msl & sm>=6) draw quad
 probe (0, 0) u32(0xffffffff, 0, 12, 10)
 
-[pixel shader todo]
+[pixel shader]
 uint4 main(float4 pos : sv_position) : sv_target
 {
     uint4x4 umat =
@@ -282,7 +282,7 @@ uint4 main(float4 pos : sv_position) : sv_target
 }
 
 [test]
-todo(sm<6 | msl & sm>=6) draw quad
+todo(msl & sm>=6) draw quad
 probe(0, 0) u32(0, 1, 0, 2)
 probe(1, 0) u32(0, 1, 0, 3)
 probe(2, 0) u32(0, 1, 0, 2)

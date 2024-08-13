@@ -4005,6 +4005,24 @@ static bool intrinsic_firstbithigh(struct hlsl_ctx *ctx,
     return add_expr(ctx, params->instrs, HLSL_OP3_TERNARY, operands, type, loc);
 }
 
+static bool intrinsic_firstbitlow(struct hlsl_ctx *ctx,
+        const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
+{
+    struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS] = {0};
+    struct hlsl_type *type;
+
+    if (hlsl_version_lt(ctx, 4, 0))
+        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INCOMPATIBLE_PROFILE,
+                "The 'firstbitlow' intrinsic requires shader model 4.0 or higher.");
+
+    if (!elementwise_intrinsic_uint_convert_args(ctx, params, loc))
+        return false;
+    type = convert_numeric_type(ctx, params->args[0]->data_type, HLSL_TYPE_UINT);
+
+    operands[0] = params->args[0];
+    return add_expr(ctx, params->instrs, HLSL_OP1_CTZ, operands, type, loc);
+}
+
 static bool intrinsic_floor(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
@@ -5416,6 +5434,7 @@ intrinsic_functions[] =
     {"f32tof16",                            1, true,  intrinsic_f32tof16},
     {"faceforward",                         3, true,  intrinsic_faceforward},
     {"firstbithigh",                        1, true,  intrinsic_firstbithigh},
+    {"firstbitlow",                         1, true,  intrinsic_firstbitlow},
     {"floor",                               1, true,  intrinsic_floor},
     {"fmod",                                2, true,  intrinsic_fmod},
     {"frac",                                1, true,  intrinsic_frac},
