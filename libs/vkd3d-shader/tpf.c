@@ -4248,6 +4248,7 @@ static void tpf_handle_instruction(struct tpf_compiler *tpf, const struct vkd3d_
         case VSIR_OP_BREAK:
         case VSIR_OP_CASE:
         case VSIR_OP_CONTINUE:
+        case VSIR_OP_COUNTBITS:
         case VSIR_OP_CUT:
         case VSIR_OP_CUT_STREAM:
         case VSIR_OP_DCL_STREAM:

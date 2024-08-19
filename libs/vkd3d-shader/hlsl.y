@@ -3579,6 +3579,20 @@ static bool intrinsic_cosh(struct hlsl_ctx *ctx,
     return write_cosh_or_sinh(ctx, params, loc, false);
 }
 
+static bool intrinsic_countbits(struct hlsl_ctx *ctx,
+        const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
+{
+    struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS] = {0};
+    struct hlsl_type *type;
+
+    if (!elementwise_intrinsic_uint_convert_args(ctx, params, loc))
+        return false;
+    type = convert_numeric_type(ctx, params->args[0]->data_type, HLSL_TYPE_UINT);
+
+    operands[0] = params->args[0];
+    return add_expr(ctx, params->instrs, HLSL_OP1_COUNTBITS, operands, type, loc);
+}
+
 static bool intrinsic_cross(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
@@ -5317,6 +5331,7 @@ intrinsic_functions[] =
     {"clip",                                1, true,  intrinsic_clip},
     {"cos",                                 1, true,  intrinsic_cos},
     {"cosh",                                1, true,  intrinsic_cosh},
+    {"countbits",                           1, true,  intrinsic_countbits},
     {"cross",                               2, true,  intrinsic_cross},
     {"ddx",                                 1, true,  intrinsic_ddx},
     {"ddx_coarse",                          1, true,  intrinsic_ddx_coarse},

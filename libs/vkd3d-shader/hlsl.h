@@ -720,6 +720,7 @@ enum hlsl_ir_expr_op
     HLSL_OP1_CEIL,
     HLSL_OP1_COS,
     HLSL_OP1_COS_REDUCED,    /* Reduced range [-pi, pi], writes to .x */
+    HLSL_OP1_COUNTBITS,
     HLSL_OP1_DSX,
     HLSL_OP1_DSX_COARSE,
     HLSL_OP1_DSX_FINE,

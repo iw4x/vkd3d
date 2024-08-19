@@ -1,4 +1,4 @@
-[pixel shader todo]
+[pixel shader todo(sm<4)]
 uint4 u;
 
 float4 main() : sv_target
@@ -8,11 +8,11 @@ float4 main() : sv_target
 
 [test]
 uniform 0 uint4 0 0xffffffff 0xcccccccc 0x31415926
-todo(sm<6 | msl & sm>=6) draw quad
+todo(sm<4 | msl & sm>=6) draw quad
 if(sm>=4) probe (0, 0) f32(0, 32, 16, 12)
 if(sm<4)  probe (0, 0) f32(0, 0, 0, 0)
 
-[pixel shader todo]
+[pixel shader]
 float4 main(float4 pos : sv_position) : sv_target
 {
     uint4x4 umat =
@@ -27,15 +27,15 @@ float4 main(float4 pos : sv_position) : sv_target
 }
 
 [test]
-todo(sm<6 | msl & sm>=6) draw quad
+todo(msl & sm>=6) draw quad
 if(sm>=4) probe(0, 0) f32(1, 1, 2, 1)
 if(sm>=4) probe(1, 0) f32(2, 2, 3, 1)
 if(sm>=4) probe(2, 0) f32(2, 2, 3, 2)
 if(sm>=4) probe(3, 0) f32(3, 3, 4, 1)
-if(sm<4)  probe(0, 0) f32(0, 0, 0, 0)
-if(sm<4)  probe(1, 0) f32(0, 0, 0, 0)
-if(sm<4)  probe(2, 0) f32(0, 0, 0, 0)
-if(sm<4)  probe(3, 0) f32(0, 0, 0, 0)
+if(sm<4)  todo probe(0, 0) f32(0, 0, 0, 0)
+if(sm<4)  todo probe(1, 0) f32(0, 0, 0, 0)
+if(sm<4)  todo probe(2, 0) f32(0, 0, 0, 0)
+if(sm<4)  todo probe(3, 0) f32(0, 0, 0, 0)
 
 [require]
 shader model >= 4.0

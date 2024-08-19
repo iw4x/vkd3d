@@ -11062,6 +11062,12 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             sm4_generate_vsir_expr_with_two_destinations(ctx, program, VSIR_OP_SINCOS, expr, 1);
             return true;
 
+        case HLSL_OP1_COUNTBITS:
+            VKD3D_ASSERT(hlsl_type_is_integer(dst_type));
+            VKD3D_ASSERT(hlsl_version_ge(ctx, 5, 0));
+            generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_COUNTBITS, 0, 0, true);
+            return true;
+
         case HLSL_OP1_DSX:
             VKD3D_ASSERT(type_is_float(dst_type));
             generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_DSX, 0, 0, true);
@@ -14097,6 +14103,51 @@ static void loop_unrolling_execute(struct hlsl_ctx *ctx, struct hlsl_block *bloc
     hlsl_transform_ir(ctx, resolve_loops, block, NULL);
 }
 
+static bool lower_countbits(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, struct hlsl_block *block)
+{
+    struct hlsl_ir_function_decl *func;
+    struct hlsl_ir_node *call, *rhs;
+    struct hlsl_ir_expr *expr;
+    struct hlsl_ir_var *lhs;
+    char *body;
+
+    /* Like vkd3d_popcount(). */
+    static const char template[] =
+            "typedef uint%u uintX;\n"
+            "uintX countbits(uintX v)\n"
+            "{\n"
+            "    v -= (v >> 1) & 0x55555555;\n"
+            "    v = (v & 0x33333333) + ((v >> 2) & 0x33333333);\n"
+            "    return (((v + (v >> 4)) & 0x0f0f0f0f) * 0x01010101) >> 24;\n"
+            "}\n";
+
+    if (node->type != HLSL_IR_EXPR)
+        return false;
+
+    expr = hlsl_ir_expr(node);
+    if (expr->op != HLSL_OP1_COUNTBITS)
+        return false;
+
+    rhs = expr->operands[0].node;
+    if (!(body = hlsl_sprintf_alloc(ctx, template, hlsl_type_component_count(rhs->data_type))))
+        return false;
+    func = hlsl_compile_internal_function(ctx, "countbits", body);
+    vkd3d_free(body);
+    if (!func)
+        return false;
+
+    lhs = func->parameters.vars[0];
+    hlsl_block_add_simple_store(ctx, block, lhs, rhs);
+
+    if (!(call = hlsl_new_call(ctx, func, &node->loc)))
+        return false;
+    hlsl_block_add_instr(block, call);
+
+    hlsl_block_add_simple_load(ctx, block, func->return_var, &node->loc);
+
+    return true;
+}
+
 static bool lower_f16tof32(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, struct hlsl_block *block)
 {
     struct hlsl_ir_function_decl *func;
@@ -14355,6 +14406,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
 
     if (hlsl_version_ge(ctx, 4, 0) && hlsl_version_lt(ctx, 5, 0))
     {
+        lower_ir(ctx, lower_countbits, body);
         lower_ir(ctx, lower_f16tof32, body);
         lower_ir(ctx, lower_f32tof16, body);
     }
