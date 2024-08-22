@@ -42,6 +42,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <math.h>
 #include "vkd3d_test.h"
 #include "vkd3d_d3d12.h"
 #include "vkd3d_d3dcompiler.h"
@@ -165,8 +166,13 @@ static bool compare_float(float f, float g, unsigned int ulps)
 
     u.f = f;
     x = u.i;
+    if (isnan(f))
+        x = (x & 0xff800000) | 0x400000;
+
     u.f = g;
     y = u.i;
+    if (isnan(g))
+        y = (y & 0xff800000) | 0x400000;
 
     if (x < 0)
         x = INT_MIN - x;
@@ -187,8 +193,13 @@ static bool compare_double(double f, double g, unsigned int ulps)
 
     u.f = f;
     x = u.i;
+    if (isnan(f))
+        x = (x & 0xfff0000000000000ll) | 0x8000000000000ll;
+
     u.f = g;
     y = u.i;
+    if (isnan(g))
+        y = (y & 0xfff0000000000000ll) | 0x8000000000000ll;
 
     if (x < 0)
         x = INT64_MIN - x;
