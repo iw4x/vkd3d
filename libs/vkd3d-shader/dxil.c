@@ -762,8 +762,7 @@ struct sm6_phi
 
 enum sm6_block_terminator_type
 {
-    TERMINATOR_UNCOND_BR,
-    TERMINATOR_COND_BR,
+    TERMINATOR_BR,
     TERMINATOR_SWITCH,
     TERMINATOR_RET,
 };
@@ -779,8 +778,6 @@ struct sm6_block_terminator
 {
     struct vkd3d_shader_register conditional_reg;
     enum sm6_block_terminator_type type;
-    const struct sm6_block *true_block;
-    const struct sm6_block *false_block;
     struct terminator_case *cases;
     unsigned int case_count;
 };
@@ -4741,59 +4738,86 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_reco
     instruction_dst_param_init_ssa_scalar(ins, type_flags, sm6);
 }
 
-static const struct sm6_block *sm6_function_get_block(const struct sm6_function *function, uint64_t index,
-        struct sm6_parser *sm6)
+static bool sm6_function_validate_block_index(const struct sm6_function *function,
+        uint64_t index, struct sm6_parser *dxil)
 {
     if (index >= function->block_count)
     {
-        WARN("Invalid code block index %#"PRIx64".\n", index);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND_COUNT,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND_COUNT,
                 "Invalid code block index %#"PRIx64" for a control flow instruction.", index);
-        return NULL;
+        return false;
     }
+
+    return true;
+}
+
+static const struct sm6_block *sm6_function_get_block(const struct sm6_function *function,
+        uint64_t index, struct sm6_parser *dxil)
+{
+    if (!sm6_function_validate_block_index(function, index, dxil))
+        return NULL;
+
     return function->blocks[index];
 }
 
-static void sm6_parser_emit_br(struct sm6_parser *sm6, const struct dxil_record *record,
+static void sm6_parser_emit_br(struct sm6_parser *dxil, const struct dxil_record *record,
         struct sm6_function *function, struct sm6_block *code_block, struct vkd3d_shader_instruction *ins)
 {
+    struct vkd3d_shader_src_param *src_params;
     const struct sm6_value *value;
     unsigned int i = 2;
 
     if (record->operand_count != 1 && record->operand_count < 3)
     {
-        WARN("Invalid operand count %u.\n", record->operand_count);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND_COUNT,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND_COUNT,
                 "Invalid operand count %u for a branch instruction.", record->operand_count);
         return;
     }
 
     if (record->operand_count == 1)
     {
-        code_block->terminator.type = TERMINATOR_UNCOND_BR;
-        code_block->terminator.true_block = sm6_function_get_block(function, record->operands[0], sm6);
+        if (!sm6_function_validate_block_index(function, record->operands[0], dxil))
+            return;
+
+        vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_BRANCH);
+        if (!(src_params = instruction_src_params_alloc(ins, 1, dxil)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
+            return;
+        }
+        /* Label id is 1-based. */
+        vsir_src_param_init_label(&src_params[0], record->operands[0] + 1);
     }
     else
     {
-        if (!sm6->bool_type)
+        if (!dxil->bool_type)
         {
-            WARN("Bool type not found.\n");
-            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_MODULE,
+            vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_MODULE,
                     "Module does not define a boolean type for conditions.");
             return;
         }
-        if (!(value = sm6_parser_get_value_by_ref(sm6, record, sm6->bool_type, &i))
-                || !sm6_value_validate_is_bool(value, sm6))
+        if (!(value = sm6_parser_get_value_by_ref(dxil, record, dxil->bool_type, &i))
+                || !sm6_value_validate_is_bool(value, dxil))
             return;
-        dxil_record_validate_operand_max_count(record, i, sm6);
+        dxil_record_validate_operand_max_count(record, i, dxil);
 
-        code_block->terminator.type = TERMINATOR_COND_BR;
-        vsir_register_from_dxil_value(&code_block->terminator.conditional_reg, value, 0, sm6);
-        code_block->terminator.true_block = sm6_function_get_block(function, record->operands[0], sm6);
-        code_block->terminator.false_block = sm6_function_get_block(function, record->operands[1], sm6);
+        if (!sm6_function_validate_block_index(function, record->operands[0], dxil)
+                || !sm6_function_validate_block_index(function, record->operands[1], dxil))
+            return;
+
+        vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_BRANCH);
+        if (!(src_params = instruction_src_params_alloc(ins, 3, dxil)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
+            return;
+        }
+        src_param_init_from_value(&src_params[0], value, 0, dxil);
+        /* Label id is 1-based. */
+        vsir_src_param_init_label(&src_params[1], record->operands[0] + 1);
+        vsir_src_param_init_label(&src_params[2], record->operands[1] + 1);
     }
 
-    ins->opcode = VSIR_OP_NOP;
+    code_block->terminator.type = TERMINATOR_BR;
 }
 
 static bool sm6_parser_emit_reg_composite_construct(struct sm6_parser *sm6,
@@ -8458,13 +8482,17 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6, const 
         if (record->code == FUNC_CODE_INST_PHI)
             code_block->phi[code_block->phi_count - 1].value = *dst;
 
+        /* A vsir instruction can be emitted for a block terminator, so handle
+         * a possible instruction count increment before moving to the next
+         * code block. */
+        if (code_block)
+            code_block->instruction_count += ins->opcode != VSIR_OP_NOP;
+
         if (is_terminator)
         {
             ++block_idx;
             code_block = (block_idx < function->block_count) ? function->blocks[block_idx] : NULL;
         }
-        if (code_block)
-            code_block->instruction_count += ins->opcode != VSIR_OP_NOP;
 
         if (dst->type && fwd_type && dst->type != fwd_type)
         {
@@ -8493,33 +8521,8 @@ static void sm6_block_emit_terminator(const struct sm6_block *block, struct sm6_
 
     switch (block->terminator.type)
     {
-        case TERMINATOR_UNCOND_BR:
-            if (!block->terminator.true_block)
-                return;
-            if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_BRANCH)))
-                return;
-            if (!(src_params = instruction_src_params_alloc(ins, 1, sm6)))
-            {
-                vkd3d_shader_instruction_make_nop(ins);
-                return;
-            }
-            vsir_src_param_init_label(&src_params[0], block->terminator.true_block->id);
-            break;
-
-        case TERMINATOR_COND_BR:
-            if (!block->terminator.true_block || !block->terminator.false_block)
-                return;
-            if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_BRANCH)))
-                return;
-            if (!(src_params = instruction_src_params_alloc(ins, 3, sm6)))
-            {
-                vkd3d_shader_instruction_make_nop(ins);
-                return;
-            }
-            src_param_init(&src_params[0]);
-            src_params[0].reg = block->terminator.conditional_reg;
-            vsir_src_param_init_label(&src_params[1], block->terminator.true_block->id);
-            vsir_src_param_init_label(&src_params[2], block->terminator.false_block->id);
+        case TERMINATOR_BR:
+            /* Emitted during parsing. */
             break;
 
         case TERMINATOR_SWITCH:
