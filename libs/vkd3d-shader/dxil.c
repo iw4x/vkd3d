@@ -760,18 +760,6 @@ struct sm6_phi
     size_t incoming_count;
 };
 
-enum sm6_block_terminator_type
-{
-    TERMINATOR_BR,
-    TERMINATOR_SWITCH,
-    TERMINATOR_RET,
-};
-
-struct sm6_block_terminator
-{
-    enum sm6_block_terminator_type type;
-};
-
 struct sm6_block
 {
     struct vkd3d_shader_instruction *instructions;
@@ -784,8 +772,6 @@ struct sm6_block
     struct sm6_phi *phi;
     size_t phi_capacity;
     size_t phi_count;
-
-    struct sm6_block_terminator terminator;
 };
 
 struct sm6_function
@@ -4751,7 +4737,7 @@ static const struct sm6_block *sm6_function_get_block(const struct sm6_function 
 }
 
 static void sm6_parser_emit_br(struct sm6_parser *dxil, const struct dxil_record *record,
-        struct sm6_function *function, struct sm6_block *code_block, struct vkd3d_shader_instruction *ins)
+        struct sm6_function *function, struct vkd3d_shader_instruction *ins)
 {
     struct vkd3d_shader_src_param *src_params;
     const struct sm6_value *value;
@@ -4806,8 +4792,6 @@ static void sm6_parser_emit_br(struct sm6_parser *dxil, const struct dxil_record
         vsir_src_param_init_label(&src_params[1], record->operands[0] + 1);
         vsir_src_param_init_label(&src_params[2], record->operands[1] + 1);
     }
-
-    code_block->terminator.type = TERMINATOR_BR;
 }
 
 static bool sm6_parser_emit_reg_composite_construct(struct sm6_parser *sm6,
@@ -7751,18 +7735,16 @@ static void sm6_parser_emit_phi(struct sm6_parser *sm6, const struct dxil_record
     phi->incoming_count = j;
 }
 
-static void sm6_parser_emit_ret(struct sm6_parser *sm6, const struct dxil_record *record,
-        struct sm6_block *code_block, struct vkd3d_shader_instruction *ins)
+static void sm6_parser_emit_ret(struct sm6_parser *dxil,
+        const struct dxil_record *record, struct vkd3d_shader_instruction *ins)
 {
-    if (!dxil_record_validate_operand_count(record, 0, 1, sm6))
+    if (!dxil_record_validate_operand_count(record, 0, 1, dxil))
         return;
 
     if (record->operand_count)
         FIXME("Non-void return is not implemented.\n");
 
-    code_block->terminator.type = TERMINATOR_RET;
-
-    ins->opcode = VSIR_OP_NOP;
+    vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_RET);
 }
 
 static void sm6_parser_emit_store(struct sm6_parser *sm6, const struct dxil_record *record,
@@ -7846,9 +7828,8 @@ static void sm6_parser_emit_store(struct sm6_parser *sm6, const struct dxil_reco
 }
 
 static void sm6_parser_emit_switch(struct sm6_parser *dxil, const struct dxil_record *record,
-        struct sm6_function *function, struct sm6_block *code_block, struct vkd3d_shader_instruction *ins)
+        struct sm6_function *function, struct vkd3d_shader_instruction *ins)
 {
-    struct sm6_block_terminator *terminator = &code_block->terminator;
     struct vkd3d_shader_src_param *src_params;
     const struct sm6_type *type;
     const struct sm6_value *src;
@@ -7897,8 +7878,6 @@ static void sm6_parser_emit_switch(struct sm6_parser *dxil, const struct dxil_re
     /* Set a zero merge block label id as a placeholder until it is set during
      * the structurisation pass. */
     vsir_src_param_init_label(&src_params[2], 0);
-
-    terminator->type = TERMINATOR_SWITCH;
 
     for (i = 3; i < record->operand_count; i += 2)
     {
@@ -8425,7 +8404,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6, const 
                 sm6_parser_emit_binop(sm6, record, code_block, ins, dst);
                 break;
             case FUNC_CODE_INST_BR:
-                sm6_parser_emit_br(sm6, record, function, code_block, ins);
+                sm6_parser_emit_br(sm6, record, function, ins);
                 is_terminator = true;
                 break;
             case FUNC_CODE_INST_CALL:
@@ -8457,7 +8436,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6, const 
                 sm6_parser_emit_phi(sm6, record, function, code_block, ins, dst);
                 break;
             case FUNC_CODE_INST_RET:
-                sm6_parser_emit_ret(sm6, record, code_block, ins);
+                sm6_parser_emit_ret(sm6, record, ins);
                 is_terminator = true;
                 ret_found = true;
                 break;
@@ -8465,7 +8444,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6, const 
                 sm6_parser_emit_store(sm6, record, ins, dst);
                 break;
             case FUNC_CODE_INST_SWITCH:
-                sm6_parser_emit_switch(sm6, record, function, code_block, ins);
+                sm6_parser_emit_switch(sm6, record, function, ins);
                 is_terminator = true;
                 break;
             case FUNC_CODE_INST_VSELECT:
@@ -8515,24 +8494,6 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6, const 
     }
 
     return sm6_function_resolve_phi_incomings(function, sm6);
-}
-
-static void sm6_block_emit_terminator(const struct sm6_block *block, struct sm6_parser *sm6)
-{
-    switch (block->terminator.type)
-    {
-        case TERMINATOR_BR:
-        case TERMINATOR_SWITCH:
-            /* Emitted during parsing. */
-            break;
-
-        case TERMINATOR_RET:
-            sm6_parser_add_instruction(sm6, VSIR_OP_RET);
-            break;
-
-        default:
-            vkd3d_unreachable();
-    }
 }
 
 static void sm6_block_emit_phi(const struct sm6_block *block, struct sm6_parser *sm6)
@@ -8677,7 +8638,6 @@ static enum vkd3d_result sm6_function_emit_blocks(const struct sm6_function *fun
             }
             *ins = block->instructions[j];
         }
-        sm6_block_emit_terminator(block, sm6);
     }
 
     return sm6->p.status;
