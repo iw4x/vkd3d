@@ -3057,10 +3057,34 @@ static struct sm6_value *sm6_parser_get_value_safe(struct sm6_parser *sm6, unsig
     return NULL;
 }
 
+static void sm6_parser_pre_init_or_validate_referenced_value(struct sm6_parser *dxil,
+        size_t operand, const struct sm6_type *fwd_type)
+{
+    struct sm6_value *value;
+
+    value = &dxil->values[operand];
+
+    /* If the value has a type, validate that it matches the expected type,
+     * otherwise it is a forward reference and we must set the type and
+     * initialise the value's register to SSA so it can be consumed by an
+     * instruction. */
+    if (value->type)
+    {
+        if (value->type != fwd_type)
+            vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
+                    "The type of a source value does not match the predefined type.");
+    }
+    else
+    {
+        value->type = fwd_type;
+        value->value_type = VALUE_TYPE_SSA;
+        value->u.ssa.id = sm6_parser_alloc_ssa_id(dxil);
+    }
+}
+
 static size_t sm6_parser_get_value_idx_by_ref(struct sm6_parser *sm6, const struct dxil_record *record,
         const struct sm6_type *fwd_type, unsigned int *rec_idx)
 {
-    struct sm6_value *value;
     unsigned int idx;
     uint64_t val_ref;
     size_t operand;
@@ -3086,24 +3110,7 @@ static size_t sm6_parser_get_value_idx_by_ref(struct sm6_parser *sm6, const stru
     *rec_idx = idx;
 
     if (fwd_type)
-    {
-        value = &sm6->values[operand];
-        if (value->type)
-        {
-            if (value->type != fwd_type)
-            {
-                WARN("Value already has a mismatching type.\n");
-                vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
-                        "The type of a source value does not match the predefined type.");
-            }
-        }
-        else
-        {
-            value->type = fwd_type;
-            value->value_type = VALUE_TYPE_SSA;
-            value->u.ssa.id = sm6_parser_alloc_ssa_id(sm6);
-        }
-    }
+        sm6_parser_pre_init_or_validate_referenced_value(sm6, operand, fwd_type);
 
     return operand;
 }
