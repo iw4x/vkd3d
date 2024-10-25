@@ -792,7 +792,7 @@ static void shader_glsl_print_texel_offset(struct vkd3d_string_buffer *buffer, s
 
 static void shader_glsl_ld(struct vkd3d_glsl_generator *gen, const struct vkd3d_shader_instruction *ins)
 {
-    unsigned int resource_id, resource_idx, resource_space, sample_count;
+    unsigned int coord_size, resource_id, resource_idx, resource_space, sample_count;
     const struct glsl_resource_type_info *resource_type_info;
     const struct vkd3d_shader_descriptor_info1 *d;
     enum vkd3d_shader_resource_type resource_type;
@@ -800,11 +800,9 @@ static void shader_glsl_ld(struct vkd3d_glsl_generator *gen, const struct vkd3d_
     enum vsir_data_type data_type;
     struct glsl_src coord;
     struct glsl_dst dst;
-    uint32_t coord_mask;
+    bool array, offset;
 
-    if (vkd3d_shader_instruction_has_texel_offset(ins))
-        vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                "Internal compiler error: Unhandled texel fetch offset.");
+    offset = vkd3d_shader_instruction_has_texel_offset(ins);
 
     if (ins->src[1].reg.idx[0].rel_addr || ins->src[1].reg.idx[1].rel_addr)
         vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_UNSUPPORTED,
@@ -831,20 +829,22 @@ static void shader_glsl_ld(struct vkd3d_glsl_generator *gen, const struct vkd3d_
 
     if ((resource_type_info = shader_glsl_get_resource_type_info(resource_type)))
     {
-        coord_mask = vkd3d_write_mask_from_component_count(resource_type_info->coord_size);
+        coord_size = resource_type_info->coord_size;
+        array = resource_type_info->array;
     }
     else
     {
         vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                 "Internal compiler error: Unhandled resource type %#x.", resource_type);
-        coord_mask = vkd3d_write_mask_from_component_count(2);
+        coord_size = 2;
+        array = false;
     }
 
     glsl_dst_init(&dst, gen, ins, &ins->dst[0]);
-    glsl_src_init(&coord, gen, &ins->src[0], coord_mask);
+    glsl_src_init(&coord, gen, &ins->src[0], vkd3d_write_mask_from_component_count(coord_size));
     fetch = vkd3d_string_buffer_get(&gen->string_buffers);
 
-    vkd3d_string_buffer_printf(fetch, "texelFetch(");
+    vkd3d_string_buffer_printf(fetch, "texelFetch%s(", offset ? "Offset" : "");
     shader_glsl_print_combined_sampler_name(fetch, gen, resource_idx,
             resource_space, VKD3D_SHADER_DUMMY_SAMPLER_INDEX, 0);
     vkd3d_string_buffer_printf(fetch, ", %s", coord.str->buffer);
@@ -859,6 +859,11 @@ static void shader_glsl_ld(struct vkd3d_glsl_generator *gen, const struct vkd3d_
             vkd3d_string_buffer_printf(fetch, "0");
         else
             shader_glsl_print_src(fetch, gen, &ins->src[2], VKD3DSP_WRITEMASK_0, ins->src[2].reg.data_type);
+    }
+    if (offset)
+    {
+        vkd3d_string_buffer_printf(fetch, ", ");
+        shader_glsl_print_texel_offset(fetch, gen, coord_size - array, &ins->texel_offset);
     }
     vkd3d_string_buffer_printf(fetch, ")");
     shader_glsl_print_swizzle(fetch, ins->src[1].swizzle, ins->dst[0].write_mask);
