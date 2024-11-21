@@ -1500,6 +1500,12 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
         case VSIR_OP_DP4:
             shader_glsl_dot(gen, ins, VKD3DSP_WRITEMASK_ALL);
             break;
+        case VSIR_OP_DSX:
+            shader_glsl_intrinsic(gen, ins, "dFdx");
+            break;
+        case VSIR_OP_DSY:
+            shader_glsl_intrinsic(gen, ins, "dFdy");
+            break;
         case VSIR_OP_ELSE:
             shader_glsl_else(gen, ins);
             break;
