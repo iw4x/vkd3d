@@ -47,7 +47,7 @@ cull-distance
 format r32g32b32a32-float
 size (2d, 640, 480)
 
-[vertex shader todo]
+[vertex shader]
 struct vertex
 {
     float4 position : SV_POSITION;
@@ -73,7 +73,7 @@ float4 main(const in float4 position : SV_Position) : SV_Target
 
 [test]
 clear rtv-0 f32(0.0, 0.0, 0.0, 1.0)
-todo(sm<6) draw triangle list 27
+todo(glsl) draw triangle list 27
 probe rtv-0 (160, 120) f32(0.0, 0.0, 0.0, 1.0)
 probe rtv-0 (160, 240) f32(0.0, 0.0, 0.0, 1.0)
 probe rtv-0 (160, 360) f32(0.0, 0.0, 0.0, 1.0)
@@ -139,7 +139,7 @@ shader model >= 4.0
 cull-distance
 
 % Test clip/cull distance inputs.
-[vertex shader todo]
+[vertex shader]
 struct vertex_data
 {
     float4 position : SV_POSITION;
@@ -156,7 +156,7 @@ void main(float4 position : POSITION, out vertex_data vertex)
     vertex.cullB = -position.x; // Removes all 3 triangles on the right column.
 }
 
-[pixel shader todo]
+[pixel shader]
 struct vertex_data
 {
     float4 position : SV_POSITION;
@@ -174,7 +174,7 @@ float4 main(struct vertex_data vertex) : SV_Target
 
 [test]
 clear rtv-0 f32(0.0, 0.0, 0.0, 1.0)
-todo(sm<6) draw triangle list 27
+todo(glsl) draw triangle list 27
 probe rtv-0 (160, 120) f32(10.0, 30.0, 50.0, 4984)
 probe rtv-0 (160, 240) f32(10.0, 30.0, 50.0, 4984)
 probe rtv-0 (160, 360) f32(10.0, 30.0, 50.0, 4984)
@@ -185,7 +185,7 @@ probe rtv-0 (480, 120) f32(0.0, 0.0, 0.0, 1.0)
 probe rtv-0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
 probe rtv-0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
 
-[vertex shader fail(sm<6)]
+[vertex shader todo(sm<6) fail(sm<6)]
 struct vertex_data
 {
     float4 position : SV_POSITION;   // o0.xyzw
@@ -204,7 +204,7 @@ void main(float4 position : POSITION, out vertex_data vertex)
     vertex.clipC = -position.x; // Removes all pixels on the right side of the render target.
 }
 
-[pixel shader fail(sm<6)]
+[pixel shader todo(sm<6) fail(sm<6)]
 struct vertex_data
 {
     float4 position : SV_POSITION;   // v0.xyzw
@@ -258,7 +258,7 @@ shader model >= 4.0
 format r32g32b32a32-float
 size (2d, 640, 480)
 
-[vertex shader todo]
+[vertex shader]
 struct input
 {
     float4 position : POSITION;
@@ -285,7 +285,7 @@ float4 main(const in float4 position : SV_Position) : SV_Target
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
-todo(sm<6 | msl) draw triangle strip 4
+todo(glsl | msl) draw triangle strip 4
 probe (0, 0, 640, 480) f32(0.0, 1.0, 0.0, 1.0)
 
 [vb 1]
@@ -296,7 +296,7 @@ probe (0, 0, 640, 480) f32(0.0, 1.0, 0.0, 1.0)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
-todo(sm<6 | msl) draw triangle strip 4
+todo(glsl | msl) draw triangle strip 4
 probe (0, 0, 640, 480) f32(0.0, 1.0, 0.0, 1.0)
 
 [vb 1]
@@ -307,7 +307,7 @@ probe (0, 0, 640, 480) f32(0.0, 1.0, 0.0, 1.0)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
-todo(sm<6 | msl) draw triangle strip 4
+todo(glsl | msl) draw triangle strip 4
 probe (0, 0, 640, 480) f32(1.0, 1.0, 1.0, 1.0)
 
 [vb 1]
@@ -318,7 +318,7 @@ probe (0, 0, 640, 480) f32(1.0, 1.0, 1.0, 1.0)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
-todo(sm<6 | msl) draw triangle strip 4
+todo(glsl | msl) draw triangle strip 4
 probe rtv-0 (160, 240) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (480, 240) f32(1.0, 1.0, 1.0, 1.0)
 
@@ -330,13 +330,13 @@ probe rtv-0 (480, 240) f32(1.0, 1.0, 1.0, 1.0)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
-todo(sm<6 | msl) draw triangle strip 4
+todo(glsl | msl) draw triangle strip 4
 probe rtv-0 (320, 120) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 360) f32(1.0, 1.0, 1.0, 1.0)
 
 % A single clip distance.
 
-[vertex shader todo]
+[vertex shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},
@@ -359,7 +359,7 @@ void main(uint id : SV_VertexID, out vs_out o)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
-todo(sm<6 | msl) draw triangle strip 4
+todo(glsl | msl) draw triangle strip 4
 probe rtv-0 (160, 120) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
@@ -372,7 +372,7 @@ probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % A single clip distance, disguised as an array.
 
-[vertex shader todo]
+[vertex shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},
@@ -395,20 +395,20 @@ void main(uint id : SV_VertexID, out vs_out o)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
-todo(sm<6 | msl) draw triangle strip 4
+todo(glsl | msl) draw triangle strip 4
 probe rtv-0 (160, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 120) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (480, 120) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (480, 240) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % Two clip distances.
 
-[vertex shader todo]
+[vertex shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},
@@ -432,11 +432,11 @@ void main(uint id : SV_VertexID, out vs_out o)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
-todo(sm<6 | msl) draw triangle strip 4
-probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
+todo(glsl | msl) draw triangle strip 4
+todo(opengl) probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (480, 120) f32(0.0, 1.0, 0.0, 1.0)
@@ -445,7 +445,7 @@ probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % Five clip distances.
 
-[vertex shader todo]
+[vertex shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},
@@ -473,16 +473,16 @@ void main(uint id : SV_VertexID, out vs_out o)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
-todo(sm<6 | msl) draw triangle strip 4
+todo(glsl | msl) draw triangle strip 4
 probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
 
 [require]
 shader model >= 4.0
@@ -492,7 +492,7 @@ cull-distance
 % they do not leave the only triangle entirely on one side. (Also, they
 % coincide with other clip distances.)
 
-[vertex shader todo]
+[vertex shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},
@@ -525,16 +525,16 @@ void main(uint id : SV_VertexID, out vs_out o)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
-todo(sm<6) draw triangle strip 4
+todo(glsl) draw triangle strip 4
 probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
 
 [require]
 % RADV from Mesa < 25.1.5 crashes on these tests, fixed by
@@ -546,7 +546,7 @@ geometry-shader
 
 % Let clip and cull distances go through a geometry shader.
 
-[geometry shader todo]
+[geometry shader]
 struct vs_out
 {
     float4 position : SV_Position;
@@ -571,16 +571,16 @@ void main(triangle vs_out input[3], inout TriangleStream<vs_out> stream)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
-todo(sm<6) draw triangle strip 4
+todo(glsl) draw triangle strip 4
 probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
 
 % Generate clip and cull distances in the geometry shader.
 
@@ -605,7 +605,7 @@ void main(uint id : SV_VertexID, out vs_out o)
     o.id = id;
 }
 
-[geometry shader todo]
+[geometry shader]
 struct vs_out
 {
     float4 position : SV_Position;
@@ -649,23 +649,23 @@ void main(triangle vs_out input[3], inout TriangleStream<gs_out> stream)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
-todo(sm<6) draw triangle strip 4
+todo(glsl) draw triangle strip 4
 probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
 
 % Now let's test cull distances for real: we remove the clip distances they
 % duplicate and use the geometry shader to create many little triangles around
 % the test points; first we check that we're drawing properly disabling all
 % clipping and culling.
 
-[geometry shader todo]
+[geometry shader]
 struct vs_out
 {
     float4 position : SV_Position;
@@ -723,7 +723,7 @@ void main(triangle vs_out input[3], inout TriangleStream<gs_out> stream)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
-todo(sm<6) draw triangle strip 4
+todo(glsl) draw triangle strip 4
 probe rtv-0 (160, 120) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 240) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 360) f32(0.0, 1.0, 0.0, 1.0)
@@ -736,7 +736,7 @@ probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % Then we add clipping and culling: at first only a few distances.
 
-[geometry shader todo]
+[geometry shader]
 struct vs_out
 {
     float4 position : SV_Position;
@@ -796,7 +796,7 @@ void main(triangle vs_out input[3], inout TriangleStream<gs_out> stream)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
-todo(sm<6) draw triangle strip 4
+todo(glsl) draw triangle strip 4
 probe rtv-0 (160, 120) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
@@ -809,7 +809,7 @@ probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % Then enough to get rid of nearly all test points.
 
-[geometry shader todo]
+[geometry shader]
 struct vs_out
 {
     float4 position : SV_Position;
@@ -869,11 +869,11 @@ void main(triangle vs_out input[3], inout TriangleStream<gs_out> stream)
 
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
-todo(sm<6) draw triangle strip 4
-probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
+todo(glsl) draw triangle strip 4
+todo(opengl) probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
+todo(opengl) probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
 probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
