@@ -2739,6 +2739,25 @@ static void test_signature_reflection(void)
         {"OVERRIDE",    4, 4, D3D_NAME_UNDEFINED, D3D_REGISTER_COMPONENT_FLOAT32, 0x3, 0xc},
     };
 
+    static const char vs8_source[] =
+        "float4 main(out float1 clip_dist : sv_clipdistance,\n"
+        "            out float2 cull_dist : sv_culldistance,\n"
+        "            out float4 cull_dist2 : sv_culldistance1) : sv_position\n"
+        "{\n"
+        "    clip_dist = 1.0;\n"
+        "    cull_dist = 0.0;\n"
+        "    cull_dist2 = 0.5;\n"
+        "    return 0;\n"
+        "}\n";
+
+    static const D3D12_SIGNATURE_PARAMETER_DESC vs8_outputs[] =
+    {
+        {"sv_position",     0, 0, D3D_NAME_POSITION,      D3D_REGISTER_COMPONENT_FLOAT32, 0xf, 0x0},
+        {"sv_clipdistance", 0, 1, D3D_NAME_CLIP_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0x1, 0xe},
+        {"sv_culldistance", 0, 1, D3D_NAME_CULL_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0x6, 0x9},
+        {"sv_culldistance", 1, 2, D3D_NAME_CULL_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0xf, 0x0},
+    };
+
     static const char ps13_source[] =
         "struct input\n"
         "{\n"
@@ -2815,6 +2834,23 @@ static void test_signature_reflection(void)
         {"SV_RenderTargetArrayIndex", 0, 0, D3D_NAME_RENDER_TARGET_ARRAY_INDEX, D3D_REGISTER_COMPONENT_UINT32,  0x4},
         {"SV_SampleIndex",            0, 1, D3D_NAME_SAMPLE_INDEX,              D3D_REGISTER_COMPONENT_UINT32,  0x1},
         {"SV_IsFrontFace",            0, 1, D3D_NAME_IS_FRONT_FACE,             D3D_REGISTER_COMPONENT_UINT32,  0x2},
+    };
+
+    static const char ps16_source[] =
+        "float4 main(float4 clip : SV_ClipDistance,\n"
+        "        float2 clip1 : SV_ClipDistance1,\n"
+        "        float x : ALPHA,\n"
+        "        float2 cull : SV_CullDistance) : sv_target\n"
+        "{\n"
+        "    return 0;\n"
+        "}\n";
+
+    static const D3D12_SIGNATURE_PARAMETER_DESC ps16_inputs[] =
+    {
+        {"SV_ClipDistance",    0, 0, D3D_NAME_CLIP_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0xf, 0x0},
+        {"SV_ClipDistance",    1, 1, D3D_NAME_CLIP_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0x3, 0x0},
+        {"SV_CullDistance",    0, 1, D3D_NAME_CULL_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0xc, 0x0},
+        {"ALPHA",              0, 2, D3D_NAME_UNDEFINED,     D3D_REGISTER_COMPONENT_FLOAT32, 0x1, 0x0},
     };
 
     static const char hs1_source[] =
@@ -3063,6 +3099,55 @@ static void test_signature_reflection(void)
         {"SV_TessFactor",             1, 3, D3D_NAME_FINAL_LINE_DETAIL_TESSFACTOR,  D3D_REGISTER_COMPONENT_FLOAT32, 0x1, 0xe},
     };
 
+    static const char hs6_source[] =
+        "struct hs_data\n"
+        "{\n"
+        "    float2 clip : sv_clipdistance;\n"
+        "    float2 cull : sv_culldistance;\n"
+        "};\n"
+        "\n"
+        "struct patch_constant_data\n"
+        "{\n"
+        "    float edges[2] : sv_tessfactor;\n"
+        "    float2 clip : sv_clipdistance0;\n"
+        "    float2 cull : sv_culldistance0;\n"
+        "};\n"
+        "patch_constant_data patch_constant(\n"
+        "        in uint a : sv_primitiveid,\n"
+        "        in float4 b : sv_position)\n"
+        "{\n"
+        "    return (patch_constant_data)0;\n"
+        "}\n"
+        "[domain(\"isoline\")]\n"
+        "[outputcontrolpoints(1)]\n"
+        "[partitioning(\"integer\")]\n"
+        "[outputtopology(\"point\")]\n"
+        "[patchconstantfunc(\"patch_constant\")]\n"
+        "hs_data main(InputPatch<hs_data, 2> input)\n"
+        "{\n"
+        "    return (hs_data)0;\n"
+        "}\n";
+
+    static const D3D12_SIGNATURE_PARAMETER_DESC hs6_inputs[] =
+    {
+        {"sv_clipdistance", 0, 0, D3D_NAME_CLIP_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0x3},
+        {"sv_culldistance", 0, 0, D3D_NAME_CULL_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0xc},
+    };
+
+    static const D3D12_SIGNATURE_PARAMETER_DESC hs6_outputs[] =
+    {
+        {"sv_clipdistance", 0, 0, D3D_NAME_CLIP_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0x3, 0xc},
+        {"sv_culldistance", 0, 0, D3D_NAME_CULL_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0xc, 0x3},
+    };
+
+    static const D3D12_SIGNATURE_PARAMETER_DESC hs6_patch_constants[] =
+    {
+        {"sv_tessfactor",    0, 0, D3D_NAME_FINAL_LINE_DENSITY_TESSFACTOR, D3D_REGISTER_COMPONENT_FLOAT32, 0x1, 0xe},
+        {"sv_clipdistance",  0, 0, D3D_NAME_UNDEFINED,                     D3D_REGISTER_COMPONENT_FLOAT32, 0x6, 0x9},
+        {"sv_tessfactor",    1, 1, D3D_NAME_FINAL_LINE_DETAIL_TESSFACTOR,  D3D_REGISTER_COMPONENT_FLOAT32, 0x1, 0xe},
+        {"sv_culldistance",  0, 1, D3D_NAME_UNDEFINED,                     D3D_REGISTER_COMPONENT_FLOAT32, 0x6, 0x9},
+    };
+
     static const char ds1_source[] =
         "struct hs_data\n"
         "{\n"
@@ -3261,6 +3346,46 @@ static void test_signature_reflection(void)
         {"SV_TessFactor",             1, 3, D3D_NAME_FINAL_LINE_DETAIL_TESSFACTOR,  D3D_REGISTER_COMPONENT_FLOAT32, 0x1},
     };
 
+    static const char ds6_source[] =
+        "struct ds_data\n"
+        "{\n"
+        "    float2 clip : sv_clipdistance;\n"
+        "    float2 cull : sv_culldistance;\n"
+        "};\n"
+        "\n"
+        "struct ds_input : ds_data\n"
+        "{\n"
+        "    float edges[2] : sv_tessfactor;\n"
+        "    float2 clip : sv_clipdistance;\n"
+        "    float2 cull : sv_culldistance;\n"
+        "};\n"
+        "\n"
+        "[domain(\"isoline\")]\n"
+        "ds_data main(struct ds_input s, OutputPatch<ds_data, 2> patch)\n"
+        "{\n"
+        "    return (ds_data)0;\n"
+        "}\n";
+
+    static const D3D12_SIGNATURE_PARAMETER_DESC ds6_inputs[] =
+    {
+        {"sv_clipdistance", 0, 0, D3D_NAME_CLIP_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0x3},
+        {"sv_culldistance", 0, 0, D3D_NAME_CULL_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0xc},
+    };
+
+    static const D3D12_SIGNATURE_PARAMETER_DESC ds6_outputs[] =
+    {
+        {"sv_clipdistance", 0, 0, D3D_NAME_CLIP_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0x3, 0xc},
+        {"sv_culldistance", 0, 0, D3D_NAME_CULL_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0xc, 0x3},
+    };
+
+    static const D3D12_SIGNATURE_PARAMETER_DESC ds6_patch_constants[] =
+    {
+        {"sv_clipdistance",  0, 0, D3D_NAME_UNDEFINED,                     D3D_REGISTER_COMPONENT_FLOAT32, 0x3},
+        {"sv_culldistance",  0, 0, D3D_NAME_UNDEFINED,                     D3D_REGISTER_COMPONENT_FLOAT32, 0xc},
+        {"sv_tessfactor",    0, 1, D3D_NAME_FINAL_LINE_DENSITY_TESSFACTOR, D3D_REGISTER_COMPONENT_FLOAT32, 0x1},
+        {"sv_tessfactor",    1, 2, D3D_NAME_FINAL_LINE_DETAIL_TESSFACTOR,  D3D_REGISTER_COMPONENT_FLOAT32, 0x1},
+    };
+
     static const char gs1_source[] =
         "struct gs_data\n"
         "{\n"
@@ -3322,6 +3447,45 @@ static void test_signature_reflection(void)
         {"sv_isfrontface",            0, 3, D3D_NAME_IS_FRONT_FACE,             D3D_REGISTER_COMPONENT_UINT32,  0x1, 0xe},
     };
 
+    static const char gs3_source[] =
+        "struct gs_data\n"
+        "{\n"
+        "    float4 pos : sv_position;\n"
+        "    float4 clip : sv_clipdistance;\n"
+        "    float2 clip1 : sv_clipdistance1;\n"
+        "    float2 cull : sv_culldistance;\n"
+        "};\n"
+        "\n"
+        "struct data\n"
+        "{\n"
+        "    float4 pos : sv_position;\n"
+        "    float2 clip : sv_clipdistance;\n"
+        "    float4 cull : sv_culldistance;\n"
+        "    float1 cull1 : sv_culldistance1;\n"
+        "};\n"
+        "\n"
+        "[maxvertexcount(4)]\n"
+        "void main(in line gs_data vin[2], inout TriangleStream<data> vout)\n"
+        "{\n"
+        "    vout.Append((data)0);\n"
+        "}\n";
+
+    static const D3D12_SIGNATURE_PARAMETER_DESC gs3_inputs[] =
+    {
+        {"sv_position",     0, 0, D3D_NAME_POSITION,      D3D_REGISTER_COMPONENT_FLOAT32, 0xf},
+        {"sv_clipdistance", 0, 1, D3D_NAME_CLIP_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0xf},
+        {"sv_clipdistance", 1, 2, D3D_NAME_CLIP_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0x3},
+        {"sv_culldistance", 0, 2, D3D_NAME_CULL_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0xc},
+    };
+
+    static const D3D12_SIGNATURE_PARAMETER_DESC gs3_outputs[] =
+    {
+        {"sv_position",     0, 0, D3D_NAME_POSITION,      D3D_REGISTER_COMPONENT_FLOAT32, 0xf, 0x0},
+        {"sv_clipdistance", 0, 1, D3D_NAME_CLIP_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0x3, 0xc},
+        {"sv_culldistance", 1, 1, D3D_NAME_CULL_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0x4, 0xb},
+        {"sv_culldistance", 0, 2, D3D_NAME_CULL_DISTANCE, D3D_REGISTER_COMPONENT_FLOAT32, 0xf, 0x0},
+    };
+
     static const struct
     {
         const char *source;
@@ -3359,21 +3523,26 @@ static void test_signature_reflection(void)
         {vs5_source,  "vs_4_0", false, vs5_inputs, ARRAY_SIZE(vs5_inputs), vs5_outputs, ARRAY_SIZE(vs5_outputs)},
         {vs6_source,  "vs_4_0", false, vs6_inputs, ARRAY_SIZE(vs6_inputs), vs6_outputs, ARRAY_SIZE(vs6_outputs)},
         {vs7_source,  "vs_4_0", false, vs7_inputs, ARRAY_SIZE(vs7_inputs), vs7_outputs, ARRAY_SIZE(vs7_outputs)},
+        {vs8_source,  "vs_4_0", false, NULL, 0, vs8_outputs, ARRAY_SIZE(vs8_outputs)},
         {ps13_source, "ps_4_0", false, ps13_inputs, ARRAY_SIZE(ps13_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
         {ps14_source, "ps_4_0", false, ps14_inputs, ARRAY_SIZE(ps14_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
         {ps15_source, "ps_4_1", false, ps15_inputs, ARRAY_SIZE(ps15_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        {ps16_source, "ps_4_0", false, ps16_inputs, ARRAY_SIZE(ps16_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple), NULL, 0, true},
         {hs1_source,  "hs_5_0", false, NULL, 0, hs1_outputs, ARRAY_SIZE(hs1_outputs), hs1_patch_constants, ARRAY_SIZE(hs1_patch_constants)},
         {hs2_source,  "hs_5_0", false, NULL, 0, hs2_outputs, ARRAY_SIZE(hs2_outputs), hs2_patch_constants, ARRAY_SIZE(hs2_patch_constants)},
         {hs3_source,  "hs_5_0", false, NULL, 0, hs3_outputs, ARRAY_SIZE(hs3_outputs), hs3_patch_constants, ARRAY_SIZE(hs3_patch_constants)},
         {hs4_source,  "hs_5_0", false, hs4_inputs, ARRAY_SIZE(hs4_inputs), hs4_outputs, ARRAY_SIZE(hs4_outputs), hs4_patch_constants, ARRAY_SIZE(hs4_patch_constants)},
         {hs5_source,  "hs_5_0", false, hs5_inputs, ARRAY_SIZE(hs5_inputs), hs5_outputs, ARRAY_SIZE(hs5_outputs), hs5_patch_constants, ARRAY_SIZE(hs5_patch_constants)},
+        {hs6_source,  "hs_5_0", false, hs6_inputs, ARRAY_SIZE(hs6_inputs), hs6_outputs, ARRAY_SIZE(hs6_outputs), hs6_patch_constants, ARRAY_SIZE(hs6_patch_constants)},
         {ds1_source,  "ds_5_0", false, NULL, 0, ds1_outputs, ARRAY_SIZE(ds1_outputs), ds1_patch_constants, ARRAY_SIZE(ds1_patch_constants)},
         {ds2_source,  "ds_5_0", false, NULL, 0, ds2_outputs, ARRAY_SIZE(ds2_outputs), ds2_patch_constants, ARRAY_SIZE(ds2_patch_constants)},
         {ds3_source,  "ds_5_0", false, NULL, 0, ds3_outputs, ARRAY_SIZE(ds3_outputs), ds3_patch_constants, ARRAY_SIZE(ds3_patch_constants)},
         {ds4_source,  "ds_5_0", false, ds4_inputs, ARRAY_SIZE(ds4_inputs), ds4_outputs, ARRAY_SIZE(ds4_outputs), ds4_patch_constants, ARRAY_SIZE(ds4_patch_constants)},
         {ds5_source,  "ds_5_0", false, ds5_inputs, ARRAY_SIZE(ds5_inputs), ds5_outputs, ARRAY_SIZE(ds5_outputs), ds5_patch_constants, ARRAY_SIZE(ds5_patch_constants)},
+        {ds6_source,  "ds_5_0", false, ds6_inputs, ARRAY_SIZE(ds6_inputs), ds6_outputs, ARRAY_SIZE(ds6_outputs), ds6_patch_constants, ARRAY_SIZE(ds6_patch_constants)},
         {gs1_source,  "gs_4_0", false, gs1_inputs, ARRAY_SIZE(gs1_inputs)},
         {gs2_source,  "gs_4_0", false, gs2_inputs, ARRAY_SIZE(gs2_inputs), gs2_outputs, ARRAY_SIZE(gs2_outputs)},
+        {gs3_source,  "gs_4_0", false, gs3_inputs, ARRAY_SIZE(gs3_inputs), gs3_outputs, ARRAY_SIZE(gs3_outputs)},
     };
 
     for (unsigned int i = 0; i < ARRAY_SIZE(tests); ++i)
