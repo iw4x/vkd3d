@@ -6453,11 +6453,17 @@ struct register_allocator
         /* If an allocation is VIP, no new allocations can be made in the
          * register unless they are VIP as well. */
         bool vip;
+        /* Clip/Cull allocations can't share registers. */
+        bool clip_cull;
     } *allocations;
     size_t count, capacity;
 
     /* Total number of registers allocated so far. */
     uint32_t reg_count;
+
+    /* Total number of registers used for Clip or Cull allocations.
+     * Used to limit Clip/Cull allocations to two registers. */
+    uint32_t clip_cull_count;
 
     /* Special flag so allocations that can share registers prioritize those
      * that will result in smaller writemasks.
@@ -6468,7 +6474,7 @@ struct register_allocator
 };
 
 static unsigned int get_available_writemask(const struct register_allocator *allocator,
-        uint32_t reg_idx, int mode, bool vip)
+        uint32_t reg_idx, int mode, bool vip, bool clip_cull)
 {
     unsigned int writemask = VKD3DSP_WRITEMASK_ALL;
     size_t i;
@@ -6484,6 +6490,8 @@ static unsigned int get_available_writemask(const struct register_allocator *all
                 writemask = 0;
             if (allocation->vip && !vip)
                 writemask = 0;
+            if (allocation->clip_cull != clip_cull)
+                writemask = 0;
         }
 
         if (!writemask)
@@ -6493,8 +6501,8 @@ static unsigned int get_available_writemask(const struct register_allocator *all
     return writemask;
 }
 
-static void record_allocation(struct hlsl_ctx *ctx, struct register_allocator *allocator, uint32_t reg_idx,
-        unsigned int writemask, int mode, bool vip)
+static void record_allocation(struct hlsl_ctx *ctx, struct register_allocator *allocator,
+        uint32_t reg_idx, unsigned int writemask, int mode, bool vip, bool clip_cull)
 {
     struct allocation *allocation;
 
@@ -6507,6 +6515,7 @@ static void record_allocation(struct hlsl_ctx *ctx, struct register_allocator *a
     allocation->writemask = writemask;
     allocation->mode = mode;
     allocation->vip = vip;
+    allocation->clip_cull = clip_cull;
 
     allocator->reg_count = max(allocator->reg_count, reg_idx + 1);
 }
@@ -6523,7 +6532,7 @@ static void record_allocation(struct hlsl_ctx *ctx, struct register_allocator *a
  * 'vip' can be used so that no new allocations can be made in the given register
  *      unless they are 'vip' as well. */
 static struct hlsl_reg allocate_register(struct hlsl_ctx *ctx, struct register_allocator *allocator,
-        unsigned int reg_size, unsigned int component_count, int mode, bool force_align, bool vip)
+        unsigned int reg_size, unsigned int component_count, int mode, bool force_align, bool vip, bool clip_cull)
 {
     struct hlsl_reg ret = {.allocation_size = 1, .allocated = true};
     unsigned int required_size = force_align ? 4 : reg_size;
@@ -6536,7 +6545,7 @@ static struct hlsl_reg allocate_register(struct hlsl_ctx *ctx, struct register_a
     {
         for (uint32_t reg_idx = 0; reg_idx < allocator->reg_count; ++reg_idx)
         {
-            unsigned int available_writemask = get_available_writemask(allocator, reg_idx, mode, vip);
+            unsigned int available_writemask = get_available_writemask(allocator, reg_idx, mode, vip, clip_cull);
 
             if (vkd3d_popcount(available_writemask) >= pref)
             {
@@ -6548,7 +6557,7 @@ static struct hlsl_reg allocate_register(struct hlsl_ctx *ctx, struct register_a
                 ret.writemask = hlsl_combine_writemasks(writemask,
                         vkd3d_write_mask_from_component_count(component_count));
 
-                record_allocation(ctx, allocator, reg_idx, writemask, mode, vip);
+                record_allocation(ctx, allocator, reg_idx, writemask, mode, vip, clip_cull);
                 return ret;
             }
         }
@@ -6558,7 +6567,8 @@ static struct hlsl_reg allocate_register(struct hlsl_ctx *ctx, struct register_a
     ret.id = allocator->reg_count;
     ret.writemask = vkd3d_write_mask_from_component_count(component_count);
     record_allocation(ctx, allocator, allocator->reg_count,
-            vkd3d_write_mask_from_component_count(reg_size), mode, vip);
+            vkd3d_write_mask_from_component_count(reg_size), mode, vip, clip_cull);
+    allocator->clip_cull_count += clip_cull;
     return ret;
 }
 
@@ -6571,11 +6581,11 @@ static bool is_range_available(const struct register_allocator *allocator,
 
     for (i = 0; i < (reg_size / 4); ++i)
     {
-        writemask = get_available_writemask(allocator, reg_idx + i, mode, vip);
+        writemask = get_available_writemask(allocator, reg_idx + i, mode, vip, false);
         if (writemask != VKD3DSP_WRITEMASK_ALL)
             return false;
     }
-    writemask = get_available_writemask(allocator, reg_idx + (reg_size / 4), mode, vip);
+    writemask = get_available_writemask(allocator, reg_idx + (reg_size / 4), mode, vip, false);
     if ((writemask & last_reg_mask) != last_reg_mask)
         return false;
     return true;
@@ -6595,9 +6605,9 @@ static struct hlsl_reg allocate_range(struct hlsl_ctx *ctx,
     }
 
     for (i = 0; i < reg_size / 4; ++i)
-        record_allocation(ctx, allocator, reg_idx + i, VKD3DSP_WRITEMASK_ALL, mode, vip);
+        record_allocation(ctx, allocator, reg_idx + i, VKD3DSP_WRITEMASK_ALL, mode, vip, false);
     if (reg_size % 4)
-        record_allocation(ctx, allocator, reg_idx + (reg_size / 4), (1u << (reg_size % 4)) - 1, mode, vip);
+        record_allocation(ctx, allocator, reg_idx + (reg_size / 4), (1u << (reg_size % 4)) - 1, mode, vip, false);
 
     ret.type = allocator->type;
     ret.id = reg_idx;
@@ -6614,7 +6624,7 @@ static struct hlsl_reg allocate_numeric_registers_for_type(struct hlsl_ctx *ctx,
     /* FIXME: We could potentially pack structs or arrays more efficiently... */
 
     if (type->class <= HLSL_CLASS_VECTOR)
-        return allocate_register(ctx, allocator, type->e.numeric.dimx, type->e.numeric.dimx, 0, false, false);
+        return allocate_register(ctx, allocator, type->e.numeric.dimx, type->e.numeric.dimx, 0, false, false, false);
     else
         return allocate_range(ctx, allocator, reg_size, 0, false);
 }
@@ -7240,14 +7250,14 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
             {
                 if (i < bind_count)
                 {
-                    if (get_available_writemask(&allocator_used, reg_idx + i, 0, false) != VKD3DSP_WRITEMASK_ALL)
+                    if (get_available_writemask(&allocator_used, reg_idx + i, 0, false, false) != VKD3DSP_WRITEMASK_ALL)
                     {
                         hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                                 "Overlapping register() reservations on 'c%u'.", reg_idx + i);
                     }
-                    record_allocation(ctx, &allocator_used, reg_idx + i, VKD3DSP_WRITEMASK_ALL, 0, false);
+                    record_allocation(ctx, &allocator_used, reg_idx + i, VKD3DSP_WRITEMASK_ALL, 0, false, false);
                 }
-                record_allocation(ctx, &allocator, reg_idx + i, VKD3DSP_WRITEMASK_ALL, 0, false);
+                record_allocation(ctx, &allocator, reg_idx + i, VKD3DSP_WRITEMASK_ALL, 0, false, false);
             }
 
             var->regs[HLSL_REGSET_NUMERIC].type = VKD3DSPR_CONST;
@@ -7378,6 +7388,7 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
     struct vkd3d_shader_version version;
     bool special_interpolation = false;
     bool vip_allocation = false;
+    bool clip_cull = false;
     uint32_t reg;
     bool builtin;
 
@@ -7437,6 +7448,8 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
                 || semantic == VKD3D_SHADER_SV_VIEWPORT_ARRAY_INDEX
                 || semantic == VKD3D_SHADER_SV_PRIMITIVE_ID)
             vip_allocation = true;
+        else if (vsir_sysval_semantic_is_clip_cull(semantic))
+            clip_cull = true;
 
         if (semantic == VKD3D_SHADER_SV_IS_FRONT_FACE || semantic == VKD3D_SHADER_SV_SAMPLE_INDEX
                 || (version.type == VKD3D_SHADER_TYPE_DOMAIN && !output && !is_primitive)
@@ -7459,8 +7472,16 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
         if (version.major >= 4 && !special_interpolation)
             mode = get_interpolation_mode(&version, var->data_type, var->storage_modifiers);
 
-        var->regs[HLSL_REGSET_NUMERIC] = allocate_register(ctx, allocator,
-                reg_size, component_count, mode, var->force_align, vip_allocation);
+        var->regs[HLSL_REGSET_NUMERIC] = allocate_register(ctx, allocator, reg_size,
+                component_count, mode, var->force_align, vip_allocation, clip_cull);
+        var->regs[HLSL_REGSET_NUMERIC].type = output ? VKD3DSPR_OUTPUT : VKD3DSPR_INPUT;
+
+        if (clip_cull && allocator->clip_cull_count > 2)
+        {
+            hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
+                "Too many SV_ClipDistance or SV_CullDistance parameters.");
+            return;
+        }
 
         TRACE("Allocated %s to %s (mode %d).\n", var->name,
                 debug_register(var->regs[HLSL_REGSET_NUMERIC], var->data_type), mode);
