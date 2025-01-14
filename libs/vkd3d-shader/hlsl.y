@@ -623,6 +623,11 @@ static struct hlsl_default_value evaluate_static_expression(struct hlsl_ctx *ctx
         if (!(ret.string = vkd3d_strdup(string->string)))
             return ret;
     }
+    else if (node->type == HLSL_IR_COMPILE)
+    {
+        list_remove(&node->entry);
+        ret.shader = hlsl_ir_compile(node);
+    }
     else
     {
         hlsl_error(ctx, &node->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
@@ -2253,19 +2258,17 @@ static void initialize_var_components(struct hlsl_ctx *ctx, struct hlsl_block *i
         {
             struct hlsl_default_value default_value = {0};
 
-            if (src->type == HLSL_IR_COMPILE || src->type == HLSL_IR_SAMPLER_STATE)
+            if ((src->type == HLSL_IR_SAMPLER_STATE || src->type == HLSL_IR_COMPILE)
+                    && hlsl_is_numeric_type(dst_comp_type) && dst->default_values)
             {
                 /* Default values are discarded if they contain an object
                  * literal expression for a numeric component. */
-                if (hlsl_is_numeric_type(dst_comp_type) && dst->default_values)
-                {
-                    hlsl_warning(ctx, &src->loc, VKD3D_SHADER_WARNING_HLSL_IGNORED_DEFAULT_VALUE,
-                            "Component %u in variable '%s' initializer is object literal. Default values discarded.",
-                            k, dst->name);
-                    hlsl_free_default_values(dst);
-                }
+                hlsl_warning(ctx, &src->loc, VKD3D_SHADER_WARNING_HLSL_IGNORED_DEFAULT_VALUE,
+                        "Component %u in variable '%s' initializer is an object literal. Default values discarded.",
+                        k, dst->name);
+                hlsl_free_default_values(dst);
             }
-            else
+            else if (src->type != HLSL_IR_SAMPLER_STATE)
             {
                 if (!hlsl_clone_block(ctx, &block, instrs))
                     return;
@@ -2707,8 +2710,6 @@ static struct hlsl_block *initialize_vars(struct hlsl_ctx *ctx, struct list *var
                     || (var->storage_modifiers & HLSL_STORAGE_UNIFORM)
                     || ctx->cur_scope->annotations;
             if (hlsl_get_multiarray_element_type(type)->class == HLSL_CLASS_SAMPLER)
-                is_default_values_initializer = false;
-            if (hlsl_type_is_shader(type))
                 is_default_values_initializer = false;
 
             static_initialization = var->storage_modifiers & HLSL_STORAGE_STATIC
@@ -5403,8 +5404,13 @@ static bool intrinsic_ConstructGSWithSO(struct hlsl_ctx *ctx,
                 return false;
             }
 
-            hlsl_fixme(ctx, loc, "Unhandled HLSL_IR_LOAD in ConstructGSWithSO().");
-            return false;
+            if (!(compile = var->default_values[0].shader))
+            {
+                hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                        "Stream output shaders can't be constructed with NULL shaders.");
+                return false;
+            }
+            break;
 
         case HLSL_IR_INDEX:
             hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,

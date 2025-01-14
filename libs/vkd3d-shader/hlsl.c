@@ -156,6 +156,8 @@ void hlsl_free_state_block(struct hlsl_state_block *state_block)
 void hlsl_free_default_value(struct hlsl_default_value *value)
 {
     vkd3d_free((void *)value->string);
+    if (value->shader)
+        hlsl_free_instr(&value->shader->node);
 }
 
 void hlsl_free_default_values(struct hlsl_ir_var *decl)

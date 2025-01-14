@@ -501,6 +501,8 @@ struct hlsl_ir_var
         const char *string;
         /* Default value, in case the component is a numeric value. */
         union hlsl_constant_value_component number;
+        /* Default value, in case the component is a shader. otherwise it is NULL. */
+        struct hlsl_ir_compile *shader;
     } *default_values;
 
     /* Pointer to the temp copy of the variable, in case it is uniform. */

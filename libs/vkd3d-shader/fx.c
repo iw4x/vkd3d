@@ -2351,23 +2351,25 @@ static uint32_t write_shader_blob(const struct hlsl_ir_compile *compile, struct 
     return offset;
 }
 
-static uint32_t write_fx_shader(enum fx_shader_type type,
-        const struct hlsl_ir_compile *compile, struct fx_write_context *fx)
+static uint32_t write_fx_shader(enum fx_shader_type type, const struct hlsl_ir_compile *compile,
+        struct vkd3d_bytecode_buffer *buffer, struct fx_write_context *fx)
 {
-    struct vkd3d_bytecode_buffer *buffer = &fx->unstructured;
     struct fx_5_shader shader = {0};
     uint32_t ret;
 
-    shader = (struct fx_5_shader)
+    if (compile)
     {
-        .offset = write_shader_blob(compile, fx),
-        .sodecl_count = compile->output.count > 1 ? 4 : 0,
-        .rast_stream = compile->output.stream,
-    };
+        shader = (struct fx_5_shader)
+        {
+            .offset = write_shader_blob(compile, fx),
+            .sodecl_count = compile->output.count > 1 ? 4 : 0,
+            .rast_stream = compile->output.stream,
+        };
 
-    for (size_t i = 0; i < compile->output.count; ++i)
-    {
-        shader.sodecl[i] = write_string(compile->output.decls[i], fx);
+        for (size_t i = 0; i < compile->output.count; ++i)
+        {
+            shader.sodecl[i] = write_string(compile->output.decls[i], fx);
+        }
     }
 
     switch (type)
@@ -2504,7 +2506,7 @@ static void write_fx_4_state_assignment(const struct hlsl_ir_var *var, struct hl
                 shader_type = FX5_SHADER;
             }
 
-            value_offset = write_fx_shader(shader_type, hlsl_ir_compile(value), fx);
+            value_offset = write_fx_shader(shader_type, hlsl_ir_compile(value), unstructured, fx);
             break;
         }
         default:
@@ -3309,35 +3311,33 @@ static void write_fx_4_state_object_initializer(struct hlsl_ir_var *var, struct 
     }
 }
 
-static void write_fx_4_shader_initializer(struct hlsl_ir_var *var, struct fx_write_context *fx)
+static void write_fx_shader_initializer(struct hlsl_ir_var *var, struct fx_write_context *fx)
 {
-    struct vkd3d_bytecode_buffer *buffer = &fx->structured;
+    const struct hlsl_type *var_type = hlsl_get_multiarray_element_type(var->data_type);
     uint32_t elements_count = hlsl_get_multiarray_size(var->data_type);
-    unsigned int i;
+    enum fx_shader_type shader_type;
 
-    /* FIXME: write shader blobs, once parser support works. */
-    for (i = 0; i < elements_count; ++i)
-        put_u32(buffer, 0);
-}
-
-static void write_fx_5_shader_initializer(struct hlsl_ir_var *var, struct fx_write_context *fx)
-{
-    struct vkd3d_bytecode_buffer *buffer = &fx->structured;
-    uint32_t elements_count = hlsl_get_multiarray_size(var->data_type);
-    unsigned int i;
-
-    /* FIXME: write shader blobs, once parser support works. */
-    for (i = 0; i < elements_count; ++i)
+    switch (var_type->class)
     {
-        put_u32(buffer, 0); /* Blob offset */
-        put_u32(buffer, 0); /* SODecl[0] offset */
-        put_u32(buffer, 0); /* SODecl[1] offset */
-        put_u32(buffer, 0); /* SODecl[2] offset */
-        put_u32(buffer, 0); /* SODecl[3] offset */
-        put_u32(buffer, 0); /* SODecl count */
-        put_u32(buffer, 0); /* Rasterizer stream */
-        put_u32(buffer, 0); /* Interface bindings count */
-        put_u32(buffer, 0); /* Interface initializer offset */
+        case HLSL_CLASS_PIXEL_SHADER:
+        case HLSL_CLASS_VERTEX_SHADER:
+        case HLSL_CLASS_GEOMETRY_SHADER:
+             shader_type = FX4_SHADER;
+             break;
+
+        case HLSL_CLASS_HULL_SHADER:
+        case HLSL_CLASS_COMPUTE_SHADER:
+        case HLSL_CLASS_DOMAIN_SHADER:
+            shader_type = FX5_SHADER;
+            break;
+
+        default:
+            vkd3d_unreachable();
+    }
+
+    for (size_t i = 0; i < elements_count; ++i)
+    {
+        write_fx_shader(shader_type, var->default_values ? var->default_values[i].shader : NULL, &fx->structured, fx);
     }
 }
 
@@ -3384,14 +3384,10 @@ static void write_fx_4_object_variable(struct hlsl_ir_var *var, struct fx_write_
 
         case HLSL_CLASS_PIXEL_SHADER:
         case HLSL_CLASS_VERTEX_SHADER:
-            write_fx_4_shader_initializer(var, fx);
-            fx->shader_count += elements_count;
-            break;
-
         case HLSL_CLASS_HULL_SHADER:
         case HLSL_CLASS_COMPUTE_SHADER:
         case HLSL_CLASS_DOMAIN_SHADER:
-            write_fx_5_shader_initializer(var, fx);
+            write_fx_shader_initializer(var, fx);
             fx->shader_count += elements_count;
             break;
 
