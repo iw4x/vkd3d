@@ -2,7 +2,7 @@
 shader model >= 5.0
 shader model < 6.0
 
-[effect todo]
+[effect]
 float4 main() : sv_position { return 0; }
 
 VertexShader vs = CompileShader(vs_4_0, main());

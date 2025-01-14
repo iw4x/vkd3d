@@ -132,6 +132,7 @@ struct type_entry
     uint32_t unpacked_size;
     uint32_t modifiers;
     uint32_t offset;
+    enum fx_shader_type shader_type;
 };
 
 static int string_storage_compare(const void *key, const struct rb_entry *entry)
@@ -394,6 +395,9 @@ static uint32_t write_type(const struct type_entry *type, struct fx_write_contex
             if (type_entry->modifiers != type->modifiers)
                 continue;
 
+            if (type_entry->shader_type != type->shader_type)
+                continue;
+
             return type_entry->offset;
         }
     }
@@ -428,12 +432,60 @@ static void type_entry_from_type(struct type_entry *e, const struct hlsl_type *t
     };
 }
 
+static enum fx_shader_type get_shader_type(struct hlsl_ir_var *shader, struct fx_write_context *fx)
+{
+    const struct hlsl_type *type = hlsl_get_multiarray_element_type(shader->data_type);
+    uint32_t elements_count = hlsl_get_multiarray_size(shader->data_type);
+    enum fx_shader_type shader_type = FX4_SHADER;
+    struct hlsl_ctx *ctx = fx->ctx;
+
+    switch (type->class)
+    {
+        case HLSL_CLASS_PIXEL_SHADER:
+        case HLSL_CLASS_VERTEX_SHADER:
+            return FX4_SHADER;
+
+        case HLSL_CLASS_HULL_SHADER:
+        case HLSL_CLASS_COMPUTE_SHADER:
+        case HLSL_CLASS_DOMAIN_SHADER:
+            return FX5_SHADER;
+
+        case HLSL_CLASS_GEOMETRY_SHADER:
+            break;
+
+        default:
+            return FX_SHADER_NONE;
+    }
+
+    for (size_t i = 0; i < elements_count; ++i)
+    {
+        struct hlsl_ir_compile *compile;
+
+        if (!shader->default_values || !(compile = shader->default_values[i].shader) || !compile->output.count)
+            continue;
+
+        if (compile->output.count > 1)
+        {
+            shader_type = FX5_SHADER;
+            break;
+        }
+        shader_type = FX4_SHADER_SO;
+    }
+
+    if (shader_type == FX5_SHADER && hlsl_version_lt(ctx, 5, 0))
+        hlsl_error(ctx, &shader->loc, VKD3D_SHADER_ERROR_HLSL_INCOMPATIBLE_PROFILE,
+                "Multi-stream output is not supported by the fx_4_0 profile.");
+
+    return shader_type;
+}
+
 static uint32_t write_var_type(struct hlsl_ir_var *var, struct fx_write_context *fx)
 {
     struct type_entry entry;
 
     type_entry_from_type(&entry, var->data_type, fx);
 
+    entry.shader_type = get_shader_type(var, fx);
     return write_type(&entry, fx);
 }
 
@@ -1433,6 +1485,23 @@ static uint32_t write_fx_4_type(const struct type_entry *type, struct fx_write_c
     else if (element_type->class == HLSL_CLASS_VERTEX_SHADER)
     {
         put_u32_unaligned(buffer, FX_4_OBJECT_TYPE_VERTEX_SHADER);
+    }
+    else if (element_type->class == HLSL_CLASS_GEOMETRY_SHADER)
+    {
+        switch (type->shader_type)
+        {
+            case FX4_SHADER:
+                put_u32_unaligned(buffer, FX_4_OBJECT_TYPE_GEOMETRY_SHADER);
+                break;
+            case FX4_SHADER_SO:
+                put_u32_unaligned(buffer, FX_4_OBJECT_TYPE_GEOMETRY_SHADER_SO);
+                break;
+            case FX5_SHADER:
+                put_u32_unaligned(buffer, FX_5_OBJECT_TYPE_GEOMETRY_SHADER);
+                break;
+            case FX_SHADER_NONE:
+                vkd3d_unreachable();
+        }
     }
     else if (element_type->class == HLSL_CLASS_RASTERIZER_STATE)
     {
@@ -3315,27 +3384,8 @@ static void write_fx_4_state_object_initializer(struct hlsl_ir_var *var, struct 
 
 static void write_fx_shader_initializer(struct hlsl_ir_var *var, struct fx_write_context *fx)
 {
-    const struct hlsl_type *var_type = hlsl_get_multiarray_element_type(var->data_type);
     uint32_t elements_count = hlsl_get_multiarray_size(var->data_type);
-    enum fx_shader_type shader_type;
-
-    switch (var_type->class)
-    {
-        case HLSL_CLASS_PIXEL_SHADER:
-        case HLSL_CLASS_VERTEX_SHADER:
-        case HLSL_CLASS_GEOMETRY_SHADER:
-             shader_type = FX4_SHADER;
-             break;
-
-        case HLSL_CLASS_HULL_SHADER:
-        case HLSL_CLASS_COMPUTE_SHADER:
-        case HLSL_CLASS_DOMAIN_SHADER:
-            shader_type = FX5_SHADER;
-            break;
-
-        default:
-            vkd3d_unreachable();
-    }
+    enum fx_shader_type shader_type = get_shader_type(var, fx);
 
     for (size_t i = 0; i < elements_count; ++i)
     {
@@ -3389,6 +3439,7 @@ static void write_fx_4_object_variable(struct hlsl_ir_var *var, struct fx_write_
         case HLSL_CLASS_HULL_SHADER:
         case HLSL_CLASS_COMPUTE_SHADER:
         case HLSL_CLASS_DOMAIN_SHADER:
+        case HLSL_CLASS_GEOMETRY_SHADER:
             write_fx_shader_initializer(var, fx);
             fx->shader_count += elements_count;
             break;
