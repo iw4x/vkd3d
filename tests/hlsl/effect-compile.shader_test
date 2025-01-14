@@ -270,8 +270,7 @@ technique10 T0
     }
 }
 
-
-[effect todo]
+[effect]
 float4 fun(uniform float4 a, float4 b : FOO) : sv_target
 {
     return 10 * a + b;
@@ -285,7 +284,7 @@ technique10 T0
     }
 }
 
-[effect todo]
+[effect]
 float4 vs( float4 Pos : POSITION ) : SV_POSITION { return Pos; }
 float4 ps( float4 Pos : SV_POSITION ) : SV_Target { return float4( 1.0f, 1.0f, 0.0f, 1.0f ); }
 

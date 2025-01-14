@@ -5333,7 +5333,7 @@ int hlsl_parse(const struct vkd3d_shader_compile_info *compile_info,
         return VKD3D_ERROR_INVALID_SHADER;
     }
 
-    ret = hlsl_emit_vsir(&ctx, compile_info, entry_func, program, reflection_data);
+    ret = hlsl_emit_vsir(&ctx, compile_info, entry_func, NULL, program, reflection_data);
     hlsl_ctx_cleanup(&ctx);
     if (ret < 0)
         vsir_program_cleanup(program);

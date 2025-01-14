@@ -15311,12 +15311,12 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
 }
 
 int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info *compile_info,
-        struct hlsl_ir_function_decl *entry_func, struct vsir_program *program,
-        struct vkd3d_shader_code *reflection_data)
+        struct hlsl_ir_function_decl *entry_func, const struct hlsl_block *initializers,
+        struct vsir_program *program, struct vkd3d_shader_code *reflection_data)
 {
-    struct hlsl_block global_uniform_block, body, patch_body;
     uint32_t config_flags = vkd3d_shader_init_config_flags();
     const struct hlsl_profile_info *profile = ctx->profile;
+    struct hlsl_block initializer_block, body, patch_body;
     struct list semantic_vars, patch_semantic_vars;
     struct hlsl_ir_var *var;
 
@@ -15339,13 +15339,17 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
     list_init(&ctx->extern_vars);
     list_init(&semantic_vars);
     list_init(&patch_semantic_vars);
-    hlsl_block_init(&global_uniform_block);
+
+    if (!initializers)
+        hlsl_block_init(&initializer_block);
+    else if (!hlsl_clone_block(ctx, &initializer_block, initializers))
+        return ctx->result;
 
     LIST_FOR_EACH_ENTRY(var, &ctx->globals->vars, struct hlsl_ir_var, scope_entry)
     {
         if (var->storage_modifiers & HLSL_STORAGE_UNIFORM)
         {
-            prepend_uniform_copy(ctx, &global_uniform_block, var);
+            prepend_uniform_copy(ctx, &initializer_block, var);
         }
         else if (var->storage_modifiers & HLSL_STORAGE_GROUPSHARED)
         {
@@ -15354,18 +15358,19 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
         }
     }
 
-    process_entry_function(ctx, &semantic_vars, &body, &global_uniform_block, entry_func);
+    process_entry_function(ctx, &semantic_vars, &body, &initializer_block, entry_func);
+
     if (ctx->result)
         return ctx->result;
 
     if (profile->type == VKD3D_SHADER_TYPE_HULL)
     {
-        process_entry_function(ctx, &patch_semantic_vars, &patch_body, &global_uniform_block, ctx->patch_constant_func);
+        process_entry_function(ctx, &patch_semantic_vars, &patch_body, &initializer_block, ctx->patch_constant_func);
         if (ctx->result)
             return ctx->result;
     }
 
-    hlsl_block_cleanup(&global_uniform_block);
+    hlsl_block_cleanup(&initializer_block);
 
     if (profile->major_version < 4)
     {
