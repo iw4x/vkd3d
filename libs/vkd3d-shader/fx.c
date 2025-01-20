@@ -3130,6 +3130,7 @@ static void resolve_fx_state_block_values(struct hlsl_ir_var *var,
                 break;
             }
             case HLSL_IR_COMPILE:
+            case HLSL_IR_INDEX:
                 break;
             default:
                 hlsl_fixme(ctx, &ctx->location, "Unhandled node type for object-typed field.");
