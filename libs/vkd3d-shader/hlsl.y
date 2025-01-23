@@ -3015,11 +3015,9 @@ static void add_void_expr(struct hlsl_ctx *ctx, struct hlsl_block *block,
     hlsl_block_add_expr(ctx, block, HLSL_OP0_VOID, operands, ctx->builtin_types.Void, loc);
 }
 
-static struct hlsl_ir_node *add_user_call(struct hlsl_ctx *ctx,
-        struct hlsl_ir_function_decl *func, const struct parse_initializer *args,
-        bool is_compile, const struct vkd3d_shader_location *loc)
+static bool parse_function_call_arguments(struct hlsl_ctx *ctx, const struct hlsl_ir_function_decl *func,
+        const struct parse_initializer *args, bool is_compile, const struct vkd3d_shader_location *loc)
 {
-    struct hlsl_ir_node *call;
     unsigned int i, j, k;
 
     VKD3D_ASSERT(args->args_count <= func->parameters.count);
@@ -3077,12 +3075,22 @@ static struct hlsl_ir_node *add_user_call(struct hlsl_ctx *ctx,
         }
     }
 
+    return true;
+}
+
+static struct hlsl_ir_node *add_user_call(struct hlsl_ctx *ctx, struct hlsl_ir_function_decl *func,
+        const struct parse_initializer *args, const struct vkd3d_shader_location *loc)
+{
+    struct hlsl_ir_node *call;
+    unsigned int i;
+
+    if (!parse_function_call_arguments(ctx, func, args, false, loc))
+        return NULL;
+
     if (!(call = hlsl_new_call(ctx, func, loc)))
         return NULL;
-    hlsl_block_add_instr(args->instrs, call);
 
-    if (is_compile)
-        return call;
+    hlsl_block_add_instr(args->instrs, call);
 
     for (i = 0; i < args->args_count; ++i)
     {
@@ -3288,7 +3296,7 @@ static bool write_acos_or_asin(struct hlsl_ctx *ctx,
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_acos(struct hlsl_ctx *ctx,
@@ -3428,7 +3436,7 @@ static bool write_atan_or_atan2(struct hlsl_ctx *ctx,
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_atan(struct hlsl_ctx *ctx,
@@ -3611,7 +3619,7 @@ static bool write_cosh_or_sinh(struct hlsl_ctx *ctx,
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_cosh(struct hlsl_ctx *ctx,
@@ -3823,7 +3831,7 @@ static bool intrinsic_determinant(struct hlsl_ctx *ctx,
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_distance(struct hlsl_ctx *ctx,
@@ -3893,7 +3901,7 @@ static bool intrinsic_dst(struct hlsl_ctx *ctx, const struct parse_initializer *
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_exp(struct hlsl_ctx *ctx,
@@ -3947,7 +3955,7 @@ static bool intrinsic_faceforward(struct hlsl_ctx *ctx,
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_f16tof32(struct hlsl_ctx *ctx,
@@ -4143,7 +4151,7 @@ static bool intrinsic_frexp(struct hlsl_ctx *ctx,
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_fwidth(struct hlsl_ctx *ctx,
@@ -4170,7 +4178,7 @@ static bool intrinsic_fwidth(struct hlsl_ctx *ctx,
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_isinf(struct hlsl_ctx *ctx,
@@ -4270,7 +4278,7 @@ static bool intrinsic_lit(struct hlsl_ctx *ctx,
     if (!(func = hlsl_compile_internal_function(ctx, "lit", body)))
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_log(struct hlsl_ctx *ctx,
@@ -4371,7 +4379,7 @@ static bool intrinsic_modf(struct hlsl_ctx *ctx,
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_mul(struct hlsl_ctx *ctx,
@@ -4620,7 +4628,7 @@ static bool intrinsic_refract(struct hlsl_ctx *ctx,
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_round(struct hlsl_ctx *ctx,
@@ -4722,7 +4730,7 @@ static bool intrinsic_sincos(struct hlsl_ctx *ctx,
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_sinh(struct hlsl_ctx *ctx,
@@ -4757,7 +4765,7 @@ static bool intrinsic_smoothstep(struct hlsl_ctx *ctx,
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_sqrt(struct hlsl_ctx *ctx,
@@ -4831,7 +4839,7 @@ static bool intrinsic_tanh(struct hlsl_ctx *ctx,
     if (!func)
         return false;
 
-    return !!add_user_call(ctx, func, params, false, loc);
+    return !!add_user_call(ctx, func, params, loc);
 }
 
 static bool intrinsic_tex(struct hlsl_ctx *ctx, const struct parse_initializer *params,
@@ -5356,17 +5364,109 @@ static bool intrinsic_AllMemoryBarrierWithGroupSync(struct hlsl_ctx *ctx,
 static bool intrinsic_ConstructGSWithSO(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    struct hlsl_ir_node *compile;
+    const char *strings[HLSL_STREAM_OUTPUT_MAX] = {0};
+    size_t string_count = params->args_count - 1;
+    struct hlsl_ir_compile *compile;
+    struct hlsl_ir_node *node;
+    uint32_t stream_index = 0;
+    struct hlsl_ir_var *var;
 
     if (params->args_count != 2 && params->args_count != 6)
+    {
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_WRONG_PARAMETER_COUNT,
-                "Wrong number of arguments to ConstructGSWithSO(): expected 2 or 6, but got %u.", params->args_count);
-
-    if (!(compile = hlsl_new_compile(ctx, HLSL_COMPILE_TYPE_CONSTRUCTGSWITHSO,
-            NULL, params->args, params->args_count, params->instrs, loc)))
+                "Unexpected number of arguments to ConstructGSWithSO(): expected 2 or 6, but got %u.",
+                params->args_count);
         return false;
+    }
 
-    hlsl_block_add_instr(params->instrs, compile);
+    if (ctx->profile->type != VKD3D_SHADER_TYPE_EFFECT)
+    {
+        if (!(node = hlsl_new_compile_with_so(ctx, NULL, 0, 0, NULL, loc)))
+            return false;
+        hlsl_block_add_instr(params->instrs, node);
+        return true;
+    }
+
+    node = params->args[0];
+    switch (node->type)
+    {
+        case HLSL_IR_COMPILE:
+            compile = hlsl_ir_compile(node);
+            break;
+
+        case HLSL_IR_LOAD:
+            var = hlsl_ir_load(node)->src.var;
+            if (var->data_type->class == HLSL_CLASS_ARRAY || !hlsl_type_is_shader(var->data_type))
+            {
+                hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                        "\"%s\" is not a shader compilation.", var->name);
+                return false;
+            }
+
+            hlsl_fixme(ctx, loc, "Unhandled HLSL_IR_LOAD in ConstructGSWithSO().");
+            return false;
+
+        case HLSL_IR_INDEX:
+            hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                    "Stream output shaders can't be constructed with array indexes.");
+            return false;
+
+        default:
+            hlsl_fixme(ctx, loc, "Unhandled node type in ConstructGSWithSO().");
+            return false;
+    }
+
+    if (compile->profile->type != VKD3D_SHADER_TYPE_VERTEX && compile->profile->type != VKD3D_SHADER_TYPE_GEOMETRY)
+    {
+        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                "Stream output shaders can only be constructed with vertex or geometry shaders.");
+        return false;
+    }
+
+    if (params->args_count == 6)
+    {
+        struct hlsl_block stream_index_block;
+
+        --string_count;
+
+        if (!(node = hlsl_clone_instr(ctx, params->args[5])))
+            return false;
+
+        hlsl_block_init(&stream_index_block);
+        hlsl_block_add_instr(&stream_index_block, node);
+
+        stream_index = evaluate_static_expression_as_uint(ctx, &stream_index_block, loc);
+
+        hlsl_block_cleanup(&stream_index_block);
+    }
+
+    for (size_t i = 0; i < string_count; ++i)
+    {
+        struct hlsl_ir_node *stream_node = params->args[i + 1];
+
+        switch (stream_node->type)
+        {
+            case HLSL_IR_STRING_CONSTANT:
+                strings[i] = hlsl_ir_string_constant(stream_node)->string;
+                break;
+
+            case HLSL_IR_CONSTANT:
+                if (stream_node->data_type->class == HLSL_CLASS_NULL)
+                    continue;
+            /* fall-through */
+            default:
+                hlsl_error(ctx, &stream_node->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                        "Stream Output declarations must be a literal string.");
+                return false;
+        }
+    }
+
+    VKD3D_ASSERT(string_count <= ARRAY_SIZE(strings));
+
+    if (!(node = hlsl_new_compile_with_so(ctx, compile, stream_index, string_count, strings, loc)))
+        return false;
+    hlsl_block_add_instr(params->instrs, node);
+
     return true;
 }
 
@@ -5549,7 +5649,7 @@ static struct hlsl_block *add_call(struct hlsl_ctx *ctx, const char *name,
 
     if ((decl = find_function_call(ctx, name, args, false, loc)))
     {
-        if (!add_user_call(ctx, decl, args, false, loc))
+        if (!add_user_call(ctx, decl, args, loc))
             goto fail;
     }
     else if ((intrinsic = bsearch(name, intrinsic_functions, ARRAY_SIZE(intrinsic_functions),
@@ -5608,9 +5708,10 @@ fail:
 static struct hlsl_block *add_shader_compilation(struct hlsl_ctx *ctx, const char *profile_name,
         const char *function_name, struct parse_initializer *args, const struct vkd3d_shader_location *loc)
 {
-    struct hlsl_ir_node *compile, *call_to_compile = NULL;
+    const struct hlsl_profile_info *profile_info;
     struct hlsl_ir_function_decl *decl;
     struct hlsl_block *block = NULL;
+    struct hlsl_ir_node *compile;
 
     if (!ctx->in_state_block && ctx->cur_scope != ctx->globals)
     {
@@ -5635,6 +5736,12 @@ static struct hlsl_block *add_shader_compilation(struct hlsl_ctx *ctx, const cha
         goto out;
     }
 
+    if (!(profile_info = hlsl_get_target_info(profile_name)))
+    {
+        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_PROFILE, "Unknown profile \"%s\".", profile_name);
+        goto out;
+    }
+
     for (unsigned int i = 0; i < args->args_count; ++i)
     {
         if (args->args[i]->data_type->class == HLSL_CLASS_ERROR)
@@ -5645,11 +5752,10 @@ static struct hlsl_block *add_shader_compilation(struct hlsl_ctx *ctx, const cha
         }
     }
 
-    if (!(call_to_compile = add_user_call(ctx, decl, args, true, loc)))
+    if (!parse_function_call_arguments(ctx, decl, args, true, loc))
         goto out;
 
-    if (!(compile = hlsl_new_compile(ctx, HLSL_COMPILE_TYPE_COMPILE,
-            profile_name, &call_to_compile, 1, args->instrs, loc)))
+    if (!(compile = hlsl_new_compile(ctx, profile_info, decl, args->instrs, loc)))
         goto out;
 
     block = make_block(ctx, compile);

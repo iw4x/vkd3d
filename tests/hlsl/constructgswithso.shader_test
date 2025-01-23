@@ -1,4 +1,4 @@
-[pixel shader todo]
+[pixel shader]
 float4 main() : sv_target { return 0; }
 
 GeometryShader gs1 = CompileShader(gs_5_0, main());

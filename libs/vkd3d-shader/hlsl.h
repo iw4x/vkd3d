@@ -957,33 +957,28 @@ struct hlsl_ir_string_constant
     char *string;
 };
 
-/* Represents shader compilation call for effects, such as "CompileShader()".
- *
- * Unlike hlsl_ir_call, it is not flattened, thus, it keeps track of its
- * arguments and maintains its own instruction block. */
+#define HLSL_STREAM_OUTPUT_MAX 4
+
+/* Represents shader compilation call for effects, such as "CompileShader()". */
 struct hlsl_ir_compile
 {
     struct hlsl_ir_node node;
 
-    enum hlsl_compile_type
-    {
-        /* A shader compilation through the CompileShader() function or the "compile" syntax. */
-        HLSL_COMPILE_TYPE_COMPILE,
-        /* A call to ConstructGSWithSO(), which receives a geometry shader and retrieves one as well. */
-        HLSL_COMPILE_TYPE_CONSTRUCTGSWITHSO,
-    } compile_type;
-
-    /* Special field to store the profile argument for HLSL_COMPILE_TYPE_COMPILE. */
+    /* Special field to store the profile argument. */
     const struct hlsl_profile_info *profile;
+    struct hlsl_ir_function_decl *decl;
 
-    /* Block containing the instructions required by the arguments of the
+    /* Block containing the static initializers passed as arguments of the
      * compilation call. */
-    struct hlsl_block instrs;
+    struct hlsl_block initializers;
 
-    /* Arguments to the compilation call. For HLSL_COMPILE_TYPE_COMPILE
-     * args[0] is an hlsl_ir_call to the specified function. */
-    struct hlsl_src *args;
-    unsigned int args_count;
+    /* Stream Output constants, filled by a ConstructGSWithSO() call. */
+    struct
+    {
+        uint32_t stream;
+        unsigned count;
+        const char *decls[HLSL_STREAM_OUTPUT_MAX];
+    } output;
 };
 
 /* Represents a state block initialized with the "sampler_state" keyword. */
@@ -1745,9 +1740,10 @@ bool hlsl_index_is_resource_access(struct hlsl_ir_index *index);
 bool hlsl_index_chain_has_resource_access(struct hlsl_ir_index *index);
 bool hlsl_index_chain_has_tgsm_access(struct hlsl_ir_index *index);
 
-struct hlsl_ir_node *hlsl_new_compile(struct hlsl_ctx *ctx, enum hlsl_compile_type compile_type,
-        const char *profile_name, struct hlsl_ir_node **args, unsigned int args_count,
-        struct hlsl_block *args_instrs, const struct vkd3d_shader_location *loc);
+struct hlsl_ir_node *hlsl_new_compile(struct hlsl_ctx *ctx, const struct hlsl_profile_info *profile,
+        struct hlsl_ir_function_decl *decl, struct hlsl_block *initializer, const struct vkd3d_shader_location *loc);
+struct hlsl_ir_node *hlsl_new_compile_with_so(struct hlsl_ctx *ctx, struct hlsl_ir_compile *shader,
+        uint32_t stream, size_t count, const char *output_decls[4], const struct vkd3d_shader_location *loc);
 struct hlsl_ir_node *hlsl_new_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op op, struct hlsl_type *type,
         const struct hlsl_deref *dst, struct hlsl_ir_node *coords, struct hlsl_ir_node *cmp_value,
         struct hlsl_ir_node *value, const struct vkd3d_shader_location *loc);
