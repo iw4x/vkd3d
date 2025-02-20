@@ -6342,8 +6342,15 @@ static void allocate_instr_temp_register(struct hlsl_ctx *ctx,
         ctx->temp_count = max(ctx->temp_count, instr->reg.id + 1);
     }
     else if (is_per_component)
-        instr->reg = allocate_numeric_registers_for_type(ctx, allocator,
-                instr->index, instr->last_read, instr->data_type);
+    {
+        instr->reg.writemask = vkd3d_write_mask_from_component_count(instr->data_type->e.numeric.dimx);
+        instr->reg.allocation_size = 1;
+        instr->reg.allocated = true;
+        instr->reg.type = VKD3DSPR_TEMP;
+        instr->reg.id = ctx->temp_count++;
+
+        record_allocation(ctx, allocator, ctx->temp_count - 1, VKD3DSP_WRITEMASK_ALL, 1, UINT_MAX, 0, false);
+    }
     else
     {
         instr->reg.writemask = vkd3d_write_mask_from_component_count(instr->data_type->e.numeric.dimx);
