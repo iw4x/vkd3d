@@ -2512,13 +2512,13 @@ bool hlsl_index_is_resource_access(struct hlsl_ir_index *index)
     return type->class == HLSL_CLASS_TEXTURE || type->class == HLSL_CLASS_UAV;
 }
 
-bool hlsl_index_chain_has_resource_access(struct hlsl_ir_index *index)
+struct hlsl_ir_index *hlsl_index_chain_find_resource_access(struct hlsl_ir_index *index)
 {
     if (hlsl_index_is_resource_access(index))
-        return true;
+        return index;
     if (index->val.node->type == HLSL_IR_INDEX)
-        return hlsl_index_chain_has_resource_access(hlsl_ir_index(index->val.node));
-    return false;
+        return hlsl_index_chain_find_resource_access(hlsl_ir_index(index->val.node));
+    return NULL;
 }
 
 bool hlsl_index_chain_has_tgsm_access(struct hlsl_ir_index *index)

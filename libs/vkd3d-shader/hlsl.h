@@ -1742,7 +1742,7 @@ struct hlsl_ir_node *hlsl_new_store_index(struct hlsl_ctx *ctx, const struct hls
 
 bool hlsl_index_is_noncontiguous(struct hlsl_ir_index *index);
 bool hlsl_index_is_resource_access(struct hlsl_ir_index *index);
-bool hlsl_index_chain_has_resource_access(struct hlsl_ir_index *index);
+struct hlsl_ir_index *hlsl_index_chain_find_resource_access(struct hlsl_ir_index *index);
 bool hlsl_index_chain_has_tgsm_access(struct hlsl_ir_index *index);
 
 struct hlsl_ir_node *hlsl_new_compile(struct hlsl_ctx *ctx, const struct hlsl_profile_info *profile,

@@ -2107,7 +2107,7 @@ static bool add_assignment(struct hlsl_ctx *ctx, struct hlsl_block *block, struc
      * stored to. This is corrected. */
     rhs = add_cast(ctx, block, rhs, lhs_type, &rhs->loc);
 
-    if (lhs->type == HLSL_IR_INDEX && hlsl_index_chain_has_resource_access(hlsl_ir_index(lhs)))
+    if (lhs->type == HLSL_IR_INDEX && hlsl_index_chain_find_resource_access(hlsl_ir_index(lhs)))
     {
         struct hlsl_ir_node *coords = hlsl_ir_index(lhs)->idx.node;
         struct hlsl_deref resource_deref;
@@ -5248,7 +5248,7 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
         return false;
 
     /* TODO: groupshared variables */
-    if (lhs->type == HLSL_IR_INDEX && hlsl_index_chain_has_resource_access(hlsl_ir_index(lhs)))
+    if (lhs->type == HLSL_IR_INDEX && hlsl_index_chain_find_resource_access(hlsl_ir_index(lhs)))
     {
         if (!hlsl_index_is_resource_access(hlsl_ir_index(lhs)))
         {
