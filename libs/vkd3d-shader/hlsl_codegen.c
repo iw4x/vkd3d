@@ -11735,6 +11735,7 @@ static bool sm4_generate_vsir_instr_ld(struct hlsl_ctx *ctx,
     const struct vkd3d_shader_version *version = &program->shader_version;
     const struct hlsl_ir_node *sample_index = load->sample_index.node;
     const struct hlsl_ir_node *texel_offset = load->texel_offset.node;
+    const struct hlsl_ir_node *byte_offset = load->byte_offset.node;
     const struct hlsl_ir_node *coords = load->coords.node;
     unsigned int coords_writemask = VKD3DSP_WRITEMASK_ALL;
     const struct hlsl_deref *resource = &load->resource;
@@ -11742,20 +11743,15 @@ static bool sm4_generate_vsir_instr_ld(struct hlsl_ctx *ctx,
     enum hlsl_sampler_dim dim = load->sampling_dim;
     bool tgsm = load->resource.var->is_tgsm;
     struct vkd3d_shader_instruction *ins;
+    bool multisampled, raw, structured;
     enum vkd3d_shader_opcode opcode;
-    bool multisampled, raw;
 
     VKD3D_ASSERT(load->load_type == HLSL_RESOURCE_LOAD);
-
-    if (resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
-    {
-        hlsl_fixme(ctx, &load->node.loc, "Structured buffer loads.");
-        return false;
-    }
 
     multisampled = resource_type->class == HLSL_CLASS_TEXTURE
             && (resource_type->sampler_dim == HLSL_SAMPLER_DIM_2DMS
             || resource_type->sampler_dim == HLSL_SAMPLER_DIM_2DMSARRAY);
+    structured = resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER;
 
     if (!tgsm)
     {
@@ -11766,15 +11762,19 @@ static bool sm4_generate_vsir_instr_ld(struct hlsl_ctx *ctx,
         hlsl_fixme(ctx, &load->node.loc, "Load from structured TGSM.");
         return false;
     }
+    VKD3D_ASSERT(!(structured && multisampled));
 
-    if (uav)
+    if (structured)
+        opcode = VSIR_OP_LD_STRUCTURED;
+    else if (uav)
         opcode = VSIR_OP_LD_UAV_TYPED;
     else if (raw)
         opcode = VSIR_OP_LD_RAW;
     else
         opcode = multisampled ? VSIR_OP_LD2DMS : VSIR_OP_LD;
 
-    if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, opcode, 1, 2 + multisampled)))
+    if (!(ins = generate_vsir_add_program_instruction(ctx, program,
+            &instr->loc, opcode, 1, 2 + multisampled + structured)))
         return false;
 
     if (texel_offset && !sm4_generate_vsir_validate_texel_offset_aoffimmi(texel_offset))
@@ -11802,10 +11802,15 @@ static bool sm4_generate_vsir_instr_ld(struct hlsl_ctx *ctx,
     vsir_src_from_hlsl_node(&ins->src[0], ctx, coords, coords_writemask);
 
     if (!sm4_generate_vsir_init_src_param_from_deref(ctx, program,
-            &ins->src[1], resource, ins->dst[0].write_mask, &instr->loc))
+            &ins->src[structured ? 2 : 1], resource, ins->dst[0].write_mask, &instr->loc))
         return false;
 
-    if (multisampled)
+    if (structured)
+    {
+        VKD3D_ASSERT(byte_offset);
+        vsir_src_from_hlsl_node(&ins->src[1], ctx, byte_offset, VKD3DSP_WRITEMASK_ALL);
+    }
+    else if (multisampled)
     {
         if (sample_index->type == HLSL_IR_CONSTANT)
             vsir_src_from_hlsl_constant_value(&ins->src[2], ctx,

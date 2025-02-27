@@ -9,7 +9,7 @@ size (buffer, 4)
 8.0 9.0 10.0 11.0
 12.0 13.0 14.0 15.0
 
-[pixel shader todo]
+[pixel shader]
 StructuredBuffer<float4> buffer;
 
 float4 main() : sv_target
@@ -18,10 +18,10 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(0.0, 1.0, 2.0, 3.0)
 
-[pixel shader todo]
+[pixel shader]
 struct banana
 {
     float2 x;
@@ -38,10 +38,10 @@ float4 main() : sv_target
 
 [test]
 uniform 0 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(0.0, 1.0, 2.0, 3.0)
 uniform 0 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(4.0, 5.0, 6.0, 7.0)
 
 [srv 0]
@@ -54,7 +54,7 @@ size (buffer, 5)
 12.0 13.0 14.0
 
 % Structured buffers are tightly packed.
-[pixel shader todo]
+[pixel shader]
 uniform uint idx;
 StructuredBuffer<float3> buffer;
 
@@ -65,15 +65,15 @@ float4 main() : sv_target
 
 [test]
 uniform 0 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(0.0, 1.0, 2.0, 1.0)
 uniform 0 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(3.0, 4.0, 5.0, 1.0)
 
 % Also true for structs.
 
-[pixel shader todo]
+[pixel shader]
 struct banana
 {
     float2 x;
@@ -90,13 +90,13 @@ float4 main() : sv_target
 
 [test]
 uniform 0 uint 2
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(6.0, 7.0, 8.0, 2.0)
 uniform 0 uint 3
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(9.0, 10.0, 11.0, 3.0)
 uniform 0 uint 4
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(12.0, 13.0, 14.0, 4.0)
 
 % Matrices
@@ -114,7 +114,7 @@ size (buffer, 2)
 24.0 25.0 26.0 27.0
 28.0 29.0 30.0 31.0
 
-[pixel shader todo]
+[pixel shader]
 StructuredBuffer<float4x4> buf;
 
 uniform uint buf_idx;
@@ -128,20 +128,20 @@ float4 main() : sv_target
 [test]
 uniform 0 uint 0
 uniform 1 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(0.0, 4.0, 8.0, 12.0)
 
 uniform 0 uint 0
 uniform 1 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(1.0, 5.0, 9.0, 13.0)
 
 uniform 0 uint 1
 uniform 1 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(16.0, 20.0, 24.0, 28.0)
 
-[pixel shader todo]
+[pixel shader]
 struct container
 {
     row_major float4x4 m;
@@ -160,20 +160,20 @@ float4 main() : sv_target
 [test]
 uniform 0 uint 0
 uniform 1 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(0.0, 1.0, 2.0, 3.0)
 
 uniform 0 uint 0
 uniform 1 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(4.0, 5.0, 6.0, 7.0)
 
 uniform 0 uint 1
 uniform 1 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(16.0, 17.0, 18.0, 19.0)
 
-[pixel shader todo]
+[pixel shader]
 StructuredBuffer<float4x4> buf;
 
 uniform uint buf_idx;
@@ -185,14 +185,14 @@ float4 main() : sv_target
 
 [test]
 uniform 0 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(1.0, 2.0, 0.0, 4.0)
 
 uniform 0 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(17.0, 18.0, 16.0, 20.0)
 
-[pixel shader todo]
+[pixel shader]
 typedef row_major float4x4 rm_float4x4;
 StructuredBuffer<rm_float4x4> buf;
 
@@ -205,12 +205,12 @@ float4 main() : sv_target
 
 [test]
 uniform 0 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 if(sm<6) probe (0, 0) rgba(4.0, 8.0, 0.0, 1.0)
 if(sm>=6) probe (0, 0) rgba(1.0, 2.0, 0.0, 4.0)
 
 uniform 0 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 if(sm<6) probe (0, 0) rgba(20.0, 24.0, 16.0, 17.0)
 if(sm>=6) probe (0, 0) rgba(17.0, 18.0, 16.0, 20.0)
 
@@ -225,7 +225,7 @@ size (buffer, 2)
  9.0 10.0
 11.0 12.0
 
-[pixel shader todo]
+[pixel shader]
 StructuredBuffer<float2x3> buf;
 
 uniform uint buf_idx;
@@ -239,20 +239,20 @@ float4 main() : sv_target
 [test]
 uniform 0 uint 0
 uniform 1 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(1.0, 3.0, 5.0, 1.0)
 
 uniform 0 uint 0
 uniform 1 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(2.0, 4.0, 6.0, 1.0)
 
 uniform 0 uint 1
 uniform 1 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe(0, 0) rgba(7.0, 9.0, 11.0, 1.0)
 
-[pixel shader todo]
+[pixel shader]
 typedef row_major float2x3 rm_float2x3;
 StructuredBuffer<rm_float2x3> buf;
 
@@ -267,23 +267,23 @@ float4 main() : sv_target
 [test]
 uniform 0 uint 0
 uniform 1 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 if(sm<6) probe (0, 0) rgba(1.0, 2.0, 3.0, 1.0)
 if(sm>=6) probe (0, 0) rgba(1.0, 3.0, 5.0, 1.0)
 
 uniform 0 uint 0
 uniform 1 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 if(sm<6) probe (0, 0) rgba(4.0, 5.0, 6.0, 1.0)
 if(sm>=6) probe (0, 0) rgba(2.0, 4.0, 6.0, 1.0)
 
 uniform 0 uint 1
 uniform 1 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 if(sm<6) probe(0, 0) rgba(7.0, 8.0, 9.0, 1.0)
 if(sm>=6) probe(0, 0) rgba(7.0, 9.0, 11.0, 1.0)
 
-[pixel shader todo]
+[pixel shader]
 StructuredBuffer<float2x3> buf;
 
 uniform uint buf_idx;
@@ -295,14 +295,14 @@ float4 main() : sv_target
 
 [test]
 uniform 0 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) f32(4.0, 6.0, 5.0, 1.0)
 
 uniform 0 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) f32(10.0, 12.0, 11.0, 1)
 
-[pixel shader todo]
+[pixel shader]
 typedef row_major float2x3 rm_float2x3;
 StructuredBuffer<rm_float2x3> buf;
 
@@ -315,12 +315,12 @@ float4 main() : sv_target
 
 [test]
 uniform 0 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 if(sm<6) probe (0, 0) f32(5.0, 6.0, 3.0, 1.0)
 if(sm>=6) probe (0, 0) f32(4.0, 6.0, 5.0, 1.0)
 
 uniform 0 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 if(sm<6) probe (0, 0) f32(11.0, 12.0, 9.0, 1.0)
 if(sm>=6) probe (0, 0) f32(10.0, 12.0, 11.0, 1.0)
 
@@ -331,7 +331,7 @@ size (buffer, 3)
  5.0  6.0  7.0  8.0  9.0
 10.0 11.0 12.0 13.0 14.0
 
-[pixel shader todo]
+[pixel shader]
 struct banana
 {
     float x[4];
@@ -350,17 +350,17 @@ float4 main() : sv_target
 [test]
 uniform 0 uint 0
 uniform 1 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(0.0, 4.0, 0.0, 0.0)
 
 uniform 0 uint 0
 uniform 1 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(1.0, 4.0, 0.0, 1.0)
 
 uniform 0 uint 1
 uniform 1 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(5.0, 9.0, 1.0, 0.0)
 
 % Same values as above, but mixed float and int.
@@ -371,7 +371,7 @@ size (buffer, 3)
  5.0  6.0  7  8  9
 10.0 11.0 12 13 14
 
-[pixel shader todo]
+[pixel shader]
 struct banana
 {
     float2 x;
@@ -388,14 +388,14 @@ float4 main() : sv_target
 
 [test]
 uniform 0 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(0.0, 1.0, 2.0, 3.0)
 uniform 0 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(5.0, 6.0, 7.0, 8.0)
 
 % Nested structs.
-[pixel shader todo]
+[pixel shader]
 struct floats
 {
     float x;
@@ -425,13 +425,13 @@ float4 main() : sv_target
 
 [test]
 uniform 0 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(0.0, 1.0, 2.0, 3.0)
 uniform 0 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(5.0, 6.0, 7.0, 8.0)
 
-[pixel shader todo]
+[pixel shader]
 struct apple
 {
     float x;
@@ -466,10 +466,10 @@ float4 main() : sv_target
 
 [test]
 uniform 0 uint 0
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(0.0, 1.0, 2.0, 3.0)
 uniform 0 uint 1
-todo(sm<6 | msl) draw quad
+todo(msl | glsl) draw quad
 probe (0, 0) rgba(5.0, 6.0, 7.0, 8.0)
 
 % Check that an index load of a non-structured resource load

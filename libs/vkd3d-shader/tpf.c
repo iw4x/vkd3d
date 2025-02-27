@@ -4309,6 +4309,7 @@ static void tpf_handle_instruction(struct tpf_compiler *tpf, const struct vkd3d_
         case VSIR_OP_LD:
         case VSIR_OP_LD2DMS:
         case VSIR_OP_LD_RAW:
+        case VSIR_OP_LD_STRUCTURED:
         case VSIR_OP_LD_UAV_TYPED:
         case VSIR_OP_LOG:
         case VSIR_OP_LOOP:
