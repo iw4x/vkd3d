@@ -191,8 +191,7 @@ static unsigned int struct_field_get_packed_offset(const struct hlsl_type *recor
     return align(offset, hlsl_type_get_packed_alignment(record->e.record.fields[field_idx].type));
 }
 
-
-static struct hlsl_ir_node *hlsl_block_add_packed_index_offset_append(struct hlsl_ctx *ctx,
+struct hlsl_ir_node *hlsl_block_add_packed_index_offset_append(struct hlsl_ctx *ctx,
         struct hlsl_block *block, struct hlsl_ir_node *prev_offset, struct hlsl_ir_node *idx,
         struct hlsl_type *type, const struct vkd3d_shader_location *loc)
 {
@@ -1798,7 +1797,7 @@ static struct hlsl_ir_node *lower_tgsm_stores(struct hlsl_ctx *ctx,
     coords = hlsl_block_add_uint_constant(ctx, block, 0, &instr->loc);
 
     return hlsl_block_add_resource_store(ctx, block, HLSL_RESOURCE_STORE, &res_deref,
-            coords, store->rhs.node, store->writemask, &instr->loc);
+            NULL, coords, store->rhs.node, store->writemask, &instr->loc);
 }
 
 /* Allocate a unique, ordered index to each instruction, which will be used for
@@ -6299,6 +6298,8 @@ static void compute_liveness_recurse(struct hlsl_block *block, unsigned int loop
                 store->coords.node->last_read = last_read;
             if (store->value.node)
                 store->value.node->last_read = last_read;
+            if (store->byte_offset.node)
+                store->byte_offset.node->last_read = last_read;
             break;
         }
         case HLSL_IR_SWIZZLE:
