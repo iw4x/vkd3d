@@ -12889,6 +12889,9 @@ static void sm4_generate_vsir_add_dcl_texture(struct hlsl_ctx *ctx,
         {
             switch (component_type->sampler_dim)
             {
+                case HLSL_SAMPLER_DIM_STRUCTURED_BUFFER:
+                    opcode = VSIR_OP_DCL_RESOURCE_STRUCTURED;
+                    break;
                 case HLSL_SAMPLER_DIM_RAW_BUFFER:
                     opcode = VSIR_OP_DCL_RESOURCE_RAW;
                     break;
