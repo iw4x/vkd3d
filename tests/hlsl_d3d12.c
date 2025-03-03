@@ -1592,15 +1592,38 @@ static void test_reflection(void)
         "};\n"
         "cbuffer buf2 : register(b[4])\n"
         "{\n"
-        "   float4 vv;\n"
+        "   float3 vv;\n"
+        "   float2 unused;\n"
         "};\n"
+        "StructuredBuffer<float4> sbuf;\n"
+        "StructuredBuffer<float4> unused_sbuff;\n"
+        "struct container\n"
+        "{\n"
+        "    float3 v;\n"
+        "    float2 unused;\n"
+        "};\n"
+        "StructuredBuffer<container> sbuf_container;\n"
+        "struct double_padding\n"
+        "{\n"
+        "    half a, b;\n"
+        "    float c;\n"
+        "    double d;\n"
+        "};\n"
+        "StructuredBuffer<double_padding> dpad_container;"
+        "struct double_padding2\n"
+        "{\n"
+        "    double a;\n"
+        "    float b;\n"
+        "};\n"
+        "StructuredBuffer<double_padding2> dpad2_container;"
         "float4 main(float2 pos : texcoord) : SV_TARGET\n"
         "{\n"
         "    l.c[uint2(0,0)] = 0;\n"
         "    l.d[uint2(0,0)] = 0;\n"
         "    return a.Sample(b, pos) + a.Sample(c, pos) + a.Sample(d, pos) + tex2D(f, pos) + tex2D(e, pos)"
-        "            + tex2D(g, pos) + h.b.Load(h.c).x + k.b.Sample(k.c.a, pos) + v + vv + l.a.Load(int3(0,0,0))"
-        "            + l.b.Load(int3(0,0,0)) + l.e.Load(0).x;\n"
+        "            + tex2D(g, pos) + h.b.Load(h.c).x + k.b.Sample(k.c.a, pos) + v + vv.xyzx + l.a.Load(int3(0,0,0))"
+        "            + l.b.Load(int3(0,0,0)) + l.e.Load(0).x + sbuf[pos.x] + sbuf_container[pos.x].v.xyzx"
+        "            + dpad_container[pos.x].c.xxxx + dpad2_container[pos.x].b.xxxx;\n"
         "}";
 
     static const D3D12_SHADER_INPUT_BIND_DESC ps_bindings[] =
@@ -1617,10 +1640,14 @@ static void test_reflection(void)
         {"g", D3D_SIT_TEXTURE, 2, 1, D3D_SIF_TEXTURE_COMPONENTS, D3D_RETURN_TYPE_FLOAT, D3D_SRV_DIMENSION_TEXTURE2D, ~0u, 0, 2},
         {"a", D3D_SIT_TEXTURE, 3, 1, D3D_SIF_TEXTURE_COMPONENTS, D3D_RETURN_TYPE_FLOAT, D3D_SRV_DIMENSION_TEXTURE2D, ~0u, 0, 3},
         {"k.b", D3D_SIT_TEXTURE, 5, 1, 0, D3D_RETURN_TYPE_FLOAT, D3D_SRV_DIMENSION_TEXTURE1DARRAY, ~0u, 0, 5},
+        {"sbuf", D3D_SIT_STRUCTURED, 6, 1, 0, D3D_RETURN_TYPE_MIXED, D3D_SRV_DIMENSION_BUFFER, 16, 0, 6},
         {"h.b", D3D_SIT_TEXTURE, 7, 1, D3D_SIF_USERPACKED | D3D_SIF_TEXTURE_COMPONENT_0, D3D_RETURN_TYPE_SINT, D3D_SRV_DIMENSION_TEXTURE1D, ~0u, 0, 7},
         {"l.a", D3D_SIT_TEXTURE, 9, 1, D3D_SIF_TEXTURE_COMPONENTS, D3D_RETURN_TYPE_SNORM, D3D_SRV_DIMENSION_TEXTURE2D, ~0u, 0, 9},
         {"l.b", D3D_SIT_TEXTURE, 10, 1, D3D_SIF_TEXTURE_COMPONENTS, D3D_RETURN_TYPE_UNORM, D3D_SRV_DIMENSION_TEXTURE2D, ~0u, 0, 10},
         {"l.e", D3D_SIT_TEXTURE, 11, 1, D3D_SIF_TEXTURE_COMPONENT_1, D3D_RETURN_TYPE_UINT, D3D_SRV_DIMENSION_TEXTURE3D, ~0u, 0, 11},
+        {"sbuf_container", D3D_SIT_STRUCTURED, 12, 1, 0, D3D_RETURN_TYPE_MIXED, D3D_SRV_DIMENSION_BUFFER, 20, 0, 12},
+        {"dpad_container", D3D_SIT_STRUCTURED, 13, 1, 0, D3D_RETURN_TYPE_MIXED, D3D_SRV_DIMENSION_BUFFER, 24, 0, 13},
+        {"dpad2_container", D3D_SIT_STRUCTURED, 14, 1, 0, D3D_RETURN_TYPE_MIXED, D3D_SRV_DIMENSION_BUFFER, 16, 0, 14},
         {"l.c", D3D_SIT_UAV_RWTYPED, 1, 1, D3D_SIF_TEXTURE_COMPONENTS, D3D_RETURN_TYPE_SNORM, D3D_SRV_DIMENSION_TEXTURE2D, ~0u, 0, 1},
         {"l.d", D3D_SIT_UAV_RWTYPED, 2, 1, D3D_SIF_TEXTURE_COMPONENTS, D3D_RETURN_TYPE_UNORM, D3D_SRV_DIMENSION_TEXTURE2D, ~0u, 0, 2},
         {"buf2", D3D_SIT_CBUFFER, 0, 1, D3D_SIF_USERPACKED, .uID = 0},
@@ -1652,14 +1679,59 @@ static void test_reflection(void)
 
     static const struct shader_variable ps_buf2_vars[] =
     {
-        {{"vv", 0, 16, D3D_SVF_USED, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"}},
+        {{"vv",      0, 12, D3D_SVF_USED, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 3, 0, 0, 0, "float3"}},
+        {{"unused", 16, 8,            0, NULL, ~0u, 0, ~0u, 0},  {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 2, 0, 0, 0, "float2"}}
+    };
+
+    static const struct shader_variable sbuf_vars[] =
+    {
+        {{"$Element", 0, 16, D3D_SVF_USED, NULL, ~0, 0, ~0, 0}, {D3D_SVC_VECTOR,        D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"}},
+    };
+
+    static const D3D12_SHADER_TYPE_DESC ps_sbuf_container_field_types[] =
+    {
+        {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 3, 0, 0, 0, "float3"},
+        {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 2, 0, 0, 12, "float2"},
+    };
+
+    static const D3D12_SHADER_TYPE_DESC ps_dbuf_container_field_types[] =
+    {
+        {D3D_SVC_SCALAR, D3D_SVT_FLOAT,  1, 1, 0, 0,  0, "half"},
+        {D3D_SVC_SCALAR, D3D_SVT_FLOAT,  1, 1, 0, 0,  4, "half"},
+        {D3D_SVC_SCALAR, D3D_SVT_FLOAT,  1, 1, 0, 0,  8, "float"},
+        {D3D_SVC_SCALAR, D3D_SVT_DOUBLE, 1, 1, 0, 0, 16, "double"}
+    };
+
+    static const D3D12_SHADER_TYPE_DESC ps_dpad2_container_field_types[] =
+    {
+        {D3D_SVC_SCALAR, D3D_SVT_DOUBLE, 1, 1, 0, 0, 0, "double"},
+        {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 8, "float"}
+    };
+
+    static const struct shader_variable sbuf_container_vars[] =
+    {
+        {{"$Element", 0, 20, D3D_SVF_USED, NULL, ~0, 0, ~0, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 5, 0, ARRAY_SIZE(ps_sbuf_container_field_types), 0, "container"}, ps_sbuf_container_field_types},
+    };
+
+    static const struct shader_variable dpad_container_vars[] =
+    {
+        {{"$Element", 0, 24, D3D_SVF_USED, NULL, ~0, 0, ~0, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 4, 0, ARRAY_SIZE(ps_dbuf_container_field_types), 0, "double_padding"}, ps_dbuf_container_field_types}
+    };
+
+    static const struct shader_variable dpad2_container_vars[] =
+    {
+        {{"$Element", 0, 16, D3D_SVF_USED, NULL, ~0, 0, ~0, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 2, 0, ARRAY_SIZE(ps_dpad2_container_field_types), 0, "double_padding2"}, ps_dpad2_container_field_types}
     };
 
     static const struct shader_buffer ps_buffers[] =
     {
-        {{"$Globals", D3D_CT_CBUFFER,  ARRAY_SIZE(ps_globals_vars), 32}, ps_globals_vars},
-        {{"buf",      D3D_CT_CBUFFER,  ARRAY_SIZE(ps_buf_vars),     16}, ps_buf_vars},
-        {{"buf2",     D3D_CT_CBUFFER,  ARRAY_SIZE(ps_buf2_vars),    16}, ps_buf2_vars},
+        {{"$Globals",       D3D_CT_CBUFFER,            ARRAY_SIZE(ps_globals_vars),     32}, ps_globals_vars},
+        {{"buf",            D3D_CT_CBUFFER,            ARRAY_SIZE(ps_buf_vars),         16}, ps_buf_vars},
+        {{"buf2",           D3D_CT_CBUFFER,            ARRAY_SIZE(ps_buf2_vars),        32}, ps_buf2_vars},
+        {{"sbuf",           D3D_CT_RESOURCE_BIND_INFO, ARRAY_SIZE(sbuf_vars),           16}, sbuf_vars},
+        {{"sbuf_container", D3D_CT_RESOURCE_BIND_INFO, ARRAY_SIZE(sbuf_container_vars), 20}, sbuf_container_vars},
+        {{"dpad_container", D3D_CT_RESOURCE_BIND_INFO, ARRAY_SIZE(dpad_container_vars), 24}, dpad_container_vars},
+        {{"dpad2_container", D3D_CT_RESOURCE_BIND_INFO, ARRAY_SIZE(dpad2_container_vars), 16}, dpad2_container_vars}
     };
 
     static const char ps51_source[] =
@@ -1781,11 +1853,13 @@ static void test_reflection(void)
         for (unsigned int i = 0; i < shader_desc.ConstantBuffers; ++i)
         {
             const struct shader_buffer *expect_buffer = &tests[t].buffers[i];
+            bool structured;
 
             vkd3d_test_push_context("Buffer %u", i);
 
             cbuffer = ID3D12ShaderReflection_GetConstantBufferByIndex(reflection, i);
             hr = ID3D12ShaderReflectionConstantBuffer_GetDesc(cbuffer, &buffer_desc);
+            structured = buffer_desc.Type == D3D_CT_RESOURCE_BIND_INFO;
             ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
             ok(!strcmp(buffer_desc.Name, expect_buffer->desc.Name), "Got name \"%s\".\n", buffer_desc.Name);
             ok(buffer_desc.Type == expect_buffer->desc.Type, "Got type %#x.\n", buffer_desc.Type);
@@ -1807,12 +1881,12 @@ static void test_reflection(void)
                 ok(var_desc.Size == expect->var_desc.Size, "Got size %u.\n", var_desc.Size);
                 ok(var_desc.uFlags == expect->var_desc.uFlags, "Got flags %#x.\n", var_desc.uFlags);
                 ok(!var_desc.DefaultValue, "Got default value %p.\n", var_desc.DefaultValue);
-                todo_if (t != 3) ok(var_desc.StartTexture == expect->var_desc.StartTexture,
+                todo_if (t != 3 && !structured) ok(var_desc.StartTexture == expect->var_desc.StartTexture,
                         "Got texture offset %u.\n", var_desc.StartTexture);
                 todo_if (expect->var_desc.TextureSize)
                     ok(var_desc.TextureSize == expect->var_desc.TextureSize,
                             "Got texture size %u.\n", var_desc.TextureSize);
-                todo_if (t != 3) ok(var_desc.StartSampler == expect->var_desc.StartSampler,
+                todo_if (t != 3 && !structured) ok(var_desc.StartSampler == expect->var_desc.StartSampler,
                         "Got sampler offset %u.\n", var_desc.StartSampler);
                 ok(var_desc.SamplerSize == expect->var_desc.SamplerSize,
                         "Got sampler size %u.\n", var_desc.SamplerSize);
