@@ -1990,6 +1990,9 @@ static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *d3dbc, const str
 
     switch (ins->opcode)
     {
+        case VSIR_OP_NOP:
+            break;
+
         case VSIR_OP_DEF:
             d3dbc_write_vsir_def(d3dbc, ins);
             break;
@@ -2146,6 +2149,9 @@ int d3dbc_compile(struct vsir_program *program, uint64_t config_flags,
     struct d3dbc_compiler d3dbc = {0};
     struct vkd3d_bytecode_buffer *buffer = &d3dbc.buffer;
     int result;
+
+    if ((result = vsir_program_optimize(program, config_flags, compile_info, message_context)))
+        return result;
 
     if ((result = vsir_allocate_temp_registers(program, message_context)))
         return result;

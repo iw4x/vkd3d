@@ -28,6 +28,7 @@ struct vsir_transformation_context
     const struct vkd3d_shader_compile_info *compile_info;
     struct vkd3d_shader_message_context *message_context;
     struct vkd3d_shader_location null_location;
+    bool progress;
 };
 
 static void vsir_transformation_context_init(struct vsir_transformation_context *ctx,
@@ -8850,7 +8851,7 @@ struct liveness_tracker
         bool written;
         bool fixed_mask;
         uint8_t mask;
-        unsigned int first_write, last_access;
+        unsigned int first_write, last_access, last_read;
     } *ssa_regs, *temp_regs;
 };
 
@@ -8864,9 +8865,15 @@ static void liveness_track_src(struct liveness_tracker *tracker,
     }
 
     if (src->reg.type == VKD3DSPR_SSA)
+    {
+        tracker->ssa_regs[src->reg.idx[0].offset].last_read = index;
         tracker->ssa_regs[src->reg.idx[0].offset].last_access = index;
+    }
     else if (src->reg.type == VKD3DSPR_TEMP)
+    {
+        tracker->temp_regs[src->reg.idx[0].offset].last_read = index;
         tracker->temp_regs[src->reg.idx[0].offset].last_access = index;
+    }
 }
 
 static void liveness_track_dst(struct liveness_tracker *tracker, struct vkd3d_shader_dst_param *dst,
@@ -9020,6 +9027,8 @@ static enum vkd3d_result track_liveness(struct vsir_program *program, struct liv
                         reg->first_write = loop_start;
                     if (reg->last_access < i)
                         reg->last_access = i;
+                    if (reg->last_read < i)
+                        reg->last_read = i;
                 }
 
                 for (unsigned int j = 0; j < program->temp_count; ++j)
@@ -9030,6 +9039,8 @@ static enum vkd3d_result track_liveness(struct vsir_program *program, struct liv
                         reg->first_write = loop_start;
                     if (reg->last_access < i)
                         reg->last_access = i;
+                    if (reg->last_read < i)
+                        reg->last_read = i;
                 }
             }
         }
@@ -12888,6 +12899,8 @@ static void vsir_transform_(
         struct vsir_transformation_context *ctx, const char *step_name,
         enum vkd3d_result (*step)(struct vsir_program *program, struct vsir_transformation_context *ctx))
 {
+    ctx->progress = false;
+
     if (ctx->result < 0)
         return;
 
@@ -12903,6 +12916,422 @@ static void vsir_transform_(
         WARN("Validation failed with result %d after transformation \"%s\".\n", ctx->result, step_name);
         return;
     }
+}
+
+static bool vsir_instruction_has_side_effects(const struct vkd3d_shader_instruction *ins)
+{
+    switch (ins->opcode)
+    {
+        case VSIR_OP_ABS:
+        case VSIR_OP_ACOS:
+        case VSIR_OP_ADD:
+        case VSIR_OP_AND:
+        case VSIR_OP_ASIN:
+        case VSIR_OP_ATAN:
+        case VSIR_OP_BEM:
+        case VSIR_OP_BFI:
+        case VSIR_OP_BFREV:
+        case VSIR_OP_BUFINFO:
+        case VSIR_OP_CHECK_ACCESS_FULLY_MAPPED:
+        case VSIR_OP_CMP:
+        case VSIR_OP_CND:
+        case VSIR_OP_COS:
+        case VSIR_OP_COUNTBITS:
+        case VSIR_OP_CRS:
+        case VSIR_OP_DADD:
+        case VSIR_OP_DDIV:
+        case VSIR_OP_DEF:
+        case VSIR_OP_DEFB:
+        case VSIR_OP_DEFI:
+        case VSIR_OP_DEQO:
+        case VSIR_OP_DFMA:
+        case VSIR_OP_DGEO:
+        case VSIR_OP_DIV:
+        case VSIR_OP_DLT:
+        case VSIR_OP_DMAX:
+        case VSIR_OP_DMIN:
+        case VSIR_OP_DMOV:
+        case VSIR_OP_DMOVC:
+        case VSIR_OP_DMUL:
+        case VSIR_OP_DNE:
+        case VSIR_OP_DP2:
+        case VSIR_OP_DP2ADD:
+        case VSIR_OP_DP3:
+        case VSIR_OP_DP4:
+        case VSIR_OP_DRCP:
+        case VSIR_OP_DST:
+        case VSIR_OP_DSX:
+        case VSIR_OP_DSX_COARSE:
+        case VSIR_OP_DSX_FINE:
+        case VSIR_OP_DSY:
+        case VSIR_OP_DSY_COARSE:
+        case VSIR_OP_DSY_FINE:
+        case VSIR_OP_DTOF:
+        case VSIR_OP_DTOI:
+        case VSIR_OP_DTOU:
+        case VSIR_OP_EQO:
+        case VSIR_OP_EQU:
+        case VSIR_OP_EVAL_CENTROID:
+        case VSIR_OP_EVAL_SAMPLE_INDEX:
+        case VSIR_OP_EXP:
+        case VSIR_OP_EXPP:
+        case VSIR_OP_F16TOF32:
+        case VSIR_OP_F32TOF16:
+        case VSIR_OP_FIRSTBIT_HI:
+        case VSIR_OP_FIRSTBIT_LO:
+        case VSIR_OP_FIRSTBIT_SHI:
+        case VSIR_OP_FRC:
+        case VSIR_OP_FREM:
+        case VSIR_OP_FTOD:
+        case VSIR_OP_FTOI:
+        case VSIR_OP_FTOU:
+        case VSIR_OP_GATHER4:
+        case VSIR_OP_GATHER4_C:
+        case VSIR_OP_GATHER4_C_S:
+        case VSIR_OP_GATHER4_PO:
+        case VSIR_OP_GATHER4_PO_C:
+        case VSIR_OP_GATHER4_PO_C_S:
+        case VSIR_OP_GATHER4_PO_S:
+        case VSIR_OP_GATHER4_S:
+        case VSIR_OP_GEO:
+        case VSIR_OP_GEU:
+        case VSIR_OP_HCOS:
+        case VSIR_OP_HSIN:
+        case VSIR_OP_HTAN:
+        case VSIR_OP_IADD:
+        case VSIR_OP_IBFE:
+        case VSIR_OP_IDIV:
+        case VSIR_OP_IEQ:
+        case VSIR_OP_IGE:
+        case VSIR_OP_ILT:
+        case VSIR_OP_IMAD:
+        case VSIR_OP_IMAX:
+        case VSIR_OP_IMIN:
+        case VSIR_OP_IMUL:
+        case VSIR_OP_IMUL_LOW:
+        case VSIR_OP_INE:
+        case VSIR_OP_INEG:
+        case VSIR_OP_IREM:
+        case VSIR_OP_ISFINITE:
+        case VSIR_OP_ISHL:
+        case VSIR_OP_ISHR:
+        case VSIR_OP_ISINF:
+        case VSIR_OP_ISNAN:
+        case VSIR_OP_ITOD:
+        case VSIR_OP_ITOF:
+        case VSIR_OP_ITOI:
+        case VSIR_OP_LD:
+        case VSIR_OP_LD2DMS:
+        case VSIR_OP_LD2DMS_S:
+        case VSIR_OP_LD_RAW:
+        case VSIR_OP_LD_RAW_S:
+        case VSIR_OP_LD_S:
+        case VSIR_OP_LD_STRUCTURED:
+        case VSIR_OP_LD_STRUCTURED_S:
+        case VSIR_OP_LD_UAV_TYPED:
+        case VSIR_OP_LD_UAV_TYPED_S:
+        case VSIR_OP_LIT:
+        case VSIR_OP_LOD:
+        case VSIR_OP_LOG:
+        case VSIR_OP_LOGP:
+        case VSIR_OP_LRP:
+        case VSIR_OP_LTO:
+        case VSIR_OP_LTU:
+        case VSIR_OP_M3x2:
+        case VSIR_OP_M3x3:
+        case VSIR_OP_M3x4:
+        case VSIR_OP_M4x3:
+        case VSIR_OP_M4x4:
+        case VSIR_OP_MAD:
+        case VSIR_OP_MAX:
+        case VSIR_OP_MIN:
+        case VSIR_OP_MOV:
+        case VSIR_OP_MOVA:
+        case VSIR_OP_MOVC:
+        case VSIR_OP_MSAD:
+        case VSIR_OP_MUL:
+        case VSIR_OP_NEO:
+        case VSIR_OP_NEU:
+        case VSIR_OP_NOP:
+        case VSIR_OP_NOT:
+        case VSIR_OP_NRM:
+        case VSIR_OP_OR:
+        case VSIR_OP_ORD:
+        case VSIR_OP_PHI:
+        case VSIR_OP_POW:
+        case VSIR_OP_QUAD_READ_ACROSS_D:
+        case VSIR_OP_QUAD_READ_ACROSS_X:
+        case VSIR_OP_QUAD_READ_ACROSS_Y:
+        case VSIR_OP_QUAD_READ_LANE_AT:
+        case VSIR_OP_RCP:
+        case VSIR_OP_RESINFO:
+        case VSIR_OP_ROUND_NE:
+        case VSIR_OP_ROUND_NI:
+        case VSIR_OP_ROUND_PI:
+        case VSIR_OP_ROUND_Z:
+        case VSIR_OP_RSQ:
+        case VSIR_OP_SAMPLE:
+        case VSIR_OP_SAMPLE_B:
+        case VSIR_OP_SAMPLE_B_CL_S:
+        case VSIR_OP_SAMPLE_C:
+        case VSIR_OP_SAMPLE_C_CL_S:
+        case VSIR_OP_SAMPLE_C_LZ:
+        case VSIR_OP_SAMPLE_C_LZ_S:
+        case VSIR_OP_SAMPLE_CL_S:
+        case VSIR_OP_SAMPLE_GRAD:
+        case VSIR_OP_SAMPLE_GRAD_CL_S:
+        case VSIR_OP_SAMPLE_INFO:
+        case VSIR_OP_SAMPLE_LOD:
+        case VSIR_OP_SAMPLE_LOD_S:
+        case VSIR_OP_SAMPLE_POS:
+        case VSIR_OP_SETP:
+        case VSIR_OP_SGE:
+        case VSIR_OP_SGN:
+        case VSIR_OP_SIN:
+        case VSIR_OP_SINCOS:
+        case VSIR_OP_SLT:
+        case VSIR_OP_SQRT:
+        case VSIR_OP_SUB:
+        case VSIR_OP_SWAPC:
+        case VSIR_OP_TAN:
+        case VSIR_OP_TEX:
+        case VSIR_OP_TEXBEM:
+        case VSIR_OP_TEXBEML:
+        case VSIR_OP_TEXCOORD:
+        case VSIR_OP_TEXCRD:
+        case VSIR_OP_TEXDEPTH:
+        case VSIR_OP_TEXDP3:
+        case VSIR_OP_TEXDP3TEX:
+        case VSIR_OP_TEXLD:
+        case VSIR_OP_TEXLDD:
+        case VSIR_OP_TEXLDL:
+        case VSIR_OP_TEXM3x2DEPTH:
+        case VSIR_OP_TEXM3x2PAD:
+        case VSIR_OP_TEXM3x2TEX:
+        case VSIR_OP_TEXM3x3:
+        case VSIR_OP_TEXM3x3DIFF:
+        case VSIR_OP_TEXM3x3PAD:
+        case VSIR_OP_TEXM3x3SPEC:
+        case VSIR_OP_TEXM3x3TEX:
+        case VSIR_OP_TEXM3x3VSPEC:
+        case VSIR_OP_TEXREG2AR:
+        case VSIR_OP_TEXREG2GB:
+        case VSIR_OP_TEXREG2RGB:
+        case VSIR_OP_UBFE:
+        case VSIR_OP_UDIV:
+        case VSIR_OP_UDIV_SIMPLE:
+        case VSIR_OP_UGE:
+        case VSIR_OP_ULT:
+        case VSIR_OP_UMAX:
+        case VSIR_OP_UMIN:
+        case VSIR_OP_UMUL:
+        case VSIR_OP_UNO:
+        case VSIR_OP_UREM:
+        case VSIR_OP_USHR:
+        case VSIR_OP_UTOD:
+        case VSIR_OP_UTOF:
+        case VSIR_OP_UTOU:
+        case VSIR_OP_WAVE_ACTIVE_ALL_EQUAL:
+        case VSIR_OP_WAVE_ACTIVE_BALLOT:
+        case VSIR_OP_WAVE_ACTIVE_BIT_AND:
+        case VSIR_OP_WAVE_ACTIVE_BIT_OR:
+        case VSIR_OP_WAVE_ACTIVE_BIT_XOR:
+        case VSIR_OP_WAVE_ALL_BIT_COUNT:
+        case VSIR_OP_WAVE_ALL_TRUE:
+        case VSIR_OP_WAVE_ANY_TRUE:
+        case VSIR_OP_WAVE_IS_FIRST_LANE:
+        case VSIR_OP_WAVE_OP_ADD:
+        case VSIR_OP_WAVE_OP_IMAX:
+        case VSIR_OP_WAVE_OP_IMIN:
+        case VSIR_OP_WAVE_OP_MAX:
+        case VSIR_OP_WAVE_OP_MIN:
+        case VSIR_OP_WAVE_OP_MUL:
+        case VSIR_OP_WAVE_OP_UMAX:
+        case VSIR_OP_WAVE_OP_UMIN:
+        case VSIR_OP_WAVE_PREFIX_BIT_COUNT:
+        case VSIR_OP_WAVE_READ_LANE_AT:
+        case VSIR_OP_WAVE_READ_LANE_FIRST:
+        case VSIR_OP_XOR:
+            return false;
+
+        case VSIR_OP_ATOMIC_AND:
+        case VSIR_OP_ATOMIC_CMP_STORE:
+        case VSIR_OP_ATOMIC_IADD:
+        case VSIR_OP_ATOMIC_IMAX:
+        case VSIR_OP_ATOMIC_IMIN:
+        case VSIR_OP_ATOMIC_OR:
+        case VSIR_OP_ATOMIC_UMAX:
+        case VSIR_OP_ATOMIC_UMIN:
+        case VSIR_OP_ATOMIC_XOR:
+        case VSIR_OP_BRANCH:
+        case VSIR_OP_BREAK:
+        case VSIR_OP_BREAKC:
+        case VSIR_OP_BREAKP:
+        case VSIR_OP_CALL:
+        case VSIR_OP_CALLNZ:
+        case VSIR_OP_CASE:
+        case VSIR_OP_CONTINUE:
+        case VSIR_OP_CONTINUEP:
+        case VSIR_OP_CUT:
+        case VSIR_OP_CUT_STREAM:
+        case VSIR_OP_DCL:
+        case VSIR_OP_DCL_CONSTANT_BUFFER:
+        case VSIR_OP_DCL_FUNCTION_BODY:
+        case VSIR_OP_DCL_FUNCTION_TABLE:
+        case VSIR_OP_DCL_GLOBAL_FLAGS:
+        case VSIR_OP_DCL_GS_INSTANCES:
+        case VSIR_OP_DCL_HS_FORK_PHASE_INSTANCE_COUNT:
+        case VSIR_OP_DCL_HS_JOIN_PHASE_INSTANCE_COUNT:
+        case VSIR_OP_DCL_HS_MAX_TESSFACTOR:
+        case VSIR_OP_DCL_IMMEDIATE_CONSTANT_BUFFER:
+        case VSIR_OP_DCL_INDEX_RANGE:
+        case VSIR_OP_DCL_INDEXABLE_TEMP:
+        case VSIR_OP_DCL_INPUT:
+        case VSIR_OP_DCL_INPUT_CONTROL_POINT_COUNT:
+        case VSIR_OP_DCL_INPUT_PRIMITIVE:
+        case VSIR_OP_DCL_INPUT_PS:
+        case VSIR_OP_DCL_INPUT_PS_SGV:
+        case VSIR_OP_DCL_INPUT_PS_SIV:
+        case VSIR_OP_DCL_INPUT_SGV:
+        case VSIR_OP_DCL_INPUT_SIV:
+        case VSIR_OP_DCL_INTERFACE:
+        case VSIR_OP_DCL_OUTPUT:
+        case VSIR_OP_DCL_OUTPUT_CONTROL_POINT_COUNT:
+        case VSIR_OP_DCL_OUTPUT_SGV:
+        case VSIR_OP_DCL_OUTPUT_SIV:
+        case VSIR_OP_DCL_OUTPUT_TOPOLOGY:
+        case VSIR_OP_DCL_RESOURCE_RAW:
+        case VSIR_OP_DCL_RESOURCE_STRUCTURED:
+        case VSIR_OP_DCL_SAMPLER:
+        case VSIR_OP_DCL_STREAM:
+        case VSIR_OP_DCL_TEMPS:
+        case VSIR_OP_DCL_TESSELLATOR_DOMAIN:
+        case VSIR_OP_DCL_TESSELLATOR_OUTPUT_PRIMITIVE:
+        case VSIR_OP_DCL_TESSELLATOR_PARTITIONING:
+        case VSIR_OP_DCL_TGSM_RAW:
+        case VSIR_OP_DCL_TGSM_STRUCTURED:
+        case VSIR_OP_DCL_THREAD_GROUP:
+        case VSIR_OP_DCL_UAV_RAW:
+        case VSIR_OP_DCL_UAV_STRUCTURED:
+        case VSIR_OP_DCL_UAV_TYPED:
+        case VSIR_OP_DCL_VERTICES_OUT:
+        case VSIR_OP_DEFAULT:
+        case VSIR_OP_DISCARD:
+        case VSIR_OP_ELSE:
+        case VSIR_OP_EMIT:
+        case VSIR_OP_EMIT_STREAM:
+        case VSIR_OP_ENDIF:
+        case VSIR_OP_ENDLOOP:
+        case VSIR_OP_ENDREP:
+        case VSIR_OP_ENDSWITCH:
+        case VSIR_OP_FCALL:
+        case VSIR_OP_HS_CONTROL_POINT_PHASE:
+        case VSIR_OP_HS_DECLS:
+        case VSIR_OP_HS_FORK_PHASE:
+        case VSIR_OP_HS_JOIN_PHASE:
+        case VSIR_OP_IF:
+        case VSIR_OP_IFC:
+        case VSIR_OP_IMM_ATOMIC_ALLOC:
+        case VSIR_OP_IMM_ATOMIC_AND:
+        case VSIR_OP_IMM_ATOMIC_CMP_EXCH:
+        case VSIR_OP_IMM_ATOMIC_CONSUME:
+        case VSIR_OP_IMM_ATOMIC_EXCH:
+        case VSIR_OP_IMM_ATOMIC_IADD:
+        case VSIR_OP_IMM_ATOMIC_IMAX:
+        case VSIR_OP_IMM_ATOMIC_IMIN:
+        case VSIR_OP_IMM_ATOMIC_OR:
+        case VSIR_OP_IMM_ATOMIC_UMAX:
+        case VSIR_OP_IMM_ATOMIC_UMIN:
+        case VSIR_OP_IMM_ATOMIC_XOR:
+        case VSIR_OP_LABEL:
+        case VSIR_OP_LOOP:
+        case VSIR_OP_PHASE:
+        case VSIR_OP_REP:
+        case VSIR_OP_RET:
+        case VSIR_OP_RETP:
+        case VSIR_OP_STORE_RAW:
+        case VSIR_OP_STORE_STRUCTURED:
+        case VSIR_OP_STORE_UAV_TYPED:
+        case VSIR_OP_SWITCH:
+        case VSIR_OP_SWITCH_MONOLITHIC:
+        case VSIR_OP_SYNC:
+        case VSIR_OP_TEXKILL:
+            return true;
+
+        case VSIR_OP_INVALID:
+        case VSIR_OP_COUNT:
+            break;
+    }
+
+    vkd3d_unreachable();
+}
+
+static enum vkd3d_result vsir_program_dce(struct vsir_program *program,
+        struct vsir_transformation_context *ctx)
+{
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
+    struct vkd3d_shader_instruction *ins;
+    struct liveness_tracker tracker;
+    enum vkd3d_result ret;
+    unsigned int i;
+
+    if ((ret = track_liveness(program, &tracker)))
+        return ret;
+
+    for (ins = vsir_program_iterator_head(&it), i = 0; ins; ins = vsir_program_iterator_next(&it), ++i)
+    {
+        unsigned int used_dst_count = 0;
+
+        /* FIXME: IMM_ATOMIC_* can still be effectively DCE'd by turning them
+         * into non-immediate ATOMIC_* instructions. */
+        if (vsir_instruction_has_side_effects(ins))
+            continue;
+
+        for (unsigned int j = 0; j < ins->dst_count; ++j)
+        {
+            struct vkd3d_shader_dst_param *dst = &ins->dst[j];
+
+            if (dst->reg.type == VKD3DSPR_SSA && !tracker.ssa_regs[dst->reg.idx[0].offset].last_read)
+            {
+                vsir_dst_param_init_null(dst);
+                ctx->progress = true;
+            }
+            else if (dst->reg.type == VKD3DSPR_TEMP
+                    && tracker.temp_regs[dst->reg.idx[0].offset].last_read <= i
+                    && !(program->shader_version.major == 1 && dst->reg.idx[0].offset == 0))
+            {
+                vsir_dst_param_init_null(dst);
+                ctx->progress = true;
+            }
+            else if (dst->reg.type != VKD3DSPR_NULL)
+            {
+                ++used_dst_count;
+            }
+        }
+
+        if (!used_dst_count)
+            vkd3d_shader_instruction_make_nop(ins);
+    }
+
+    liveness_tracker_cleanup(&tracker);
+    return VKD3D_OK;
+}
+
+enum vkd3d_result vsir_program_optimize(struct vsir_program *program, uint64_t config_flags,
+        const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_message_context *message_context)
+{
+    struct vsir_transformation_context ctx;
+
+    vsir_transformation_context_init(&ctx, program, config_flags, compile_info, message_context);
+
+    do
+        vsir_transform(&ctx, vsir_program_dce);
+    while (ctx.progress);
+
+    if (TRACE_ON())
+        vsir_program_trace(program);
+
+    return ctx.result;
 }
 
 /* Transformations which should happen at parse time, i.e. before scan

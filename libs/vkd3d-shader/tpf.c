@@ -4170,6 +4170,9 @@ static void tpf_handle_instruction(struct tpf_compiler *tpf, const struct vkd3d_
 {
     switch (ins->opcode)
     {
+        case VSIR_OP_NOP:
+            break;
+
         case VSIR_OP_DCL_CONSTANT_BUFFER:
             tpf_dcl_constant_buffer(tpf, ins);
             break;
@@ -4520,7 +4523,8 @@ static void tpf_write_section(struct tpf_compiler *tpf, uint32_t tag, const stru
     add_section(tpf, tag, &buffer);
 }
 
-int tpf_compile(struct vsir_program *program, uint64_t config_flags, const struct vkd3d_shader_code *rdef,
+int tpf_compile(struct vsir_program *program, uint64_t config_flags,
+        const struct vkd3d_shader_compile_info *compile_info, const struct vkd3d_shader_code *rdef,
         struct vkd3d_shader_code *out, struct vkd3d_shader_message_context *message_context)
 {
     enum vkd3d_shader_type shader_type = program->shader_version.type;
@@ -4528,6 +4532,9 @@ int tpf_compile(struct vsir_program *program, uint64_t config_flags, const struc
     struct sm4_stat stat = {0};
     size_t i;
     int ret;
+
+    if ((ret = vsir_program_optimize(program, config_flags, compile_info, message_context)))
+        return ret;
 
     if ((ret = vsir_allocate_temp_registers(program, message_context)))
         return ret;

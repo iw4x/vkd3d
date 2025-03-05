@@ -1874,7 +1874,7 @@ static int vsir_program_compile(struct vsir_program *program, const struct vkd3d
         case VKD3D_SHADER_TARGET_DXBC_TPF:
             if ((ret = vsir_program_scan(program, &scan_info, message_context, true)) < 0)
                 return ret;
-            ret = tpf_compile(program, config_flags, reflection_data, out, message_context);
+            ret = tpf_compile(program, config_flags, compile_info, reflection_data, out, message_context);
             break;
 
         case VKD3D_SHADER_TARGET_GLSL:
