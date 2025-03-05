@@ -233,6 +233,9 @@ struct hlsl_type
     /* Offset where the type's description starts in the output bytecode, in bytes. */
     size_t bytecode_offset;
 
+    /* Offset where the type's packed description starts in the output bytecode, in bytes. */
+    size_t packed_bytecode_offset;
+
     bool is_typedef;
 
     uint32_t is_minimum_precision : 1;
