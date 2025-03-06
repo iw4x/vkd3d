@@ -8115,7 +8115,7 @@ resource_format:
         {
             uint32_t modifiers = $1;
 
-            if (!($$ = apply_type_modifiers(ctx, $2, &modifiers, false, &@1)))
+            if (!($$ = apply_type_modifiers(ctx, $2, &modifiers, true, &@1)))
                 YYABORT;
         }
 
