@@ -13030,8 +13030,6 @@ static void vsir_transform_(
         struct vsir_transformation_context *ctx, const char *step_name,
         enum vkd3d_result (*step)(struct vsir_program *program, struct vsir_transformation_context *ctx))
 {
-    ctx->progress = false;
-
     if (ctx->result < 0)
         return;
 
@@ -13448,6 +13446,229 @@ static enum vkd3d_result vsir_program_dce(struct vsir_program *program,
     return VKD3D_OK;
 }
 
+/*
+ * This pass attempts to reduce redundant MOVs (copies) by combining them with
+ * adjacent instructions. The resulting MOVs will subsequently be removed by
+ * DCE if no longer used.
+ *
+ * We attempt to combine two instructions, not necessarily consecutive,
+ * of the form
+ *
+ *      mov aaa.bbb, ccc
+ *      XXX ..., aaa.ddd
+ *
+ * into
+ *
+ *      XXX ..., ccc
+ *
+ * There are many constraints, including:
+ *
+ *  - The ddd components of aaa must not have been modified between the
+ *    two instructions.
+ *    Currently, only SSA is supported, so this is trivial.
+ *
+ *  - The relevant components of ccc must not have been modified between the
+ *    two instructions.
+ *    Currently, we require ccc to be a read-only register, so this is trivial.
+ *
+ *  - ddd must be a subset of bbb. This is again trivial for SSA.
+ */
+
+struct vsir_copy_propagation_state
+{
+    /* The sources for each SSA register, if it was written by a
+     * MOV instruction, or NULL if not.
+     *
+     * We do not add or remove instructions in this pass, only modifying their
+     * content, so these pointers are safe to store.
+     */
+    const struct vkd3d_shader_instruction **ssa_sources;
+};
+
+static bool is_read_only(const struct vsir_program *program, enum vkd3d_shader_register_type type)
+{
+    switch (type)
+    {
+        case VKD3DSPR_ADDR:
+        case VKD3DSPR_IDXTEMP:
+        case VKD3DSPR_LOOP:
+        case VKD3DSPR_TEMP:
+        case VKD3DSPR_TEMPFLOAT16:
+            return false;
+
+        case VKD3DSPR_TEXTURE:
+            return vkd3d_shader_ver_ge(&program->shader_version, 1, 4);
+
+        /* Not applicable since they're not numeric or can't be sources. */
+        case VKD3DSPR_ATTROUT:
+        case VKD3DSPR_COLOROUT:
+        case VKD3DSPR_COMBINED_SAMPLER:
+        case VKD3DSPR_COUNT:
+        case VKD3DSPR_DEPTHOUT:
+        case VKD3DSPR_DEPTHOUTGE:
+        case VKD3DSPR_DEPTHOUTLE:
+        case VKD3DSPR_FUNCTIONBODY:
+        case VKD3DSPR_FUNCTIONPOINTER:
+        case VKD3DSPR_GROUPSHAREDMEM:
+        case VKD3DSPR_INVALID:
+        case VKD3DSPR_LABEL:
+        case VKD3DSPR_NULL:
+        case VKD3DSPR_OUTPUT:
+        case VKD3DSPR_OUTSTENCILREF:
+        case VKD3DSPR_PREDICATE:
+        case VKD3DSPR_RASTERIZER:
+        case VKD3DSPR_RASTOUT:
+        case VKD3DSPR_RESOURCE:
+        case VKD3DSPR_SAMPLER:
+        case VKD3DSPR_STREAM:
+        case VKD3DSPR_TEXCRDOUT:
+        case VKD3DSPR_UAV:
+            return false;
+
+        case VKD3DSPR_CONST:
+        case VKD3DSPR_CONSTBOOL:
+        case VKD3DSPR_CONSTBUFFER:
+        case VKD3DSPR_CONSTINT:
+        case VKD3DSPR_COVERAGE:
+        case VKD3DSPR_FORKINSTID:
+        case VKD3DSPR_GSINSTID:
+        case VKD3DSPR_IMMCONST:
+        case VKD3DSPR_IMMCONST64:
+        case VKD3DSPR_IMMCONSTBUFFER:
+        case VKD3DSPR_INCONTROLPOINT:
+        case VKD3DSPR_INPUT:
+        case VKD3DSPR_JOININSTID:
+        case VKD3DSPR_LOCALTHREADID:
+        case VKD3DSPR_LOCALTHREADINDEX:
+        case VKD3DSPR_MISCTYPE:
+        case VKD3DSPR_OUTCONTROLPOINT:
+        case VKD3DSPR_OUTPOINTID:
+        case VKD3DSPR_PARAMETER:
+        case VKD3DSPR_PATCHCONST:
+        case VKD3DSPR_POINT_COORD:
+        case VKD3DSPR_PRIMID:
+        case VKD3DSPR_SAMPLEMASK:
+        case VKD3DSPR_SSA:
+        case VKD3DSPR_TESSCOORD:
+        case VKD3DSPR_THREADGROUPID:
+        case VKD3DSPR_THREADID:
+        case VKD3DSPR_UNDEF:
+        case VKD3DSPR_WAVELANECOUNT:
+        case VKD3DSPR_WAVELANEINDEX:
+            return true;
+    }
+
+    vkd3d_unreachable();
+}
+
+static bool can_propagate_ssa_source(const struct vsir_program *program, const struct vkd3d_shader_instruction *ins)
+{
+    if (ins->opcode != VSIR_OP_MOV)
+        return false;
+    /* TODO: Propagate copies for other register types. */
+    if (ins->dst[0].reg.type != VKD3DSPR_SSA)
+        return false;
+    if (ins->dst[0].modifiers || ins->dst[0].shift)
+        return false;
+
+    /* TODO: We can perform copy-prop for read-write register types, but we
+     * have to be sure that the register wasn't modified between the two
+     * instructions. */
+    if (!is_read_only(program, ins->src[0].reg.type))
+        return false;
+    for (unsigned int k = 0; k < ins->src[0].reg.idx_count; ++k)
+    {
+        if (ins->src[0].reg.idx[k].rel_addr && !is_read_only(program, ins->src[0].reg.idx[k].rel_addr->reg.type))
+            return false;
+    }
+
+    /* Don't bother with other source modifiers for now; the HLSL compiler
+     * doesn't emit them. */
+    switch (ins->src[0].modifiers)
+    {
+        case VKD3DSPSM_ABS:
+        case VKD3DSPSM_ABSNEG:
+        case VKD3DSPSM_NEG:
+        case VKD3DSPSM_NONE:
+            break;
+
+        default:
+            return false;
+    }
+    return true;
+}
+
+static enum vkd3d_result vsir_program_copy_propagation(struct vsir_program *program,
+        struct vsir_transformation_context *ctx)
+{
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
+    struct vsir_copy_propagation_state state = {0};
+    struct vkd3d_shader_instruction *ins;
+
+    if (!(state.ssa_sources = vkd3d_calloc(program->ssa_count, sizeof(*state.ssa_sources))))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
+    {
+        for (unsigned int j = 0; j < ins->src_count; ++j)
+        {
+            struct vkd3d_shader_src_param *src = &ins->src[j];
+            const struct vkd3d_shader_src_param *mov_src;
+            const struct vkd3d_shader_instruction *mov;
+            enum vsir_data_type data_type;
+            uint32_t new_swizzle = 0;
+
+            if (src->reg.type != VKD3DSPR_SSA)
+                continue;
+            if (data_type_is_64_bit(src->reg.data_type))
+                continue;
+            if (!(mov = state.ssa_sources[src->reg.idx[0].offset]))
+                continue;
+            mov_src = &mov->src[0];
+            data_type = src->reg.data_type;
+
+            src->reg = mov_src->reg;
+            src->reg.data_type = data_type;
+
+            if (!shader_register_clone_relative_addresses(&src->reg, program))
+            {
+                vkd3d_free(state.ssa_sources);
+                return VKD3D_ERROR_OUT_OF_MEMORY;
+            }
+
+            for (unsigned int k = 0; k < 4; ++k)
+            {
+                unsigned int s = vsir_swizzle_get_component(src->swizzle, k);
+
+                if (mov_src->reg.type == VKD3DSPR_IMMCONST)
+                    src->reg.u.immconst_u32[k] = mov_src->reg.u.immconst_u32[s];
+                else
+                    vsir_swizzle_set_component(&new_swizzle, k, vsir_swizzle_get_component(mov_src->swizzle, s));
+            }
+            if (mov_src->reg.type != VKD3DSPR_IMMCONST)
+                src->swizzle = new_swizzle;
+
+            if (src->modifiers == VKD3DSPSM_NONE)
+                src->modifiers = mov_src->modifiers;
+            else if (src->modifiers == VKD3DSPSM_NEG && mov_src->modifiers == VKD3DSPSM_ABS)
+                src->modifiers = VKD3DSPSM_ABSNEG;
+            else if (src->modifiers == VKD3DSPSM_NEG && mov_src->modifiers == VKD3DSPSM_ABSNEG)
+                src->modifiers = VKD3DSPSM_ABS;
+            else if (src->modifiers == VKD3DSPSM_NEG && mov_src->modifiers == VKD3DSPSM_NEG)
+                src->modifiers = VKD3DSPSM_NONE;
+            /* Otherwise no change is necessary. */
+
+            ctx->progress = true;
+        }
+
+        if (can_propagate_ssa_source(program, ins))
+            state.ssa_sources[ins->dst[0].reg.idx[0].offset] = ins;
+    }
+
+    vkd3d_free(state.ssa_sources);
+    return VKD3D_OK;
+}
+
 enum vkd3d_result vsir_program_optimize(struct vsir_program *program, uint64_t config_flags,
         const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_message_context *message_context)
 {
@@ -13456,7 +13677,11 @@ enum vkd3d_result vsir_program_optimize(struct vsir_program *program, uint64_t c
     vsir_transformation_context_init(&ctx, program, config_flags, compile_info, message_context);
 
     do
+    {
+        ctx.progress = false;
+        vsir_transform(&ctx, vsir_program_copy_propagation);
         vsir_transform(&ctx, vsir_program_dce);
+    }
     while (ctx.progress);
 
     if (TRACE_ON())

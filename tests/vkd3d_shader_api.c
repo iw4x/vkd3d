@@ -447,7 +447,7 @@ static void check_signature_element_(const char *file, unsigned int line,
             "Got register index %u.\n", element->register_index);
     ok_(file, line)(element->mask == expect->mask,
             "Got mask %#x.\n", element->mask);
-    todo_if (expect->used_mask != expect->mask && strcmp(expect->semantic_name, "PSIZE"))
+    todo_if (expect->used_mask != expect->mask && element->used_mask != expect->used_mask)
         ok_(file, line)(element->used_mask == expect->used_mask,
                 "Got used mask %#x.\n", element->used_mask);
     ok_(file, line)(element->min_precision == expect->min_precision,
@@ -542,8 +542,8 @@ static void test_scan_signatures(void)
         {"BLENDINDICES",    0, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 2, 0xf, 0xf},
         {"TEXCOORD",        2, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 3, 0xf, 0xf},
         {"COLOR",           0, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 4, 0xf, 0xf},
-        {"FOG",             0, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 5, 0xf, 0xf},
-        {"PSIZE",           0, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 6, 0xf, 0xf},
+        {"FOG",             0, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 5, 0xf, 0x1},
+        {"PSIZE",           0, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 6, 0xf, 0x1},
     };
 
     static const struct vkd3d_shader_signature_element vs3_outputs[] =
@@ -574,8 +574,8 @@ static void test_scan_signatures(void)
         {"BLENDINDICES",    0, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 2, 0xf, 0xf},
         {"TEXCOORD",        2, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 3, 0xf, 0xf},
         {"COLOR",           0, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 4, 0xf, 0xf},
-        {"FOG",             0, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 5, 0xf, 0xf},
-        {"PSIZE",           0, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 6, 0xf, 0xf},
+        {"FOG",             0, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 5, 0xf, 0x1},
+        {"PSIZE",           0, 0, VKD3D_SHADER_SV_NONE, VKD3D_SHADER_COMPONENT_FLOAT, 6, 0xf, 0x1},
     };
 
     static const struct vkd3d_shader_signature_element vs4_outputs[] =
@@ -758,7 +758,7 @@ static void test_scan_signatures(void)
     static const struct vkd3d_shader_signature_element ps3_inputs[] =
     {
         {"COLOR",       0, 0, VKD3D_SHADER_SV_NONE,     VKD3D_SHADER_COMPONENT_FLOAT, 8, 0xf, 0xf},
-        {"TEXCOORD",    2, 0, VKD3D_SHADER_SV_NONE,     VKD3D_SHADER_COMPONENT_FLOAT, 2, 0xf, 0xf},
+        {"TEXCOORD",    2, 0, VKD3D_SHADER_SV_NONE,     VKD3D_SHADER_COMPONENT_FLOAT, 2, 0xf, 0x1},
     };
 
     static const struct vkd3d_shader_signature_element ps3_outputs[] =
