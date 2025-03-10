@@ -280,7 +280,7 @@ static void shader_glsl_print_register_name(struct vkd3d_string_buffer *buffer,
             break;
 
         case VKD3DSPR_THREADID:
-            vkd3d_string_buffer_printf(buffer, "gl_GlobalInvocationID");
+            vkd3d_string_buffer_printf(buffer, "uvec4(gl_GlobalInvocationID, 0)");
             break;
 
         case VKD3DSPR_IDXTEMP:
