@@ -1825,6 +1825,35 @@ static enum vkd3d_result vsir_program_lower_texldl(struct vsir_program *program,
     return VKD3D_OK;
 }
 
+static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program, struct vkd3d_shader_instruction *ins)
+{
+    unsigned int idx = ins->dst[0].reg.idx[0].offset;
+    struct vkd3d_shader_src_param *srcs;
+
+    /* tex t# -> sample t#, t#, resource#, sampler#
+     * Note that the t# destination will subsequently be turned into a temp. */
+
+    /* We run before I/O normalization. */
+    VKD3D_ASSERT(program->normalisation_level < VSIR_NORMALISED_SM6);
+
+    if (!(srcs = shader_src_param_allocator_get(&program->instructions.src_params, 3)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    vsir_src_param_init(&srcs[0], VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
+    srcs[0].reg.idx[0].offset = idx;
+    srcs[0].reg.dimension = VSIR_DIMENSION_VEC4;
+    srcs[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+
+    vsir_src_param_init_resource(&srcs[1], idx, idx);
+    vsir_src_param_init_sampler(&srcs[2], idx, idx);
+
+    ins->opcode = VSIR_OP_SAMPLE;
+    ins->src = srcs;
+    ins->src_count = 3;
+
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result vsir_program_lower_dcl_input(struct vsir_program *program,
         struct vkd3d_shader_instruction *ins, struct vsir_transformation_context *ctx)
 {
@@ -1923,6 +1952,10 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_TEXKILL:
                 ret = vsir_program_lower_texkill(program, &it, &tmp_idx);
+                break;
+
+            case VSIR_OP_TEX:
+                ret = vsir_program_lower_tex(program, ins);
                 break;
 
             case VSIR_OP_TEXLD:
