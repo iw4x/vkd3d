@@ -2049,6 +2049,61 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
     return VKD3D_OK;
 }
 
+/* 1.0-1.3 pixel shaders allow writing t# registers, at which point they
+ * effectively behave like normal r# temps. Convert them to r# registers.
+ * t# registers which are read before being written contain TEXCOORD varyings,
+ * just as in 1.4 and 2.x, and will later be lowered to v# registers.
+ *
+ * Registers which are partially written are rejected by the native validator,
+ * but with a "read of uninitialized component" message that suggests that once
+ * any component of a t# register is written, none of the components contain
+ * texcoord data. */
+static enum vkd3d_result vsir_program_lower_texture_writes(struct vsir_program *program,
+        struct vsir_transformation_context *ctx)
+{
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
+    struct vkd3d_shader_instruction *ins;
+    unsigned int texture_temp_idx = ~0u;
+    uint32_t texture_written_mask = 0;
+
+    /* We run before I/O normalization. */
+    VKD3D_ASSERT(program->normalisation_level < VSIR_NORMALISED_SM6);
+
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
+    {
+        for (unsigned int i = 0; i < ins->src_count; ++i)
+        {
+            struct vkd3d_shader_src_param *src = &ins->src[i];
+
+            if (src->reg.type == VKD3DSPR_TEXTURE && bitmap_is_set(&texture_written_mask, src->reg.idx[0].offset))
+            {
+                src->reg.type = VKD3DSPR_TEMP;
+                src->reg.idx[0].offset += texture_temp_idx;
+            }
+        }
+
+        for (unsigned int i = 0; i < ins->dst_count; ++i)
+        {
+            struct vkd3d_shader_dst_param *dst = &ins->dst[i];
+
+            if (dst->reg.type == VKD3DSPR_TEXTURE)
+            {
+                bitmap_set(&texture_written_mask, dst->reg.idx[0].offset);
+                if (texture_temp_idx == ~0u)
+                {
+                    texture_temp_idx = program->temp_count;
+                    /* These versions have 4 texture registers. */
+                    program->temp_count += 4;
+                }
+                dst->reg.type = VKD3DSPR_TEMP;
+                dst->reg.idx[0].offset += texture_temp_idx;
+            }
+        }
+    }
+
+    return VKD3D_OK;
+}
+
 /* Ensure that the program closes with a ret. sm1 programs do not, by default.
  * Many of our IR passes rely on this in order to insert instructions at the
  * end of execution. */
@@ -12569,8 +12624,14 @@ enum vkd3d_result vsir_program_lower_d3dbc(struct vsir_program *program, uint64_
 
     vsir_transformation_context_init(&ctx, program, config_flags, compile_info, message_context);
     vsir_transform(&ctx, vsir_program_lower_d3dbc_instructions);
+
     if (program->shader_version.major == 1 && program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL)
+    {
+        if (program->shader_version.minor < 4)
+            vsir_transform(&ctx, vsir_program_lower_texture_writes);
+
         vsir_transform(&ctx, vsir_program_normalise_ps1_output);
+    }
 
     if (TRACE_ON())
         vsir_program_trace(program);
