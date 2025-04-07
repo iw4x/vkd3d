@@ -1854,6 +1854,35 @@ static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program, st
     return VKD3D_OK;
 }
 
+static enum vkd3d_result vsir_program_lower_texcoord(struct vsir_program *program,
+        struct vkd3d_shader_instruction *ins)
+{
+    unsigned int idx = ins->dst[0].reg.idx[0].offset;
+    struct vkd3d_shader_src_param *srcs;
+
+    /* texcoord t# -> mov_sat t#, t#
+     * Note that the t# destination will subsequently be turned into a temp. */
+
+    /* We run before I/O normalization. */
+    VKD3D_ASSERT(program->normalisation_level < VSIR_NORMALISED_SM6);
+
+    if (!(srcs = shader_src_param_allocator_get(&program->instructions.src_params, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    vsir_src_param_init(&srcs[0], VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
+    srcs[0].reg.idx[0].offset = idx;
+    srcs[0].reg.dimension = VSIR_DIMENSION_VEC4;
+    srcs[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+
+    ins->dst[0].modifiers |= VKD3DSPDM_SATURATE;
+
+    ins->opcode = VSIR_OP_MOV;
+    ins->src = srcs;
+    ins->src_count = 1;
+
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result vsir_program_lower_dcl_input(struct vsir_program *program,
         struct vkd3d_shader_instruction *ins, struct vsir_transformation_context *ctx)
 {
@@ -1946,6 +1975,11 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 ret = vsir_program_lower_sm1_sincos(program, &it);
                 break;
 
+            case VSIR_OP_TEXCOORD:
+                if ((ret = vsir_program_lower_texcoord(program, ins)) < 0)
+                    return ret;
+                break;
+
             case VSIR_OP_TEXCRD:
                 ret = vsir_program_lower_texcrd(program, ins, message_context);
                 break;
@@ -1977,7 +2011,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_TEXBEM:
             case VSIR_OP_TEXBEML:
-            case VSIR_OP_TEXCOORD:
             case VSIR_OP_TEXDEPTH:
             case VSIR_OP_TEXDP3:
             case VSIR_OP_TEXDP3TEX:
