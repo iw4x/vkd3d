@@ -1,6 +1,6 @@
 % Test what kinds of expressions are valid array dimensions.
 
-[pixel shader todo]
+[pixel shader]
 float4 main() : sv_target
 {
     const int dim = 4;
@@ -18,7 +18,7 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 probe (0, 0) f32(0.1, 0.1, 0.2, 0.4)
 
 [pixel shader fail]
@@ -28,7 +28,7 @@ float a[CompileShader(ps_2_0, main())];
 
 float4 main() : sv_target { return 0; }
 
-[pixel shader todo]
+[pixel shader]
 float4 main() : sv_target
 {
     const uint cap = 4;
@@ -37,7 +37,7 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 probe (0, 0) f32(1, 2, 3, 4)
 
 [pixel shader fail]
@@ -48,7 +48,7 @@ float4 main() : sv_target
     return float4(array[0], array[1], array[2], array[3]);
 }
 
-[pixel shader todo(sm<6) fail(sm>=6)]
+[pixel shader fail(sm>=6)]
 float4 main() : sv_target
 {
     const uint4 cap = uint4(2, 4, 1, 0);
@@ -57,10 +57,10 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 probe (0, 0) f32(1, 2, 3, 4)
 
-[pixel shader todo(sm<6) fail(sm>=6)]
+[pixel shader fail(sm>=6)]
 struct nya
 {
     float a, b;
@@ -74,10 +74,10 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 probe (0, 0) f32(1, 2, 3, 4)
 
-[pixel shader todo(sm<6) fail(sm>=6)]
+[pixel shader fail(sm>=6)]
 float4 main() : sv_target
 {
     const float cap = 4;
@@ -86,7 +86,7 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 probe (0, 0) f32(1, 2, 3, 4)
 
 [pixel shader fail]
