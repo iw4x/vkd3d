@@ -58,6 +58,7 @@ struct metal_runner
 
     ID3D10Blob *d3d_blobs[SHADER_TYPE_COUNT];
     struct vkd3d_shader_scan_signature_info signatures[SHADER_TYPE_COUNT];
+    struct vkd3d_shader_scan_thread_group_size_info thread_group_size;
 };
 
 static MTLPixelFormat get_metal_pixel_format(DXGI_FORMAT format)
@@ -487,7 +488,11 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
     }
 
     interface_info.bindings = bindings;
-    interface_info.next = &runner->signatures[type];
+    interface_info.next = &runner->thread_group_size;
+
+    runner->thread_group_size.type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_THREAD_GROUP_SIZE_INFO;
+    runner->thread_group_size.next = &runner->signatures[type];
+
     runner->signatures[type].type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_SIGNATURE_INFO;
     runner->signatures[type].next = NULL;
 
@@ -521,14 +526,14 @@ static id<MTLFunction> compile_stage(struct metal_runner *runner, enum shader_ty
     return [function autorelease];
 }
 
-static bool encode_argument_buffer(struct metal_runner *runner,
-        id<MTLRenderCommandEncoder> command_encoder, id<MTLSamplerState> *samplers)
+static bool encode_argument_buffer(struct metal_runner *runner, id<MTLCommandEncoder> command_encoder,
+        void (*use_resource)(id<MTLCommandEncoder> encoder, id<MTLResource> resource, MTLResourceUsage usage),
+        const id<MTLSamplerState> *samplers, id<MTLBuffer> *argument_buffer)
 {
     NSMutableArray<MTLArgumentDescriptor *> *argument_descriptors;
     id<MTLDevice> device = runner->device;
     MTLArgumentDescriptor *arg_desc;
     id<MTLArgumentEncoder> encoder;
-    id<MTLBuffer> argument_buffer;
     unsigned int i, index = 0;
 
     argument_descriptors = [[[NSMutableArray alloc] init] autorelease];
@@ -583,12 +588,15 @@ static bool encode_argument_buffer(struct metal_runner *runner,
     }
 
     if (![argument_descriptors count])
+    {
+        *argument_buffer = nil;
         return true;
+    }
 
     encoder = [[device newArgumentEncoderWithArguments:argument_descriptors] autorelease];
-    argument_buffer = [[device newBufferWithLength:encoder.encodedLength
-            options:DEFAULT_BUFFER_RESOURCE_OPTIONS | MTLResourceStorageModeManaged] autorelease];
-    [encoder setArgumentBuffer:argument_buffer offset:0];
+    *argument_buffer = [device newBufferWithLength:encoder.encodedLength
+            options:DEFAULT_BUFFER_RESOURCE_OPTIONS | MTLResourceStorageModeManaged];
+    [encoder setArgumentBuffer:*argument_buffer offset:0];
 
     if (runner->r.uniform_count)
     {
@@ -598,9 +606,7 @@ static bool encode_argument_buffer(struct metal_runner *runner,
                 length:runner->r.uniform_count * sizeof(*runner->r.uniforms)
                 options:DEFAULT_BUFFER_RESOURCE_OPTIONS | MTLResourceStorageModeManaged] autorelease];
         [encoder setBuffer:cb offset:0 atIndex:index++];
-        [command_encoder useResource:cb
-                usage:MTLResourceUsageRead
-                stages:MTLRenderStageVertex | MTLRenderStageFragment];
+        use_resource(command_encoder, cb, MTLResourceUsageRead);
     }
 
     for (i = 0; i < runner->r.resource_count; ++i)
@@ -611,16 +617,12 @@ static bool encode_argument_buffer(struct metal_runner *runner,
         {
             case RESOURCE_TYPE_TEXTURE:
                 [encoder setTexture:resource->texture atIndex:index++];
-                [command_encoder useResource:resource->texture
-                        usage:MTLResourceUsageRead
-                        stages:MTLRenderStageVertex | MTLRenderStageFragment];
+                use_resource(command_encoder, resource->texture, MTLResourceUsageRead);
                 break;
 
             case RESOURCE_TYPE_UAV:
                 [encoder setTexture:resource->texture atIndex:index++];
-                [command_encoder useResource:resource->texture
-                        usage:MTLResourceUsageRead | MTLResourceUsageWrite
-                        stages:MTLRenderStageVertex | MTLRenderStageFragment];
+                use_resource(command_encoder, resource->texture, MTLResourceUsageRead | MTLResourceUsageWrite);
                 break;
 
             case RESOURCE_TYPE_RENDER_TARGET:
@@ -630,22 +632,84 @@ static bool encode_argument_buffer(struct metal_runner *runner,
         }
     }
 
-    for (i = 0; i < runner->r.sampler_count; ++i)
+    if (samplers)
     {
-        [encoder setSamplerState:samplers[i] atIndex:index++];
+        for (i = 0; i < runner->r.sampler_count; ++i)
+        {
+            [encoder setSamplerState:samplers[i] atIndex:index++];
+        }
     }
 
-    [argument_buffer didModifyRange:NSMakeRange(0, encoder.encodedLength)];
-
-    [command_encoder setVertexBuffer:argument_buffer offset:0 atIndex:0];
-    [command_encoder setFragmentBuffer:argument_buffer offset:0 atIndex:0];
+    [*argument_buffer didModifyRange:NSMakeRange(0, encoder.encodedLength)];
 
     return true;
 }
 
+static void use_compute_resource(id<MTLCommandEncoder> encoder, id<MTLResource> resource, MTLResourceUsage usage)
+{
+    [(id<MTLComputeCommandEncoder>)encoder useResource:resource usage:usage];
+}
+
 static bool metal_runner_dispatch(struct shader_runner *r, unsigned int x, unsigned int y, unsigned int z)
 {
-    return false;
+    struct metal_runner *runner = metal_runner(r);
+    id<MTLDevice> device = runner->device;
+    id<MTLComputeCommandEncoder> encoder;
+    id<MTLCommandBuffer> command_buffer;
+    id<MTLComputePipelineState> pso;
+    id<MTLBuffer> argument_buffer;
+    id<MTLFunction> cs;
+    NSError *err;
+
+    if (!(cs = compile_stage(runner, SHADER_TYPE_CS)))
+    {
+        trace("Failed to compile kernel function.\n");
+        return false;
+    }
+
+    pso = [device newComputePipelineStateWithFunction:cs error:&err];
+    [cs release];
+    if (!pso)
+    {
+        trace("Failed to compile pipeline state.\n");
+        if (err)
+        {
+            trace_messages([err.localizedDescription UTF8String]);
+            [err release];
+        }
+        return false;
+    }
+
+    command_buffer = [runner->queue commandBuffer];
+
+    encoder = [command_buffer computeCommandEncoder];
+
+    if (!encode_argument_buffer(runner, encoder, use_compute_resource, NULL, &argument_buffer))
+    {
+        [encoder endEncoding];
+        [encoder release];
+        [command_buffer release];
+        [pso release];
+        return false;
+    }
+    [encoder setBuffer:argument_buffer offset:0 atIndex:0];
+
+    [encoder setComputePipelineState:pso];
+    [encoder dispatchThreadgroups:MTLSizeMake(x, y, z)
+            threadsPerThreadgroup:MTLSizeMake(runner->thread_group_size.x,
+                    runner->thread_group_size.y, runner->thread_group_size.z)];
+
+    [encoder endEncoding];
+    [encoder release];
+
+    [command_buffer commit];
+    [command_buffer waitUntilCompleted];
+    [command_buffer release];
+
+    [argument_buffer release];
+    [pso release];
+
+    return true;
 }
 
 static void metal_runner_clear(struct shader_runner *r, struct resource *res, const struct vec4 *clear_value)
@@ -688,6 +752,13 @@ static void metal_runner_clear(struct shader_runner *r, struct resource *res, co
     }
 }
 
+static void use_graphics_resource(id<MTLCommandEncoder> encoder, id<MTLResource> resource, MTLResourceUsage usage)
+{
+    [(id<MTLRenderCommandEncoder>)encoder useResource:resource
+                                                usage:usage
+                                               stages:MTLRenderStageVertex | MTLRenderStageFragment];
+}
+
 static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY topology,
         unsigned int vertex_count, unsigned int instance_count)
 {
@@ -703,6 +774,7 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
     size_t attribute_offsets[32], stride;
     id<MTLRenderCommandEncoder> encoder;
     id<MTLCommandBuffer> command_buffer;
+    id<MTLBuffer> argument_buffer = nil;
     MTLDepthStencilDescriptor *ds_desc;
     MTLRenderPassDescriptor *pass_desc;
     MTLSamplerDescriptor *sampler_desc;
@@ -826,12 +898,15 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
         command_buffer = [runner->queue commandBuffer];
         encoder = [command_buffer renderCommandEncoderWithDescriptor:pass_desc];
 
-        if (!encode_argument_buffer(runner, encoder, samplers))
+        if (!encode_argument_buffer(runner, encoder, use_graphics_resource, samplers, &argument_buffer))
         {
             [encoder endEncoding];
             ret = false;
             goto done;
         }
+        [encoder setVertexBuffer:argument_buffer offset:0 atIndex:0];
+        [encoder setFragmentBuffer:argument_buffer offset:0 atIndex:0];
+        [argument_buffer autorelease];
 
         if (runner->r.input_element_count > 32)
             fatal_error("Unsupported input element count %zu.\n", runner->r.input_element_count);
