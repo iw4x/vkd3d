@@ -2180,6 +2180,78 @@ static void test_parameters(void)
 #endif
 }
 
+static void test_scan_thread_group_size(void)
+{
+    struct vkd3d_shader_hlsl_source_info hlsl_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_HLSL_SOURCE_INFO};
+    struct vkd3d_shader_compile_info info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO};
+    struct vkd3d_shader_scan_thread_group_size_info thread_group_size_info;
+    struct vkd3d_shader_code out;
+    unsigned int i;
+    int rc;
+
+    static const char cs1_source[] =
+        "[numthreads(1, 2, 4)]\n"
+        "void main() {}\n";
+    static const char cs2_source[] =
+        "[numthreads(2, 4, 8)]\n"
+        "void main() {}\n";
+    static const char ps1_source[] =
+        "float4 main() : sv_target { return float4(0.0, 1.0, 0.0, 1.0); }\n";
+
+    static const struct
+    {
+        const char *src;
+        const char *profile;
+        enum vkd3d_shader_target_type target_type;
+        unsigned int x, y, z;
+    }
+    tests[] =
+    {
+        {cs1_source, "cs_4_0", VKD3D_SHADER_TARGET_DXBC_TPF,     1, 2, 4},
+        {cs2_source, "cs_5_0", VKD3D_SHADER_TARGET_SPIRV_BINARY, 2, 4, 8},
+        {ps1_source, "ps_4_0", VKD3D_SHADER_TARGET_DXBC_TPF,     0, 0, 0},
+        {ps1_source, "ps_3_0", VKD3D_SHADER_TARGET_D3D_BYTECODE, 0, 0, 0},
+    };
+
+    memset(&thread_group_size_info, 0, sizeof(thread_group_size_info));
+    thread_group_size_info.type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_THREAD_GROUP_SIZE_INFO;
+
+    for (i = 0; i < ARRAY_SIZE(tests); ++i)
+    {
+        vkd3d_test_push_context("Test %u", i);
+
+        hlsl_info.next = &thread_group_size_info;
+        hlsl_info.profile = tests[i].profile;
+
+        info.next = &hlsl_info;
+        info.source.code = tests[i].src;
+        info.source.size = strlen(tests[i].src);
+        info.source_type = VKD3D_SHADER_SOURCE_HLSL;
+        info.target_type = tests[i].target_type;
+        info.log_level = VKD3D_SHADER_LOG_INFO;
+
+        rc = vkd3d_shader_scan(&info, NULL);
+        ok(rc == VKD3D_OK, "Got rc %d.\n", rc);
+
+        ok(thread_group_size_info.x == tests[i].x, "Got x %u.\n", thread_group_size_info.x);
+        ok(thread_group_size_info.x == tests[i].x, "Got y %u.\n", thread_group_size_info.y);
+        ok(thread_group_size_info.x == tests[i].x, "Got z %u.\n", thread_group_size_info.z);
+
+        memset(&thread_group_size_info, 0, sizeof(thread_group_size_info));
+        thread_group_size_info.type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_THREAD_GROUP_SIZE_INFO;
+        rc = vkd3d_shader_compile(&info, &out, NULL);
+        ok(rc == VKD3D_OK, "Got rc %d.\n", rc);
+
+        ok(thread_group_size_info.x == tests[i].x, "Got x %u.\n", thread_group_size_info.x);
+        ok(thread_group_size_info.x == tests[i].x, "Got y %u.\n", thread_group_size_info.y);
+        ok(thread_group_size_info.x == tests[i].x, "Got z %u.\n", thread_group_size_info.z);
+
+        vkd3d_shader_free_shader_code(&out);
+
+        vkd3d_test_pop_context();
+    }
+}
+
 START_TEST(vkd3d_shader_api)
 {
     setlocale(LC_ALL, "");
@@ -2196,4 +2268,5 @@ START_TEST(vkd3d_shader_api)
     run_test(test_emit_signature);
     run_test(test_warning_options);
     run_test(test_parameters);
+    run_test(test_scan_thread_group_size);
 }

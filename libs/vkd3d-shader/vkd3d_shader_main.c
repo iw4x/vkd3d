@@ -1685,6 +1685,7 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
     struct vkd3d_shader_scan_combined_resource_sampler_info *combined_sampler_info;
     struct vkd3d_shader_scan_hull_shader_tessellation_info *tessellation_info;
+    struct vkd3d_shader_scan_thread_group_size_info *thread_group_size_info;
     struct vkd3d_shader_scan_descriptor_info *descriptor_info;
     struct vkd3d_shader_scan_signature_info *signature_info;
     struct vkd3d_shader_scan_context context;
@@ -1706,6 +1707,7 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
     }
 
     tessellation_info = vkd3d_find_struct(compile_info->next, SCAN_HULL_SHADER_TESSELLATION_INFO);
+    thread_group_size_info = vkd3d_find_struct(compile_info->next, SCAN_THREAD_GROUP_SIZE_INFO);
 
     vkd3d_shader_scan_context_init(&context, &program->shader_version, compile_info,
             add_descriptor_info ? &program->descriptors : NULL, combined_sampler_info, message_context);
@@ -1756,6 +1758,13 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
     {
         tessellation_info->output_primitive = context.output_primitive;
         tessellation_info->partitioning = context.partitioning;
+    }
+
+    if (!ret && thread_group_size_info)
+    {
+        thread_group_size_info->x = program->thread_group_size.x;
+        thread_group_size_info->y = program->thread_group_size.y;
+        thread_group_size_info->z = program->thread_group_size.z;
     }
 
     if (ret < 0)
