@@ -153,6 +153,8 @@ static bool check_gl_extensions(struct gl_runner *runner)
 
     if (check_gl_extension("GL_EXT_depth_bounds_test", count))
         runner->caps.shader_caps[SHADER_CAP_DEPTH_BOUNDS] = true;
+    if (check_gl_extension("GL_ARB_cull_distance", count))
+        runner->caps.shader_caps[SHADER_CAP_CULL_DISTANCE] = true;
     if (check_gl_extension("GL_ARB_gpu_shader_fp64", count))
         runner->caps.shader_caps[SHADER_CAP_FLOAT64] = true;
     if (check_gl_extension("GL_ARB_gpu_shader_int64", count))

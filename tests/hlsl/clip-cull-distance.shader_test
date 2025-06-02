@@ -247,6 +247,10 @@ probe rtv 0 (480, 120) rgba(1.0, 1.0, 0.0, 1.0)
 probe rtv 0 (480, 240) rgba(1.0, 1.0, 0.0, 1.0)
 probe rtv 0 (480, 360) rgba(1.0, 1.0, 0.0, 1.0)
 
+[require]
+shader model >= 4.0
+cull-distance
+
 % Now it works. Here all the cull distances are effectively ignored, because
 % they do not leave the only triangle entirely on one side. (Also, they
 % coincide with other clip distances.)
@@ -284,19 +288,20 @@ void main(uint id : SV_VertexID, out vs_out o)
 
 [test]
 clear rtv 0 1.0 1.0 0.0 1.0
-todo(sm<6 | msl) draw triangle strip 4
-probe rtv 0 (160, 120) rgba(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 240) rgba(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 360) rgba(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 120) rgba(1.0, 1.0, 0.0, 1.0)
-bug(d3d12 & mvk) probe rtv 0 (320, 240) rgba(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 360) rgba(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 120) rgba(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 240) rgba(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 360) rgba(1.0, 1.0, 0.0, 1.0)
+todo(sm<6) draw triangle strip 4
+probe rtv 0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv 0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv 0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv 0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv 0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv 0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv 0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv 0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv 0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
 
 [require]
 shader model >= 4.0
+cull-distance
 geometry-shader
 
 % Let clip and cull distances go through a geometry shader.

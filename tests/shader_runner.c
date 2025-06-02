@@ -461,6 +461,7 @@ static DXGI_FORMAT parse_format(const char *line, unsigned int *texel_size, bool
 static const char *const shader_cap_strings[] =
 {
     [SHADER_CAP_CLIP_PLANES]         = "clip-planes",
+    [SHADER_CAP_CULL_DISTANCE]       = "cull-distance",
     [SHADER_CAP_DEPTH_BOUNDS]        = "depth-bounds",
     [SHADER_CAP_FLOAT64]             = "float64",
     [SHADER_CAP_FOG]                 = "fog",

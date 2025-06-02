@@ -336,6 +336,7 @@ static BOOL init_test_context(struct d3d11_shader_runner *runner)
     runner->caps.minimum_shader_model = SHADER_MODEL_4_0;
     runner->caps.maximum_shader_model = SHADER_MODEL_5_0;
 
+    runner->caps.shader_caps[SHADER_CAP_CULL_DISTANCE] = true;
     hr = ID3D11Device_CheckFeatureSupport(runner->device, D3D11_FEATURE_DOUBLES,
             &doubles, sizeof(doubles));
     ok(hr == S_OK, "Failed to check double precision feature support, hr %#lx.\n", hr);

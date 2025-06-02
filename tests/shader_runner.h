@@ -150,6 +150,7 @@ enum format_cap
 enum shader_cap
 {
     SHADER_CAP_CLIP_PLANES,
+    SHADER_CAP_CULL_DISTANCE,
     SHADER_CAP_DEPTH_BOUNDS,
     SHADER_CAP_FLOAT64,
     SHADER_CAP_FOG,

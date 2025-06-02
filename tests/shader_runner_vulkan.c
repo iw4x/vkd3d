@@ -1877,6 +1877,12 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
         runner->caps.shader_caps[SHADER_CAP_GEOMETRY_SHADER] = true;
     }
 
+    if (ret_features->shaderCullDistance)
+    {
+        features.shaderCullDistance = VK_TRUE;
+        runner->caps.shader_caps[SHADER_CAP_CULL_DISTANCE] = true;
+    }
+
     if (ret_features->shaderFloat64)
     {
         features.shaderFloat64 = VK_TRUE;

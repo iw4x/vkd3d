@@ -1109,6 +1109,8 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     runner->caps.compiler = using_dxcompiler ? "dxcompiler" : HLSL_COMPILER;
     runner->caps.minimum_shader_model = minimum_shader_model;
     runner->caps.maximum_shader_model = maximum_shader_model;
+    if (is_cull_distance_supported(device))
+        runner->caps.shader_caps[SHADER_CAP_CULL_DISTANCE] = true;
     runner->caps.shader_caps[SHADER_CAP_DEPTH_BOUNDS] = options2.DepthBoundsTestSupported;
     runner->caps.shader_caps[SHADER_CAP_FLOAT64] = options.DoublePrecisionFloatShaderOps;
     if (is_geometry_shader_supported(device))

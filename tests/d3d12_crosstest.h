@@ -552,6 +552,11 @@ static inline bool is_macos_lt(unsigned int major, unsigned int minor, unsigned 
     return false;
 }
 
+static inline bool is_cull_distance_supported(ID3D12Device *device)
+{
+    return true;
+}
+
 static inline bool is_depth_clip_enable_supported(ID3D12Device *device)
 {
     return true;
@@ -931,6 +936,15 @@ static inline bool is_macos_lt(unsigned int major, unsigned int minor, unsigned 
 }
 
 #endif
+
+static inline bool is_cull_distance_supported(ID3D12Device *device)
+{
+    VkPhysicalDeviceFeatures features;
+
+    vkGetPhysicalDeviceFeatures(vkd3d_get_vk_physical_device(device), &features);
+
+    return features.shaderCullDistance;
+}
 
 static inline bool is_depth_clip_enable_supported(ID3D12Device *device)
 {
