@@ -371,7 +371,7 @@ static inline bool vulkan_test_context_init_device(struct vulkan_test_context *c
     VkDescriptorPoolCreateInfo descriptor_pool_desc = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
     VkCommandBufferAllocateInfo cmd_buffer_desc = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
     VkCommandPoolCreateInfo command_pool_desc = {.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-    VkDescriptorPoolSize descriptor_pool_sizes[6];
+    VkDescriptorPoolSize descriptor_pool_sizes[5];
     VkDevice device;
     VkResult vr;
 
@@ -402,16 +402,14 @@ static inline bool vulkan_test_context_init_device(struct vulkan_test_context *c
 
     descriptor_pool_sizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     descriptor_pool_sizes[0].descriptorCount = max_resource_count;
-    descriptor_pool_sizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    descriptor_pool_sizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     descriptor_pool_sizes[1].descriptorCount = max_resource_count;
-    descriptor_pool_sizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptor_pool_sizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
     descriptor_pool_sizes[2].descriptorCount = max_resource_count;
-    descriptor_pool_sizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+    descriptor_pool_sizes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
     descriptor_pool_sizes[3].descriptorCount = max_resource_count;
-    descriptor_pool_sizes[4].type = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-    descriptor_pool_sizes[4].descriptorCount = max_resource_count;
-    descriptor_pool_sizes[5].type = VK_DESCRIPTOR_TYPE_SAMPLER;
-    descriptor_pool_sizes[5].descriptorCount = max_sampler_count;
+    descriptor_pool_sizes[4].type = VK_DESCRIPTOR_TYPE_SAMPLER;
+    descriptor_pool_sizes[4].descriptorCount = max_sampler_count;
 
     descriptor_pool_desc.maxSets = 1;
     descriptor_pool_desc.poolSizeCount = ARRAY_SIZE(descriptor_pool_sizes) - !max_sampler_count;
