@@ -110,7 +110,6 @@ struct vkd3d_device_descriptor_limits
 {
     unsigned int uniform_buffer_max_descriptors;
     unsigned int sampled_image_max_descriptors;
-    unsigned int storage_buffer_max_descriptors;
     unsigned int storage_image_max_descriptors;
     unsigned int sampler_max_descriptors;
 };
