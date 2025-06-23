@@ -6117,14 +6117,18 @@ static struct hlsl_reg allocate_numeric_registers_for_type(struct hlsl_ctx *ctx,
         unsigned int first_write, unsigned int last_read, const struct hlsl_type *type)
 {
     unsigned int reg_size = type->reg_size[HLSL_REGSET_NUMERIC];
+    struct hlsl_reg ret;
 
     /* FIXME: We could potentially pack structs or arrays more efficiently... */
 
     if (type->class <= HLSL_CLASS_VECTOR)
-        return allocate_register(ctx, allocator, first_write, last_read,
+        ret = allocate_register(ctx, allocator, first_write, last_read,
                 type->e.numeric.dimx, type->e.numeric.dimx, 0, false, false);
     else
-        return allocate_range(ctx, allocator, first_write, last_read, reg_size, 0, false);
+        ret = allocate_range(ctx, allocator, first_write, last_read, reg_size, 0, false);
+    if (allocator->type == VKD3DSPR_TEMP)
+        ctx->temp_count = max(ctx->temp_count, ret.id + ret.allocation_size);
+    return ret;
 }
 
 static const char *debug_register(struct hlsl_reg reg, const struct hlsl_type *type)
@@ -6332,8 +6336,11 @@ static void allocate_instr_temp_register(struct hlsl_ctx *ctx,
     VKD3D_ASSERT(instr->data_type->class <= HLSL_CLASS_VECTOR);
 
     if (reg_writemask)
+    {
         instr->reg = allocate_register_with_masks(ctx, allocator,
                 instr->index, instr->last_read, reg_writemask, dst_writemask, 0, false);
+        ctx->temp_count = max(ctx->temp_count, instr->reg.id + 1);
+    }
     else if (is_per_component)
         instr->reg = allocate_numeric_registers_for_type(ctx, allocator,
                 instr->index, instr->last_read, instr->data_type);
@@ -6353,24 +6360,35 @@ static void allocate_instr_temp_register(struct hlsl_ctx *ctx,
 static void allocate_variable_temp_register(struct hlsl_ctx *ctx,
         struct hlsl_ir_var *var, struct register_allocator *allocator)
 {
+    struct hlsl_reg *reg = &var->regs[HLSL_REGSET_NUMERIC];
+
     if (var->is_input_semantic || var->is_output_semantic || var->is_uniform)
         return;
 
-    if (!var->regs[HLSL_REGSET_NUMERIC].allocated && var->last_read)
+    if (!reg->allocated && var->last_read)
     {
         if (var->indexable)
         {
-            var->regs[HLSL_REGSET_NUMERIC].id = allocator->indexable_count++;
-            var->regs[HLSL_REGSET_NUMERIC].allocation_size = 1;
-            var->regs[HLSL_REGSET_NUMERIC].writemask = 0;
-            var->regs[HLSL_REGSET_NUMERIC].allocated = true;
+            reg->id = allocator->indexable_count++;
+            reg->allocation_size = 1;
+            reg->writemask = 0;
+            reg->allocated = true;
 
-            TRACE("Allocated %s to x%u[].\n", var->name, var->regs[HLSL_REGSET_NUMERIC].id);
+            TRACE("Allocated %s to x%u[].\n", var->name, reg->id);
         }
         else
         {
-            var->regs[HLSL_REGSET_NUMERIC] = allocate_numeric_registers_for_type(ctx, allocator,
-                    var->first_write, var->last_read, var->data_type);
+            reg->type = VKD3DSPR_TEMP;
+            reg->id = ctx->temp_count;
+            reg->allocation_size = align(var->data_type->reg_size[HLSL_REGSET_NUMERIC], 4) / 4;
+            if (var->data_type->class <= HLSL_CLASS_VECTOR)
+                reg->writemask = vkd3d_write_mask_from_component_count(var->data_type->e.numeric.dimx);
+            reg->allocated = true;
+
+            for (unsigned int i = 0; i < reg->allocation_size; ++i)
+                record_allocation(ctx, allocator, ctx->temp_count + i, VKD3DSP_WRITEMASK_ALL, 1, UINT_MAX, 0, false);
+
+            ctx->temp_count += reg->allocation_size;
 
             TRACE("Allocated %s to %s (liveness %u-%u).\n", var->name,
                     debug_register(var->regs[HLSL_REGSET_NUMERIC], var->data_type), var->first_write, var->last_read);
@@ -6745,7 +6763,7 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
  * index to all (simultaneously live) variables or intermediate values. Agnostic
  * as to how many registers are actually available for the current backend, and
  * does not handle constants. */
-static uint32_t allocate_temp_registers(struct hlsl_ctx *ctx, struct hlsl_block *body, struct list *semantic_vars)
+static void allocate_temp_registers(struct hlsl_ctx *ctx, struct hlsl_block *body, struct list *semantic_vars)
 {
     struct register_allocator allocator = {.type = VKD3DSPR_TEMP};
     struct hlsl_scope *scope;
@@ -6770,6 +6788,7 @@ static uint32_t allocate_temp_registers(struct hlsl_ctx *ctx, struct hlsl_block 
             {
                 record_allocation(ctx, &allocator, 0, VKD3DSP_WRITEMASK_ALL,
                         var->first_write, UINT_MAX, 0, false);
+                ctx->temp_count = 1;
                 break;
             }
         }
@@ -6777,16 +6796,6 @@ static uint32_t allocate_temp_registers(struct hlsl_ctx *ctx, struct hlsl_block 
 
     allocate_temp_registers_recurse(ctx, body, &allocator);
     vkd3d_free(allocator.allocations);
-
-    if (allocator.indexable_count)
-        TRACE("Declaration of %s function required %u temp registers, and %u indexable temps.\n",
-                ctx->is_patch_constant_func ? "patch constant" : "main",
-                allocator.reg_count, allocator.indexable_count);
-    else
-        TRACE("Declaration of %s function required %u temp registers.\n",
-                ctx->is_patch_constant_func ? "patch constant" : "main", allocator.reg_count);
-
-    return allocator.reg_count;
 }
 
 static enum vkd3d_shader_interpolation_mode sm4_get_interpolation_mode(struct hlsl_type *type,
@@ -10213,7 +10222,8 @@ static void sm1_generate_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_co
     struct hlsl_block block;
 
     program->ssa_count = 0;
-    program->temp_count = allocate_temp_registers(ctx, body, semantic_vars);
+    program->temp_count = 0;
+    allocate_temp_registers(ctx, body, semantic_vars);
     if (ctx->result)
         return;
 
@@ -10225,6 +10235,7 @@ static void sm1_generate_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_co
     sm1_generate_vsir_block(ctx, body, program);
 
     program->ssa_count = ctx->ssa_count;
+    program->temp_count = ctx->temp_count;
 
     if (ctx->result)
         return;
@@ -12373,16 +12384,15 @@ static void sm4_generate_vsir_add_function(struct hlsl_ctx *ctx, struct list *se
     struct hlsl_block block = {0};
     struct hlsl_scope *scope;
     struct hlsl_ir_var *var;
-    uint32_t temp_count;
 
     ctx->is_patch_constant_func = func == ctx->patch_constant_func;
 
     compute_liveness(ctx, body);
     mark_indexable_vars(ctx, body);
-    temp_count = allocate_temp_registers(ctx, body, semantic_vars);
+    allocate_temp_registers(ctx, body, semantic_vars);
     if (ctx->result)
         return;
-    program->temp_count = max(program->temp_count, temp_count);
+    program->temp_count = max(program->temp_count, ctx->temp_count);
 
     hlsl_block_init(&block);
 
@@ -12393,8 +12403,8 @@ static void sm4_generate_vsir_add_function(struct hlsl_ctx *ctx, struct list *se
             sm4_generate_vsir_instr_dcl_semantic(ctx, program, var, &block, &var->loc);
     }
 
-    if (temp_count)
-        sm4_generate_vsir_instr_dcl_temps(ctx, program, temp_count, &block, &func->loc);
+    if (ctx->temp_count)
+        sm4_generate_vsir_instr_dcl_temps(ctx, program, ctx->temp_count, &block, &func->loc);
 
     LIST_FOR_EACH_ENTRY(scope, &ctx->scopes, struct hlsl_scope, entry)
     {
@@ -13064,6 +13074,7 @@ static void sm4_generate_vsir(struct hlsl_ctx *ctx,
     }
 
     program->ssa_count = 0;
+    program->temp_count = 0;
 
     if (version->type == VKD3D_SHADER_TYPE_HULL)
         generate_vsir_add_program_instruction(ctx, program,
@@ -13081,6 +13092,7 @@ static void sm4_generate_vsir(struct hlsl_ctx *ctx,
     generate_vsir_scan_global_flags(ctx, program, semantic_vars, func);
 
     program->ssa_count = ctx->ssa_count;
+    program->temp_count = ctx->temp_count;
 }
 
 /* For some reason, for matrices, values from default value initializers end
