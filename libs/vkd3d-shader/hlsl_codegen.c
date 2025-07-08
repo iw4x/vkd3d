@@ -5905,6 +5905,9 @@ static void mark_vars_usage(struct hlsl_ctx *ctx)
 
 struct register_allocator
 {
+    /* Type of registers we are allocating (not counting indexable temps). */
+    enum vkd3d_shader_register_type type;
+
     struct allocation
     {
         uint32_t reg;
@@ -6019,7 +6022,7 @@ static struct hlsl_reg allocate_register(struct hlsl_ctx *ctx, struct register_a
                 unsigned int writemask = hlsl_combine_writemasks(available_writemask,
                         vkd3d_write_mask_from_component_count(reg_size));
 
-                ret.type = VKD3DSPR_TEMP;
+                ret.type = allocator->type;
                 ret.id = reg_idx;
                 ret.writemask = hlsl_combine_writemasks(writemask,
                         vkd3d_write_mask_from_component_count(component_count));
@@ -6030,7 +6033,7 @@ static struct hlsl_reg allocate_register(struct hlsl_ctx *ctx, struct register_a
         }
     }
 
-    ret.type = VKD3DSPR_TEMP;
+    ret.type = allocator->type;
     ret.id = allocator->reg_count;
     ret.writemask = vkd3d_write_mask_from_component_count(component_count);
     record_allocation(ctx, allocator, allocator->reg_count,
@@ -6103,7 +6106,7 @@ static struct hlsl_reg allocate_range(struct hlsl_ctx *ctx, struct register_allo
         record_allocation(ctx, allocator, reg_idx + (reg_size / 4),
                 (1u << (reg_size % 4)) - 1, first_write, last_read, mode, vip);
 
-    ret.type = VKD3DSPR_TEMP;
+    ret.type = allocator->type;
     ret.id = reg_idx;
     ret.allocation_size = align(reg_size, 4) / 4;
     ret.allocated = true;
@@ -6553,7 +6556,6 @@ static void allocate_const_registers_recurse(struct hlsl_ctx *ctx,
                 }
 
                 constant->reg = allocate_numeric_registers_for_type(ctx, allocator, 1, UINT_MAX, type);
-                constant->reg.type = VKD3DSPR_CONST;
                 TRACE("Allocated constant @%u to %s.\n", instr->index, debug_register(constant->reg, type));
 
                 for (unsigned int x = 0, i = 0; x < 4; ++x)
@@ -6651,7 +6653,6 @@ static void allocate_sincos_const_registers(struct hlsl_ctx *ctx, struct hlsl_bl
             type = hlsl_get_vector_type(ctx, HLSL_TYPE_FLOAT, 4);
 
             ctx->d3dsincosconst1 = allocate_numeric_registers_for_type(ctx, allocator, 1, UINT_MAX, type);
-            ctx->d3dsincosconst1.type = VKD3DSPR_CONST;
             TRACE("Allocated D3DSINCOSCONST1 to %s.\n", debug_register(ctx->d3dsincosconst1, type));
             record_constant(ctx, ctx->d3dsincosconst1.id * 4 + 0, -1.55009923e-06f, &instr->loc);
             record_constant(ctx, ctx->d3dsincosconst1.id * 4 + 1, -2.17013894e-05f, &instr->loc);
@@ -6659,7 +6660,6 @@ static void allocate_sincos_const_registers(struct hlsl_ctx *ctx, struct hlsl_bl
             record_constant(ctx, ctx->d3dsincosconst1.id * 4 + 3,  2.60416680e-04f, &instr->loc);
 
             ctx->d3dsincosconst2 = allocate_numeric_registers_for_type(ctx, allocator, 1, UINT_MAX, type);
-            ctx->d3dsincosconst2.type = VKD3DSPR_CONST;
             TRACE("Allocated D3DSINCOSCONST2 to %s.\n", debug_register(ctx->d3dsincosconst2, type));
             record_constant(ctx, ctx->d3dsincosconst2.id * 4 + 0, -2.08333340e-02f, &instr->loc);
             record_constant(ctx, ctx->d3dsincosconst2.id * 4 + 1, -1.25000000e-01f, &instr->loc);
@@ -6673,8 +6673,7 @@ static void allocate_sincos_const_registers(struct hlsl_ctx *ctx, struct hlsl_bl
 
 static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *body)
 {
-    struct register_allocator allocator_used = {0};
-    struct register_allocator allocator = {0};
+    struct register_allocator allocator = {.type = VKD3DSPR_CONST}, allocator_used = {.type = VKD3DSPR_CONST};
     struct hlsl_ir_var *var;
 
     sort_uniforms_by_bind_count(ctx, HLSL_REGSET_NUMERIC);
@@ -6730,7 +6729,6 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
         if (!var->regs[HLSL_REGSET_NUMERIC].allocated)
         {
             var->regs[HLSL_REGSET_NUMERIC] = allocate_range(ctx, &allocator, 1, UINT_MAX, alloc_size, 0, false);
-            var->regs[HLSL_REGSET_NUMERIC].type = VKD3DSPR_CONST;
             TRACE("Allocated %s to %s.\n", var->name,
                     debug_register(var->regs[HLSL_REGSET_NUMERIC], var->data_type));
         }
@@ -6749,7 +6747,7 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
  * does not handle constants. */
 static uint32_t allocate_temp_registers(struct hlsl_ctx *ctx, struct hlsl_block *body, struct list *semantic_vars)
 {
-    struct register_allocator allocator = {0};
+    struct register_allocator allocator = {.type = VKD3DSPR_TEMP};
     struct hlsl_scope *scope;
     struct hlsl_ir_var *var;
 
@@ -6929,7 +6927,6 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
 
         var->regs[HLSL_REGSET_NUMERIC] = allocate_register(ctx, allocator, 1, UINT_MAX,
                 reg_size, component_count, mode, var->force_align, vip_allocation);
-        var->regs[HLSL_REGSET_NUMERIC].type = output ? VKD3DSPR_OUTPUT : VKD3DSPR_INPUT;
 
         TRACE("Allocated %s to %s (mode %d).\n", var->name,
                 debug_register(var->regs[HLSL_REGSET_NUMERIC], var->data_type), mode);
@@ -6944,11 +6941,17 @@ static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct list *seman
     bool is_pixel_shader = ctx->profile->type == VKD3D_SHADER_TYPE_PIXEL;
     struct hlsl_ir_var *var;
 
+    in_prim_allocator.type = VKD3DSPR_INPUT;
     in_prim_allocator.prioritize_smaller_writemasks = true;
+    patch_constant_out_patch_allocator.type = VKD3DSPR_INPUT;
     patch_constant_out_patch_allocator.prioritize_smaller_writemasks = true;
+    input_allocator.type = VKD3DSPR_INPUT;
     input_allocator.prioritize_smaller_writemasks = true;
     for (unsigned int i = 0; i < ARRAY_SIZE(output_allocators); ++i)
+    {
+        output_allocators[i].type = VKD3DSPR_OUTPUT;
         output_allocators[i].prioritize_smaller_writemasks = true;
+    }
 
     LIST_FOR_EACH_ENTRY(var, semantic_vars, struct hlsl_ir_var, extern_entry)
     {
