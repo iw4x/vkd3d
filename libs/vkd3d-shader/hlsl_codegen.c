@@ -6050,33 +6050,6 @@ static struct hlsl_reg allocate_register(struct hlsl_ctx *ctx, struct register_a
     return ret;
 }
 
-/* Allocate a register with writemask, while reserving reg_writemask. */
-static struct hlsl_reg allocate_register_with_masks(struct hlsl_ctx *ctx,
-        struct register_allocator *allocator, unsigned int first_write, unsigned int last_read,
-        uint32_t reg_writemask, uint32_t writemask, int mode, bool vip)
-{
-    struct hlsl_reg ret = {0};
-    uint32_t reg_idx;
-
-    VKD3D_ASSERT((reg_writemask & writemask) == writemask);
-
-    for (reg_idx = 0;; ++reg_idx)
-    {
-        if ((get_available_writemask(allocator, first_write, last_read,
-                reg_idx, mode, vip) & reg_writemask) == reg_writemask)
-            break;
-    }
-
-    record_allocation(ctx, allocator, reg_idx, reg_writemask, first_write, last_read, mode, vip);
-
-    ret.type = VKD3DSPR_TEMP;
-    ret.id = reg_idx;
-    ret.allocation_size = 1;
-    ret.writemask = writemask;
-    ret.allocated = true;
-    return ret;
-}
-
 static bool is_range_available(const struct register_allocator *allocator, unsigned int first_write,
         unsigned int last_read, uint32_t reg_idx, unsigned int reg_size, int mode, bool vip)
 {
@@ -6305,7 +6278,7 @@ static void calculate_resource_register_counts(struct hlsl_ctx *ctx)
 static void allocate_instr_temp_register(struct hlsl_ctx *ctx,
         struct hlsl_ir_node *instr, struct register_allocator *allocator)
 {
-    unsigned int reg_writemask = 0, dst_writemask = 0;
+    unsigned int dst_writemask = 0;
     bool is_per_component = false;
 
     if (instr->reg.allocated || !instr->last_read)
@@ -6317,12 +6290,10 @@ static void allocate_instr_temp_register(struct hlsl_ctx *ctx,
         {
             case HLSL_OP1_COS_REDUCED:
                 dst_writemask = VKD3DSP_WRITEMASK_0;
-                reg_writemask = ctx->profile->major_version < 3 ? (1 << 3) - 1 : VKD3DSP_WRITEMASK_0;
                 break;
 
             case HLSL_OP1_SIN_REDUCED:
                 dst_writemask = VKD3DSP_WRITEMASK_1;
-                reg_writemask = ctx->profile->major_version < 3 ? (1 << 3) - 1 : VKD3DSP_WRITEMASK_1;
                 break;
 
             case HLSL_OP1_EXP2:
@@ -6344,11 +6315,15 @@ static void allocate_instr_temp_register(struct hlsl_ctx *ctx,
 
     VKD3D_ASSERT(instr->data_type->class <= HLSL_CLASS_VECTOR);
 
-    if (reg_writemask)
+    if (dst_writemask)
     {
-        instr->reg = allocate_register_with_masks(ctx, allocator,
-                instr->index, instr->last_read, reg_writemask, dst_writemask, 0, false);
-        ctx->temp_count = max(ctx->temp_count, instr->reg.id + 1);
+        instr->reg.writemask = dst_writemask;
+        instr->reg.allocation_size = 1;
+        instr->reg.allocated = true;
+        instr->reg.type = VKD3DSPR_TEMP;
+        instr->reg.id = ctx->temp_count++;
+
+        record_allocation(ctx, allocator, ctx->temp_count - 1, VKD3DSP_WRITEMASK_ALL, 1, UINT_MAX, 0, false);
     }
     else if (is_per_component)
     {
