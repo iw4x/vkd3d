@@ -58,7 +58,7 @@ float main() : sv_target
         return float4(0.9, 0.8, 0.7, 0.6);
 }
 
-[pixel shader fail todo]
+[pixel shader fail]
 float4 u;
 
 float main() : sv_target
