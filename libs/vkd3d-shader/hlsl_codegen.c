@@ -5931,11 +5931,7 @@ struct register_allocator
     } *allocations;
     size_t count, capacity;
 
-    /* Indexable temps are allocated separately and always keep their index regardless of their
-     * lifetime. */
-    uint32_t indexable_count;
-
-    /* Total number of registers allocated so far. Used to declare sm4 temp count. */
+    /* Total number of registers allocated so far. */
     uint32_t reg_count;
 
     /* Special flag so allocations that can share registers prioritize those
@@ -6099,18 +6095,14 @@ static struct hlsl_reg allocate_numeric_registers_for_type(struct hlsl_ctx *ctx,
         unsigned int first_write, unsigned int last_read, const struct hlsl_type *type)
 {
     unsigned int reg_size = type->reg_size[HLSL_REGSET_NUMERIC];
-    struct hlsl_reg ret;
 
     /* FIXME: We could potentially pack structs or arrays more efficiently... */
 
     if (type->class <= HLSL_CLASS_VECTOR)
-        ret = allocate_register(ctx, allocator, first_write, last_read,
+        return allocate_register(ctx, allocator, first_write, last_read,
                 type->e.numeric.dimx, type->e.numeric.dimx, 0, false, false);
     else
-        ret = allocate_range(ctx, allocator, first_write, last_read, reg_size, 0, false);
-    if (allocator->type == VKD3DSPR_TEMP)
-        ctx->temp_count = max(ctx->temp_count, ret.id + ret.allocation_size);
-    return ret;
+        return allocate_range(ctx, allocator, first_write, last_read, reg_size, 0, false);
 }
 
 static const char *debug_register(struct hlsl_reg reg, const struct hlsl_type *type)
@@ -6275,8 +6267,7 @@ static void calculate_resource_register_counts(struct hlsl_ctx *ctx)
     }
 }
 
-static void allocate_instr_temp_register(struct hlsl_ctx *ctx,
-        struct hlsl_ir_node *instr, struct register_allocator *allocator)
+static void allocate_instr_temp_register(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr)
 {
     unsigned int dst_writemask = 0;
     bool is_per_component = false;
@@ -6322,8 +6313,6 @@ static void allocate_instr_temp_register(struct hlsl_ctx *ctx,
         instr->reg.allocated = true;
         instr->reg.type = VKD3DSPR_TEMP;
         instr->reg.id = ctx->temp_count++;
-
-        record_allocation(ctx, allocator, ctx->temp_count - 1, VKD3DSP_WRITEMASK_ALL, 1, UINT_MAX, 0, false);
     }
     else if (is_per_component)
     {
@@ -6332,8 +6321,6 @@ static void allocate_instr_temp_register(struct hlsl_ctx *ctx,
         instr->reg.allocated = true;
         instr->reg.type = VKD3DSPR_TEMP;
         instr->reg.id = ctx->temp_count++;
-
-        record_allocation(ctx, allocator, ctx->temp_count - 1, VKD3DSP_WRITEMASK_ALL, 1, UINT_MAX, 0, false);
     }
     else
     {
@@ -6348,8 +6335,7 @@ static void allocate_instr_temp_register(struct hlsl_ctx *ctx,
             debug_register(instr->reg, instr->data_type), instr->index, instr->last_read);
 }
 
-static void allocate_variable_temp_register(struct hlsl_ctx *ctx,
-        struct hlsl_ir_var *var, struct register_allocator *allocator)
+static void allocate_variable_temp_register(struct hlsl_ctx *ctx, struct hlsl_ir_var *var)
 {
     struct hlsl_reg *reg = &var->regs[HLSL_REGSET_NUMERIC];
 
@@ -6360,7 +6346,7 @@ static void allocate_variable_temp_register(struct hlsl_ctx *ctx,
     {
         if (var->indexable)
         {
-            reg->id = allocator->indexable_count++;
+            reg->id = ctx->indexable_temp_count++;
             reg->allocation_size = 1;
             reg->writemask = 0;
             reg->allocated = true;
@@ -6376,9 +6362,6 @@ static void allocate_variable_temp_register(struct hlsl_ctx *ctx,
                 reg->writemask = vkd3d_write_mask_from_component_count(var->data_type->e.numeric.dimx);
             reg->allocated = true;
 
-            for (unsigned int i = 0; i < reg->allocation_size; ++i)
-                record_allocation(ctx, allocator, ctx->temp_count + i, VKD3DSP_WRITEMASK_ALL, 1, UINT_MAX, 0, false);
-
             ctx->temp_count += reg->allocation_size;
 
             TRACE("Allocated %s to %s (liveness %u-%u).\n", var->name,
@@ -6387,8 +6370,7 @@ static void allocate_variable_temp_register(struct hlsl_ctx *ctx,
     }
 }
 
-static void allocate_temp_registers_recurse(struct hlsl_ctx *ctx,
-        struct hlsl_block *block, struct register_allocator *allocator)
+static void allocate_temp_registers_recurse(struct hlsl_ctx *ctx, struct hlsl_block *block)
 {
     struct hlsl_ir_node *instr;
 
@@ -6398,15 +6380,15 @@ static void allocate_temp_registers_recurse(struct hlsl_ctx *ctx,
         if (ctx->profile->major_version >= 4 && instr->type == HLSL_IR_CONSTANT)
             continue;
 
-        allocate_instr_temp_register(ctx, instr, allocator);
+        allocate_instr_temp_register(ctx, instr);
 
         switch (instr->type)
         {
             case HLSL_IR_IF:
             {
                 struct hlsl_ir_if *iff = hlsl_ir_if(instr);
-                allocate_temp_registers_recurse(ctx, &iff->then_block, allocator);
-                allocate_temp_registers_recurse(ctx, &iff->else_block, allocator);
+                allocate_temp_registers_recurse(ctx, &iff->then_block);
+                allocate_temp_registers_recurse(ctx, &iff->else_block);
                 break;
             }
 
@@ -6415,21 +6397,21 @@ static void allocate_temp_registers_recurse(struct hlsl_ctx *ctx,
                 struct hlsl_ir_load *load = hlsl_ir_load(instr);
                 /* We need to at least allocate a variable for undefs.
                  * FIXME: We should probably find a way to remove them instead. */
-                allocate_variable_temp_register(ctx, load->src.var, allocator);
+                allocate_variable_temp_register(ctx, load->src.var);
                 break;
             }
 
             case HLSL_IR_LOOP:
             {
                 struct hlsl_ir_loop *loop = hlsl_ir_loop(instr);
-                allocate_temp_registers_recurse(ctx, &loop->body, allocator);
+                allocate_temp_registers_recurse(ctx, &loop->body);
                 break;
             }
 
             case HLSL_IR_STORE:
             {
                 struct hlsl_ir_store *store = hlsl_ir_store(instr);
-                allocate_variable_temp_register(ctx, store->lhs.var, allocator);
+                allocate_variable_temp_register(ctx, store->lhs.var);
                 break;
             }
 
@@ -6440,7 +6422,7 @@ static void allocate_temp_registers_recurse(struct hlsl_ctx *ctx,
 
                 LIST_FOR_EACH_ENTRY(c, &s->cases, struct hlsl_ir_switch_case, entry)
                 {
-                    allocate_temp_registers_recurse(ctx, &c->body, allocator);
+                    allocate_temp_registers_recurse(ctx, &c->body);
                 }
                 break;
             }
@@ -6756,9 +6738,10 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
  * does not handle constants. */
 static void allocate_temp_registers(struct hlsl_ctx *ctx, struct hlsl_block *body, struct list *semantic_vars)
 {
-    struct register_allocator allocator = {.type = VKD3DSPR_TEMP};
     struct hlsl_scope *scope;
     struct hlsl_ir_var *var;
+
+    ctx->indexable_temp_count = 0;
 
     /* Reset variable temp register allocations. */
     LIST_FOR_EACH_ENTRY(scope, &ctx->scopes, struct hlsl_scope, entry)
@@ -6777,16 +6760,13 @@ static void allocate_temp_registers(struct hlsl_ctx *ctx, struct hlsl_block *bod
         {
             if (var->is_output_semantic)
             {
-                record_allocation(ctx, &allocator, 0, VKD3DSP_WRITEMASK_ALL,
-                        var->first_write, UINT_MAX, 0, false);
                 ctx->temp_count = 1;
                 break;
             }
         }
     }
 
-    allocate_temp_registers_recurse(ctx, body, &allocator);
-    vkd3d_free(allocator.allocations);
+    allocate_temp_registers_recurse(ctx, body);
 }
 
 static enum vkd3d_shader_interpolation_mode sm4_get_interpolation_mode(struct hlsl_type *type,

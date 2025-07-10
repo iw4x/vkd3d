@@ -1187,8 +1187,8 @@ struct hlsl_ctx
     } constant_defs;
     /* 'c' registers where the constants expected by SM2 sincos are stored. */
     struct hlsl_reg d3dsincosconst1, d3dsincosconst2;
-    /* Number of allocated SSA and temp IDs, used in translation to vsir. */
-    unsigned int ssa_count, temp_count;
+    /* Number of allocated registers, used in translation to vsir. */
+    unsigned int ssa_count, temp_count, indexable_temp_count;
 
     /* Number of threads to be executed (on the X, Y, and Z dimensions) in a single thread group in
      *   compute shader profiles. It is set using the numthreads() attribute in the entry point. */
