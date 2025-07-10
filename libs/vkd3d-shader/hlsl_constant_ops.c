@@ -1649,6 +1649,9 @@ bool hlsl_normalize_binary_exprs(struct hlsl_ctx *ctx, struct hlsl_ir_node *inst
     if (instr->data_type->class > HLSL_CLASS_VECTOR)
         return false;
 
+    if (expr->operands[2].node)
+        return false;
+
     hlsl_block_init(&block);
 
     arg1 = expr->operands[0].node;
