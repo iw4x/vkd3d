@@ -1531,6 +1531,7 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
             break;
         case VSIR_OP_GEO:
         case VSIR_OP_IGE:
+        case VSIR_OP_UGE:
             shader_glsl_relop(gen, ins, ">=", "greaterThanEqual");
             break;
         case VSIR_OP_IF:
