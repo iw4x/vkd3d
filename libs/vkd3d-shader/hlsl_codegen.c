@@ -5029,8 +5029,7 @@ static bool lower_comparison_operators(struct hlsl_ctx *ctx, struct hlsl_ir_node
     if (instr->type != HLSL_IR_EXPR)
         return false;
     expr = hlsl_ir_expr(instr);
-    if (expr->op != HLSL_OP2_EQUAL && expr->op != HLSL_OP2_NEQUAL && expr->op != HLSL_OP2_LESS
-            && expr->op != HLSL_OP2_GEQUAL)
+    if (!hlsl_is_comparison_op(expr->op))
         return false;
 
     arg1 = expr->operands[0].node;
@@ -8266,6 +8265,127 @@ void hlsl_lower_index_loads(struct hlsl_ctx *ctx, struct hlsl_block *body)
     lower_ir(ctx, lower_index_loads, body);
 }
 
+static enum hlsl_ir_expr_op invert_comparison_op(enum hlsl_ir_expr_op op)
+{
+    switch (op)
+    {
+        case HLSL_OP2_EQUAL:
+            return HLSL_OP2_NEQUAL;
+
+        case HLSL_OP2_GEQUAL:
+            return HLSL_OP2_LESS;
+
+        case HLSL_OP2_LESS:
+            return HLSL_OP2_GEQUAL;
+
+        case HLSL_OP2_NEQUAL:
+            return HLSL_OP2_EQUAL;
+
+        default:
+            vkd3d_unreachable();
+    }
+}
+
+static bool fold_unary_identities(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+{
+    struct hlsl_ir_node *res = NULL;
+    struct hlsl_ir_expr *expr, *x;
+
+    if (instr->type != HLSL_IR_EXPR)
+        return false;
+
+    if (instr->data_type->class > HLSL_CLASS_VECTOR)
+        return false;
+
+    expr = hlsl_ir_expr(instr);
+    if (!expr->operands[0].node)
+        return false;
+
+    if (expr->operands[0].node->type != HLSL_IR_EXPR)
+        return false;
+    x = hlsl_ir_expr(expr->operands[0].node);
+
+    switch (expr->op)
+    {
+        case HLSL_OP1_ABS:
+            if (x->op == HLSL_OP1_ABS)
+            {
+                /* ||x|| -> |x| */
+                hlsl_replace_node(instr, &x->node);
+                return true;
+            }
+
+            if (x->op == HLSL_OP1_NEG)
+            {
+                /* |-x| -> |x| */
+                hlsl_src_remove(&expr->operands[0]);
+                hlsl_src_from_node(&expr->operands[0], x->operands[0].node);
+                return true;
+            }
+            break;
+
+        case HLSL_OP1_BIT_NOT:
+            if (x->op == HLSL_OP1_BIT_NOT)
+            {
+                /* ~(~x) -> x */
+                hlsl_replace_node(instr, x->operands[0].node);
+                return true;
+            }
+            break;
+
+        case HLSL_OP1_CEIL:
+        case HLSL_OP1_FLOOR:
+            if (x->op == HLSL_OP1_CEIL || x->op == HLSL_OP1_FLOOR)
+            {
+                /* f(g(x)) -> g(x), where f(), g() are floor() or ceil() functions. */
+                hlsl_replace_node(instr, &x->node);
+                return true;
+            }
+            break;
+
+        case HLSL_OP1_NEG:
+            if (x->op == HLSL_OP1_NEG)
+            {
+                /* -(-x) -> x */
+                hlsl_replace_node(instr, x->operands[0].node);
+                return true;
+            }
+            break;
+
+        case HLSL_OP1_LOGIC_NOT:
+            if (x->op == HLSL_OP1_LOGIC_NOT)
+            {
+                /* !!x -> x */
+                hlsl_replace_node(instr, x->operands[0].node);
+                return true;
+            }
+
+            if (hlsl_is_comparison_op(x->op)
+                    && hlsl_base_type_is_integer(x->operands[0].node->data_type->e.numeric.type)
+                    && hlsl_base_type_is_integer(x->operands[1].node->data_type->e.numeric.type))
+            {
+                struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS] = {x->operands[0].node, x->operands[1].node};
+                struct hlsl_block block;
+
+                hlsl_block_init(&block);
+
+                /* !(x == y) -> x != y, !(x < y) -> x >= y, etc. */
+                res = hlsl_block_add_expr(ctx, &block, invert_comparison_op(x->op),
+                        operands, instr->data_type, &instr->loc);
+
+                list_move_before(&instr->entry, &block.instrs);
+                hlsl_replace_node(instr, res);
+                return true;
+            }
+
+            break;
+
+        default:
+            break;
+    }
+
+    return false;
+}
 
 static bool simplify_exprs(struct hlsl_ctx *ctx, struct hlsl_block *block)
 {
@@ -8275,6 +8395,7 @@ static bool simplify_exprs(struct hlsl_ctx *ctx, struct hlsl_block *block)
     {
         progress = hlsl_transform_ir(ctx, hlsl_fold_constant_exprs, block, NULL);
         progress |= hlsl_transform_ir(ctx, hlsl_normalize_binary_exprs, block, NULL);
+        progress |= hlsl_transform_ir(ctx, fold_unary_identities, block, NULL);
         progress |= hlsl_transform_ir(ctx, hlsl_fold_constant_identities, block, NULL);
         progress |= hlsl_transform_ir(ctx, hlsl_fold_constant_swizzles, block, NULL);
 

@@ -1541,6 +1541,12 @@ static inline bool hlsl_var_has_buffer_offset_register_reservation(struct hlsl_c
     return var->reg_reservation.reg_type == 'c' && var->buffer == ctx->globals_buffer;
 }
 
+static inline bool hlsl_is_comparison_op(enum hlsl_ir_expr_op op)
+{
+    return op == HLSL_OP2_EQUAL || op == HLSL_OP2_GEQUAL
+            || op == HLSL_OP2_LESS || op == HLSL_OP2_NEQUAL;
+}
+
 char *hlsl_sprintf_alloc(struct hlsl_ctx *ctx, const char *fmt, ...) VKD3D_PRINTF_FUNC(2, 3);
 
 const char *debug_hlsl_expr_op(enum hlsl_ir_expr_op op);
