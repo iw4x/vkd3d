@@ -1699,6 +1699,9 @@ struct hlsl_type *hlsl_new_stream_output_type(struct hlsl_ctx *ctx,
 struct hlsl_ir_node *hlsl_new_ternary_expr(struct hlsl_ctx *ctx, enum hlsl_ir_expr_op op,
         struct hlsl_ir_node *arg1, struct hlsl_ir_node *arg2, struct hlsl_ir_node *arg3);
 
+bool hlsl_constant_is_zero(struct hlsl_ir_constant *c);
+bool hlsl_constant_is_one(struct hlsl_ir_constant *c);
+
 void hlsl_init_simple_deref_from_var(struct hlsl_deref *deref, struct hlsl_ir_var *var);
 
 struct hlsl_ir_load *hlsl_new_var_load(struct hlsl_ctx *ctx, struct hlsl_ir_var *var,

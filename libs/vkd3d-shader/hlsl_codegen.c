@@ -8387,6 +8387,161 @@ static bool fold_unary_identities(struct hlsl_ctx *ctx, struct hlsl_ir_node *ins
     return false;
 }
 
+static bool nodes_are_equivalent(const struct hlsl_ir_node *c1, const struct hlsl_ir_node *c2)
+{
+    if (c1 == c2)
+        return true;
+
+    if (c1->type == HLSL_IR_SWIZZLE && c2->type == HLSL_IR_SWIZZLE
+            && hlsl_types_are_equal(c1->data_type, c2->data_type))
+    {
+        const struct hlsl_ir_swizzle *s1 = hlsl_ir_swizzle(c1), *s2 = hlsl_ir_swizzle(c2);
+
+        VKD3D_ASSERT(c1->data_type->class <= HLSL_CLASS_VECTOR);
+
+        if (s1->val.node == s2->val.node && s1->u.vector == s2->u.vector)
+            return true;
+    }
+
+    return false;
+}
+
+/* Replaces all conditionals in an expression chain of the form (cond ? x : y)
+ * with x or y, assuming cond = cond_value. */
+static struct hlsl_ir_node *evaluate_conditionals_recurse(struct hlsl_ctx *ctx,
+        struct hlsl_block *block, const struct hlsl_ir_node *cond, bool cond_value,
+        struct hlsl_ir_node *instr, const struct vkd3d_shader_location *loc)
+{
+    struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS] = {0};
+    struct hlsl_ir_expr *expr;
+    struct hlsl_ir_node *res;
+    bool progress = false;
+    unsigned int i;
+
+    if (instr->type != HLSL_IR_EXPR)
+        return NULL;
+    expr = hlsl_ir_expr(instr);
+
+    if (expr->op == HLSL_OP3_TERNARY && nodes_are_equivalent(cond, expr->operands[0].node))
+    {
+        struct hlsl_ir_node *x = cond_value ? expr->operands[1].node : expr->operands[2].node;
+
+        res = evaluate_conditionals_recurse(ctx, block, cond, cond_value, x, loc);
+        return res ? res : x;
+    }
+
+    for (i = 0; i < HLSL_MAX_OPERANDS; ++i)
+    {
+        if (!expr->operands[i].node)
+            break;
+
+        operands[i] = evaluate_conditionals_recurse(ctx, block, cond, cond_value, expr->operands[i].node, loc);
+
+        if (operands[i])
+            progress = true;
+        else
+            operands[i] = expr->operands[i].node;
+    }
+
+    if (progress)
+        return hlsl_block_add_expr(ctx, block, expr->op, operands, expr->node.data_type, loc);
+
+    return NULL;
+}
+
+static bool fold_conditional_identities(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+{
+    struct hlsl_ir_node *c, *x, *y, *res_x, *res_y;
+    struct hlsl_ir_node *res = NULL;
+    struct hlsl_ir_expr *expr, *ec;
+    struct hlsl_block block;
+
+    if (instr->type != HLSL_IR_EXPR)
+        return false;
+
+    if (instr->data_type->class > HLSL_CLASS_VECTOR)
+        return false;
+
+    expr = hlsl_ir_expr(instr);
+    if (expr->op != HLSL_OP3_TERNARY)
+        return false;
+
+    c = expr->operands[0].node;
+    x = expr->operands[1].node;
+    y = expr->operands[2].node;
+
+    VKD3D_ASSERT(c->data_type->e.numeric.type == HLSL_TYPE_BOOL);
+
+    if (nodes_are_equivalent(x, y))
+    {
+        /* c ? x : x -> x */
+        hlsl_replace_node(instr, x);
+        return true;
+    }
+
+    if (c->type == HLSL_IR_CONSTANT)
+    {
+        if (hlsl_constant_is_zero(hlsl_ir_constant(c)))
+        {
+            /* false ? x : y -> y */
+            hlsl_replace_node(instr, y);
+            return true;
+        }
+
+        if (hlsl_constant_is_one(hlsl_ir_constant(c)))
+        {
+            /* true ? x : y -> x  */
+            hlsl_replace_node(instr, x);
+            return true;
+        }
+    }
+
+    hlsl_block_init(&block);
+
+    if (x->type == HLSL_IR_CONSTANT && y->type == HLSL_IR_CONSTANT
+            && hlsl_types_are_equal(c->data_type, x->data_type)
+            && hlsl_types_are_equal(c->data_type, y->data_type))
+    {
+        if (hlsl_constant_is_one(hlsl_ir_constant(x)) && hlsl_constant_is_zero(hlsl_ir_constant(y)))
+        {
+            /* c ? true : false -> c */
+            res = c;
+            goto done;
+        }
+
+        if (hlsl_constant_is_zero(hlsl_ir_constant(x)) && hlsl_constant_is_one(hlsl_ir_constant(y)))
+        {
+            /* c ? false : true -> !c */
+            res = hlsl_block_add_unary_expr(ctx, &block, HLSL_OP1_LOGIC_NOT, c, &instr->loc);
+            goto done;
+        }
+    }
+
+    ec = c->type == HLSL_IR_EXPR ? hlsl_ir_expr(c) : NULL;
+    if (ec && ec->op == HLSL_OP1_LOGIC_NOT)
+    {
+        /* !c ? x : y -> c ? y : x */
+        res = hlsl_add_conditional(ctx, &block, ec->operands[0].node, y, x);
+        goto done;
+    }
+
+    res_x = evaluate_conditionals_recurse(ctx, &block, c, true, x, &instr->loc);
+    res_y = evaluate_conditionals_recurse(ctx, &block, c, false, y, &instr->loc);
+    if (res_x || res_y)
+        res = hlsl_add_conditional(ctx, &block, c, res_x ? res_x : x, res_y ? res_y : y);
+
+done:
+    if (res)
+    {
+        list_move_before(&instr->entry, &block.instrs);
+        hlsl_replace_node(instr, res);
+        return true;
+    }
+
+    hlsl_block_cleanup(&block);
+    return false;
+}
+
 static bool simplify_exprs(struct hlsl_ctx *ctx, struct hlsl_block *block)
 {
     bool progress, any_progress = false;
@@ -8396,6 +8551,7 @@ static bool simplify_exprs(struct hlsl_ctx *ctx, struct hlsl_block *block)
         progress = hlsl_transform_ir(ctx, hlsl_fold_constant_exprs, block, NULL);
         progress |= hlsl_transform_ir(ctx, hlsl_normalize_binary_exprs, block, NULL);
         progress |= hlsl_transform_ir(ctx, fold_unary_identities, block, NULL);
+        progress |= hlsl_transform_ir(ctx, fold_conditional_identities, block, NULL);
         progress |= hlsl_transform_ir(ctx, hlsl_fold_constant_identities, block, NULL);
         progress |= hlsl_transform_ir(ctx, hlsl_fold_constant_swizzles, block, NULL);
 
