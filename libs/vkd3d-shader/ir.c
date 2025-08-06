@@ -8892,11 +8892,14 @@ enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
 enum vkd3d_result vsir_update_dcl_temps(struct vsir_program *program,
         struct vkd3d_shader_message_context *message_context)
 {
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
+    struct vkd3d_shader_location location;
+    struct vkd3d_shader_instruction *ins;
     unsigned int temp_count = 0;
 
-    for (int i = program->instructions.count - 1; i >= 0; --i)
+    for (ins = vsir_program_iterator_tail(&it); ins; ins = vsir_program_iterator_prev(&it))
     {
-        struct vkd3d_shader_instruction *ins = &program->instructions.elements[i];
+        location = ins->location;
 
         if (ins->opcode == VSIR_OP_DCL_TEMPS)
         {
@@ -8912,11 +8915,11 @@ enum vkd3d_result vsir_update_dcl_temps(struct vsir_program *program,
         {
             /* The phase didn't have a dcl_temps instruction, but we added
              * temps here, so we need to insert one. */
-            if (!shader_instruction_array_insert_at(&program->instructions, i + 1, 1))
+            if (!vsir_program_iterator_insert_after(&it, 1))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
 
-            ins = &program->instructions.elements[i + 1];
-            vsir_instruction_init(ins, &program->instructions.elements[i].location, VSIR_OP_DCL_TEMPS);
+            ins = vsir_program_iterator_next(&it);
+            vsir_instruction_init(ins, &location, VSIR_OP_DCL_TEMPS);
             ins->declaration.count = temp_count;
             temp_count = 0;
             continue;
@@ -8937,13 +8940,15 @@ enum vkd3d_result vsir_update_dcl_temps(struct vsir_program *program,
 
     if (temp_count && program->shader_version.major >= 4)
     {
-        struct vkd3d_shader_instruction *ins;
+        ins = vsir_program_iterator_head(&it);
+        location = ins->location;
 
-        if (!shader_instruction_array_insert_at(&program->instructions, 0, 1))
+        vsir_program_iterator_prev(&it);
+        if (!vsir_program_iterator_insert_after(&it, 1))
             return VKD3D_ERROR_OUT_OF_MEMORY;
 
-        ins = &program->instructions.elements[0];
-        vsir_instruction_init(ins, &program->instructions.elements[1].location, VSIR_OP_DCL_TEMPS);
+        ins = vsir_program_iterator_next(&it);
+        vsir_instruction_init(ins, &location, VSIR_OP_DCL_TEMPS);
         ins->declaration.count = temp_count;
     }
 
