@@ -11837,13 +11837,11 @@ static const struct vsir_validator_instruction_desc vsir_validator_instructions[
     [VSIR_OP_SWITCH_MONOLITHIC] =                {0, ~0u, vsir_validate_switch_monolithic},
 };
 
-static void vsir_validate_instruction(struct validation_context *ctx)
+static void vsir_validate_instruction(struct validation_context *ctx,
+        const struct vkd3d_shader_instruction *instruction)
 {
     const struct vkd3d_shader_version *version = &ctx->program->shader_version;
-    const struct vkd3d_shader_instruction *instruction;
     size_t i;
-
-    instruction = &ctx->program->instructions.elements[ctx->instruction_idx];
 
     for (i = 0; i < instruction->dst_count; ++i)
         vsir_validate_dst_param(ctx, &instruction->dst[i]);
@@ -11933,6 +11931,8 @@ enum vkd3d_result vsir_program_validate(struct vsir_program *program, uint64_t c
         .inner_tess_idxs[0] = ~0u,
         .inner_tess_idxs[1] = ~0u,
     };
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
+    struct vkd3d_shader_instruction *ins;
     unsigned int i;
 
     if (!(config_flags & VKD3D_SHADER_CONFIG_FLAG_FORCE_VALIDATION))
@@ -12041,9 +12041,13 @@ enum vkd3d_result vsir_program_validate(struct vsir_program *program, uint64_t c
 
     ctx.invalid_instruction_idx = false;
 
-    for (ctx.instruction_idx = 0; ctx.instruction_idx < program->instructions.count
-            && ctx.status != VKD3D_ERROR_OUT_OF_MEMORY; ++ctx.instruction_idx)
-        vsir_validate_instruction(&ctx);
+    ctx.instruction_idx = 0;
+    for (ins = vsir_program_iterator_head(&it); ins && ctx.status != VKD3D_ERROR_OUT_OF_MEMORY;
+            ins = vsir_program_iterator_next(&it))
+    {
+        vsir_validate_instruction(&ctx, ins);
+        ++ctx.instruction_idx;
+    }
 
     ctx.invalid_instruction_idx = true;
 
