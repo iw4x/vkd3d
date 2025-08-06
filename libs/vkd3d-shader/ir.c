@@ -8828,8 +8828,10 @@ static void temp_allocator_set_dst(struct temp_allocator *allocator,
 enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
         struct vkd3d_shader_message_context *message_context)
 {
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
     const unsigned int prev_temp_count = program->temp_count;
     struct temp_allocator allocator = {0};
+    struct vkd3d_shader_instruction *ins;
     struct temp_allocator_reg *regs;
     struct liveness_tracker tracker;
     enum vkd3d_result ret;
@@ -8863,10 +8865,8 @@ enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
         ++allocator.allocated_ssa_count;
     }
 
-    for (unsigned int i = 0; i < program->instructions.count; ++i)
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
-        const struct vkd3d_shader_instruction *ins = &program->instructions.elements[i];
-
         /* Make sure we do the srcs first; setting the dst writemask may need
          * to remap their swizzles. */
         for (unsigned int j = 0; j < ins->src_count; ++j)
