@@ -7922,21 +7922,18 @@ static enum vkd3d_result vsir_program_add_fog_output(struct vsir_program *progra
     return VKD3D_OK;
 }
 
-static enum vkd3d_result insert_vertex_fog_before_ret(struct vsir_program *program,
-        const struct vkd3d_shader_instruction *ret, enum vkd3d_shader_fog_source source, uint32_t temp,
-        uint32_t fog_signature_idx, uint32_t source_signature_idx, size_t *ret_pos)
+static enum vkd3d_result insert_vertex_fog_before_ret(struct vsir_program *program, struct vsir_program_iterator *it,
+        enum vkd3d_shader_fog_source source, uint32_t temp, uint32_t fog_signature_idx, uint32_t source_signature_idx)
 {
     const struct signature_element *e = &program->output_signature.elements[source_signature_idx];
-    struct vkd3d_shader_instruction_array *instructions = &program->instructions;
+    struct vkd3d_shader_instruction *ret = vsir_program_iterator_current(it);
     const struct vkd3d_shader_location loc = ret->location;
-    size_t pos = ret - instructions->elements;
     struct vkd3d_shader_instruction *ins;
 
-    if (!shader_instruction_array_insert_at(&program->instructions, pos, 2))
+    vsir_program_iterator_prev(it);
+    if (!vsir_program_iterator_insert_after(it, 2))
         return VKD3D_ERROR_OUT_OF_MEMORY;
-    ret = NULL;
-
-    ins = &program->instructions.elements[pos];
+    ins = vsir_program_iterator_next(it);
 
     /* Write the fog output. */
     vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MOV, 1, 1);
@@ -7946,26 +7943,27 @@ static enum vkd3d_result insert_vertex_fog_before_ret(struct vsir_program *progr
         ins->src[0].swizzle = VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z);
     else /* Position or specular W. */
         ins->src[0].swizzle = VKD3D_SHADER_SWIZZLE(W, W, W, W);
-    ++ins;
+    ins = vsir_program_iterator_next(it);
 
     /* Write the position or specular output. */
     vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MOV, 1, 1);
     dst_param_init_output(&ins->dst[0], vsir_data_type_from_component_type(e->component_type),
             source_signature_idx, e->mask);
     src_param_init_temp_float4(&ins->src[0], temp);
-    ++ins;
+    ins = vsir_program_iterator_next(it);
 
-    *ret_pos = pos + 2;
     return VKD3D_OK;
 }
 
 static enum vkd3d_result vsir_program_insert_vertex_fog(struct vsir_program *program,
         struct vsir_transformation_context *ctx)
 {
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
     struct vkd3d_shader_message_context *message_context = ctx->message_context;
     const struct vkd3d_shader_parameter1 *source_parameter = NULL;
     uint32_t fog_signature_idx, source_signature_idx, temp;
     static const struct vkd3d_shader_location no_loc;
+    struct vkd3d_shader_instruction *ins;
     enum vkd3d_shader_fog_source source;
     const struct signature_element *e;
 
@@ -8022,22 +8020,18 @@ static enum vkd3d_result vsir_program_insert_vertex_fog(struct vsir_program *pro
 
     /* Insert a fog write before each ret, and convert either specular or
      * position output to a temp. */
-    for (size_t i = 0; i < program->instructions.count; ++i)
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
-        struct vkd3d_shader_instruction *ins = &program->instructions.elements[i];
-
         if (vsir_instruction_is_dcl(ins))
             continue;
 
         if (ins->opcode == VSIR_OP_RET)
         {
-            size_t new_pos;
             int ret;
 
-            if ((ret = insert_vertex_fog_before_ret(program, ins, source, temp,
-                    fog_signature_idx, source_signature_idx, &new_pos)) < 0)
+            if ((ret = insert_vertex_fog_before_ret(program, &it, source, temp,
+                    fog_signature_idx, source_signature_idx)) < 0)
                 return ret;
-            i = new_pos;
             continue;
         }
 
