@@ -8554,9 +8554,12 @@ static void liveness_tracker_cleanup(struct liveness_tracker *tracker)
 
 static enum vkd3d_result track_liveness(struct vsir_program *program, struct liveness_tracker *tracker)
 {
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
+    struct vkd3d_shader_instruction *ins;
     struct liveness_tracker_reg *regs;
     unsigned int loop_depth = 0;
     unsigned int loop_start = 0;
+    unsigned int i;
 
     memset(tracker, 0, sizeof(*tracker));
 
@@ -8564,10 +8567,8 @@ static enum vkd3d_result track_liveness(struct vsir_program *program, struct liv
         return VKD3D_ERROR_OUT_OF_MEMORY;
     tracker->ssa_regs = regs;
 
-    for (unsigned int i = 0; i < program->instructions.count; ++i)
+    for (ins = vsir_program_iterator_head(&it), i = 0; ins; ins = vsir_program_iterator_next(&it), ++i)
     {
-        const struct vkd3d_shader_instruction *ins = &program->instructions.elements[i];
-
         if (ins->opcode == VSIR_OP_LOOP || ins->opcode == VSIR_OP_REP)
         {
             if (!loop_depth++)
