@@ -7668,15 +7668,12 @@ static enum vkd3d_result vsir_program_add_fog_input(struct vsir_program *program
 }
 
 static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *program,
-        const struct vkd3d_shader_instruction *ret, enum vkd3d_shader_fog_fragment_mode mode,
-        uint32_t fog_signature_idx, uint32_t colour_signature_idx, uint32_t colour_temp,
-        size_t *ret_pos, struct vkd3d_shader_message_context *message_context)
+        struct vsir_program_iterator *it, enum vkd3d_shader_fog_fragment_mode mode, uint32_t fog_signature_idx,
+        uint32_t colour_signature_idx, uint32_t colour_temp, struct vkd3d_shader_message_context *message_context)
 {
-    struct vkd3d_shader_instruction_array *instructions = &program->instructions;
-    struct vkd3d_shader_location loc = ret->location;
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(it);
+    struct vkd3d_shader_location loc = ins->location;
     uint32_t ssa_factor = program->ssa_count++;
-    size_t pos = ret - instructions->elements;
-    struct vkd3d_shader_instruction *ins;
     uint32_t ssa_temp, ssa_temp2;
 
     switch (mode)
@@ -7687,15 +7684,12 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
              * add sr0, FOG_END, -vFOG.x
              * mul_sat srFACTOR, sr0, FOG_SCALE
              */
-            if (!shader_instruction_array_insert_at(&program->instructions, pos, 4))
+            vsir_program_iterator_prev(it);
+            if (!vsir_program_iterator_insert_after(it, 4))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
-            ret = NULL;
-
-            *ret_pos = pos + 4;
+            ins = vsir_program_iterator_next(it);
 
             ssa_temp = program->ssa_count++;
-
-            ins = &program->instructions.elements[pos];
 
             vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_ADD, 1, 2);
             dst_param_init_ssa_float(&ins->dst[0], ssa_temp);
@@ -7705,12 +7699,15 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
             ins->src[1].reg.dimension = VSIR_DIMENSION_VEC4;
             ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
             ins->src[1].modifiers = VKD3DSPSM_NEG;
+            ins = vsir_program_iterator_next(it);
 
-            vsir_instruction_init_with_params(program, ++ins, &loc, VSIR_OP_MUL, 1, 2);
+            vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MUL, 1, 2);
             dst_param_init_ssa_float(&ins->dst[0], ssa_factor);
             ins->dst[0].modifiers = VKD3DSPDM_SATURATE;
             src_param_init_ssa_float(&ins->src[0], ssa_temp);
             src_param_init_parameter(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_FOG_SCALE, VSIR_DATA_F32);
+            ins = vsir_program_iterator_next(it);
+
             break;
 
         case VKD3D_SHADER_FOG_FRAGMENT_EXP:
@@ -7719,15 +7716,12 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
              * mul sr0, FOG_SCALE, vFOG.x
              * exp_sat srFACTOR, -sr0
              */
-            if (!shader_instruction_array_insert_at(&program->instructions, pos, 4))
+            vsir_program_iterator_prev(it);
+            if (!vsir_program_iterator_insert_after(it, 4))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
-            ret = NULL;
-
-            *ret_pos = pos + 4;
+            ins = vsir_program_iterator_next(it);
 
             ssa_temp = program->ssa_count++;
-
-            ins = &program->instructions.elements[pos];
 
             vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MUL, 1, 2);
             dst_param_init_ssa_float(&ins->dst[0], ssa_temp);
@@ -7736,12 +7730,14 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
             ins->src[1].reg.idx[0].offset = fog_signature_idx;
             ins->src[1].reg.dimension = VSIR_DIMENSION_VEC4;
             ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+            ins = vsir_program_iterator_next(it);
 
-            vsir_instruction_init_with_params(program, ++ins, &loc, VSIR_OP_EXP, 1, 1);
+            vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_EXP, 1, 1);
             dst_param_init_ssa_float(&ins->dst[0], ssa_factor);
             ins->dst[0].modifiers = VKD3DSPDM_SATURATE;
             src_param_init_ssa_float(&ins->src[0], ssa_temp);
             ins->src[0].modifiers = VKD3DSPSM_NEG;
+            ins = vsir_program_iterator_next(it);
             break;
 
         case VKD3D_SHADER_FOG_FRAGMENT_EXP2:
@@ -7751,16 +7747,13 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
              * mul sr1, sr0, sr0
              * exp_sat srFACTOR, -sr1
              */
-            if (!shader_instruction_array_insert_at(&program->instructions, pos, 5))
+            vsir_program_iterator_prev(it);
+            if (!vsir_program_iterator_insert_after(it, 5))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
-            ret = NULL;
-
-            *ret_pos = pos + 5;
+            ins = vsir_program_iterator_next(it);
 
             ssa_temp = program->ssa_count++;
             ssa_temp2 = program->ssa_count++;
-
-            ins = &program->instructions.elements[pos];
 
             vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MUL, 1, 2);
             dst_param_init_ssa_float(&ins->dst[0], ssa_temp);
@@ -7769,17 +7762,20 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
             ins->src[1].reg.idx[0].offset = fog_signature_idx;
             ins->src[1].reg.dimension = VSIR_DIMENSION_VEC4;
             ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+            ins = vsir_program_iterator_next(it);
 
-            vsir_instruction_init_with_params(program, ++ins, &loc, VSIR_OP_MUL, 1, 2);
+            vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MUL, 1, 2);
             dst_param_init_ssa_float(&ins->dst[0], ssa_temp2);
             src_param_init_ssa_float(&ins->src[0], ssa_temp);
             src_param_init_ssa_float(&ins->src[1], ssa_temp);
+            ins = vsir_program_iterator_next(it);
 
-            vsir_instruction_init_with_params(program, ++ins, &loc, VSIR_OP_EXP, 1, 1);
+            vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_EXP, 1, 1);
             dst_param_init_ssa_float(&ins->dst[0], ssa_factor);
             ins->dst[0].modifiers = VKD3DSPDM_SATURATE;
             src_param_init_ssa_float(&ins->src[0], ssa_temp2);
             ins->src[0].modifiers = VKD3DSPSM_NEG;
+            ins = vsir_program_iterator_next(it);
             break;
 
         default:
@@ -7792,18 +7788,20 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
      * mad oC0, sr0, srFACTOR, FOG_COLOUR
      */
 
-    vsir_instruction_init_with_params(program, ++ins, &loc, VSIR_OP_ADD, 1, 2);
+    vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_ADD, 1, 2);
     dst_param_init_ssa_float4(&ins->dst[0], program->ssa_count++);
     src_param_init_temp_float4(&ins->src[0], colour_temp);
     src_param_init_parameter_vec4(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_FOG_COLOUR, VSIR_DATA_F32);
     ins->src[1].modifiers = VKD3DSPSM_NEG;
+    ins = vsir_program_iterator_next(it);
 
-    vsir_instruction_init_with_params(program, ++ins, &loc, VSIR_OP_MAD, 1, 3);
+    vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MAD, 1, 3);
     dst_param_init_output(&ins->dst[0], VSIR_DATA_F32, colour_signature_idx,
             program->output_signature.elements[colour_signature_idx].mask);
     src_param_init_ssa_float4(&ins->src[0], program->ssa_count - 1);
     src_param_init_ssa_float(&ins->src[1], ssa_factor);
     src_param_init_parameter_vec4(&ins->src[2], VKD3D_SHADER_PARAMETER_NAME_FOG_COLOUR, VSIR_DATA_F32);
+    ins = vsir_program_iterator_next(it);
 
     return VKD3D_OK;
 }
@@ -7811,6 +7809,7 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
 static enum vkd3d_result vsir_program_insert_fragment_fog(struct vsir_program *program,
         struct vsir_transformation_context *ctx)
 {
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
     struct vkd3d_shader_message_context *message_context = ctx->message_context;
     uint32_t colour_signature_idx, fog_signature_idx, colour_temp;
     const struct vkd3d_shader_parameter1 *mode_parameter = NULL;
@@ -7818,7 +7817,6 @@ static enum vkd3d_result vsir_program_insert_fragment_fog(struct vsir_program *p
     const struct signature_element *fog_element;
     enum vkd3d_shader_fog_fragment_mode mode;
     struct vkd3d_shader_instruction *ins;
-    size_t new_pos;
     int ret;
 
     if (program->shader_version.type != VKD3D_SHADER_TYPE_PIXEL)
@@ -7859,19 +7857,16 @@ static enum vkd3d_result vsir_program_insert_fragment_fog(struct vsir_program *p
      * through the whole shader and convert it to a temp. */
     colour_temp = program->temp_count++;
 
-    for (size_t i = 0; i < program->instructions.count; ++i)
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
-        ins = &program->instructions.elements[i];
-
         if (vsir_instruction_is_dcl(ins))
             continue;
 
         if (ins->opcode == VSIR_OP_RET)
         {
-            if ((ret = insert_fragment_fog_before_ret(program, ins, mode, fog_signature_idx,
-                    colour_signature_idx, colour_temp, &new_pos, message_context)) < 0)
+            if ((ret = insert_fragment_fog_before_ret(program, &it, mode, fog_signature_idx,
+                    colour_signature_idx, colour_temp, message_context)) < 0)
                 return ret;
-            i = new_pos;
             continue;
         }
 
