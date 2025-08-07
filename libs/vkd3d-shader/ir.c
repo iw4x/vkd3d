@@ -1677,6 +1677,10 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 ret = vsir_program_lower_texcrd(program, ins, message_context);
                 break;
 
+            case VSIR_OP_TEXKILL:
+                ret = vsir_program_lower_texkill(program, &it, &tmp_idx);
+                break;
+
             case VSIR_OP_TEXLD:
                 if (program->shader_version.major == 1)
                     ret = vsir_program_lower_texld_sm1(program, ins, message_context);
@@ -1721,11 +1725,6 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
         {
             case VSIR_OP_IFC:
                 if ((ret = vsir_program_lower_ifc(program, &it, &tmp_idx, message_context)) < 0)
-                    return ret;
-                break;
-
-            case VSIR_OP_TEXKILL:
-                if ((ret = vsir_program_lower_texkill(program, &it, &tmp_idx)) < 0)
                     return ret;
                 break;
 
