@@ -1942,6 +1942,27 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 ret = vsir_program_lower_texldl(program, ins);
                 break;
 
+            case VSIR_OP_TEXBEM:
+            case VSIR_OP_TEXBEML:
+            case VSIR_OP_TEXCOORD:
+            case VSIR_OP_TEXDEPTH:
+            case VSIR_OP_TEXDP3:
+            case VSIR_OP_TEXDP3TEX:
+            case VSIR_OP_TEXM3x2PAD:
+            case VSIR_OP_TEXM3x2TEX:
+            case VSIR_OP_TEXM3x3DIFF:
+            case VSIR_OP_TEXM3x3PAD:
+            case VSIR_OP_TEXM3x3SPEC:
+            case VSIR_OP_TEXM3x3TEX:
+            case VSIR_OP_TEXM3x3VSPEC:
+            case VSIR_OP_TEXREG2AR:
+            case VSIR_OP_TEXREG2GB:
+            case VSIR_OP_TEXREG2RGB:
+                vkd3d_shader_error(ctx->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+                        "Aborting due to unimplemented feature: Combined sampler instruction \"%s\" (%#x).",
+                        vsir_opcode_get_name(ins->opcode, "<unknown>"), ins->opcode);
+                return VKD3D_ERROR_NOT_IMPLEMENTED;
+
             default:
                 ret = VKD3D_OK;
                 break;
@@ -2019,27 +2040,6 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
                 if ((ret = vsir_program_lower_sm4_sincos(program, &it, ctx)) < 0)
                     return ret;
                 break;
-
-            case VSIR_OP_TEXBEM:
-            case VSIR_OP_TEXBEML:
-            case VSIR_OP_TEXCOORD:
-            case VSIR_OP_TEXDEPTH:
-            case VSIR_OP_TEXDP3:
-            case VSIR_OP_TEXDP3TEX:
-            case VSIR_OP_TEXM3x2PAD:
-            case VSIR_OP_TEXM3x2TEX:
-            case VSIR_OP_TEXM3x3DIFF:
-            case VSIR_OP_TEXM3x3PAD:
-            case VSIR_OP_TEXM3x3SPEC:
-            case VSIR_OP_TEXM3x3TEX:
-            case VSIR_OP_TEXM3x3VSPEC:
-            case VSIR_OP_TEXREG2AR:
-            case VSIR_OP_TEXREG2GB:
-            case VSIR_OP_TEXREG2RGB:
-                vkd3d_shader_error(ctx->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
-                        "Aborting due to unimplemented feature: Combined sampler instruction \"%s\" (%#x).",
-                        vsir_opcode_get_name(ins->opcode, "<unknown>"), ins->opcode);
-                return VKD3D_ERROR_NOT_IMPLEMENTED;
 
             default:
                 break;
