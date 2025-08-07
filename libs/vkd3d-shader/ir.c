@@ -1682,6 +1682,10 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                     ret = vsir_program_lower_texld(program, ins, message_context);
                 break;
 
+            case VSIR_OP_TEXLDD:
+                ret = vsir_program_lower_texldd(program, ins);
+                break;
+
             default:
                 ret = VKD3D_OK;
                 break;
@@ -1775,11 +1779,6 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
                     if ((ret = vsir_program_lower_sm4_sincos(program, &it, ctx)) < 0)
                         return ret;
                 }
-                break;
-
-            case VSIR_OP_TEXLDD:
-                if ((ret = vsir_program_lower_texldd(program, ins)) < 0)
-                    return ret;
                 break;
 
             case VSIR_OP_TEXLDL:
