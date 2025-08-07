@@ -1669,6 +1669,10 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
         switch (ins->opcode)
         {
+            case VSIR_OP_IFC:
+                ret = vsir_program_lower_ifc(program, &it, &tmp_idx, message_context);
+                break;
+
             case VSIR_OP_SINCOS:
                 ret = vsir_program_lower_sm1_sincos(program, &it);
                 break;
@@ -1714,7 +1718,6 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
         struct vsir_transformation_context *ctx)
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
-    struct vkd3d_shader_message_context *message_context = ctx->message_context;
     struct vkd3d_shader_instruction *ins;
     unsigned int tmp_idx = ~0u;
     enum vkd3d_result ret;
@@ -1723,11 +1726,6 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
     {
         switch (ins->opcode)
         {
-            case VSIR_OP_IFC:
-                if ((ret = vsir_program_lower_ifc(program, &it, &tmp_idx, message_context)) < 0)
-                    return ret;
-                break;
-
             case VSIR_OP_MAD:
                 if ((ret = vsir_program_lower_precise_mad(program, &it, &tmp_idx)) < 0)
                     return ret;
