@@ -7263,10 +7263,9 @@ static void spirv_compiler_emit_point_size(struct spirv_compiler *compiler)
     }
 }
 
-static void spirv_compiler_emit_dcl_output_topology(struct spirv_compiler *compiler,
-        const struct vkd3d_shader_instruction *instruction)
+static void spirv_compiler_emit_output_topology(struct spirv_compiler *compiler)
 {
-    enum vkd3d_primitive_type primitive_type = instruction->declaration.primitive_type.type;
+    enum vkd3d_primitive_type primitive_type = compiler->program->output_topology;
     SpvExecutionMode mode;
 
     switch (primitive_type)
@@ -7282,7 +7281,8 @@ static void spirv_compiler_emit_dcl_output_topology(struct spirv_compiler *compi
             mode = SpvExecutionModeOutputTriangleStrip;
             break;
         default:
-            ERR("Unexpected primitive type %#x.\n", primitive_type);
+            spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_NOT_IMPLEMENTED,
+                    "Unhandled output topology %#x.", primitive_type);
             return;
     }
 
@@ -10608,9 +10608,6 @@ static int spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
         case VSIR_OP_DCL_VERTICES_OUT:
             spirv_compiler_emit_output_vertex_count(compiler, instruction);
             break;
-        case VSIR_OP_DCL_OUTPUT_TOPOLOGY:
-            spirv_compiler_emit_dcl_output_topology(compiler, instruction);
-            break;
         case VSIR_OP_DCL_GS_INSTANCES:
             spirv_compiler_emit_dcl_gs_instances(compiler, instruction);
             break;
@@ -11063,9 +11060,14 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
     if (program->ssa_count)
         spirv_compiler_allocate_ssa_register_ids(compiler, program->ssa_count);
     if (compiler->shader_type == VKD3D_SHADER_TYPE_COMPUTE)
+    {
         spirv_compiler_emit_thread_group_size(compiler, &program->thread_group_size);
+    }
     else if (compiler->shader_type == VKD3D_SHADER_TYPE_GEOMETRY)
+    {
         spirv_compiler_emit_input_primitive(compiler);
+        spirv_compiler_emit_output_topology(compiler);
+    }
     spirv_compiler_emit_global_flags(compiler, program->global_flags);
 
     spirv_compiler_emit_descriptor_declarations(compiler);
