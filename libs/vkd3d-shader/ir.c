@@ -3604,6 +3604,7 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
             case VSIR_OP_DCL_UAV_RAW:
             case VSIR_OP_DCL_UAV_STRUCTURED:
             case VSIR_OP_DCL_UAV_TYPED:
+            case VSIR_OP_DCL_VERTICES_OUT:
                 vkd3d_shader_instruction_make_nop(ins);
                 break;
 

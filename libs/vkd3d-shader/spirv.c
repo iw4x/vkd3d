@@ -6950,11 +6950,9 @@ static void spirv_compiler_emit_dcl_stream(struct spirv_compiler *compiler,
         FIXME("Multiple streams are not supported yet.\n");
 }
 
-static void spirv_compiler_emit_output_vertex_count(struct spirv_compiler *compiler,
-        const struct vkd3d_shader_instruction *instruction)
+static void spirv_compiler_emit_output_vertex_count(struct spirv_compiler *compiler, unsigned int count)
 {
-    spirv_compiler_emit_execution_mode1(compiler,
-            SpvExecutionModeOutputVertices, instruction->declaration.count);
+    spirv_compiler_emit_execution_mode1(compiler, SpvExecutionModeOutputVertices, count);
 }
 
 static void spirv_compiler_emit_input_primitive(struct spirv_compiler *compiler)
@@ -10250,14 +10248,11 @@ static void spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
         case VSIR_OP_DCL_STREAM:
             spirv_compiler_emit_dcl_stream(compiler, instruction);
             break;
-        case VSIR_OP_DCL_VERTICES_OUT:
-            spirv_compiler_emit_output_vertex_count(compiler, instruction);
-            break;
         case VSIR_OP_DCL_GS_INSTANCES:
             spirv_compiler_emit_dcl_gs_instances(compiler, instruction);
             break;
         case VSIR_OP_DCL_OUTPUT_CONTROL_POINT_COUNT:
-            spirv_compiler_emit_output_vertex_count(compiler, instruction);
+            spirv_compiler_emit_output_vertex_count(compiler, instruction->declaration.count);
             break;
         case VSIR_OP_DCL_TESSELLATOR_OUTPUT_PRIMITIVE:
             spirv_compiler_emit_tessellator_output_primitive(compiler,
@@ -10736,6 +10731,7 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
     {
         spirv_compiler_emit_input_primitive(compiler);
         spirv_compiler_emit_output_topology(compiler);
+        spirv_compiler_emit_output_vertex_count(compiler, program->vertices_out_count);
     }
     spirv_compiler_emit_global_flags(compiler, program->global_flags);
 
