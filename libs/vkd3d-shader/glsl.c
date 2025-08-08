@@ -1286,6 +1286,13 @@ static void shader_glsl_print_sysval_name(struct vkd3d_string_buffer *buffer, st
             vkd3d_string_buffer_printf(buffer, "intBitsToFloat(ivec4(gl_VertexID, 0, 0, 0))");
             break;
 
+        case VKD3D_SHADER_SV_INSTANCE_ID:
+            if (version->type != VKD3D_SHADER_TYPE_VERTEX)
+                vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                        "Internal compiler error: Unhandled SV_INSTANCE_ID in shader type #%x.", version->type);
+            vkd3d_string_buffer_printf(buffer, "intBitsToFloat(ivec4(gl_InstanceID, 0, 0, 0))");
+            break;
+
         case VKD3D_SHADER_SV_IS_FRONT_FACE:
             if (version->type != VKD3D_SHADER_TYPE_PIXEL)
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
