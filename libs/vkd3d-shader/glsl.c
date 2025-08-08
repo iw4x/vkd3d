@@ -1650,6 +1650,9 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
         case VSIR_OP_UDIV_SIMPLE:
             shader_glsl_binop(gen, ins, "/");
             break;
+        case VSIR_OP_UREM:
+            shader_glsl_binop(gen, ins, "%");
+            break;
         case VSIR_OP_XOR:
             shader_glsl_binop(gen, ins, "^");
             break;
