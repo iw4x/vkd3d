@@ -961,6 +961,35 @@ enum vkd3d_shader_parameter_name
      * \since 1.15
      */
     VKD3D_SHADER_PARAMETER_NAME_FOG_SOURCE,
+    /**
+     * Bump-mapping matrix. This parameter is used in the evaluation of the
+     * Shader Model 1.x instructions BEM, TEXBEM, and TEXBEML.
+     *
+     * This parameter specifies a 2x2 matrix, packed into a vector in the order
+     * [00, 01, 10, 11], where "01" specifies the component at column 0 and row
+     * 1. These coordinates correspond to the Direct3D notation.
+     *
+     * To use this parameter to implement Direct3D bump mapping, pass the values
+     * of the texture stage states D3DTSS_BUMPENVMAT00, D3DTSS_BUMPENVMAT01,
+     * D3DTSS_BUMPENVMAT10, and D3DTSS_BUMPENVMAT11, in that order.
+     *
+     * These enum values are contiguous and arithmetic may safely be performed
+     * on them. That is, VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_[n] is
+     * VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_0 plus n.
+     *
+     * The data type for each parameter must be
+     * VKD3D_SHADER_PARAMETER_DATA_TYPE_FLOAT32_VEC4.
+     *
+     * The default value for each parameter is the zero matrix [0, 0; 0, 0].
+     *
+     * \since 1.18
+     */
+    VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_0,
+    VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_1,
+    VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_2,
+    VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_3,
+    VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_4,
+    VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_5,
 
     VKD3D_FORCE_32_BIT_ENUM(VKD3D_SHADER_PARAMETER_NAME),
 };

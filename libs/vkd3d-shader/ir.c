@@ -2010,6 +2010,69 @@ static enum vkd3d_result vsir_program_lower_texcoord(struct vsir_program *progra
     return VKD3D_OK;
 }
 
+static struct vkd3d_shader_instruction *generate_bump_coords(struct vsir_program *program,
+        struct vsir_program_iterator *it, uint32_t idx, const struct vkd3d_shader_src_param *coords,
+        const struct vkd3d_shader_src_param *perturbation, const struct vkd3d_shader_location *loc)
+{
+    struct vkd3d_shader_instruction *ins;
+    uint32_t ssa_temp, ssa_coords;
+
+    /* We generate the following code:
+     *
+     * mad    srTMP.xy, PERTURBATION.xx, BUMP_MATRIX#.xy, COORDS.xy
+     * mad srCOORDS.xy, PERTURBATION.yy, BUMP_MATRIX#.zw, srTMP.xy
+     */
+
+    ssa_temp = program->ssa_count++;
+    ssa_coords = program->ssa_count++;
+
+    ins = vsir_program_iterator_current(it);
+    if (!vsir_instruction_init_with_params(program, ins, loc, VSIR_OP_MAD, 1, 3))
+        return false;
+    dst_param_init_ssa_float4(&ins->dst[0], ssa_temp);
+    ins->dst[0].write_mask = VKD3DSP_WRITEMASK_0 | VKD3DSP_WRITEMASK_1;
+    ins->src[0] = *perturbation;
+    ins->src[0].swizzle = vsir_combine_swizzles(perturbation->swizzle, VKD3D_SHADER_SWIZZLE(X, X, X, X));
+    src_param_init_parameter_vec4(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_0 + idx, VSIR_DATA_F32);
+    ins->src[2] = *coords;
+
+    ins = vsir_program_iterator_next(it);
+    if (!vsir_instruction_init_with_params(program, ins, loc, VSIR_OP_MAD, 1, 3))
+        return false;
+    dst_param_init_ssa_float4(&ins->dst[0], ssa_coords);
+    ins->dst[0].write_mask = VKD3DSP_WRITEMASK_0 | VKD3DSP_WRITEMASK_1;
+    ins->src[0] = *perturbation;
+    ins->src[0].swizzle = vsir_combine_swizzles(perturbation->swizzle, VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y));
+    src_param_init_parameter_vec4(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_0 + idx, VSIR_DATA_F32);
+    ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(Z, W, W, W);
+    src_param_init_ssa_float4(&ins->src[2], ssa_temp);
+    ins->src[2].swizzle = VKD3D_SHADER_SWIZZLE(X, Y, Y, Y);
+
+    return ins;
+}
+
+static enum vkd3d_result vsir_program_lower_bem(struct vsir_program *program, struct vsir_program_iterator *it)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(it);
+    const struct vkd3d_shader_location location = ins->location;
+    const struct vkd3d_shader_src_param *src = ins->src;
+    const struct vkd3d_shader_dst_param *dst = ins->dst;
+
+    /* bem DST.xy, SRC0, SRC1
+     *      ->
+     * mad srTMP.xy, SRC1.xx, BUMP_MATRIX#.xy, SRC0.xy
+     * mad   DST.xy, SRC1.yy, BUMP_MATRIX#.zw, srTMP.xy */
+
+    if (!vsir_program_iterator_insert_after(it, 1))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    if (!(ins = generate_bump_coords(program, it, dst[0].reg.idx[0].offset, &src[0], &src[1], &location)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    ins->dst[0] = dst[0];
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result vsir_program_lower_dcl_input(struct vsir_program *program,
         struct vkd3d_shader_instruction *ins, struct vsir_transformation_context *ctx)
 {
@@ -2094,6 +2157,10 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
         switch (ins->opcode)
         {
+            case VSIR_OP_BEM:
+                ret = vsir_program_lower_bem(program, &it);
+                break;
+
             case VSIR_OP_IFC:
                 ret = vsir_program_lower_ifc(program, &it, &tmp_idx, message_context);
                 break;
