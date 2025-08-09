@@ -266,6 +266,9 @@ static struct resource *d3d9_runner_create_resource(struct shader_runner *r, con
                         params->desc.level_count, 0, format, D3DPOOL_MANAGED, &resource->texture, NULL);
                 ok(hr == D3D_OK, "Failed to create texture, hr %#lx.\n", hr);
 
+                if (!params->data_size)
+                    break;
+
                 for (unsigned int level = 0; level < params->desc.level_count; ++level)
                 {
                     unsigned int level_width = get_level_dimension(params->desc.width, level);
@@ -678,11 +681,6 @@ static bool d3d9_runner_draw(struct shader_runner *r,
     return true;
 }
 
-static bool d3d9_runner_copy(struct shader_runner *r, struct resource *src, struct resource *dst)
-{
-    return false;
-}
-
 struct d3d9_resource_readback
 {
     struct resource_readback rb;
@@ -747,6 +745,37 @@ static void d3d9_runner_release_readback(struct shader_runner *r, struct resourc
     IDirect3DSurface9_UnlockRect(d3d9_rb->surface);
     IDirect3DSurface9_Release(d3d9_rb->surface);
     free(d3d9_rb);
+}
+
+static bool d3d9_runner_copy(struct shader_runner *r, struct resource *s, struct resource *d)
+{
+    struct d3d9_resource *src = d3d9_resource(s);
+    struct d3d9_resource *dst = d3d9_resource(d);
+
+    if (src->r.desc.type == RESOURCE_TYPE_RENDER_TARGET && dst->r.desc.type == RESOURCE_TYPE_TEXTURE)
+    {
+        /* We create our textures with MANAGED, and unfortunately there's no
+         * way to directly blit into a managed texture. */
+        struct resource_readback *rb;
+        D3DLOCKED_RECT map_desc;
+        HRESULT hr;
+
+        rb = d3d9_runner_get_resource_readback(r, s, 0);
+
+        hr = IDirect3DTexture9_LockRect(dst->texture, 0, &map_desc, NULL, 0);
+        ok(hr == S_OK, "Failed to map texture, hr %#lx.\n", hr);
+        for (unsigned int y = 0; y < src->r.desc.height; ++y)
+            memcpy(&((char *)map_desc.pBits)[y * map_desc.Pitch], &((char *)rb->data)[y * rb->row_pitch],
+                    src->r.desc.width * src->r.desc.texel_size);
+        hr = IDirect3DTexture9_UnlockRect(dst->texture, 0);
+        ok(hr == S_OK, "Failed to unmap texture, hr %#lx.\n", hr);
+
+        d3d9_runner_release_readback(r, rb);
+
+        return true;
+    }
+
+    return false;
 }
 
 static const struct shader_runner_ops d3d9_runner_ops =
