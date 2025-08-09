@@ -2080,9 +2080,10 @@ static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
     const struct vkd3d_shader_location location = ins->location;
     const struct vkd3d_shader_descriptor_info1 *descriptor;
     const struct vkd3d_shader_src_param *src = ins->src;
+    bool is_texbeml = (ins->opcode == VSIR_OP_TEXBEML);
     unsigned int idx = ins->dst[0].reg.idx[0].offset;
+    uint32_t ssa_coords, ssa_luminance, ssa_sample;
     struct vkd3d_shader_src_param orig_coords;
-    uint32_t ssa_coords;
 
     /* texbem t#, SRC
      *      ->
@@ -2092,6 +2093,11 @@ static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
      * mad    srTMP.xy, SRC.xx, BUMP_MATRIX#.xy, t#.xy
      * mad srCOORDS.xy, SRC.yy, BUMP_MATRIX#.zw, srTMP.xy
      * sample t#, srCOORDS, resource#, sampler#
+     *
+     * Luminance then adds:
+     *
+     * mad srLUM.x, SRC.z, BUMP_LUMINANCE_SCALE#, BUMP_LUMINANCE_OFFSET#
+     * mul t#, t#, srLUM.xxxx
      *
      * Note that the t# destination will subsequently be turned into a temp. */
 
@@ -2111,7 +2117,7 @@ static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
         return VKD3D_ERROR_NOT_IMPLEMENTED;
     }
 
-    if (!vsir_program_iterator_insert_after(it, 2))
+    if (!vsir_program_iterator_insert_after(it, is_texbeml ? 4 : 2))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     vsir_src_param_init(&orig_coords, VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
@@ -2135,6 +2141,39 @@ static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
     vsir_src_param_init_resource(&ins->src[1], idx, idx);
     vsir_src_param_init_sampler(&ins->src[2], idx, idx);
 
+    if (is_texbeml)
+    {
+        enum vkd3d_shader_swizzle_component z = vsir_swizzle_get_component(src[0].swizzle, 2);
+
+        ssa_sample = program->ssa_count++;
+        ssa_luminance = program->ssa_count++;
+
+        /* Replace t# destination of the SAMPLE instruction with an SSA value. */
+        dst_param_init_ssa_float4(&ins->dst[0], ssa_sample);
+
+        ins = vsir_program_iterator_next(it);
+        if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MAD, 1, 3))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        dst_param_init_ssa_float4(&ins->dst[0], ssa_luminance);
+        ins->dst[0].write_mask = VKD3DSP_WRITEMASK_0;
+        ins->src[0] = src[0];
+        ins->src[0].swizzle = vkd3d_shader_create_swizzle(z, z, z, z);
+        src_param_init_parameter(&ins->src[1],
+                VKD3D_SHADER_PARAMETER_NAME_BUMP_LUMINANCE_SCALE_0 + idx, VSIR_DATA_F32);
+        src_param_init_parameter(&ins->src[2],
+                VKD3D_SHADER_PARAMETER_NAME_BUMP_LUMINANCE_OFFSET_0 + idx, VSIR_DATA_F32);
+
+        ins = vsir_program_iterator_next(it);
+        if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MUL, 1, 2))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        vsir_dst_param_init(&ins->dst[0], VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
+        ins->dst[0].reg.idx[0].offset = idx;
+        ins->dst[0].reg.dimension = VSIR_DIMENSION_VEC4;
+        ins->dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
+        src_param_init_ssa_float4(&ins->src[0], ssa_sample);
+        src_param_init_ssa_float4(&ins->src[1], ssa_luminance);
+        ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+    }
     return VKD3D_OK;
 }
 
@@ -2235,6 +2274,7 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 break;
 
             case VSIR_OP_TEXBEM:
+            case VSIR_OP_TEXBEML:
                 ret = vsir_program_lower_texbem(program, &it, message_context);
                 break;
 
@@ -2272,7 +2312,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 ret = vsir_program_lower_texldl(program, ins);
                 break;
 
-            case VSIR_OP_TEXBEML:
             case VSIR_OP_TEXDEPTH:
             case VSIR_OP_TEXDP3:
             case VSIR_OP_TEXDP3TEX:
