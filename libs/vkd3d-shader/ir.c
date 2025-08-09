@@ -1936,8 +1936,36 @@ static enum vkd3d_result vsir_program_lower_texldl(struct vsir_program *program,
     return VKD3D_OK;
 }
 
-static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program, struct vkd3d_shader_instruction *ins)
+static bool is_texture_projected(const struct vsir_program *program,
+        struct vkd3d_shader_message_context *message_context, unsigned int index)
 {
+    const struct vkd3d_shader_parameter1 *parameter;
+
+    if (!(parameter = vsir_program_get_parameter(program, VKD3D_SHADER_PARAMETER_NAME_PROJECTED_TEXTURE_MASK)))
+        return false;
+
+    if (parameter->type != VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT)
+    {
+        vkd3d_shader_error(message_context, NULL, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+                "Unsupported projected texture mask parameter type %#x.", parameter->type);
+        return false;
+    }
+
+    if (parameter->data_type != VKD3D_SHADER_PARAMETER_DATA_TYPE_UINT32)
+    {
+        vkd3d_shader_error(message_context, NULL, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
+                "Invalid projected texture mask parameter data type %#x.", parameter->data_type);
+        return false;
+    }
+
+    return parameter->u.immediate_constant.u.u32 & (1u << index);
+}
+
+static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program,
+        struct vsir_program_iterator *it, struct vkd3d_shader_message_context *message_context)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(it);
+    const struct vkd3d_shader_location location = ins->location;
     const struct vkd3d_shader_descriptor_info1 *sampler;
     unsigned int idx = ins->dst[0].reg.idx[0].offset;
     struct vkd3d_shader_src_param *srcs;
@@ -1951,10 +1979,40 @@ static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program, st
     if (!(srcs = vsir_program_get_src_params(program, 4)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
-    vsir_src_param_init(&srcs[0], VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
-    srcs[0].reg.idx[0].offset = idx;
-    srcs[0].reg.dimension = VSIR_DIMENSION_VEC4;
-    srcs[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+    if (is_texture_projected(program, message_context, idx))
+    {
+        struct vkd3d_shader_dst_param *dst = ins->dst;
+        uint32_t coords = program->ssa_count++;
+
+        /* div sr0, t#, t#.w */
+
+        if (!vsir_program_iterator_insert_after(it, 1))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+
+        ins = vsir_program_iterator_current(it);
+        if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_DIV, 1, 2))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        dst_param_init_ssa_float4(&ins->dst[0], coords);
+        vsir_src_param_init(&ins->src[0], VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
+        ins->src[0].reg.idx[0].offset = idx;
+        ins->src[0].reg.dimension = VSIR_DIMENSION_VEC4;
+        ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+        ins->src[1] = ins->src[0];
+        ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(W, W, W, W);
+
+        ins = vsir_program_iterator_next(it);
+        vsir_instruction_init(ins, &location, VSIR_OP_SAMPLE);
+        ins->dst_count = 1;
+        ins->dst = dst;
+        src_param_init_ssa_float4(&srcs[0], coords);
+    }
+    else
+    {
+        vsir_src_param_init(&srcs[0], VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
+        srcs[0].reg.idx[0].offset = idx;
+        srcs[0].reg.dimension = VSIR_DIMENSION_VEC4;
+        srcs[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+    }
 
     vsir_src_param_init_resource(&srcs[1], idx, idx);
     vsir_src_param_init_sampler(&srcs[2], idx, idx);
@@ -2082,6 +2140,7 @@ static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
     unsigned int idx = ins->dst[0].reg.idx[0].offset;
     uint32_t ssa_coords, ssa_luminance, ssa_sample;
     struct vkd3d_shader_src_param orig_coords;
+    bool projected;
 
     /* texbem t#, SRC
      *      ->
@@ -2096,6 +2155,11 @@ static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
      *
      * mad srLUM.x, SRC.z, BUMP_LUMINANCE_SCALE#, BUMP_LUMINANCE_OFFSET#
      * mul t#, t#, srLUM.xxxx
+     *
+     * If projecting, we replace srCOORDS calculation with
+     *
+     * div srPROJ, t#, t#.w
+     * bem srCOORDS.xy, srPROJ.xy, SRC
      *
      * Note that the t# destination will subsequently be turned into a temp. */
 
@@ -2115,13 +2179,31 @@ static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
         return VKD3D_ERROR_NOT_IMPLEMENTED;
     }
 
-    if (!vsir_program_iterator_insert_after(it, is_texbeml ? 4 : 2))
+    projected = is_texture_projected(program, message_context, idx);
+    if (!vsir_program_iterator_insert_after(it, 2 + (is_texbeml ? 2 : 0) + (projected ? 1 : 0)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     vsir_src_param_init(&orig_coords, VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
     orig_coords.reg.idx[0].offset = idx;
     orig_coords.reg.dimension = VSIR_DIMENSION_VEC4;
     orig_coords.swizzle = VKD3D_SHADER_NO_SWIZZLE;
+
+    if (projected)
+    {
+        uint32_t ssa_proj = program->ssa_count++;
+
+        ins = vsir_program_iterator_current(it);
+        if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_DIV, 1, 2))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        dst_param_init_ssa_float4(&ins->dst[0], ssa_proj);
+        ins->src[0] = orig_coords;
+        ins->src[1] = ins->src[0];
+        ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(W, W, W, W);
+
+        src_param_init_ssa_float4(&orig_coords, ssa_proj);
+
+        vsir_program_iterator_next(it);
+    }
 
     if (!(ins = generate_bump_coords(program, it, idx, &orig_coords, &src[0], &location)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -2290,7 +2372,7 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 break;
 
             case VSIR_OP_TEX:
-                ret = vsir_program_lower_tex(program, ins);
+                ret = vsir_program_lower_tex(program, &it, message_context);
                 break;
 
             case VSIR_OP_TEXLD:

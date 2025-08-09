@@ -765,8 +765,10 @@ static void parse_resource_directive(struct resource_params *resource, const cha
 
         for (;;)
         {
+            while (isspace(*line))
+                ++line;
             u.u = strtoul(line, &rest, 0);
-            if (rest && *rest == '.')
+            if (*line == '.' || (rest && *rest == '.'))
                 u.f = strtof(line, &rest);
 
             if (rest == line)
@@ -1763,6 +1765,20 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
             runner->denorm_mode = DENORM_ANY;
         else
             fatal_error("Invalid denorm mode '%s'.\n", line);
+    }
+    else if (match_string(line, "projected", &line))
+    {
+        unsigned int index;
+
+        index = strtoul(line, (char **)&rest, 10);
+        if (rest == line || index >= 6)
+            fatal_error("Malformed projection directive '%s'.\n", line);
+        line = rest;
+
+        if (match_string(line, "enable", &line))
+            runner->projected_texture_mask |= (1u << index);
+        else
+            runner->projected_texture_mask &= ~(1u << index);
     }
     else
     {

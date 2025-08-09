@@ -366,7 +366,7 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     struct vkd3d_shader_varying_map varying_map[12];
     struct vkd3d_shader_resource_binding *binding;
     struct vkd3d_shader_compile_option options[2];
-    struct vkd3d_shader_parameter1 parameters[40];
+    struct vkd3d_shader_parameter1 parameters[41];
     unsigned int i;
     char *messages;
     int ret;
@@ -608,6 +608,11 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
         parameters[34 + i].data_type = VKD3D_SHADER_PARAMETER_DATA_TYPE_FLOAT32;
         parameters[34 + i].u.immediate_constant.u.f32 = runner->r.bump[i].luminance_offset;
     }
+
+    parameters[40].name = VKD3D_SHADER_PARAMETER_NAME_PROJECTED_TEXTURE_MASK;
+    parameters[40].type = VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT;
+    parameters[40].data_type = VKD3D_SHADER_PARAMETER_DATA_TYPE_UINT32;
+    parameters[40].u.immediate_constant.u.u32 = runner->r.projected_texture_mask;
 
     parameter_info.parameter_count = ARRAY_SIZE(parameters);
     parameter_info.parameters = parameters;

@@ -304,6 +304,7 @@ struct shader_runner
         float matrix[2][2];
         float luminance_scale, luminance_offset;
     } bump[8];
+    uint8_t projected_texture_mask;
 
     enum denorm_mode denorm_mode;
 

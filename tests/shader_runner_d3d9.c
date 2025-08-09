@@ -651,6 +651,10 @@ static bool d3d9_runner_draw(struct shader_runner *r,
         hr = IDirect3DDevice9_SetTextureStageState(device, i, D3DTSS_BUMPENVLOFFSET,
                 float_to_int(runner->r.bump[i].luminance_offset));
         ok(hr == D3D_OK, "Failed to set texture state, hr %#lx.\n", hr);
+
+        hr = IDirect3DDevice9_SetTextureStageState(device, i, D3DTSS_TEXTURETRANSFORMFLAGS,
+                (runner->r.projected_texture_mask & (1u << i)) ? D3DTTFF_PROJECTED : 0);
+        ok(hr == D3D_OK, "Failed to set texture state, hr %#lx.\n", hr);
     }
 
     hr = IDirect3DDevice9_CreateVertexDeclaration(device, decl_elements, &vertex_declaration);
