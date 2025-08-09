@@ -2073,6 +2073,71 @@ static enum vkd3d_result vsir_program_lower_bem(struct vsir_program *program, st
     return VKD3D_OK;
 }
 
+static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
+        struct vsir_program_iterator *it, struct vkd3d_shader_message_context *message_context)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(it);
+    const struct vkd3d_shader_location location = ins->location;
+    const struct vkd3d_shader_descriptor_info1 *descriptor;
+    const struct vkd3d_shader_src_param *src = ins->src;
+    unsigned int idx = ins->dst[0].reg.idx[0].offset;
+    struct vkd3d_shader_src_param orig_coords;
+    uint32_t ssa_coords;
+
+    /* texbem t#, SRC
+     *      ->
+     * bem srCOORDS.xy, t#, SRC
+     * texld t#, srCOORDS
+     *      ->
+     * mad    srTMP.xy, SRC.xx, BUMP_MATRIX#.xy, t#.xy
+     * mad srCOORDS.xy, SRC.yy, BUMP_MATRIX#.zw, srTMP.xy
+     * sample t#, srCOORDS, resource#, sampler#
+     *
+     * Note that the t# destination will subsequently be turned into a temp. */
+
+    descriptor = vkd3d_shader_find_descriptor(&program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, idx);
+    if (descriptor->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE)
+    {
+        vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+                "Unhandled TEXBEM(L) with a comparison sampler.");
+        return VKD3D_ERROR_NOT_IMPLEMENTED;
+    }
+
+    descriptor = vkd3d_shader_find_descriptor(&program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, idx);
+    if (descriptor->resource_type != VKD3D_SHADER_RESOURCE_TEXTURE_2D)
+    {
+        vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+                "Unhandled TEXBEM(L) with resource dimension %#x.", descriptor->resource_type);
+        return VKD3D_ERROR_NOT_IMPLEMENTED;
+    }
+
+    if (!vsir_program_iterator_insert_after(it, 2))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    vsir_src_param_init(&orig_coords, VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
+    orig_coords.reg.idx[0].offset = idx;
+    orig_coords.reg.dimension = VSIR_DIMENSION_VEC4;
+    orig_coords.swizzle = VKD3D_SHADER_NO_SWIZZLE;
+
+    if (!(ins = generate_bump_coords(program, it, idx, &orig_coords, &src[0], &location)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    ssa_coords = ins->dst[0].reg.idx[0].offset;
+
+    ins = vsir_program_iterator_next(it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_SAMPLE, 1, 3))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_param_init(&ins->dst[0], VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
+    ins->dst[0].reg.idx[0].offset = idx;
+    ins->dst[0].reg.dimension = VSIR_DIMENSION_VEC4;
+    ins->dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
+    src_param_init_ssa_float4(&ins->src[0], ssa_coords);
+    ins->src[0].swizzle = VKD3D_SHADER_SWIZZLE(X, Y, Y, Y);
+    vsir_src_param_init_resource(&ins->src[1], idx, idx);
+    vsir_src_param_init_sampler(&ins->src[2], idx, idx);
+
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result vsir_program_lower_dcl_input(struct vsir_program *program,
         struct vkd3d_shader_instruction *ins, struct vsir_transformation_context *ctx)
 {
@@ -2169,6 +2234,10 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 ret = vsir_program_lower_sm1_sincos(program, &it);
                 break;
 
+            case VSIR_OP_TEXBEM:
+                ret = vsir_program_lower_texbem(program, &it, message_context);
+                break;
+
             case VSIR_OP_TEXCOORD:
                 if ((ret = vsir_program_lower_texcoord(program, ins)) < 0)
                     return ret;
@@ -2203,7 +2272,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 ret = vsir_program_lower_texldl(program, ins);
                 break;
 
-            case VSIR_OP_TEXBEM:
             case VSIR_OP_TEXBEML:
             case VSIR_OP_TEXDEPTH:
             case VSIR_OP_TEXDP3:
