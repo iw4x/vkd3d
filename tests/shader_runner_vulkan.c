@@ -366,7 +366,7 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     struct vkd3d_shader_varying_map varying_map[12];
     struct vkd3d_shader_resource_binding *binding;
     struct vkd3d_shader_compile_option options[2];
-    struct vkd3d_shader_parameter1 parameters[22];
+    struct vkd3d_shader_parameter1 parameters[40];
     unsigned int i;
     char *messages;
     int ret;
@@ -590,6 +590,24 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     parameters[21].type = VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT;
     parameters[21].data_type = VKD3D_SHADER_PARAMETER_DATA_TYPE_UINT32;
     parameters[21].u.immediate_constant.u.u32 = get_fog_source(&runner->r);
+
+    for (i = 0; i < 6; ++i)
+    {
+        parameters[22 + i].name = VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_0 + i;
+        parameters[22 + i].type = VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT;
+        parameters[22 + i].data_type = VKD3D_SHADER_PARAMETER_DATA_TYPE_FLOAT32_VEC4;
+        memcpy(parameters[22 + i].u.immediate_constant.u.f32_vec4, runner->r.bump[i].matrix, sizeof(struct vec4));
+
+        parameters[28 + i].name = VKD3D_SHADER_PARAMETER_NAME_BUMP_LUMINANCE_SCALE_0 + i;
+        parameters[28 + i].type = VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT;
+        parameters[28 + i].data_type = VKD3D_SHADER_PARAMETER_DATA_TYPE_FLOAT32;
+        parameters[28 + i].u.immediate_constant.u.f32 = runner->r.bump[i].luminance_scale;
+
+        parameters[34 + i].name = VKD3D_SHADER_PARAMETER_NAME_BUMP_LUMINANCE_OFFSET_0 + i;
+        parameters[34 + i].type = VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT;
+        parameters[34 + i].data_type = VKD3D_SHADER_PARAMETER_DATA_TYPE_FLOAT32;
+        parameters[34 + i].u.immediate_constant.u.f32 = runner->r.bump[i].luminance_offset;
+    }
 
     parameter_info.parameter_count = ARRAY_SIZE(parameters);
     parameter_info.parameters = parameters;

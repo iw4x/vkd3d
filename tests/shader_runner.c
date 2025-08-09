@@ -1715,6 +1715,40 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
 
         runner->viewport_count = max(runner->viewport_count, i + 1);
     }
+    else if (match_string(line, "bump", &line))
+    {
+        struct bump_constants *c;
+        unsigned int index;
+
+        index = strtoul(line, (char **)&rest, 10);
+        if (rest == line || index >= 6)
+            fatal_error("Malformed bump directive '%s'.\n", line);
+        line = rest;
+
+        c = &runner->bump[index];
+
+        if (!match_string(line, "f32", &line))
+            fatal_error("Malformed bump directive '%s'.\n", line);
+        if (*line != '(')
+            fatal_error("Malformed bump directive '%s'.\n", line);
+        ++line;
+        read_f32(&line, &c->matrix[0][0]);
+        if (!match_string(line, ",", &line))
+            fatal_error("Malformed bump directive '%s'.\n", line);
+        read_f32(&line, &c->matrix[0][1]);
+        if (!match_string(line, ",", &line))
+            fatal_error("Malformed bump directive '%s'.\n", line);
+        read_f32(&line, &c->matrix[1][0]);
+        if (!match_string(line, ",", &line))
+            fatal_error("Malformed bump directive '%s'.\n", line);
+        read_f32(&line, &c->matrix[1][1]);
+        if (*line != ')')
+            fatal_error("Malformed bump directive '%s'.\n", line);
+        ++line;
+
+        read_f32(&line, &c->luminance_scale);
+        read_f32(&line, &c->luminance_offset);
+    }
     else
     {
         fatal_error("Unknown test directive '%s'.\n", line);

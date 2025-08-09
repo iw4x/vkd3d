@@ -286,6 +286,11 @@ struct shader_runner
     enum fog_mode fog_mode;
     float fog_start, fog_end, fog_density;
     bool ortho_fog;
+    struct bump_constants
+    {
+        float matrix[2][2];
+        float luminance_scale, luminance_offset;
+    } bump[8];
 
     struct viewport viewports[4];
     unsigned int viewport_count;

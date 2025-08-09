@@ -631,6 +631,28 @@ static bool d3d9_runner_draw(struct shader_runner *r,
     hr = IDirect3DDevice9_SetRenderState(device, D3DRS_FOGDENSITY, float_to_int(runner->r.fog_density));
     ok(hr == D3D_OK, "Failed to set render state, hr %#lx.\n", hr);
 
+    for (unsigned int i = 0; i < 8; ++i)
+    {
+        hr = IDirect3DDevice9_SetTextureStageState(device, i, D3DTSS_BUMPENVMAT00,
+                float_to_int(runner->r.bump[i].matrix[0][0]));
+        ok(hr == D3D_OK, "Failed to set texture state, hr %#lx.\n", hr);
+        hr = IDirect3DDevice9_SetTextureStageState(device, i, D3DTSS_BUMPENVMAT01,
+                float_to_int(runner->r.bump[i].matrix[0][1]));
+        ok(hr == D3D_OK, "Failed to set texture state, hr %#lx.\n", hr);
+        hr = IDirect3DDevice9_SetTextureStageState(device, i, D3DTSS_BUMPENVMAT10,
+                float_to_int(runner->r.bump[i].matrix[1][0]));
+        ok(hr == D3D_OK, "Failed to set texture state, hr %#lx.\n", hr);
+        hr = IDirect3DDevice9_SetTextureStageState(device, i, D3DTSS_BUMPENVMAT11,
+                float_to_int(runner->r.bump[i].matrix[1][1]));
+        ok(hr == D3D_OK, "Failed to set texture state, hr %#lx.\n", hr);
+        hr = IDirect3DDevice9_SetTextureStageState(device, i, D3DTSS_BUMPENVLSCALE,
+                float_to_int(runner->r.bump[i].luminance_scale));
+        ok(hr == D3D_OK, "Failed to set texture state, hr %#lx.\n", hr);
+        hr = IDirect3DDevice9_SetTextureStageState(device, i, D3DTSS_BUMPENVLOFFSET,
+                float_to_int(runner->r.bump[i].luminance_offset));
+        ok(hr == D3D_OK, "Failed to set texture state, hr %#lx.\n", hr);
+    }
+
     hr = IDirect3DDevice9_CreateVertexDeclaration(device, decl_elements, &vertex_declaration);
     ok(hr == D3D_OK, "Failed to create vertex declaration, hr %#lx.\n", hr);
     hr = IDirect3DDevice9_CreateVertexShader(device, ID3D10Blob_GetBufferPointer(vs_code), &vs);
