@@ -7167,7 +7167,6 @@ static enum vkd3d_result vsir_program_insert_clip_planes(struct vsir_program *pr
     unsigned int low_signature_idx = ~0u, high_signature_idx = ~0u;
     const struct vkd3d_shader_parameter1 *mask_parameter = NULL;
     uint32_t position_signature_idx, position_temp, mask;
-    static const struct vkd3d_shader_location no_loc;
     struct signature_element *clip_element;
     struct vkd3d_shader_instruction *ins;
     unsigned int plane_count;
@@ -7189,13 +7188,13 @@ static enum vkd3d_result vsir_program_insert_clip_planes(struct vsir_program *pr
 
     if (mask_parameter->type != VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT)
     {
-        vkd3d_shader_error(ctx->message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+        vkd3d_shader_error(ctx->message_context, NULL, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
                 "Unsupported clip plane mask parameter type %#x.", mask_parameter->type);
         return VKD3D_ERROR_NOT_IMPLEMENTED;
     }
     if (mask_parameter->data_type != VKD3D_SHADER_PARAMETER_DATA_TYPE_UINT32)
     {
-        vkd3d_shader_error(ctx->message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
+        vkd3d_shader_error(ctx->message_context, NULL, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
                 "Invalid clip plane mask parameter data type %#x.", mask_parameter->data_type);
         return VKD3D_ERROR_INVALID_ARGUMENT;
     }
@@ -7208,7 +7207,7 @@ static enum vkd3d_result vsir_program_insert_clip_planes(struct vsir_program *pr
     {
         if (signature->elements[i].sysval_semantic == VKD3D_SHADER_SV_CLIP_DISTANCE)
         {
-            vkd3d_shader_error(ctx->message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_INVALID_PARAMETER,
+            vkd3d_shader_error(ctx->message_context, &ctx->null_location, VKD3D_SHADER_ERROR_VSIR_INVALID_PARAMETER,
                     "Clip planes cannot be used if the shader writes clip distance.");
             return VKD3D_ERROR_INVALID_ARGUMENT;
         }
@@ -7216,7 +7215,7 @@ static enum vkd3d_result vsir_program_insert_clip_planes(struct vsir_program *pr
 
     if (!vsir_signature_find_sysval(signature, VKD3D_SHADER_SV_POSITION, 0, &position_signature_idx))
     {
-        vkd3d_shader_error(ctx->message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_MISSING_SEMANTIC,
+        vkd3d_shader_error(ctx->message_context, &ctx->null_location, VKD3D_SHADER_ERROR_VSIR_MISSING_SEMANTIC,
                 "Shader does not write position.");
         return VKD3D_ERROR_INVALID_SHADER;
     }
