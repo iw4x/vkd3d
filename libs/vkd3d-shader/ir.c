@@ -6894,7 +6894,6 @@ static enum vkd3d_result vsir_program_materialize_undominated_ssas_to_temps(stru
 static bool use_flat_interpolation(const struct vsir_program *program,
         struct vkd3d_shader_message_context *message_context, bool *flat)
 {
-    static const struct vkd3d_shader_location no_loc;
     const struct vkd3d_shader_parameter1 *parameter;
 
     *flat = false;
@@ -6904,13 +6903,13 @@ static bool use_flat_interpolation(const struct vsir_program *program,
 
     if (parameter->type != VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT)
     {
-        vkd3d_shader_error(message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+        vkd3d_shader_error(message_context, NULL, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
                 "Unsupported flat interpolation parameter type %#x.", parameter->type);
         return false;
     }
     if (parameter->data_type != VKD3D_SHADER_PARAMETER_DATA_TYPE_UINT32)
     {
-        vkd3d_shader_error(message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
+        vkd3d_shader_error(message_context, NULL, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
                 "Invalid flat interpolation parameter data type %#x.", parameter->data_type);
         return false;
     }
