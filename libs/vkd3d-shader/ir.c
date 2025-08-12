@@ -27,6 +27,22 @@ struct vsir_transformation_context
     uint64_t config_flags;
     const struct vkd3d_shader_compile_info *compile_info;
     struct vkd3d_shader_message_context *message_context;
+    struct vkd3d_shader_location null_location;
+};
+
+static void vsir_transformation_context_init(struct vsir_transformation_context *ctx,
+        struct vsir_program *program, uint64_t config_flags, const struct vkd3d_shader_compile_info *compile_info,
+        struct vkd3d_shader_message_context *message_context)
+{
+    *ctx = (struct vsir_transformation_context)
+    {
+        .result = VKD3D_OK,
+        .program = program,
+        .config_flags = config_flags,
+        .compile_info = compile_info,
+        .message_context = message_context,
+        .null_location = {.source_name = compile_info->source_name},
+    };
 };
 
 const char *vsir_opcode_get_name(enum vkd3d_shader_opcode op, const char *error)
@@ -1814,16 +1830,19 @@ static enum vkd3d_result vsir_program_ensure_ret(struct vsir_program *program,
         struct vsir_transformation_context *ctx)
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
-    static const struct vkd3d_shader_location no_loc;
     struct vkd3d_shader_instruction *ins;
+    struct vkd3d_shader_location loc;
 
-    ins = vsir_program_iterator_tail(&it);
-    if (ins && ins->opcode == VSIR_OP_RET)
+    if (!(ins = vsir_program_iterator_tail(&it)))
+        loc = ctx->null_location;
+    else if (ins->opcode == VSIR_OP_RET)
         return VKD3D_OK;
+    else
+        loc = ins->location;
 
     if (!(ins = vsir_program_append(program)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
-    vsir_instruction_init(ins, &no_loc, VSIR_OP_RET);
+    vsir_instruction_init(ins, &loc, VSIR_OP_RET);
 
     return VKD3D_OK;
 }
@@ -12103,14 +12122,9 @@ static void vsir_transform_(
 enum vkd3d_result vsir_program_transform_early(struct vsir_program *program, uint64_t config_flags,
         const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_message_context *message_context)
 {
-    struct vsir_transformation_context ctx =
-    {
-        .result = VKD3D_OK,
-        .program = program,
-        .config_flags = config_flags,
-        .compile_info = compile_info,
-        .message_context = message_context,
-    };
+    struct vsir_transformation_context ctx;
+
+    vsir_transformation_context_init(&ctx, program, config_flags, compile_info, message_context);
 
     /* For vsir_program_ensure_diffuse(). */
     if (program->shader_version.major <= 2)
@@ -12128,15 +12142,9 @@ enum vkd3d_result vsir_program_transform_early(struct vsir_program *program, uin
 enum vkd3d_result vsir_program_lower_d3dbc(struct vsir_program *program, uint64_t config_flags,
         const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_message_context *message_context)
 {
-    struct vsir_transformation_context ctx =
-    {
-        .result = VKD3D_OK,
-        .program = program,
-        .config_flags = config_flags,
-        .compile_info = compile_info,
-        .message_context = message_context,
-    };
+    struct vsir_transformation_context ctx;
 
+    vsir_transformation_context_init(&ctx, program, config_flags, compile_info, message_context);
     vsir_transform(&ctx, vsir_program_lower_d3dbc_instructions);
     if (program->shader_version.major == 1 && program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL)
         vsir_transform(&ctx, vsir_program_normalise_ps1_output);
@@ -12150,15 +12158,9 @@ enum vkd3d_result vsir_program_lower_d3dbc(struct vsir_program *program, uint64_
 enum vkd3d_result vsir_program_transform(struct vsir_program *program, uint64_t config_flags,
         const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_message_context *message_context)
 {
-    struct vsir_transformation_context ctx =
-    {
-        .result = VKD3D_OK,
-        .program = program,
-        .config_flags = config_flags,
-        .compile_info = compile_info,
-        .message_context = message_context,
-    };
+    struct vsir_transformation_context ctx;
 
+    vsir_transformation_context_init(&ctx, program, config_flags, compile_info, message_context);
     vsir_transform(&ctx, vsir_program_lower_instructions);
 
     if (program->shader_version.major >= 6)
