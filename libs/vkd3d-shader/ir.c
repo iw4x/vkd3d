@@ -7047,7 +7047,6 @@ static enum vkd3d_result vsir_program_insert_alpha_test(struct vsir_program *pro
     struct vkd3d_shader_message_context *message_context = ctx->message_context;
     const struct vkd3d_shader_parameter1 *func = NULL, *ref = NULL;
     uint32_t colour_signature_idx, colour_temp = ~0u;
-    static const struct vkd3d_shader_location no_loc;
     enum vkd3d_shader_comparison_func compare_func;
     struct vkd3d_shader_instruction *ins;
     int ret;
@@ -7065,13 +7064,13 @@ static enum vkd3d_result vsir_program_insert_alpha_test(struct vsir_program *pro
 
     if (func->type != VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT)
     {
-        vkd3d_shader_error(message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+        vkd3d_shader_error(message_context, NULL, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
                 "Unsupported alpha test function parameter type %#x.", func->type);
         return VKD3D_ERROR_NOT_IMPLEMENTED;
     }
     if (func->data_type != VKD3D_SHADER_PARAMETER_DATA_TYPE_UINT32)
     {
-        vkd3d_shader_error(message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
+        vkd3d_shader_error(message_context, NULL, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
                 "Invalid alpha test function parameter data type %#x.", func->data_type);
         return VKD3D_ERROR_INVALID_ARGUMENT;
     }
