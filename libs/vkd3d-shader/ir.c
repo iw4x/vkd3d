@@ -1933,7 +1933,7 @@ static enum vkd3d_result vsir_program_ensure_diffuse(struct vsir_program *progra
         struct vsir_transformation_context *ctx)
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
-    static const struct vkd3d_shader_location no_loc;
+    struct vkd3d_shader_location loc = ctx->null_location;
     struct vkd3d_shader_instruction *ins;
     unsigned int i;
 
@@ -1947,7 +1947,10 @@ static enum vkd3d_result vsir_program_ensure_diffuse(struct vsir_program *progra
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
         if (!vsir_instruction_is_dcl(ins) && ins->opcode != VSIR_OP_LABEL && ins->opcode != VSIR_OP_NOP)
+        {
+            loc = ins->location;
             break;
+        }
     }
 
     vsir_program_iterator_prev(&it);
@@ -1955,7 +1958,7 @@ static enum vkd3d_result vsir_program_ensure_diffuse(struct vsir_program *progra
         return VKD3D_ERROR_OUT_OF_MEMORY;
     ins = vsir_program_iterator_next(&it);
 
-    vsir_instruction_init_with_params(program, ins, &no_loc, VSIR_OP_MOV, 1, 1);
+    vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MOV, 1, 1);
     vsir_dst_param_init(&ins->dst[0], VKD3DSPR_ATTROUT, VSIR_DATA_F32, 1);
     ins->dst[0].reg.idx[0].offset = 0;
     ins->dst[0].reg.dimension = VSIR_DIMENSION_VEC4;
