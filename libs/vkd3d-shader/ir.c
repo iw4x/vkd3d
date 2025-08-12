@@ -6950,7 +6950,6 @@ static enum vkd3d_result insert_alpha_test_before_ret(struct vsir_program *progr
         uint32_t colour_temp, struct vkd3d_shader_message_context *message_context)
 {
     struct vkd3d_shader_location loc = vsir_program_iterator_current(it)->location;
-    static const struct vkd3d_shader_location no_loc;
     struct vkd3d_shader_instruction *ins;
 
     static const struct
@@ -7006,7 +7005,7 @@ static enum vkd3d_result insert_alpha_test_before_ret(struct vsir_program *progr
             break;
 
         case VKD3D_SHADER_PARAMETER_DATA_TYPE_FLOAT32_VEC4:
-            vkd3d_shader_error(message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_INVALID_PARAMETER,
+            vkd3d_shader_error(message_context, NULL, VKD3D_SHADER_ERROR_VSIR_INVALID_PARAMETER,
                     "Alpha test reference data type must be a single component.");
             return VKD3D_ERROR_INVALID_ARGUMENT;
 
