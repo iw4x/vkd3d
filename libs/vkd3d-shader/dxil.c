@@ -8589,7 +8589,8 @@ static void sm6_parser_emit_label(struct sm6_parser *sm6, unsigned int label_id)
 static enum vkd3d_result sm6_function_emit_blocks(const struct sm6_function *function, struct sm6_parser *sm6)
 {
     struct vsir_program *program = sm6->program;
-    unsigned int i;
+    struct vkd3d_shader_instruction *ins;
+    unsigned int i, j;
 
     program->block_count = function->block_count;
 
@@ -8607,10 +8608,11 @@ static enum vkd3d_result sm6_function_emit_blocks(const struct sm6_function *fun
         sm6_parser_emit_label(sm6, block->id);
         sm6_block_emit_phi(block, sm6);
 
-        memcpy(&program->instructions.elements[program->instructions.count], block->instructions,
-                block->instruction_count * sizeof(*block->instructions));
-        program->instructions.count += block->instruction_count;
-
+        for (j = 0; j < block->instruction_count; ++j)
+        {
+            ins = vsir_program_append(program);
+            *ins = block->instructions[j];
+        }
         sm6_block_emit_terminator(block, sm6);
     }
 
