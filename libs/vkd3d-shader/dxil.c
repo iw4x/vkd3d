@@ -9515,8 +9515,8 @@ static enum vkd3d_result sm6_parser_descriptor_type_init(struct sm6_parser *sm6,
     struct vkd3d_shader_instruction *ins;
     const struct sm6_metadata_node *node;
     const struct sm6_metadata_value *m;
+    enum vkd3d_result ret = VKD3D_OK;
     struct sm6_descriptor_info *d;
-    enum vkd3d_result ret;
     unsigned int i;
 
     for (i = 0; i < descriptor_node->operand_count; ++i)
@@ -9565,9 +9565,10 @@ static enum vkd3d_result sm6_parser_descriptor_type_init(struct sm6_parser *sm6,
             return VKD3D_ERROR_INVALID_SHADER;
         }
 
-        if (!(ins = sm6_parser_require_space(sm6, 1)))
+        if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_NOP)))
         {
-            ERR("Failed to allocate instruction.\n");
+            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
+                    "Out of memory emitting shader instructions.");
             return VKD3D_ERROR_OUT_OF_MEMORY;
         }
 
@@ -9575,32 +9576,34 @@ static enum vkd3d_result sm6_parser_descriptor_type_init(struct sm6_parser *sm6,
         {
             case VKD3D_SHADER_DESCRIPTOR_TYPE_CBV:
                 if ((ret = sm6_parser_resources_load_cbv(sm6, node, d, ins)) < 0)
-                    return ret;
+                    goto done;
                 break;
             case VKD3D_SHADER_DESCRIPTOR_TYPE_SRV:
                 if ((ret = sm6_parser_resources_load_srv(sm6, node, d, ins)) < 0)
-                    return ret;
+                    goto done;
                 break;
             case VKD3D_SHADER_DESCRIPTOR_TYPE_UAV:
                 if ((ret = sm6_parser_resources_load_uav(sm6, node, d, ins)) < 0)
-                    return ret;
+                    goto done;
                 break;
             case VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER:
                 if ((ret = sm6_parser_resources_load_sampler(sm6, node, d, ins)) < 0)
-                    return ret;
+                    goto done;
                 break;
             default:
-                FIXME("Unsupported descriptor type %u.\n", type);
                 vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_RESOURCES,
-                        "Resource descriptor type %u is unsupported.", type);
-                return VKD3D_ERROR_INVALID_SHADER;
+                        "Resource descriptor type %#x is unsupported.", type);
+                ret = VKD3D_ERROR_INVALID_SHADER;
+                goto done;
         }
 
         ++sm6->descriptor_count;
-        ++sm6->program->instructions.count;
     }
 
-    return VKD3D_OK;
+done:
+    if (ret < 0)
+        vsir_instruction_init(ins, &ins->location, VSIR_OP_NOP);
+    return ret;
 }
 
 static enum vkd3d_result sm6_parser_resources_init(struct sm6_parser *sm6)
