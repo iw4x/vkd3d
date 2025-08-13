@@ -3665,14 +3665,15 @@ static struct vkd3d_shader_instruction *sm6_parser_require_space(struct sm6_pars
     return &instructions->elements[instructions->count];
 }
 
-/* Space should be reserved before calling this. It is intended to require no checking of the returned pointer. */
 static struct vkd3d_shader_instruction *sm6_parser_add_instruction(struct sm6_parser *sm6,
-        enum vkd3d_shader_opcode handler_idx)
+        enum vkd3d_shader_opcode op)
 {
-    struct vkd3d_shader_instruction *ins = sm6_parser_require_space(sm6, 1);
-    VKD3D_ASSERT(ins);
-    vsir_instruction_init(ins, &sm6->p.location, handler_idx);
-    ++sm6->program->instructions.count;
+    struct vkd3d_shader_instruction *ins;
+
+    if (!(ins = vsir_program_append(sm6->program)))
+        return NULL;
+    vsir_instruction_init(ins, &sm6->p.location, op);
+
     return ins;
 }
 
