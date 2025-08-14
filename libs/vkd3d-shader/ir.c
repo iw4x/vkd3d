@@ -4242,9 +4242,11 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
         struct vsir_transformation_context *ctx)
 {
     unsigned int block_count = program->block_count, ssa_count = program->ssa_count, current_label = 0, if_label;
-    size_t ins_capacity = 0, ins_count = 0, i, map_capacity = 0, map_count = 0;
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
+    size_t ins_capacity = 0, ins_count = 0, map_capacity = 0, map_count = 0;
     struct vkd3d_shader_instruction *instructions = NULL;
     struct lower_switch_to_if_ladder_block_mapping *block_map = NULL;
+    struct vkd3d_shader_instruction *ins;
 
     VKD3D_ASSERT(program->cf_type == VSIR_CF_BLOCKS);
 
@@ -4254,9 +4256,8 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
     /* First subpass: convert SWITCH_MONOLITHIC instructions to
      * selection ladders, keeping a map between blocks before and
      * after the subpass. */
-    for (i = 0; i < program->instructions.count; ++i)
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
-        struct vkd3d_shader_instruction *ins = &program->instructions.elements[i];
         unsigned int case_count, j, default_label;
 
         switch (ins->opcode)
