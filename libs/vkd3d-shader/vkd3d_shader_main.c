@@ -2266,6 +2266,7 @@ int vkd3d_shader_preprocess(const struct vkd3d_shader_compile_info *compile_info
         struct vkd3d_shader_code *out, char **messages)
 {
     struct vkd3d_shader_message_context message_context;
+    struct shader_dump_data dump_data;
     int ret;
 
     TRACE("compile_info %p, out %p, messages %p.\n", compile_info, out, messages);
@@ -2278,7 +2279,11 @@ int vkd3d_shader_preprocess(const struct vkd3d_shader_compile_info *compile_info
 
     vkd3d_shader_message_context_init(&message_context, compile_info->log_level);
 
-    ret = preproc_lexer_parse(compile_info, out, &message_context);
+    fill_shader_dump_data(compile_info, &dump_data);
+    vkd3d_shader_dump_shader(&dump_data, compile_info->source.code, compile_info->source.size, SHADER_DUMP_TYPE_SOURCE);
+
+    if ((ret = preproc_lexer_parse(compile_info, out, &message_context)) >= 0)
+        vkd3d_shader_dump_shader(&dump_data, out->code, out->size, SHADER_DUMP_TYPE_PREPROC);
 
     vkd3d_shader_message_context_trace_messages(&message_context);
     if (!vkd3d_shader_message_context_copy_messages(&message_context, messages))
