@@ -48,9 +48,9 @@ static void check_preprocess_(const char *file, int line, const char *source,
     }
     code = ID3D10Blob_GetBufferPointer(blob);
     size = ID3D10Blob_GetBufferSize(blob);
-    todo ok(size == strlen(code) + 1, "Expected size %u, got %u.\n",
+    ok(size == strlen(code) + 1, "Expected size %u, got %u.\n",
             (unsigned int)strlen(code) + 1, (unsigned int)size);
-    todo ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
+    ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
     if (present)
         ok_(file, line)(vkd3d_memmem(code, size, present, strlen(present)),
                 "\"%s\" not found in preprocessed shader.\n", present);
@@ -506,8 +506,8 @@ static void test_preprocess(void)
     todo ok(size == strlen(code) + 3, "Expected size %u, got %u.\n",
             (unsigned int)strlen(code) + 3, (unsigned int)size);
     todo ok(code[size - 3] == 0, "Expected null termination, got %#x.\n", code[size - 3]);
-    ok(code[size - 2] == ' ', "Expected space, got %#x.\n", code[size - 2]);
-    todo ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
+    todo ok(code[size - 2] == ' ', "Expected space, got %#x.\n", code[size - 2]);
+    ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
     ID3D10Blob_Release(blob);
     ok(!errors, "Expected no errors.\n");
 }
