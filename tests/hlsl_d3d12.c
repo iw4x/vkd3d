@@ -3539,6 +3539,54 @@ static void test_compile_null_terminator(void)
     todo ok(!errors, "Got errors %p.\n", errors);
 }
 
+static void test_special_characters(void)
+{
+    ID3D10Blob *blob, *errors;
+    HRESULT hr;
+
+    static const char source[] =
+            "string s = \"\x7f\x80\x01\";\n"
+            "float4 main() : sv_target {return 0;}";
+
+    static const char *const invalid_sources[] =
+    {
+        "float a\x80;\n"
+        "float4 main() : sv_target {return 0;}",
+
+        "float a\xc3\xb6;\n"
+        "float4 main() : sv_target {return 0;}",
+
+        "float a\x7f;\n"
+        "float4 main() : sv_target {return 0;}",
+
+        "float a\x01;\n"
+        "float4 main() : sv_target {return 0;}",
+    };
+
+    hr = D3DCompile(source, sizeof(source), NULL, NULL, NULL, "main", "ps_2_0", 0, 0, &blob, &errors);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+    ID3D10Blob_Release(blob);
+    ok(!errors, "Got errors %p.\n", errors);
+
+    hr = D3DCompile(source, sizeof(source), NULL, NULL, NULL, "main", "ps_4_0", 0, 0, &blob, &errors);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+    ID3D10Blob_Release(blob);
+    ok(!errors, "Got errors %p.\n", errors);
+
+    for (unsigned int i = 0; i < ARRAY_SIZE(invalid_sources); ++i)
+    {
+        blob = errors = (ID3D10Blob *)0xdeadbeef;
+        hr = D3DCompile(invalid_sources[i], strlen(invalid_sources[i]),
+                NULL, NULL, NULL, "main", "ps_2_0", 0, 0, &blob, &errors);
+        ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+        todo ok(!blob, "Expected no compiled shader blob.\n");
+        ok(!!errors, "Got errors %p.\n", errors);
+        if (vkd3d_test_state.debug_level)
+            trace("%s\n", (char *)ID3D10Blob_GetBufferPointer(errors));
+        ID3D10Blob_Release(errors);
+    }
+}
+
 START_TEST(hlsl_d3d12)
 {
     parse_args(argc, argv);
@@ -3554,4 +3602,5 @@ START_TEST(hlsl_d3d12)
     run_test(test_signature_reflection);
     run_test(test_disassemble_shader);
     run_test(test_compile_null_terminator);
+    run_test(test_special_characters);
 }
