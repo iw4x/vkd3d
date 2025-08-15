@@ -2329,7 +2329,6 @@ static int vkd3d_glsl_generator_generate(struct vkd3d_glsl_generator *gen, struc
     struct vkd3d_string_buffer *buffer = gen->buffer;
     struct vkd3d_shader_instruction *ins;
     struct vsir_program_iterator it;
-    void *code;
 
     MESSAGE("Generating a GLSL shader. This is unsupported; you get to keep all the pieces if it breaks.\n");
 
@@ -2358,13 +2357,7 @@ static int vkd3d_glsl_generator_generate(struct vkd3d_glsl_generator *gen, struc
     if (gen->failed)
         return VKD3D_ERROR_INVALID_SHADER;
 
-    if ((code = vkd3d_malloc(buffer->buffer_size)))
-    {
-        memcpy(code, buffer->buffer, buffer->content_size);
-        out->size = buffer->content_size;
-        out->code = code;
-    }
-    else return VKD3D_ERROR_OUT_OF_MEMORY;
+    vkd3d_shader_code_from_string_buffer(out, buffer);
 
     return VKD3D_OK;
 }
