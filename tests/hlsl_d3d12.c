@@ -3495,9 +3495,9 @@ static void test_disassemble_shader(void)
     ok(hr == S_OK, "Got hr %#x.\n", hr);
     code = ID3D10Blob_GetBufferPointer(blob);
     size = ID3D10Blob_GetBufferSize(blob);
-    todo ok(size == strlen(code) + 1, "Expected size %u, got %u.\n",
+    ok(size == strlen(code) + 1, "Expected size %u, got %u.\n",
             (unsigned int)strlen(code) + 1, (unsigned int)size);
-    todo ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
+    ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
     ID3D10Blob_Release(blob);
 
     hr = D3DDisassemble(vs_3_0, sizeof(vs_3_0), 0, NULL, &blob);
@@ -3513,9 +3513,9 @@ static void test_disassemble_shader(void)
     ok(hr == S_OK, "Got hr %#x.\n", hr);
     code = ID3D10Blob_GetBufferPointer(blob);
     size = ID3D10Blob_GetBufferSize(blob);
-    todo ok(size == strlen(code) + 1, "Expected size %u, got %u.\n",
+    ok(size == strlen(code) + 1, "Expected size %u, got %u.\n",
             (unsigned int)strlen(code) + 1, (unsigned int)size);
-    todo ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
+    ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
     ID3D10Blob_Release(blob);
 }
 
