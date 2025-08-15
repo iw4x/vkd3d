@@ -1510,6 +1510,16 @@ static inline bool vsir_program_iterator_insert_after(struct vsir_program_iterat
     return shader_instruction_array_insert_at(it->array, it->idx + 1, count);
 }
 
+static inline struct vkd3d_shader_instruction *vsir_program_iterator_insert_before_and_move(
+        struct vsir_program_iterator *it, size_t count)
+{
+    VKD3D_ASSERT(it->idx != SIZE_MAX);
+
+    if (!shader_instruction_array_insert_at(it->array, it->idx, count))
+        return NULL;
+    return vsir_program_iterator_current(it);
+}
+
 enum vkd3d_shader_config_flags
 {
     VKD3D_SHADER_CONFIG_FLAG_FORCE_VALIDATION = 0x00000001,
