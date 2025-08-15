@@ -48,6 +48,9 @@ static void check_preprocess_(const char *file, int line, const char *source,
     }
     code = ID3D10Blob_GetBufferPointer(blob);
     size = ID3D10Blob_GetBufferSize(blob);
+    todo ok(size == strlen(code) + 1, "Expected size %u, got %u.\n",
+            (unsigned int)strlen(code) + 1, (unsigned int)size);
+    todo ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
     if (present)
         ok_(file, line)(vkd3d_memmem(code, size, present, strlen(present)),
                 "\"%s\" not found in preprocessed shader.\n", present);
@@ -198,7 +201,9 @@ static void test_preprocess(void)
     ID3DInclude test_include = {&test_include_vtbl};
     D3D_SHADER_MACRO macros[3];
     ID3D10Blob *blob, *errors;
+    const char *code;
     unsigned int i;
+    size_t size;
     HRESULT hr;
 
     static const struct
@@ -490,6 +495,21 @@ static void test_preprocess(void)
     if (vkd3d_test_state.debug_level)
         trace("%s\n", (char *)ID3D10Blob_GetBufferPointer(errors));
     ID3D10Blob_Release(errors);
+
+    /* Test including the null terminator in the input.
+     * The preprocessor doesn't seem to interpret it as a special character,
+     * and inserts a space (as it does between most characters). */
+    hr = D3DPreprocess("text", sizeof("text"), NULL, NULL, NULL, &blob, &errors);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+    code = ID3D10Blob_GetBufferPointer(blob);
+    size = ID3D10Blob_GetBufferSize(blob);
+    todo ok(size == strlen(code) + 3, "Expected size %u, got %u.\n",
+            (unsigned int)strlen(code) + 3, (unsigned int)size);
+    todo ok(code[size - 3] == 0, "Expected null termination, got %#x.\n", code[size - 3]);
+    ok(code[size - 2] == ' ', "Expected space, got %#x.\n", code[size - 2]);
+    todo ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
+    ID3D10Blob_Release(blob);
+    ok(!errors, "Expected no errors.\n");
 }
 
 #define compile_shader(a, b) compile_shader_(__FILE__, __LINE__, a, b, 0)
@@ -3399,7 +3419,9 @@ static void test_signature_reflection(void)
 
 static void test_disassemble_shader(void)
 {
+    const char *code;
     ID3DBlob *blob;
+    size_t size;
     int hr;
 
     /* A Direct3D 8 vertex shader without dcl_ instructions. */
@@ -3471,6 +3493,11 @@ static void test_disassemble_shader(void)
 
     hr = D3DDisassemble(vs_2_0, sizeof(vs_2_0), 0, NULL, &blob);
     ok(hr == S_OK, "Got hr %#x.\n", hr);
+    code = ID3D10Blob_GetBufferPointer(blob);
+    size = ID3D10Blob_GetBufferSize(blob);
+    todo ok(size == strlen(code) + 1, "Expected size %u, got %u.\n",
+            (unsigned int)strlen(code) + 1, (unsigned int)size);
+    todo ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
     ID3D10Blob_Release(blob);
 
     hr = D3DDisassemble(vs_3_0, sizeof(vs_3_0), 0, NULL, &blob);
@@ -3484,7 +3511,32 @@ static void test_disassemble_shader(void)
 
     hr = D3DDisassemble(vs_4_0_dxbc, sizeof(vs_4_0_dxbc), 0, NULL, &blob);
     ok(hr == S_OK, "Got hr %#x.\n", hr);
+    code = ID3D10Blob_GetBufferPointer(blob);
+    size = ID3D10Blob_GetBufferSize(blob);
+    todo ok(size == strlen(code) + 1, "Expected size %u, got %u.\n",
+            (unsigned int)strlen(code) + 1, (unsigned int)size);
+    todo ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
     ID3D10Blob_Release(blob);
+}
+
+static void test_compile_null_terminator(void)
+{
+    ID3D10Blob *blob, *errors;
+    HRESULT hr;
+
+    static const char source[] = "float4 main() : sv_target {return 0;}\0bogus text";
+
+    hr = D3DCompile(source, sizeof(source), NULL, NULL, NULL, "main", "ps_2_0", 0, 0, &blob, &errors);
+    todo ok(hr == S_OK, "Got hr %#x.\n", hr);
+    if (hr == S_OK)
+        ID3D10Blob_Release(blob);
+    todo ok(!errors, "Got errors %p.\n", errors);
+
+    hr = D3DCompile(source, sizeof(source), NULL, NULL, NULL, "main", "ps_4_0", 0, 0, &blob, &errors);
+    todo ok(hr == S_OK, "Got hr %#x.\n", hr);
+    if (hr == S_OK)
+        ID3D10Blob_Release(blob);
+    todo ok(!errors, "Got errors %p.\n", errors);
 }
 
 START_TEST(hlsl_d3d12)
@@ -3501,4 +3553,5 @@ START_TEST(hlsl_d3d12)
     run_test(test_default_values_reflection);
     run_test(test_signature_reflection);
     run_test(test_disassemble_shader);
+    run_test(test_compile_null_terminator);
 }
