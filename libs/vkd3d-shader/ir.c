@@ -7950,7 +7950,6 @@ static enum vkd3d_result vsir_program_insert_vertex_fog(struct vsir_program *pro
     struct vkd3d_shader_message_context *message_context = ctx->message_context;
     const struct vkd3d_shader_parameter1 *source_parameter = NULL;
     uint32_t fog_signature_idx, source_signature_idx, temp;
-    static const struct vkd3d_shader_location no_loc;
     struct vkd3d_shader_instruction *ins;
     enum vkd3d_shader_fog_source source;
     const struct signature_element *e;
@@ -7963,13 +7962,13 @@ static enum vkd3d_result vsir_program_insert_vertex_fog(struct vsir_program *pro
 
     if (source_parameter->type != VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT)
     {
-        vkd3d_shader_error(message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+        vkd3d_shader_error(message_context, NULL, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
                 "Unsupported fog source parameter type %#x.", source_parameter->type);
         return VKD3D_ERROR_NOT_IMPLEMENTED;
     }
     if (source_parameter->data_type != VKD3D_SHADER_PARAMETER_DATA_TYPE_UINT32)
     {
-        vkd3d_shader_error(message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
+        vkd3d_shader_error(message_context, NULL, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
                 "Invalid fog source parameter data type %#x.", source_parameter->data_type);
         return VKD3D_ERROR_INVALID_ARGUMENT;
     }
@@ -7991,7 +7990,7 @@ static enum vkd3d_result vsir_program_insert_vertex_fog(struct vsir_program *pro
         if (!vsir_signature_find_sysval(&program->output_signature,
                 VKD3D_SHADER_SV_POSITION, 0, &source_signature_idx))
         {
-            vkd3d_shader_error(ctx->message_context, &no_loc,
+            vkd3d_shader_error(ctx->message_context, &ctx->null_location,
                     VKD3D_SHADER_ERROR_VSIR_MISSING_SEMANTIC, "Shader does not write position.");
             return VKD3D_ERROR_INVALID_SHADER;
         }
