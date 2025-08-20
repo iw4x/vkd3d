@@ -1961,28 +1961,23 @@ bool hlsl_normalize_binary_exprs(struct hlsl_ctx *ctx, struct hlsl_ir_node *inst
     return progress;
 }
 
-bool hlsl_fold_constant_swizzles(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+struct hlsl_ir_node *hlsl_fold_constant_swizzles(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
     struct hlsl_constant_value value;
     struct hlsl_ir_swizzle *swizzle;
     struct hlsl_ir_constant *src;
-    struct hlsl_ir_node *dst;
     unsigned int i;
 
     if (instr->type != HLSL_IR_SWIZZLE)
-        return false;
+        return NULL;
     swizzle = hlsl_ir_swizzle(instr);
     if (swizzle->val.node->type != HLSL_IR_CONSTANT)
-        return false;
+        return NULL;
     src = hlsl_ir_constant(swizzle->val.node);
 
     for (i = 0; i < swizzle->node.data_type->e.numeric.dimx; ++i)
         value.u[i] = src->value.u[hlsl_swizzle_get_component(swizzle->u.vector, i)];
 
-    if (!(dst = hlsl_new_constant(ctx, instr->data_type, &value, &instr->loc)))
-        return false;
-
-    list_add_before(&swizzle->node.entry, &dst->entry);
-    hlsl_replace_node(&swizzle->node, dst);
-    return true;
+    return hlsl_block_add_constant(ctx, block, instr->data_type, &value, &instr->loc);
 }
