@@ -3879,25 +3879,24 @@ static struct hlsl_ir_node *fold_swizzle_chains(struct hlsl_ctx *ctx,
     return NULL;
 }
 
-static bool remove_trivial_swizzles(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+static struct hlsl_ir_node *fold_trivial_swizzles(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
     struct hlsl_ir_swizzle *swizzle;
     unsigned int i;
 
     if (instr->type != HLSL_IR_SWIZZLE)
-        return false;
+        return NULL;
     swizzle = hlsl_ir_swizzle(instr);
 
     if (instr->data_type->e.numeric.dimx != swizzle->val.node->data_type->e.numeric.dimx)
-        return false;
+        return NULL;
 
     for (i = 0; i < instr->data_type->e.numeric.dimx; ++i)
         if (hlsl_swizzle_get_component(swizzle->u.vector, i) != i)
-            return false;
+            return NULL;
 
-    hlsl_replace_node(instr, swizzle->val.node);
-
-    return true;
+    return swizzle->val.node;
 }
 
 static bool remove_trivial_conditional_branches(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
@@ -8517,7 +8516,7 @@ static void hlsl_run_folding_passes(struct hlsl_ctx *ctx, struct hlsl_block *bod
         progress = simplify_exprs(ctx, body);
         progress |= hlsl_copy_propagation_execute(ctx, body);
         progress |= replace_ir(ctx, fold_swizzle_chains, body);
-        progress |= hlsl_transform_ir(ctx, remove_trivial_swizzles, body, NULL);
+        progress |= replace_ir(ctx, fold_trivial_swizzles, body);
         progress |= hlsl_transform_ir(ctx, remove_trivial_conditional_branches, body, NULL);
     } while (progress);
     hlsl_transform_ir(ctx, fold_redundant_casts, body, NULL);
@@ -13852,7 +13851,7 @@ static void loop_unrolling_simplify(struct hlsl_ctx *ctx, struct hlsl_block *blo
         progress |= copy_propagation_transform_block(ctx, block, state);
 
         progress |= replace_ir(ctx, fold_swizzle_chains, block);
-        progress |= hlsl_transform_ir(ctx, remove_trivial_swizzles, block, NULL);
+        progress |= replace_ir(ctx, fold_trivial_swizzles, block);
         progress |= hlsl_transform_ir(ctx, remove_trivial_conditional_branches, block, NULL);
     } while (progress);
 
@@ -14719,7 +14718,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
         compute_liveness(ctx, body);
         progress |= hlsl_transform_ir(ctx, dce, body, NULL);
         progress |= replace_ir(ctx, fold_swizzle_chains, body);
-        progress |= hlsl_transform_ir(ctx, remove_trivial_swizzles, body, NULL);
+        progress |= replace_ir(ctx, fold_trivial_swizzles, body);
         progress |= vectorize_stores(ctx, body);
     } while (progress);
 
