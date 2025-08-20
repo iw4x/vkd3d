@@ -3852,36 +3852,31 @@ static struct hlsl_ir_node *lower_narrowing_casts(struct hlsl_ctx *ctx,
     return NULL;
 }
 
-static bool fold_swizzle_chains(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+static struct hlsl_ir_node *fold_swizzle_chains(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
     struct hlsl_ir_swizzle *swizzle;
     struct hlsl_ir_node *next_instr;
 
     if (instr->type != HLSL_IR_SWIZZLE)
-        return false;
+        return NULL;
     swizzle = hlsl_ir_swizzle(instr);
 
     next_instr = swizzle->val.node;
 
     if (next_instr->type == HLSL_IR_SWIZZLE)
     {
-        struct hlsl_ir_node *new_swizzle;
         uint32_t combined_swizzle;
 
         combined_swizzle = hlsl_combine_swizzles(hlsl_ir_swizzle(next_instr)->u.vector,
                 swizzle->u.vector, instr->data_type->e.numeric.dimx);
         next_instr = hlsl_ir_swizzle(next_instr)->val.node;
 
-        if (!(new_swizzle = hlsl_new_swizzle(ctx, combined_swizzle,
-                instr->data_type->e.numeric.dimx, next_instr, &instr->loc)))
-            return false;
-
-        list_add_before(&instr->entry, &new_swizzle->entry);
-        hlsl_replace_node(instr, new_swizzle);
-        return true;
+        return hlsl_block_add_swizzle(ctx, block, combined_swizzle,
+                instr->data_type->e.numeric.dimx, next_instr, &instr->loc);
     }
 
-    return false;
+    return NULL;
 }
 
 static bool remove_trivial_swizzles(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
@@ -8521,7 +8516,7 @@ static void hlsl_run_folding_passes(struct hlsl_ctx *ctx, struct hlsl_block *bod
     {
         progress = simplify_exprs(ctx, body);
         progress |= hlsl_copy_propagation_execute(ctx, body);
-        progress |= hlsl_transform_ir(ctx, fold_swizzle_chains, body, NULL);
+        progress |= replace_ir(ctx, fold_swizzle_chains, body);
         progress |= hlsl_transform_ir(ctx, remove_trivial_swizzles, body, NULL);
         progress |= hlsl_transform_ir(ctx, remove_trivial_conditional_branches, body, NULL);
     } while (progress);
@@ -13856,7 +13851,7 @@ static void loop_unrolling_simplify(struct hlsl_ctx *ctx, struct hlsl_block *blo
         current_index = index_instructions(block, *index);
         progress |= copy_propagation_transform_block(ctx, block, state);
 
-        progress |= hlsl_transform_ir(ctx, fold_swizzle_chains, block, NULL);
+        progress |= replace_ir(ctx, fold_swizzle_chains, block);
         progress |= hlsl_transform_ir(ctx, remove_trivial_swizzles, block, NULL);
         progress |= hlsl_transform_ir(ctx, remove_trivial_conditional_branches, block, NULL);
     } while (progress);
@@ -14723,7 +14718,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
         progress = vectorize_exprs(ctx, body);
         compute_liveness(ctx, body);
         progress |= hlsl_transform_ir(ctx, dce, body, NULL);
-        progress |= hlsl_transform_ir(ctx, fold_swizzle_chains, body, NULL);
+        progress |= replace_ir(ctx, fold_swizzle_chains, body);
         progress |= hlsl_transform_ir(ctx, remove_trivial_swizzles, body, NULL);
         progress |= vectorize_stores(ctx, body);
     } while (progress);
