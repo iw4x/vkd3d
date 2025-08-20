@@ -926,12 +926,12 @@ bool hlsl_transform_ir(struct hlsl_ctx *ctx, bool (*func)(struct hlsl_ctx *ctx, 
     return progress;
 }
 
-typedef struct hlsl_ir_node *(*PFN_lower_func)(struct hlsl_ctx *, struct hlsl_ir_node *, struct hlsl_block *);
+typedef struct hlsl_ir_node *(*PFN_replace_func)(struct hlsl_ctx *, struct hlsl_ir_node *, struct hlsl_block *);
 
-static bool call_lower_func(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+static bool call_replace_func(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
 {
     struct hlsl_ir_node *replacement;
-    PFN_lower_func func = context;
+    PFN_replace_func func = context;
     struct hlsl_block block;
 
     hlsl_block_init(&block);
@@ -948,12 +948,17 @@ static bool call_lower_func(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, vo
     }
 }
 
-/* Specific form of transform_ir() for passes which convert a single instruction
- * to a block of one or more instructions. This helper takes care of setting up
- * the block and calling hlsl_replace_node_with_block(). */
-static bool lower_ir(struct hlsl_ctx *ctx, PFN_lower_func func, struct hlsl_block *block)
+/* Specific form of transform_ir() for passes which replace a single instruction
+ * with another instruction. This includes passes which lower an instruction
+ * to one or more new instructions, and passes which fold away a redundant
+ * instruction.
+ *
+ * New instructions should be added to "block", and the replacement instruction
+ * should be returned. If the instruction should be left alone, NULL should be
+ * returned instead. */
+static bool replace_ir(struct hlsl_ctx *ctx, PFN_replace_func func, struct hlsl_block *block)
 {
-    return hlsl_transform_ir(ctx, call_lower_func, block, func);
+    return hlsl_transform_ir(ctx, call_replace_func, block, func);
 }
 
 static bool transform_instr_derefs(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
@@ -8208,7 +8213,7 @@ static void remove_unreachable_code(struct hlsl_ctx *ctx, struct hlsl_block *bod
 
 void hlsl_lower_index_loads(struct hlsl_ctx *ctx, struct hlsl_block *body)
 {
-    lower_ir(ctx, lower_index_loads, body);
+    replace_ir(ctx, lower_index_loads, body);
 }
 
 static enum hlsl_ir_expr_op invert_comparison_op(enum hlsl_ir_expr_op op)
@@ -8527,10 +8532,10 @@ void hlsl_run_const_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
 {
     bool progress;
 
-    lower_ir(ctx, lower_complex_casts, body);
-    lower_ir(ctx, lower_matrix_swizzles, body);
+    replace_ir(ctx, lower_complex_casts, body);
+    replace_ir(ctx, lower_matrix_swizzles, body);
 
-    lower_ir(ctx, lower_broadcasts, body);
+    replace_ir(ctx, lower_broadcasts, body);
     while (hlsl_transform_ir(ctx, fold_redundant_casts, body, NULL));
     do
     {
@@ -8540,16 +8545,16 @@ void hlsl_run_const_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
     while (progress);
     hlsl_transform_ir(ctx, split_matrix_copies, body, NULL);
 
-    lower_ir(ctx, lower_narrowing_casts, body);
-    lower_ir(ctx, lower_int_dot, body);
+    replace_ir(ctx, lower_narrowing_casts, body);
+    replace_ir(ctx, lower_int_dot, body);
     if (hlsl_version_ge(ctx, 4, 0))
     {
-        lower_ir(ctx, lower_int_modulus_sm4, body);
-        lower_ir(ctx, lower_int_division_sm4, body);
+        replace_ir(ctx, lower_int_modulus_sm4, body);
+        replace_ir(ctx, lower_int_division_sm4, body);
     }
-    lower_ir(ctx, lower_int_abs, body);
-    lower_ir(ctx, lower_casts_to_bool, body);
-    lower_ir(ctx, lower_float_modulus, body);
+    replace_ir(ctx, lower_int_abs, body);
+    replace_ir(ctx, lower_casts_to_bool, body);
+    replace_ir(ctx, lower_float_modulus, body);
 
     hlsl_run_folding_passes(ctx, body);
 }
@@ -14513,25 +14518,25 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
 
     if (hlsl_version_ge(ctx, 4, 0) && hlsl_version_lt(ctx, 5, 0))
     {
-        lower_ir(ctx, lower_countbits, body);
-        lower_ir(ctx, lower_ctz, body);
-        lower_ir(ctx, lower_f16tof32, body);
-        lower_ir(ctx, lower_f32tof16, body);
-        lower_ir(ctx, lower_find_msb, body);
+        replace_ir(ctx, lower_countbits, body);
+        replace_ir(ctx, lower_ctz, body);
+        replace_ir(ctx, lower_f16tof32, body);
+        replace_ir(ctx, lower_f32tof16, body);
+        replace_ir(ctx, lower_find_msb, body);
     }
 
-    lower_ir(ctx, lower_isinf, body);
+    replace_ir(ctx, lower_isinf, body);
 
     lower_return(ctx, entry_func, body, false);
 
     while (hlsl_transform_ir(ctx, lower_calls, body, NULL));
 
-    lower_ir(ctx, lower_complex_casts, body);
-    lower_ir(ctx, lower_matrix_swizzles, body);
-    lower_ir(ctx, lower_index_loads, body);
+    replace_ir(ctx, lower_complex_casts, body);
+    replace_ir(ctx, lower_matrix_swizzles, body);
+    replace_ir(ctx, lower_index_loads, body);
 
-    lower_ir(ctx, lower_tgsm_loads, body);
-    lower_ir(ctx, lower_tgsm_stores, body);
+    replace_ir(ctx, lower_tgsm_loads, body);
+    replace_ir(ctx, lower_tgsm_stores, body);
 
     if (entry_func->return_var)
     {
@@ -14704,9 +14709,9 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
     remove_unreachable_code(ctx, body);
     hlsl_transform_ir(ctx, normalize_switch_cases, body, NULL);
 
-    lower_ir(ctx, lower_nonconstant_vector_derefs, body);
-    lower_ir(ctx, lower_casts_to_bool, body);
-    lower_ir(ctx, lower_int_dot, body);
+    replace_ir(ctx, lower_nonconstant_vector_derefs, body);
+    replace_ir(ctx, lower_casts_to_bool, body);
+    replace_ir(ctx, lower_int_dot, body);
 
     if (hlsl_version_lt(ctx, 4, 0))
         hlsl_transform_ir(ctx, lower_separate_samples, body, NULL);
@@ -14747,37 +14752,37 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
 
     if (profile->major_version < 4)
     {
-        while (lower_ir(ctx, lower_nonconstant_array_loads, body));
+        while (replace_ir(ctx, lower_nonconstant_array_loads, body));
 
-        lower_ir(ctx, lower_ternary, body);
-        lower_ir(ctx, lower_int_modulus_sm1, body);
-        lower_ir(ctx, lower_division, body);
+        replace_ir(ctx, lower_ternary, body);
+        replace_ir(ctx, lower_int_modulus_sm1, body);
+        replace_ir(ctx, lower_division, body);
         /* Constants casted to float must be folded, and new casts to bool also need to be lowered. */
         hlsl_transform_ir(ctx, hlsl_fold_constant_exprs, body, NULL);
-        lower_ir(ctx, lower_casts_to_bool, body);
+        replace_ir(ctx, lower_casts_to_bool, body);
 
-        lower_ir(ctx, lower_casts_to_int, body);
-        lower_ir(ctx, lower_trunc, body);
-        lower_ir(ctx, lower_sqrt, body);
-        lower_ir(ctx, lower_dot, body);
-        lower_ir(ctx, lower_round, body);
-        lower_ir(ctx, lower_ceil, body);
-        lower_ir(ctx, lower_floor, body);
-        lower_ir(ctx, lower_trig, body);
-        lower_ir(ctx, lower_comparison_operators, body);
-        lower_ir(ctx, lower_logic_not, body);
+        replace_ir(ctx, lower_casts_to_int, body);
+        replace_ir(ctx, lower_trunc, body);
+        replace_ir(ctx, lower_sqrt, body);
+        replace_ir(ctx, lower_dot, body);
+        replace_ir(ctx, lower_round, body);
+        replace_ir(ctx, lower_ceil, body);
+        replace_ir(ctx, lower_floor, body);
+        replace_ir(ctx, lower_trig, body);
+        replace_ir(ctx, lower_comparison_operators, body);
+        replace_ir(ctx, lower_logic_not, body);
         if (ctx->profile->type == VKD3D_SHADER_TYPE_PIXEL)
-            lower_ir(ctx, lower_slt, body);
+            replace_ir(ctx, lower_slt, body);
         else
-            lower_ir(ctx, lower_cmp, body);
+            replace_ir(ctx, lower_cmp, body);
     }
 
     if (profile->major_version < 2)
     {
-        lower_ir(ctx, lower_abs, body);
+        replace_ir(ctx, lower_abs, body);
     }
 
-    lower_ir(ctx, validate_nonconstant_vector_store_derefs, body);
+    replace_ir(ctx, validate_nonconstant_vector_store_derefs, body);
 
     hlsl_run_folding_passes(ctx, body);
 
