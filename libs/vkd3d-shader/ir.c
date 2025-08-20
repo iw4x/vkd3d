@@ -7526,7 +7526,7 @@ static enum vkd3d_result vsir_program_insert_point_coord(struct vsir_program *pr
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions), it2;
     const struct vkd3d_shader_parameter1 *sprite_parameter = NULL;
-    static const struct vkd3d_shader_location no_loc;
+    struct vkd3d_shader_location loc = ctx->null_location;
     struct vkd3d_shader_instruction *ins;
     bool used_texcoord = false;
     unsigned int coord_temp;
@@ -7548,13 +7548,13 @@ static enum vkd3d_result vsir_program_insert_point_coord(struct vsir_program *pr
 
     if (sprite_parameter->type != VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT)
     {
-        vkd3d_shader_error(ctx->message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+        vkd3d_shader_error(ctx->message_context, NULL, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
                 "Unsupported point sprite parameter type %#x.", sprite_parameter->type);
         return VKD3D_ERROR_NOT_IMPLEMENTED;
     }
     if (sprite_parameter->data_type != VKD3D_SHADER_PARAMETER_DATA_TYPE_UINT32)
     {
-        vkd3d_shader_error(ctx->message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
+        vkd3d_shader_error(ctx->message_context, NULL, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
                 "Invalid point sprite parameter data type %#x.", sprite_parameter->data_type);
         return VKD3D_ERROR_INVALID_ARGUMENT;
     }
@@ -7574,7 +7574,10 @@ static enum vkd3d_result vsir_program_insert_point_coord(struct vsir_program *pr
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
         if (!vsir_instruction_is_dcl(ins) && ins->opcode != VSIR_OP_LABEL && ins->opcode != VSIR_OP_NOP)
+        {
+            loc = ins->location;
             break;
+        }
     }
 
     it2 = it;
@@ -7612,7 +7615,7 @@ static enum vkd3d_result vsir_program_insert_point_coord(struct vsir_program *pr
         if (!(ins = vsir_program_iterator_insert_before_and_move(&it, 2)))
             return VKD3D_ERROR_OUT_OF_MEMORY;
 
-        vsir_instruction_init_with_params(program, ins, &no_loc, VSIR_OP_MOV, 1, 1);
+        vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MOV, 1, 1);
         dst_param_init_temp_float4(&ins->dst[0], coord_temp);
         ins->dst[0].write_mask = VKD3DSP_WRITEMASK_0 | VKD3DSP_WRITEMASK_1;
         vsir_src_param_init(&ins->src[0], VKD3DSPR_POINT_COORD, VSIR_DATA_F32, 0);
@@ -7620,7 +7623,7 @@ static enum vkd3d_result vsir_program_insert_point_coord(struct vsir_program *pr
         ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
         ins = vsir_program_iterator_next(&it);
 
-        vsir_instruction_init_with_params(program, ins, &no_loc, VSIR_OP_MOV, 1, 1);
+        vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MOV, 1, 1);
         dst_param_init_temp_float4(&ins->dst[0], coord_temp);
         ins->dst[0].write_mask = VKD3DSP_WRITEMASK_2 | VKD3DSP_WRITEMASK_3;
         vsir_src_param_init(&ins->src[0], VKD3DSPR_IMMCONST, VSIR_DATA_F32, 0);
