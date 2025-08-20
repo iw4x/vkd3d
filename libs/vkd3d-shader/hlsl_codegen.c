@@ -8470,7 +8470,7 @@ static bool simplify_exprs(struct hlsl_ctx *ctx, struct hlsl_block *block)
 
     do
     {
-        progress = hlsl_transform_ir(ctx, hlsl_fold_constant_exprs, block, NULL);
+        progress = replace_ir(ctx, hlsl_fold_constant_exprs, block);
         progress |= hlsl_transform_ir(ctx, hlsl_normalize_binary_exprs, block, NULL);
         progress |= hlsl_transform_ir(ctx, fold_unary_identities, block, NULL);
         progress |= hlsl_transform_ir(ctx, fold_conditional_identities, block, NULL);
@@ -14849,7 +14849,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
         replace_ir(ctx, lower_int_modulus_sm1, body);
         replace_ir(ctx, lower_division, body);
         /* Constants casted to float must be folded, and new casts to bool also need to be lowered. */
-        hlsl_transform_ir(ctx, hlsl_fold_constant_exprs, body, NULL);
+        replace_ir(ctx, hlsl_fold_constant_exprs, body);
         replace_ir(ctx, lower_casts_to_bool, body);
 
         replace_ir(ctx, lower_casts_to_int, body);

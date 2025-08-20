@@ -1434,11 +1434,11 @@ static bool fold_rshift(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst, c
     return true;
 }
 
-bool hlsl_fold_constant_exprs(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+struct hlsl_ir_node *hlsl_fold_constant_exprs(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
     struct hlsl_ir_constant *arg1, *arg2 = NULL, *arg3 = NULL;
     struct hlsl_constant_value res = {0};
-    struct hlsl_ir_node *res_node;
     struct hlsl_ir_expr *expr;
     unsigned int i;
     bool success;
@@ -1638,13 +1638,9 @@ bool hlsl_fold_constant_exprs(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
     }
 
     if (success)
-    {
-        if (!(res_node = hlsl_new_constant(ctx, instr->data_type, &res, &instr->loc)))
-            return false;
-        list_add_before(&expr->node.entry, &res_node->entry);
-        hlsl_replace_node(&expr->node, res_node);
-    }
-    return success;
+        return hlsl_block_add_constant(ctx, block, instr->data_type, &res, &instr->loc);
+
+    return NULL;
 }
 
 struct hlsl_ir_node *hlsl_fold_constant_identities(struct hlsl_ctx *ctx,
