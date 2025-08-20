@@ -3564,7 +3564,8 @@ static bool validate_dereferences(struct hlsl_ctx *ctx, struct hlsl_ir_node *ins
     return false;
 }
 
-static bool fold_redundant_casts(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+static struct hlsl_ir_node *fold_redundant_casts(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
     if (instr->type == HLSL_IR_EXPR)
     {
@@ -3573,20 +3574,17 @@ static bool fold_redundant_casts(struct hlsl_ctx *ctx, struct hlsl_ir_node *inst
         const struct hlsl_type *src_type;
 
         if (expr->op != HLSL_OP1_CAST)
-            return false;
+            return NULL;
 
         src_type = expr->operands[0].node->data_type;
 
         if (hlsl_types_are_equal(src_type, dst_type)
                 || (src_type->e.numeric.type == dst_type->e.numeric.type
                 && hlsl_is_vec1(src_type) && hlsl_is_vec1(dst_type)))
-        {
-            hlsl_replace_node(&expr->node, expr->operands[0].node);
-            return true;
-        }
+            return expr->operands[0].node;
     }
 
-    return false;
+    return NULL;
 }
 
 /* Copy an element of a complex variable. Helper for
@@ -8510,7 +8508,7 @@ static void hlsl_run_folding_passes(struct hlsl_ctx *ctx, struct hlsl_block *bod
 {
     bool progress;
 
-    hlsl_transform_ir(ctx, fold_redundant_casts, body, NULL);
+    replace_ir(ctx, fold_redundant_casts, body);
     do
     {
         progress = simplify_exprs(ctx, body);
@@ -8519,7 +8517,7 @@ static void hlsl_run_folding_passes(struct hlsl_ctx *ctx, struct hlsl_block *bod
         progress |= replace_ir(ctx, fold_trivial_swizzles, body);
         progress |= hlsl_transform_ir(ctx, remove_trivial_conditional_branches, body, NULL);
     } while (progress);
-    hlsl_transform_ir(ctx, fold_redundant_casts, body, NULL);
+    replace_ir(ctx, fold_redundant_casts, body);
 }
 
 void hlsl_run_const_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
@@ -8530,7 +8528,7 @@ void hlsl_run_const_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
     replace_ir(ctx, lower_matrix_swizzles, body);
 
     replace_ir(ctx, lower_broadcasts, body);
-    while (hlsl_transform_ir(ctx, fold_redundant_casts, body, NULL));
+    while (replace_ir(ctx, fold_redundant_casts, body));
     do
     {
         progress = hlsl_transform_ir(ctx, split_array_copies, body, NULL);
