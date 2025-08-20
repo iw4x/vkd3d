@@ -7353,7 +7353,6 @@ static enum vkd3d_result vsir_program_insert_point_size_clamp(struct vsir_progra
 {
     const struct vkd3d_shader_parameter1 *min_parameter = NULL, *max_parameter = NULL;
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
-    static const struct vkd3d_shader_location no_loc;
     struct vkd3d_shader_instruction *ins;
 
     if (!program->has_point_size)
@@ -7377,14 +7376,14 @@ static enum vkd3d_result vsir_program_insert_point_size_clamp(struct vsir_progra
 
     if (min_parameter && min_parameter->data_type != VKD3D_SHADER_PARAMETER_DATA_TYPE_FLOAT32)
     {
-        vkd3d_shader_error(ctx->message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
+        vkd3d_shader_error(ctx->message_context, NULL, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
                 "Invalid minimum point size parameter data type %#x.", min_parameter->data_type);
         return VKD3D_ERROR_INVALID_ARGUMENT;
     }
 
     if (max_parameter && max_parameter->data_type != VKD3D_SHADER_PARAMETER_DATA_TYPE_FLOAT32)
     {
-        vkd3d_shader_error(ctx->message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
+        vkd3d_shader_error(ctx->message_context, NULL, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
                 "Invalid maximum point size parameter data type %#x.", max_parameter->data_type);
         return VKD3D_ERROR_INVALID_ARGUMENT;
     }
