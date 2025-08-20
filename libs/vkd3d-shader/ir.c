@@ -7804,7 +7804,6 @@ static enum vkd3d_result vsir_program_insert_fragment_fog(struct vsir_program *p
     struct vkd3d_shader_message_context *message_context = ctx->message_context;
     uint32_t colour_signature_idx, fog_signature_idx, colour_temp;
     const struct vkd3d_shader_parameter1 *mode_parameter = NULL;
-    static const struct vkd3d_shader_location no_loc;
     const struct signature_element *fog_element;
     enum vkd3d_shader_fog_fragment_mode mode;
     struct vkd3d_shader_instruction *ins;
@@ -7821,13 +7820,13 @@ static enum vkd3d_result vsir_program_insert_fragment_fog(struct vsir_program *p
 
     if (mode_parameter->type != VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT)
     {
-        vkd3d_shader_error(message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+        vkd3d_shader_error(message_context, NULL, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
                 "Unsupported fog fragment mode parameter type %#x.", mode_parameter->type);
         return VKD3D_ERROR_NOT_IMPLEMENTED;
     }
     if (mode_parameter->data_type != VKD3D_SHADER_PARAMETER_DATA_TYPE_UINT32)
     {
-        vkd3d_shader_error(message_context, &no_loc, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
+        vkd3d_shader_error(message_context, NULL, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
                 "Invalid fog fragment mode parameter data type %#x.", mode_parameter->data_type);
         return VKD3D_ERROR_INVALID_ARGUMENT;
     }
