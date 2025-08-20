@@ -1651,13 +1651,12 @@ struct vkd3d_shader_parser
 {
     struct vkd3d_shader_message_context *message_context;
     struct vkd3d_shader_location location;
-    struct vsir_program *program;
     bool failed;
 };
 
 void vkd3d_shader_parser_error(struct vkd3d_shader_parser *parser,
         enum vkd3d_shader_error error, const char *format, ...) VKD3D_PRINTF_FUNC(3, 4);
-void vkd3d_shader_parser_init(struct vkd3d_shader_parser *parser, struct vsir_program *program,
+void vkd3d_shader_parser_init(struct vkd3d_shader_parser *parser,
         struct vkd3d_shader_message_context *message_context, const char *source_name);
 void vkd3d_shader_parser_warning(struct vkd3d_shader_parser *parser,
         enum vkd3d_shader_error error, const char *format, ...) VKD3D_PRINTF_FUNC(3, 4);

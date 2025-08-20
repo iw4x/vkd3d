@@ -10729,7 +10729,7 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
     if (!vsir_program_init(program, compile_info, &version,
             (count + (count >> 2)) / 2u + 10, VSIR_CF_BLOCKS, VSIR_NORMALISED_SM6))
         return VKD3D_ERROR_OUT_OF_MEMORY;
-    vkd3d_shader_parser_init(&sm6->p, program, message_context, compile_info->source_name);
+    vkd3d_shader_parser_init(&sm6->p, message_context, compile_info->source_name);
     sm6->ptr = &sm6->start[1];
     sm6->bitpos = 2;
     sm6->program = program;

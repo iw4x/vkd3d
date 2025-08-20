@@ -724,14 +724,13 @@ uint64_t vkd3d_shader_init_config_flags(void)
     return config_flags;
 }
 
-void vkd3d_shader_parser_init(struct vkd3d_shader_parser *parser, struct vsir_program *program,
+void vkd3d_shader_parser_init(struct vkd3d_shader_parser *parser,
         struct vkd3d_shader_message_context *message_context, const char *source_name)
 {
     parser->message_context = message_context;
     parser->location.source_name = source_name;
     parser->location.line = 1;
     parser->location.column = 0;
-    parser->program = program;
 }
 
 void VKD3D_PRINTF_FUNC(3, 4) vkd3d_shader_parser_error(struct vkd3d_shader_parser *parser,
