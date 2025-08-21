@@ -1442,16 +1442,17 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         {
             struct vec4 v;
 
-            if (sscanf(line, "%f %f %f %f", &v.x, &v.y, &v.z, &v.w) < 4)
-                fatal_error("Malformed float4 constant '%s'.\n", line);
+            read_f32(&line, &v.x);
+            read_f32(&line, &v.y);
+            read_f32(&line, &v.z);
+            read_f32(&line, &v.w);
             set_uniforms(runner, offset, 4, &v);
         }
         else if (match_string(line, "float", &line))
         {
             float f;
 
-            if (sscanf(line, "%f", &f) < 1)
-                fatal_error("Malformed float constant '%s'.\n", line);
+            read_f32(&line, &f);
             set_uniforms(runner, offset, 1, &f);
         }
         else if (match_string(line, "double2", &line))
