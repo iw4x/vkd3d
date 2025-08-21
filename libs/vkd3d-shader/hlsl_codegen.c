@@ -5254,49 +5254,37 @@ static struct hlsl_ir_node *lower_ternary(struct hlsl_ctx *ctx, struct hlsl_ir_n
     return hlsl_block_add_expr(ctx, block, HLSL_OP3_CMP, operands, first->data_type, &instr->loc);
 }
 
-static bool lower_resource_load_bias(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+static struct hlsl_ir_node *lower_resource_load_bias(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
-    struct hlsl_ir_node *swizzle, *store;
+    struct hlsl_ir_node *swizzle, *tmp_load;
     struct hlsl_ir_resource_load *load;
-    struct hlsl_ir_load *tmp_load;
     struct hlsl_ir_var *tmp_var;
-    struct hlsl_deref deref;
 
     if (instr->type != HLSL_IR_RESOURCE_LOAD)
-        return false;
+        return NULL;
     load = hlsl_ir_resource_load(instr);
     if (load->load_type != HLSL_RESOURCE_SAMPLE_LOD
             && load->load_type != HLSL_RESOURCE_SAMPLE_LOD_BIAS)
-        return false;
+        return NULL;
 
     if (!load->lod.node)
-        return false;
+        return NULL;
 
     if (!(tmp_var = hlsl_new_synthetic_var(ctx, "coords-with-lod",
             hlsl_get_vector_type(ctx, HLSL_TYPE_FLOAT, 4), &instr->loc)))
-        return false;
+        return NULL;
 
-    if (!(swizzle = hlsl_new_swizzle(ctx, HLSL_SWIZZLE(X, X, X, X), 4, load->lod.node, &load->lod.node->loc)))
-        return false;
-    list_add_before(&instr->entry, &swizzle->entry);
+    swizzle = hlsl_block_add_swizzle(ctx, block, HLSL_SWIZZLE(X, X, X, X), 4, load->lod.node, &load->lod.node->loc);
+    hlsl_block_add_simple_store(ctx, block, tmp_var, swizzle);
+    hlsl_block_add_simple_store(ctx, block, tmp_var, load->coords.node);
 
-    if (!(store = hlsl_new_simple_store(ctx, tmp_var, swizzle)))
-        return false;
-    list_add_before(&instr->entry, &store->entry);
-
-    hlsl_init_simple_deref_from_var(&deref, tmp_var);
-    if (!(store = hlsl_new_store_index(ctx, &deref, NULL, load->coords.node, 0, &instr->loc)))
-        return false;
-    list_add_before(&instr->entry, &store->entry);
-
-    if (!(tmp_load = hlsl_new_var_load(ctx, tmp_var, &instr->loc)))
-        return false;
-    list_add_before(&instr->entry, &tmp_load->node.entry);
+    tmp_load = hlsl_block_add_simple_load(ctx, block, tmp_var, &instr->loc);
 
     hlsl_src_remove(&load->coords);
-    hlsl_src_from_node(&load->coords, &tmp_load->node);
+    hlsl_src_from_node(&load->coords, tmp_load);
     hlsl_src_remove(&load->lod);
-    return true;
+    return &load->node;
 }
 
 static struct hlsl_ir_node *lower_comparison_operators(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr,
@@ -15084,7 +15072,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
     else
     {
         hlsl_transform_ir(ctx, lower_discard_nz, body, NULL);
-        hlsl_transform_ir(ctx, lower_resource_load_bias, body, NULL);
+        replace_ir(ctx, lower_resource_load_bias, body);
     }
 
     compute_liveness(ctx, body);
