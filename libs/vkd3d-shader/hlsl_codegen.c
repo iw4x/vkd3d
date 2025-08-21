@@ -938,7 +938,8 @@ static bool call_replace_func(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
     if ((replacement = func(ctx, instr, &block)))
     {
         list_move_before(&instr->entry, &block.instrs);
-        hlsl_replace_node(instr, replacement);
+        if (replacement != instr)
+            hlsl_replace_node(instr, replacement);
         return true;
     }
     else
@@ -955,7 +956,10 @@ static bool call_replace_func(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
  *
  * New instructions should be added to "block", and the replacement instruction
  * should be returned. If the instruction should be left alone, NULL should be
- * returned instead. */
+ * returned instead.
+ *
+ * It is legal to return the same instruction from the replace function, in
+ * which case replace_ir() returns true but hlsl_replace_node() is skipped. */
 static bool replace_ir(struct hlsl_ctx *ctx, PFN_replace_func func, struct hlsl_block *block)
 {
     return hlsl_transform_ir(ctx, call_replace_func, block, func);
@@ -8551,96 +8555,74 @@ static enum hlsl_ir_expr_op invert_comparison_op(enum hlsl_ir_expr_op op)
     }
 }
 
-static bool fold_unary_identities(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+static struct hlsl_ir_node *fold_unary_identities(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
-    struct hlsl_ir_node *res = NULL;
     struct hlsl_ir_expr *expr, *x;
 
     if (instr->type != HLSL_IR_EXPR)
-        return false;
+        return NULL;
 
     if (instr->data_type->class > HLSL_CLASS_VECTOR)
-        return false;
+        return NULL;
 
     expr = hlsl_ir_expr(instr);
     if (!expr->operands[0].node)
-        return false;
+        return NULL;
 
     if (expr->operands[0].node->type != HLSL_IR_EXPR)
-        return false;
+        return NULL;
     x = hlsl_ir_expr(expr->operands[0].node);
 
     switch (expr->op)
     {
         case HLSL_OP1_ABS:
+            /* ||x|| -> |x| */
             if (x->op == HLSL_OP1_ABS)
-            {
-                /* ||x|| -> |x| */
-                hlsl_replace_node(instr, &x->node);
-                return true;
-            }
+                return &x->node;
 
+            /* |-x| -> |x| */
             if (x->op == HLSL_OP1_NEG)
             {
-                /* |-x| -> |x| */
                 hlsl_src_remove(&expr->operands[0]);
                 hlsl_src_from_node(&expr->operands[0], x->operands[0].node);
-                return true;
+                return &expr->node;
             }
             break;
 
         case HLSL_OP1_BIT_NOT:
+            /* ~(~x) -> x */
             if (x->op == HLSL_OP1_BIT_NOT)
-            {
-                /* ~(~x) -> x */
-                hlsl_replace_node(instr, x->operands[0].node);
-                return true;
-            }
+                return x->operands[0].node;
             break;
 
         case HLSL_OP1_CEIL:
         case HLSL_OP1_FLOOR:
+            /* f(g(x)) -> g(x), where f(), g() are floor() or ceil() functions. */
             if (x->op == HLSL_OP1_CEIL || x->op == HLSL_OP1_FLOOR)
-            {
-                /* f(g(x)) -> g(x), where f(), g() are floor() or ceil() functions. */
-                hlsl_replace_node(instr, &x->node);
-                return true;
-            }
+                return &x->node;
             break;
 
         case HLSL_OP1_NEG:
+            /* -(-x) -> x */
             if (x->op == HLSL_OP1_NEG)
-            {
-                /* -(-x) -> x */
-                hlsl_replace_node(instr, x->operands[0].node);
-                return true;
-            }
+                return x->operands[0].node;
             break;
 
         case HLSL_OP1_LOGIC_NOT:
+            /* !!x -> x */
             if (x->op == HLSL_OP1_LOGIC_NOT)
-            {
-                /* !!x -> x */
-                hlsl_replace_node(instr, x->operands[0].node);
-                return true;
-            }
+                return x->operands[0].node;
 
             if (hlsl_is_comparison_op(x->op)
                     && hlsl_base_type_is_integer(x->operands[0].node->data_type->e.numeric.type)
                     && hlsl_base_type_is_integer(x->operands[1].node->data_type->e.numeric.type))
             {
                 struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS] = {x->operands[0].node, x->operands[1].node};
-                struct hlsl_block block;
-
-                hlsl_block_init(&block);
 
                 /* !(x == y) -> x != y, !(x < y) -> x >= y, etc. */
-                res = hlsl_block_add_expr(ctx, &block, invert_comparison_op(x->op),
+                return hlsl_block_add_expr(ctx, block, invert_comparison_op(x->op),
                         operands, instr->data_type, &instr->loc);
-
-                list_move_before(&instr->entry, &block.instrs);
-                hlsl_replace_node(instr, res);
-                return true;
             }
 
             break;
@@ -8649,7 +8631,7 @@ static bool fold_unary_identities(struct hlsl_ctx *ctx, struct hlsl_ir_node *ins
             break;
     }
 
-    return false;
+    return NULL;
 }
 
 static bool nodes_are_equivalent(const struct hlsl_ir_node *c1, const struct hlsl_ir_node *c2)
@@ -8785,7 +8767,7 @@ static bool simplify_exprs(struct hlsl_ctx *ctx, struct hlsl_block *block)
     {
         progress = replace_ir(ctx, hlsl_fold_constant_exprs, block);
         progress |= hlsl_transform_ir(ctx, hlsl_normalize_binary_exprs, block, NULL);
-        progress |= hlsl_transform_ir(ctx, fold_unary_identities, block, NULL);
+        progress |= replace_ir(ctx, fold_unary_identities, block);
         progress |= replace_ir(ctx, fold_conditional_identities, block);
         progress |= replace_ir(ctx, hlsl_fold_constant_identities, block);
         progress |= replace_ir(ctx, hlsl_fold_constant_swizzles, block);
