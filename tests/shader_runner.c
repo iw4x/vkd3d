@@ -1459,8 +1459,8 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         {
             struct dvec2 v;
 
-            if (sscanf(line, "%lf %lf", &v.x, &v.y) < 2)
-                fatal_error("Malformed double2 constant '%s'.\n", line);
+            read_f64(&line, &v.x);
+            read_f64(&line, &v.y);
             set_uniforms(runner, offset, 4, &v);
         }
         else if (match_string(line, "int4", &line))
