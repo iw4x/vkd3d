@@ -8766,7 +8766,7 @@ static bool simplify_exprs(struct hlsl_ctx *ctx, struct hlsl_block *block)
     do
     {
         progress = replace_ir(ctx, hlsl_fold_constant_exprs, block);
-        progress |= hlsl_transform_ir(ctx, hlsl_normalize_binary_exprs, block, NULL);
+        progress |= replace_ir(ctx, hlsl_fold_binary_exprs, block);
         progress |= replace_ir(ctx, fold_unary_identities, block);
         progress |= replace_ir(ctx, fold_conditional_identities, block);
         progress |= replace_ir(ctx, hlsl_fold_constant_identities, block);
