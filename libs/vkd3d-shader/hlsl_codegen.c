@@ -8371,22 +8371,21 @@ static struct hlsl_ir_node *evaluate_conditionals_recurse(struct hlsl_ctx *ctx,
     return NULL;
 }
 
-static bool fold_conditional_identities(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+static struct hlsl_ir_node *fold_conditional_identities(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
     struct hlsl_ir_node *c, *x, *y, *res_x, *res_y;
-    struct hlsl_ir_node *res = NULL;
     struct hlsl_ir_expr *expr, *ec;
-    struct hlsl_block block;
 
     if (instr->type != HLSL_IR_EXPR)
-        return false;
+        return NULL;
 
     if (instr->data_type->class > HLSL_CLASS_VECTOR)
-        return false;
+        return NULL;
 
     expr = hlsl_ir_expr(instr);
     if (expr->op != HLSL_OP3_TERNARY)
-        return false;
+        return NULL;
 
     c = expr->operands[0].node;
     x = expr->operands[1].node;
@@ -8394,74 +8393,45 @@ static bool fold_conditional_identities(struct hlsl_ctx *ctx, struct hlsl_ir_nod
 
     VKD3D_ASSERT(c->data_type->e.numeric.type == HLSL_TYPE_BOOL);
 
+    /* c ? x : x -> x */
     if (nodes_are_equivalent(x, y))
-    {
-        /* c ? x : x -> x */
-        hlsl_replace_node(instr, x);
-        return true;
-    }
+        return x;
 
     if (c->type == HLSL_IR_CONSTANT)
     {
+        /* false ? x : y -> y */
         if (hlsl_constant_is_zero(hlsl_ir_constant(c)))
-        {
-            /* false ? x : y -> y */
-            hlsl_replace_node(instr, y);
-            return true;
-        }
+            return y;
 
+        /* true ? x : y -> x  */
         if (hlsl_constant_is_one(hlsl_ir_constant(c)))
-        {
-            /* true ? x : y -> x  */
-            hlsl_replace_node(instr, x);
-            return true;
-        }
+            return x;
     }
-
-    hlsl_block_init(&block);
 
     if (x->type == HLSL_IR_CONSTANT && y->type == HLSL_IR_CONSTANT
             && hlsl_types_are_equal(c->data_type, x->data_type)
             && hlsl_types_are_equal(c->data_type, y->data_type))
     {
+        /* c ? true : false -> c */
         if (hlsl_constant_is_one(hlsl_ir_constant(x)) && hlsl_constant_is_zero(hlsl_ir_constant(y)))
-        {
-            /* c ? true : false -> c */
-            res = c;
-            goto done;
-        }
+            return c;
 
+        /* c ? false : true -> !c */
         if (hlsl_constant_is_zero(hlsl_ir_constant(x)) && hlsl_constant_is_one(hlsl_ir_constant(y)))
-        {
-            /* c ? false : true -> !c */
-            res = hlsl_block_add_unary_expr(ctx, &block, HLSL_OP1_LOGIC_NOT, c, &instr->loc);
-            goto done;
-        }
+            return hlsl_block_add_unary_expr(ctx, block, HLSL_OP1_LOGIC_NOT, c, &instr->loc);
     }
 
+    /* !c ? x : y -> c ? y : x */
     ec = c->type == HLSL_IR_EXPR ? hlsl_ir_expr(c) : NULL;
     if (ec && ec->op == HLSL_OP1_LOGIC_NOT)
-    {
-        /* !c ? x : y -> c ? y : x */
-        res = hlsl_add_conditional(ctx, &block, ec->operands[0].node, y, x);
-        goto done;
-    }
+        return hlsl_add_conditional(ctx, block, ec->operands[0].node, y, x);
 
-    res_x = evaluate_conditionals_recurse(ctx, &block, c, true, x, &instr->loc);
-    res_y = evaluate_conditionals_recurse(ctx, &block, c, false, y, &instr->loc);
+    res_x = evaluate_conditionals_recurse(ctx, block, c, true, x, &instr->loc);
+    res_y = evaluate_conditionals_recurse(ctx, block, c, false, y, &instr->loc);
     if (res_x || res_y)
-        res = hlsl_add_conditional(ctx, &block, c, res_x ? res_x : x, res_y ? res_y : y);
+        return hlsl_add_conditional(ctx, block, c, res_x ? res_x : x, res_y ? res_y : y);
 
-done:
-    if (res)
-    {
-        list_move_before(&instr->entry, &block.instrs);
-        hlsl_replace_node(instr, res);
-        return true;
-    }
-
-    hlsl_block_cleanup(&block);
-    return false;
+    return NULL;
 }
 
 static bool simplify_exprs(struct hlsl_ctx *ctx, struct hlsl_block *block)
@@ -8473,7 +8443,7 @@ static bool simplify_exprs(struct hlsl_ctx *ctx, struct hlsl_block *block)
         progress = replace_ir(ctx, hlsl_fold_constant_exprs, block);
         progress |= hlsl_transform_ir(ctx, hlsl_normalize_binary_exprs, block, NULL);
         progress |= hlsl_transform_ir(ctx, fold_unary_identities, block, NULL);
-        progress |= hlsl_transform_ir(ctx, fold_conditional_identities, block, NULL);
+        progress |= replace_ir(ctx, fold_conditional_identities, block);
         progress |= replace_ir(ctx, hlsl_fold_constant_identities, block);
         progress |= replace_ir(ctx, hlsl_fold_constant_swizzles, block);
 
