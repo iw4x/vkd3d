@@ -5738,34 +5738,29 @@ static bool lower_discard_neg(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
     return true;
 }
 
-static bool lower_discard_nz(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+static struct hlsl_ir_node *lower_discard_nz(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
     struct hlsl_ir_node *cond, *cond_cast, *abs, *neg;
     struct hlsl_type *float_type;
     struct hlsl_ir_jump *jump;
-    struct hlsl_block block;
 
     if (instr->type != HLSL_IR_JUMP)
-        return false;
+        return NULL;
     jump = hlsl_ir_jump(instr);
     if (jump->type != HLSL_IR_JUMP_DISCARD_NZ)
-        return false;
+        return NULL;
 
     cond = jump->condition.node;
     float_type = hlsl_get_vector_type(ctx, HLSL_TYPE_FLOAT, cond->data_type->e.numeric.dimx);
 
-    hlsl_block_init(&block);
+    cond_cast = hlsl_block_add_cast(ctx, block, cond, float_type, &instr->loc);
+    abs = hlsl_block_add_unary_expr(ctx, block, HLSL_OP1_ABS, cond_cast, &instr->loc);
+    neg = hlsl_block_add_unary_expr(ctx, block, HLSL_OP1_NEG, abs, &instr->loc);
 
-    cond_cast = hlsl_block_add_cast(ctx, &block, cond, float_type, &instr->loc);
-    abs = hlsl_block_add_unary_expr(ctx, &block, HLSL_OP1_ABS, cond_cast, &instr->loc);
-    neg = hlsl_block_add_unary_expr(ctx, &block, HLSL_OP1_NEG, abs, &instr->loc);
-
-    list_move_tail(&instr->entry, &block.instrs);
     hlsl_src_remove(&jump->condition);
     hlsl_src_from_node(&jump->condition, neg);
     jump->type = HLSL_IR_JUMP_DISCARD_NEG;
-
-    return true;
+    return &jump->node;
 }
 
 static bool cast_discard_neg_conditions_to_vec4(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
@@ -15071,7 +15066,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
     }
     else
     {
-        hlsl_transform_ir(ctx, lower_discard_nz, body, NULL);
+        replace_ir(ctx, lower_discard_nz, body);
         replace_ir(ctx, lower_resource_load_bias, body);
     }
 
