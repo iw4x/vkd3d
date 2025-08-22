@@ -4712,9 +4712,10 @@ static bool normalize_switch_cases(struct hlsl_ctx *ctx, struct hlsl_ir_node *in
     return true;
 }
 
-static struct hlsl_ir_node *lower_nonconstant_vector_derefs(struct hlsl_ctx *ctx,
+static struct hlsl_ir_node *lower_vector_derefs(struct hlsl_ctx *ctx,
         struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
+    struct hlsl_ir_load *vector_load;
     struct hlsl_ir_node *idx;
     struct hlsl_deref *deref;
     struct hlsl_type *type;
@@ -4733,19 +4734,31 @@ static struct hlsl_ir_node *lower_nonconstant_vector_derefs(struct hlsl_ctx *ctx
     for (i = 0; i < deref->path_len - 1; ++i)
         type = hlsl_get_element_type_from_path_index(ctx, type, deref->path[i].node);
 
+    if (type->class != HLSL_CLASS_VECTOR)
+        return NULL;
+
     idx = deref->path[deref->path_len - 1].node;
 
-    if (type->class == HLSL_CLASS_VECTOR && idx->type != HLSL_IR_CONSTANT)
+    if (!(vector_load = hlsl_new_load_parent(ctx, deref, &instr->loc)))
+        return NULL;
+    hlsl_block_add_instr(block, &vector_load->node);
+
+    if (idx->type == HLSL_IR_CONSTANT)
+    {
+        uint32_t swizzle = 0;
+
+        if (hlsl_ir_constant(idx)->value.u[0].u >= type->e.numeric.dimx)
+            return NULL;
+
+        hlsl_swizzle_set_component(&swizzle, 0, hlsl_ir_constant(idx)->value.u[0].u);
+        return hlsl_block_add_swizzle(ctx, block, swizzle, 1, &vector_load->node, &instr->loc);
+    }
+    else
     {
         struct hlsl_ir_node *eq, *swizzle, *c, *operands[HLSL_MAX_OPERANDS] = {0};
         unsigned int width = type->e.numeric.dimx;
         struct hlsl_constant_value value;
-        struct hlsl_ir_load *vector_load;
         enum hlsl_ir_expr_op op;
-
-        if (!(vector_load = hlsl_new_load_parent(ctx, deref, &instr->loc)))
-            return NULL;
-        hlsl_block_add_instr(block, &vector_load->node);
 
         swizzle = hlsl_block_add_swizzle(ctx, block, HLSL_SWIZZLE(X, X, X, X), width, idx, &instr->loc);
 
@@ -15941,7 +15954,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
     remove_unreachable_code(ctx, body);
     hlsl_transform_ir(ctx, normalize_switch_cases, body, NULL);
 
-    replace_ir(ctx, lower_nonconstant_vector_derefs, body);
+    replace_ir(ctx, lower_vector_derefs, body);
     replace_ir(ctx, lower_casts_to_bool, body);
     replace_ir(ctx, lower_int_dot, body);
 
