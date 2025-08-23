@@ -423,7 +423,7 @@ static void init_subresource_data(D3D11_SUBRESOURCE_DATA *resource_data, const s
 
         for (unsigned int layer = 0; layer < params->desc.layer_count; ++layer)
         {
-            D3D11_SUBRESOURCE_DATA *subresource = &resource_data[level * params->desc.layer_count + layer];
+            D3D11_SUBRESOURCE_DATA *subresource = &resource_data[level + layer * params->desc.level_count];
             subresource->pSysMem = &params->data[buffer_offset];
             subresource->SysMemPitch = level_width * params->desc.texel_size;
             subresource->SysMemSlicePitch = level_height * subresource->SysMemPitch;

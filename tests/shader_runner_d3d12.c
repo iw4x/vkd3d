@@ -102,7 +102,7 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
 
         for (unsigned int layer = 0; layer < params->desc.layer_count; ++layer)
         {
-            D3D12_SUBRESOURCE_DATA *subresource = &resource_data[level * params->desc.layer_count + layer];
+            D3D12_SUBRESOURCE_DATA *subresource = &resource_data[level + layer * params->desc.level_count];
             subresource->pData = &params->data[buffer_offset];
             subresource->RowPitch = level_width * params->desc.texel_size;
             subresource->SlicePitch = level_height * subresource->RowPitch;
