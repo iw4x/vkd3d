@@ -5560,11 +5560,13 @@ static const struct vkd3d_symbol *spirv_compiler_emit_io_register(struct spirv_c
     const struct vkd3d_spirv_builtin *builtin;
     struct vkd3d_symbol reg_symbol;
     SpvStorageClass storage_class;
+    unsigned int array_size;
     uint32_t write_mask, id;
     struct rb_entry *entry;
 
-    VKD3D_ASSERT(!reg->idx_count || !reg->idx[0].rel_addr);
-    VKD3D_ASSERT(reg->idx_count < 2);
+    VKD3D_ASSERT(reg->idx_count < 1 || !reg->idx[0].rel_addr);
+    VKD3D_ASSERT(reg->idx_count < 2 || !reg->idx[1].rel_addr);
+    VKD3D_ASSERT(reg->idx_count < 3);
 
     if (reg->type == VKD3DSPR_RASTOUT && reg->idx[0].offset == VSIR_RASTOUT_POINT_SIZE)
     {
@@ -5582,7 +5584,8 @@ static const struct vkd3d_symbol *spirv_compiler_emit_io_register(struct spirv_c
     if ((entry = rb_get(&compiler->symbol_table, &reg_symbol)))
         return RB_ENTRY_VALUE(entry, struct vkd3d_symbol, entry);
 
-    id = spirv_compiler_emit_builtin_variable(compiler, builtin, storage_class, 0);
+    array_size = (reg->idx_count > 1) ? reg->idx[0].offset : 0;
+    id = spirv_compiler_emit_builtin_variable(compiler, builtin, storage_class, array_size);
     spirv_compiler_emit_register_execution_mode(compiler, reg->type);
     spirv_compiler_emit_register_debug_name(builder, id, reg);
 
@@ -5646,8 +5649,7 @@ static void spirv_compiler_emit_input(struct spirv_compiler *compiler,
 
     array_sizes[0] = signature_element->register_count;
     array_sizes[1] = (reg_type == VKD3DSPR_PATCHCONST ? 0 : compiler->input_control_point_count);
-    if (!vsir_signature_element_is_array(signature_element)
-            && (!vsir_sysval_semantic_is_clip_cull(signature_element->sysval_semantic) || array_sizes[1]))
+    if (!vsir_signature_element_is_array(signature_element, &compiler->program->normalisation_flags))
         array_sizes[0] = 0;
 
     write_mask = signature_element->mask;
@@ -5780,88 +5782,6 @@ static bool is_dual_source_blending(const struct spirv_compiler *compiler)
     return compiler->shader_type == VKD3D_SHADER_TYPE_PIXEL && info && info->dual_source_blending;
 }
 
-static void calculate_clip_or_cull_distance_mask(const struct signature_element *e, uint32_t *mask)
-{
-    unsigned int write_mask;
-
-    if (e->semantic_index >= sizeof(*mask) * CHAR_BIT / VKD3D_VEC4_SIZE)
-    {
-        FIXME("Invalid semantic index %u for clip/cull distance.\n", e->semantic_index);
-        return;
-    }
-
-    write_mask = e->mask;
-    *mask |= (write_mask & VKD3DSP_WRITEMASK_ALL) << (VKD3D_VEC4_SIZE * e->semantic_index);
-}
-
-/* Emits arrayed SPIR-V built-in variables. */
-static void spirv_compiler_emit_shader_signature_outputs(struct spirv_compiler *compiler)
-{
-    const struct shader_signature *output_signature = &compiler->program->output_signature;
-    uint32_t clip_distance_mask = 0, clip_distance_id = 0;
-    uint32_t cull_distance_mask = 0, cull_distance_id = 0;
-    const struct vkd3d_spirv_builtin *builtin;
-    unsigned int i, count;
-
-    for (i = 0; i < output_signature->element_count; ++i)
-    {
-        const struct signature_element *e = &output_signature->elements[i];
-
-        switch (e->sysval_semantic)
-        {
-            case VKD3D_SHADER_SV_CLIP_DISTANCE:
-                calculate_clip_or_cull_distance_mask(e, &clip_distance_mask);
-                break;
-
-            case VKD3D_SHADER_SV_CULL_DISTANCE:
-                calculate_clip_or_cull_distance_mask(e, &cull_distance_mask);
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    if (clip_distance_mask)
-    {
-        count = vkd3d_popcount(clip_distance_mask);
-        builtin = get_spirv_builtin_for_sysval(compiler, VKD3D_SHADER_SV_CLIP_DISTANCE);
-        clip_distance_id = spirv_compiler_emit_builtin_variable(compiler,
-                builtin, SpvStorageClassOutput, count);
-    }
-
-    if (cull_distance_mask)
-    {
-        count = vkd3d_popcount(cull_distance_mask);
-        builtin = get_spirv_builtin_for_sysval(compiler, VKD3D_SHADER_SV_CULL_DISTANCE);
-        cull_distance_id = spirv_compiler_emit_builtin_variable(compiler,
-                builtin, SpvStorageClassOutput, count);
-    }
-
-    for (i = 0; i < output_signature->element_count; ++i)
-    {
-        const struct signature_element *e = &output_signature->elements[i];
-
-        switch (e->sysval_semantic)
-        {
-            case VKD3D_SHADER_SV_CLIP_DISTANCE:
-                compiler->output_info[i].id = clip_distance_id;
-                compiler->output_info[i].data_type = VSIR_DATA_F32;
-                compiler->output_info[i].array_element_mask = clip_distance_mask;
-                break;
-
-            case VKD3D_SHADER_SV_CULL_DISTANCE:
-                compiler->output_info[i].id = cull_distance_id;
-                compiler->output_info[i].data_type = VSIR_DATA_F32;
-                compiler->output_info[i].array_element_mask = cull_distance_mask;
-                break;
-
-            default:
-                break;
-        }
-    }
-}
-
 static uint32_t spirv_compiler_emit_shader_phase_builtin_variable(struct spirv_compiler *compiler,
         const struct vkd3d_spirv_builtin *builtin, const unsigned int *array_sizes, unsigned int size_count)
 {
@@ -5917,7 +5837,7 @@ static void spirv_compiler_emit_output(struct spirv_compiler *compiler,
         sysval = VKD3D_SHADER_SV_NONE;
     array_sizes[0] = signature_element->register_count;
     array_sizes[1] = (reg_type == VKD3DSPR_PATCHCONST ? 0 : compiler->output_control_point_count);
-    if (!vsir_signature_element_is_array(signature_element))
+    if (!vsir_signature_element_is_array(signature_element, &compiler->program->normalisation_flags))
         array_sizes[0] = 0;
 
     builtin = vkd3d_get_spirv_builtin(compiler, reg_type, sysval);
@@ -10944,9 +10864,6 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
             || (program->shader_version.type == VKD3D_SHADER_TYPE_HULL && !spirv_compiler_is_opengl_target(compiler)))
         spirv_compiler_emit_tessellator_domain(compiler, program->tess_domain);
 
-    if (compiler->shader_type != VKD3D_SHADER_TYPE_HULL)
-        spirv_compiler_emit_shader_signature_outputs(compiler);
-
     it = vsir_program_iterator(&program->instructions);
     for (ins = vsir_program_iterator_head(&it); ins && result >= 0; ins = vsir_program_iterator_next(&it))
     {
@@ -11048,6 +10965,7 @@ int spirv_compile(struct vsir_program *program, uint64_t config_flags,
         return ret;
 
     VKD3D_ASSERT(program->normalisation_level == VSIR_NORMALISED_SM6);
+    VKD3D_ASSERT(program->normalisation_flags.normalised_clip_cull_arrays);
     VKD3D_ASSERT(program->has_descriptor_info);
     VKD3D_ASSERT(program->has_no_modifiers);
 

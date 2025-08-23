@@ -983,6 +983,11 @@ struct vkd3d_shader_version
     uint8_t minor;
 };
 
+struct vsir_normalisation_flags
+{
+    bool normalised_clip_cull_arrays;
+};
+
 struct vkd3d_shader_immediate_constant_buffer
 {
     unsigned int register_idx;
@@ -1200,13 +1205,16 @@ struct signature_element
     unsigned int target_location;
 };
 
-static inline bool vsir_signature_element_is_array(const struct signature_element *element)
+static inline bool vsir_signature_element_is_array(const struct signature_element *element,
+        const struct vsir_normalisation_flags *flags)
 {
     enum vkd3d_shader_sysval_semantic semantic = element->sysval_semantic;
 
     if (element->register_count > 1)
         return true;
     if (vsir_sysval_semantic_is_tess_factor(semantic))
+        return true;
+    if (flags->normalised_clip_cull_arrays && vsir_sysval_semantic_is_clip_cull(semantic))
         return true;
     return false;
 }
@@ -1637,13 +1645,15 @@ struct vsir_program
     bool has_fog;
     uint8_t diffuse_written_mask;
     enum vsir_control_flow_type cf_type;
-    enum vsir_normalisation_level normalisation_level;
     bool has_no_modifiers;
     enum vkd3d_tessellator_domain tess_domain;
     enum vkd3d_shader_tessellator_partitioning tess_partitioning;
     enum vkd3d_shader_tessellator_output_primitive tess_output_primitive;
     enum vkd3d_primitive_type input_primitive, output_topology;
     unsigned int vertices_out_count;
+
+    enum vsir_normalisation_level normalisation_level;
+    struct vsir_normalisation_flags normalisation_flags;
 
     uint32_t io_dcls[VKD3D_BITMAP_SIZE(VKD3DSPR_COUNT)];
 
