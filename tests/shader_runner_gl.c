@@ -1026,10 +1026,12 @@ static GLenum get_texture_filter_mag_gl(D3D12_FILTER filter)
 
 static GLenum get_texture_filter_min_gl(D3D12_FILTER filter)
 {
-    if (filter & 0x1)
-        return filter & 0x10 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR_MIPMAP_NEAREST;
+    bool min_linear = filter & 0x10, mip_linear = filter & 0x1;
+
+    if (min_linear)
+        return mip_linear ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR_MIPMAP_NEAREST;
     else
-        return filter & 0x10 ? GL_NEAREST_MIPMAP_LINEAR : GL_NEAREST_MIPMAP_NEAREST;
+        return mip_linear ? GL_NEAREST_MIPMAP_LINEAR : GL_NEAREST_MIPMAP_NEAREST;
 }
 
 static GLenum get_compare_op_gl(D3D12_COMPARISON_FUNC op)

@@ -540,13 +540,13 @@ static bool d3d9_runner_draw(struct shader_runner *r,
         ok(hr == D3D_OK, "Failed to set sampler state, hr %#lx.\n", hr);
 
         hr = IDirect3DDevice9_SetSamplerState(device, sampler->slot, D3DSAMP_MINFILTER,
-                (sampler->filter & 0x1) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+                (sampler->filter & 0x10) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
         ok(hr == D3D_OK, "Failed to set sampler state, hr %#lx.\n", hr);
         hr = IDirect3DDevice9_SetSamplerState(device, sampler->slot, D3DSAMP_MAGFILTER,
                 (sampler->filter & 0x4) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
         ok(hr == D3D_OK, "Failed to set sampler state, hr %#lx.\n", hr);
         hr = IDirect3DDevice9_SetSamplerState(device, sampler->slot, D3DSAMP_MIPFILTER,
-                (sampler->filter & 0x10) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+                (sampler->filter & 0x1) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
         ok(hr == D3D_OK, "Failed to set sampler state, hr %#lx.\n", hr);
     }
 

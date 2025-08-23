@@ -818,9 +818,9 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
             sampler_desc.rAddressMode = get_metal_address_mode(sampler->w_address);
             sampler_desc.magFilter = (sampler->filter & 0x4)
                     ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
-            sampler_desc.minFilter = (sampler->filter & 0x1)
+            sampler_desc.minFilter = (sampler->filter & 0x10)
                     ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
-            sampler_desc.mipFilter = (sampler->filter & 0x10)
+            sampler_desc.mipFilter = (sampler->filter & 0x1)
                     ? MTLSamplerMipFilterLinear : MTLSamplerMipFilterNearest;
             sampler_desc.compareFunction = sampler->func
                     ? get_metal_compare_function(sampler->func) : MTLCompareFunctionNever;

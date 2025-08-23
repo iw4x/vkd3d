@@ -1003,8 +1003,8 @@ static VkDescriptorSetLayout create_descriptor_set_layout(struct vulkan_shader_r
         const struct sampler *sampler = &runner->r.samplers[i];
 
         sampler_desc.magFilter = (sampler->filter & 0x4) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
-        sampler_desc.minFilter = (sampler->filter & 0x1) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
-        sampler_desc.mipmapMode = (sampler->filter & 0x10) ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        sampler_desc.minFilter = (sampler->filter & 0x10) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+        sampler_desc.mipmapMode = (sampler->filter & 0x1) ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
         sampler_desc.addressModeU = vk_address_mode_from_d3d12(sampler->u_address);
         sampler_desc.addressModeV = vk_address_mode_from_d3d12(sampler->v_address);
         sampler_desc.addressModeW = vk_address_mode_from_d3d12(sampler->w_address);
