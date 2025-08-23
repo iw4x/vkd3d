@@ -451,14 +451,10 @@ static void create_identity_view(ID3D11Device *device,
 static bool init_resource_2d(struct d3d11_shader_runner *runner, struct d3d11_resource *resource,
         const struct resource_params *params)
 {
-    D3D11_SUBRESOURCE_DATA resource_data[6];
     ID3D11Device *device = runner->device;
     D3D11_TEXTURE2D_DESC desc = {0};
     UINT quality_levels;
     HRESULT hr;
-
-    if (params->desc.level_count > ARRAY_SIZE(resource_data))
-        fatal_error("Level count %u is too high.\n", params->desc.level_count);
 
     if (params->desc.sample_count > 1)
     {
@@ -488,11 +484,15 @@ static bool init_resource_2d(struct d3d11_shader_runner *runner, struct d3d11_re
 
     if (params->data)
     {
+        D3D11_SUBRESOURCE_DATA *resource_data;
+
         if (params->desc.sample_count > 1)
             fatal_error("Cannot upload data to a multisampled texture.\n");
 
+        resource_data = calloc(params->desc.layer_count * params->desc.level_count, sizeof(*resource_data));
         init_subresource_data(resource_data, params);
         hr = ID3D11Device_CreateTexture2D(device, &desc, resource_data, &resource->texture);
+        free(resource_data);
     }
     else
     {

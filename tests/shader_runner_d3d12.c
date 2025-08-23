@@ -83,14 +83,12 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
     struct d3d12_shader_runner *runner = d3d12_shader_runner(r);
     struct test_context *test_context = &runner->test_context;
     ID3D12Device *device = test_context->device;
-    D3D12_SUBRESOURCE_DATA resource_data[6] = {0};
     D3D12_RESOURCE_STATES initial_state, state;
+    D3D12_SUBRESOURCE_DATA *resource_data;
     struct d3d12_resource *resource;
     unsigned int buffer_offset = 0;
 
-    if (params->desc.level_count > ARRAY_SIZE(resource_data))
-        fatal_error("Level count %u is too high.\n", params->desc.level_count);
-
+    resource_data = calloc(params->desc.layer_count * params->desc.level_count, sizeof(*resource_data));
     resource = calloc(1, sizeof(*resource));
     init_resource(&resource->r, params);
 
@@ -294,6 +292,7 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
             break;
     }
 
+    free(resource_data);
     return &resource->r;
 }
 
