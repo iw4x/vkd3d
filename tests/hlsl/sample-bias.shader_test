@@ -121,7 +121,7 @@ probe (0, 0) f32(0.0, 0.0, 10.0, 0.0)
 shader model >= 3.0
 options: backcompat
 
-[pixel shader fail(sm>=5.1) todo(sm<5.1)]
+[pixel shader fail(sm>=5.1) todo(sm>=5.1)]
 sampler s;
 float bias;
 
@@ -134,13 +134,13 @@ float4 main(float2 coord : texcoord) : sv_target
 
 [test]
 uniform 0 float 7.9
-todo draw quad
+draw quad
 probe (0, 0) f32(10.0, 0.0, 10.0, 0.0)
 
 uniform 0 float 8.4
-todo draw quad
+draw quad
 probe (0, 0) f32(4.0, 0.0, 10.0, 0.0)
 
 uniform 0 float 8.9
-todo draw quad
+draw quad
 probe (0, 0) f32(0.0, 0.0, 10.0, 0.0)
