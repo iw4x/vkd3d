@@ -734,6 +734,8 @@ enum vsir_data_type
     VSIR_DATA_TYPE_COUNT,
 };
 
+const char *vsir_data_type_get_name(enum vsir_data_type t, const char *error);
+
 static inline bool data_type_is_integer(enum vsir_data_type data_type)
 {
     return data_type == VSIR_DATA_I32 || data_type == VSIR_DATA_U8 || data_type == VSIR_DATA_U16

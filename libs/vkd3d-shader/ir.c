@@ -45,6 +45,33 @@ static void vsir_transformation_context_init(struct vsir_transformation_context 
     };
 };
 
+const char *vsir_data_type_get_name(enum vsir_data_type t, const char *error)
+{
+    static const char * const names[] =
+    {
+        [VSIR_DATA_BOOL     ] = "bool",
+        [VSIR_DATA_F16      ] = "half",
+        [VSIR_DATA_F32      ] = "float",
+        [VSIR_DATA_F64      ] = "double",
+        [VSIR_DATA_I32      ] = "int",
+        [VSIR_DATA_U8       ] = "uint8",
+        [VSIR_DATA_U16      ] = "uint16",
+        [VSIR_DATA_U32      ] = "uint",
+        [VSIR_DATA_U64      ] = "uint64",
+        [VSIR_DATA_SNORM    ] = "snorm",
+        [VSIR_DATA_UNORM    ] = "unorm",
+        [VSIR_DATA_OPAQUE   ] = "opaque",
+        [VSIR_DATA_MIXED    ] = "mixed",
+        [VSIR_DATA_CONTINUED] = "<continued>",
+        [VSIR_DATA_UNUSED   ] = "<unused>",
+    };
+
+    if ((size_t)t < ARRAY_SIZE(names))
+        return names[t] ? names[t] : error;
+
+    return error;
+}
+
 const char *vsir_opcode_get_name(enum vkd3d_shader_opcode op, const char *error)
 {
     static const char * const names[] =

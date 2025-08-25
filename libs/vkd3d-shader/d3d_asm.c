@@ -390,27 +390,10 @@ static void shader_print_resource_type(struct vkd3d_d3d_asm_compiler *compiler, 
 
 static void shader_print_data_type(struct vkd3d_d3d_asm_compiler *compiler, enum vsir_data_type type)
 {
-    static const char *const data_type_names[] =
-    {
-        [VSIR_DATA_BOOL     ] = "bool",
-        [VSIR_DATA_F16      ] = "half",
-        [VSIR_DATA_F32      ] = "float",
-        [VSIR_DATA_F64      ] = "double",
-        [VSIR_DATA_I32      ] = "int",
-        [VSIR_DATA_U8       ] = "uint8",
-        [VSIR_DATA_U16      ] = "uint16",
-        [VSIR_DATA_U32      ] = "uint",
-        [VSIR_DATA_U64      ] = "uint64",
-        [VSIR_DATA_SNORM    ] = "snorm",
-        [VSIR_DATA_UNORM    ] = "unorm",
-        [VSIR_DATA_OPAQUE   ] = "opaque",
-        [VSIR_DATA_MIXED    ] = "mixed",
-        [VSIR_DATA_CONTINUED] = "<continued>",
-        [VSIR_DATA_UNUSED   ] = "<unused>",
-    };
+    const char *name;
 
-    if (type < ARRAY_SIZE(data_type_names))
-        vkd3d_string_buffer_printf(&compiler->buffer, "%s", data_type_names[type]);
+    if ((name = vsir_data_type_get_name(type, NULL)))
+        vkd3d_string_buffer_printf(&compiler->buffer, "%s", name);
     else
         vkd3d_string_buffer_printf(&compiler->buffer, "%s<unhandled data type %#x>%s",
                 compiler->colours.error, type, compiler->colours.reset);
