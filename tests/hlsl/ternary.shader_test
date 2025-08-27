@@ -70,7 +70,7 @@ uniform 8 float4 5.0 6.0 7.0 8.0
 draw quad
 probe (0, 0) rgba (5.0, 2.0, 7.0, 4.0)
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 int4 x, y, z;
 
 float4 main() : sv_target
@@ -85,10 +85,10 @@ if(sm<4)  uniform 8 float4 5.0 6.0 7.0 8.0
 if(sm>=4) uniform 0 int4 0 1 0 -3
 if(sm>=4) uniform 4 int4 1 2 3 4
 if(sm>=4) uniform 8 int4 5 6 7 8
-todo(sm<4) draw quad
+draw quad
 probe (0, 0) f32(5.0, 2.0, 7.0, 4.0)
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 uint4 x, y, z;
 
 float4 main() : sv_target
@@ -103,7 +103,7 @@ if(sm<4)  uniform 8 float4 5.0 6.0 7.0 8.0
 if(sm>=4) uniform 0 uint4 0 1 0 3
 if(sm>=4) uniform 4 uint4 1 2 3 4
 if(sm>=4) uniform 8 uint4 5 6 7 8
-todo(sm<4) draw quad
+draw quad
 probe (0, 0) f32(5.0, 2.0, 7.0, 4.0)
 
 % The usual type conversion is applied to the first and second expression, as
@@ -222,7 +222,7 @@ uniform 0 float4 1.0 2.0 0.0 0.0
 draw quad
 probe (0, 0) f32(2.0, 1.0, 0.0, 0.0)
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 uniform float c;
 
 float4 main() : sv_target
@@ -233,7 +233,7 @@ float4 main() : sv_target
 
 [test]
 uniform 0 float -1.0
-todo(sm<4) draw quad
+draw quad
 probe (0, 0) f32(0.0, 1.0, 0.0, 0.0)
 
 [pixel shader]

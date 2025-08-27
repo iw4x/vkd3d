@@ -9772,8 +9772,6 @@ static bool sm1_generate_vsir_instr_expr(struct hlsl_ctx *ctx, struct vsir_progr
             break;
 
         case HLSL_OP3_CMP:
-            if (!hlsl_type_is_floating_point(type))
-                goto err;
             generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_CMP, 0, 0, true);
             break;
 
