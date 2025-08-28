@@ -12947,7 +12947,7 @@ static void sm4_generate_vsir_add_dcl_texture(struct hlsl_ctx *ctx,
         else if (component_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
         {
             ins->structured = true;
-            ins->resource_stride = 4 * component_type->e.resource.format->reg_size[HLSL_REGSET_NUMERIC];
+            ins->resource_stride = hlsl_type_get_packed_size(component_type->e.resource.format);
             ins->declaration.structured_resource.byte_stride = ins->resource_stride;
         }
         else
