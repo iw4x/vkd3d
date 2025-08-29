@@ -11902,7 +11902,8 @@ static void vsir_validate_throw_invalid_dst_type_error_with_flags(struct validat
     enum vsir_data_type dst_data_type = instruction->dst[0].reg.data_type;
 
     validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-            "Invalid destination data type %#x for operation \"%s\" (%#x) with flags %#x.", dst_data_type,
+            "Invalid destination data type \"%s\" (%#x) for operation \"%s\" (%#x) with flags %#x.",
+            vsir_data_type_get_name(dst_data_type, "<unknown>"), dst_data_type,
             vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode, instruction->flags);
 }
 
