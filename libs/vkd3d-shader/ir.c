@@ -10009,7 +10009,8 @@ static void vsir_validate_dst_param(struct validation_context *ctx,
 
             default:
                 validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                        "Invalid data type %#x for destination with saturate modifier.", dst->reg.data_type);
+                        "Invalid data type \"%s\" (%#x) for destination with saturate modifier.",
+                        vsir_data_type_get_name(dst->reg.data_type, "<unknown>"), dst->reg.data_type);
                 break;
 
         }
@@ -10028,7 +10029,8 @@ static void vsir_validate_dst_param(struct validation_context *ctx,
         case 15:
             if (dst->reg.data_type != VSIR_DATA_F32)
                 validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                        "Invalid data type %#x for destination with shift.", dst->reg.data_type);
+                        "Invalid data type \"%s\" (%#x) for destination with shift.",
+                        vsir_data_type_get_name(dst->reg.data_type, "<unknown>"), dst->reg.data_type);
             break;
 
         default:
