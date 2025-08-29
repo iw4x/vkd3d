@@ -11164,13 +11164,15 @@ static void vsir_validate_cast_operation(struct validation_context *ctx,
 
     if (!src_types[src_data_type])
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                "Invalid source data type %#x for cast operation \"%s\" (%#x).",
-                src_data_type, vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
+                "Invalid source data type \"%s\" (%#x) for cast operation \"%s\" (%#x).",
+                vsir_data_type_get_name(src_data_type, "<unknown>"), src_data_type,
+                vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
 
     if (!dst_types[dst_data_type])
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                "Invalid destination data type %#x for cast operation \"%s\" (%#x).",
-                dst_data_type, vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
+                "Invalid destination data type \"%s\" (%#x) for cast operation \"%s\" (%#x).",
+                vsir_data_type_get_name(dst_data_type, "<unknown>"), dst_data_type,
+                vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
 }
 
 static void vsir_validate_shift_operation(struct validation_context *ctx,
