@@ -9758,9 +9758,10 @@ static void vsir_validate_ssa_register(struct validation_context *ctx,
 
         if (data_type_is_64_bit(data->data_type) != data_type_is_64_bit(reg->data_type))
             validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                    "Invalid data type %#x for a SSA register: "
-                    "it has already been seen with data type %#x at instruction %zu.",
-                    reg->data_type, data->data_type, data->first_seen);
+                    "Invalid data type \"%s\" (%#x) for SSA register %u: "
+                    "it has already been seen with data type \"%s\" (%#x) at instruction %zu.",
+                    vsir_data_type_get_name(reg->data_type, "<unknown>"), reg->data_type, reg->idx[0].offset,
+                    vsir_data_type_get_name(data->data_type, "<unknown>"), data->data_type, data->first_seen);
     }
 }
 
