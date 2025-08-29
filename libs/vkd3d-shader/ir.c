@@ -10821,7 +10821,7 @@ static void vsir_validate_hull_shader_phase(struct validation_context *ctx,
 static void vsir_validate_elementwise_operation(struct validation_context *ctx,
         const struct vkd3d_shader_instruction *instruction, const bool types[VSIR_DATA_TYPE_COUNT])
 {
-    enum vsir_data_type dst_data_type;
+    enum vsir_data_type dst_data_type, src_data_type;
     unsigned int i;
 
     if (instruction->dst_count < 1)
@@ -10834,16 +10834,18 @@ static void vsir_validate_elementwise_operation(struct validation_context *ctx,
 
     if (!types[dst_data_type])
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                "Invalid data type %#x for elementwise operation \"%s\" (%#x).",
-                dst_data_type, vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
+                "Invalid data type \"%s\" (%#x) for elementwise operation \"%s\" (%#x).",
+                vsir_data_type_get_name(dst_data_type, "<unknown>"), dst_data_type,
+                vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
 
     for (i = 0; i < instruction->src_count; ++i)
     {
-        if (instruction->src[i].reg.data_type != dst_data_type)
+        if ((src_data_type = instruction->src[i].reg.data_type) != dst_data_type)
             validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                    "Data type %#x for operand %u doesn't match the destination data type %#x "
+                    "Data type \"%s\" (%#x) for operand %u doesn't match the destination data type \"%s\" (%#x) "
                     "for elementwise operation \"%s\" (%#x).",
-                    instruction->src[i].reg.data_type, i, dst_data_type,
+                    vsir_data_type_get_name(src_data_type, "<unknown>"), src_data_type, i,
+                    vsir_data_type_get_name(dst_data_type, "<unknown>"), dst_data_type,
                     vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
     }
 }
