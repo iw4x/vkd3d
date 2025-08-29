@@ -10168,7 +10168,8 @@ static void vsir_validate_src_param(struct validation_context *ctx,
     {
         if (!(src_modifier_data[src->modifiers].data_type_mask & (1u << src->reg.data_type)))
             validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_MODIFIERS,
-                    "Source has invalid modifier %#x for data type %u.", src->modifiers, src->reg.data_type);
+                    "Source has invalid modifier %#x for data type \"%s\" (%#x).",
+                    src->modifiers, vsir_data_type_get_name(src->reg.data_type, "<unknown>"), src->reg.data_type);
     }
 
     switch (src->reg.type)
