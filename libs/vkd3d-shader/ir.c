@@ -10902,7 +10902,7 @@ static void vsir_validate_logic_elementwise_operation(struct validation_context 
 static void vsir_validate_comparison_operation(struct validation_context *ctx,
         const struct vkd3d_shader_instruction *instruction, const bool types[VSIR_DATA_TYPE_COUNT])
 {
-    enum vsir_data_type dst_data_type, src_data_type;
+    enum vsir_data_type dst_data_type, src_data_type, data_type;
     unsigned int i;
 
     if (instruction->dst_count < 1)
@@ -10912,8 +10912,9 @@ static void vsir_validate_comparison_operation(struct validation_context *ctx,
 
     if (dst_data_type != VSIR_DATA_U32 && dst_data_type != VSIR_DATA_BOOL)
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                "Invalid data type %#x for result of comparison operation \"%s\" (%#x).",
-                dst_data_type, vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
+                "Invalid data type \"%s\" (%#x) for result of comparison operation \"%s\" (%#x).",
+                vsir_data_type_get_name(dst_data_type, "<unknown>"), dst_data_type,
+                vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
 
     if (instruction->src_count == 0)
         return;
@@ -10925,16 +10926,18 @@ static void vsir_validate_comparison_operation(struct validation_context *ctx,
 
     if (!types[src_data_type])
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                "Invalid data type %#x for comparison operation \"%s\" (%#x).",
-                src_data_type, vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
+                "Invalid data type \"%s\" (%#x) for comparison operation \"%s\" (%#x).",
+                vsir_data_type_get_name(src_data_type, "<unknown>"), src_data_type,
+                vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
 
     for (i = 1; i < instruction->src_count; ++i)
     {
-        if (instruction->src[i].reg.data_type != src_data_type)
+        if ((data_type = instruction->src[i].reg.data_type) != src_data_type)
             validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                    "Data type %#x for operand %u doesn't match the first operands data type %#x "
-                    "for comparison operation \"%s\" (%#x).",
-                    instruction->src[i].reg.data_type, i, src_data_type,
+                    "Data type \"%s\" (%#x) for operand %u doesn't match the first "
+                    "operands data type \"%s\" (%#x) for comparison operation \"%s\" (%#x).",
+                    vsir_data_type_get_name(data_type, "<unknown>"), data_type, i,
+                    vsir_data_type_get_name(src_data_type, "<unknown>"), src_data_type,
                     vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
     }
 }
