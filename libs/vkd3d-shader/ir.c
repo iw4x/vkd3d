@@ -9551,7 +9551,8 @@ static void vsir_validate_label_register(struct validation_context *ctx,
 
     if (reg->data_type != VSIR_DATA_UNUSED)
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                "Invalid data type %#x for a LABEL register.", reg->data_type);
+                "Invalid data type \"%s\" (%#x) for a LABEL register.",
+                vsir_data_type_get_name(reg->data_type, "<unknown>"), reg->data_type);
 
     if (reg->dimension != VSIR_DIMENSION_NONE)
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DIMENSION,
