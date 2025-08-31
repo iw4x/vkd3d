@@ -716,7 +716,9 @@ enum vsir_data_type
     VSIR_DATA_F32,
     VSIR_DATA_F64,
 
+    VSIR_DATA_I16,
     VSIR_DATA_I32,
+    VSIR_DATA_I64,
 
     VSIR_DATA_U8,
     VSIR_DATA_U16,
@@ -738,8 +740,9 @@ const char *vsir_data_type_get_name(enum vsir_data_type t, const char *error);
 
 static inline bool data_type_is_integer(enum vsir_data_type data_type)
 {
-    return data_type == VSIR_DATA_I32 || data_type == VSIR_DATA_U8 || data_type == VSIR_DATA_U16
-            || data_type == VSIR_DATA_U32 || data_type == VSIR_DATA_U64;
+    return data_type == VSIR_DATA_I16 || data_type == VSIR_DATA_I32 || data_type == VSIR_DATA_I64
+            || data_type == VSIR_DATA_U8 || data_type == VSIR_DATA_U16 || data_type == VSIR_DATA_U32
+            || data_type == VSIR_DATA_U64;
 }
 
 static inline bool data_type_is_bool(enum vsir_data_type data_type)
@@ -754,7 +757,7 @@ static inline bool data_type_is_floating_point(enum vsir_data_type data_type)
 
 static inline bool data_type_is_64_bit(enum vsir_data_type data_type)
 {
-    return data_type == VSIR_DATA_F64 || data_type == VSIR_DATA_U64;
+    return data_type == VSIR_DATA_F64 || data_type == VSIR_DATA_I64 || data_type == VSIR_DATA_U64;
 }
 
 enum vsir_dimension
@@ -1889,14 +1892,20 @@ static inline enum vkd3d_shader_component_type vkd3d_component_type_from_data_ty
             return VKD3D_SHADER_COMPONENT_FLOAT;
         case VSIR_DATA_F64:
             return VKD3D_SHADER_COMPONENT_DOUBLE;
+        case VSIR_DATA_I16:
+            return VKD3D_SHADER_COMPONENT_INT16;
         case VSIR_DATA_I32:
             return VKD3D_SHADER_COMPONENT_INT;
+        case VSIR_DATA_I64:
+            return VKD3D_SHADER_COMPONENT_INT64;
         case VSIR_DATA_U16:
             return VKD3D_SHADER_COMPONENT_UINT16;
         case VSIR_DATA_U32:
             return VKD3D_SHADER_COMPONENT_UINT;
         case VSIR_DATA_U64:
             return VKD3D_SHADER_COMPONENT_UINT64;
+        case VSIR_DATA_UNUSED:
+            return VKD3D_SHADER_COMPONENT_VOID;
         default:
             FIXME("Unhandled data type %#x.\n", data_type);
             /* fall-through */
@@ -1909,18 +1918,35 @@ static inline enum vsir_data_type vsir_data_type_from_component_type(enum vkd3d_
 {
     switch (component_type)
     {
-        case VKD3D_SHADER_COMPONENT_FLOAT:
-            return VSIR_DATA_F32;
+        case VKD3D_SHADER_COMPONENT_VOID:
+            return VSIR_DATA_UNUSED;
         case VKD3D_SHADER_COMPONENT_UINT:
             return VSIR_DATA_U32;
         case VKD3D_SHADER_COMPONENT_INT:
             return VSIR_DATA_I32;
+        case VKD3D_SHADER_COMPONENT_FLOAT:
+            return VSIR_DATA_F32;
+        case VKD3D_SHADER_COMPONENT_BOOL:
+            return VSIR_DATA_BOOL;
         case VKD3D_SHADER_COMPONENT_DOUBLE:
             return VSIR_DATA_F64;
-        default:
-            FIXME("Unhandled component type %#x.\n", component_type);
-            return VSIR_DATA_F32;
+        case VKD3D_SHADER_COMPONENT_UINT64:
+            return VSIR_DATA_U64;
+        case VKD3D_SHADER_COMPONENT_INT64:
+            return VSIR_DATA_I64;
+        case VKD3D_SHADER_COMPONENT_FLOAT16:
+            return VSIR_DATA_F16;
+        case VKD3D_SHADER_COMPONENT_UINT16:
+            return VSIR_DATA_U16;
+        case VKD3D_SHADER_COMPONENT_INT16:
+            return VSIR_DATA_I16;
+        case VKD3D_SHADER_COMPONENT_TYPE_FORCE_32BIT:
+            break;
     }
+
+    FIXME("Unhandled component type %#x.\n", component_type);
+
+    return VSIR_DATA_UNUSED;
 }
 
 static inline bool component_type_is_64_bit(enum vkd3d_shader_component_type component_type)
