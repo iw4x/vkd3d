@@ -45,6 +45,8 @@ static const unsigned int MAX_GS_OUTPUT_STREAMS = 4;
         (VKD3D_SHADER_SWIZZLE_MASK << VKD3D_SHADER_SWIZZLE_SHIFT(0) \
                 | VKD3D_SHADER_SWIZZLE_MASK << VKD3D_SHADER_SWIZZLE_SHIFT(1))
 
+#define DXIL_TYPE_SIGNED    0x1u
+
 enum bitcode_block_id
 {
     BLOCKINFO_BLOCK           =  0,
@@ -2475,8 +2477,11 @@ static void register_init_with_id(struct vkd3d_shader_register *reg,
     reg->idx[0].offset = id;
 }
 
-static enum vsir_data_type vsir_data_type_from_dxil(const struct sm6_type *type, struct sm6_parser *dxil)
+static enum vsir_data_type vsir_data_type_from_dxil(const struct sm6_type *type,
+        uint32_t type_flags, struct sm6_parser *dxil)
 {
+    bool is_signed = type_flags & DXIL_TYPE_SIGNED;
+
     if (type->class == TYPE_CLASS_INTEGER)
     {
         switch (type->u.width)
@@ -2484,13 +2489,13 @@ static enum vsir_data_type vsir_data_type_from_dxil(const struct sm6_type *type,
             case 1:
                 return VSIR_DATA_BOOL;
             case 8:
-                return VSIR_DATA_U8;
+                return is_signed ? VSIR_DATA_I8 : VSIR_DATA_U8;
             case 16:
-                return VSIR_DATA_U16;
+                return is_signed ? VSIR_DATA_I16 : VSIR_DATA_U16;
             case 32:
-                return VSIR_DATA_U32;
+                return is_signed ? VSIR_DATA_I32 : VSIR_DATA_U32;
             case 64:
-                return VSIR_DATA_U64;
+                return is_signed ? VSIR_DATA_I64 : VSIR_DATA_U64;
             default:
                 vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_UNSUPPORTED,
                         "Unhandled integer width %u.", type->u.width);
@@ -2577,6 +2582,16 @@ static void register_convert_to_minimum_precision(struct vkd3d_shader_register *
             }
             break;
 
+        case VSIR_DATA_I16:
+            reg->data_type = VSIR_DATA_I32;
+            reg->precision = VKD3D_SHADER_REGISTER_PRECISION_MIN_INT_16;
+            if (reg->type == VKD3DSPR_IMMCONST)
+            {
+                for (i = 0; i < VSIR_DIMENSION_VEC4; ++i)
+                    reg->u.immconst_u32[i] = (int16_t)reg->u.immconst_u32[i];
+            }
+            break;
+
         case VSIR_DATA_U16:
             reg->data_type = VSIR_DATA_U32;
             reg->precision = VKD3D_SHADER_REGISTER_PRECISION_MIN_UINT_16;
@@ -2602,7 +2617,7 @@ static void sm6_register_from_value(struct vkd3d_shader_register *reg, const str
     enum vsir_data_type data_type;
 
     scalar_type = sm6_type_get_scalar_type(value->type, 0);
-    data_type = vsir_data_type_from_dxil(scalar_type, sm6);
+    data_type = vsir_data_type_from_dxil(scalar_type, 0, sm6);
 
     switch (value->value_type)
     {
@@ -3242,7 +3257,7 @@ static enum vkd3d_result value_allocate_constant_array(struct sm6_value *dst, co
     dst->u.data = icb;
 
     icb->register_idx = sm6->icb_count++;
-    icb->data_type = vsir_data_type_from_dxil(elem_type, sm6);
+    icb->data_type = vsir_data_type_from_dxil(elem_type, 0, sm6);
     icb->element_count = type->u.array.count;
     icb->component_count = 1;
     icb->is_null = !operands;
@@ -3259,6 +3274,12 @@ static enum vkd3d_result value_allocate_constant_array(struct sm6_value *dst, co
             icb->data_type = VSIR_DATA_F32;
             break;
 
+        case VSIR_DATA_I16:
+            for (i = 0; i < count; ++i)
+                icb->data[i] = (int16_t)operands[i];
+            icb->data_type = VSIR_DATA_I32;
+            break;
+
         case VSIR_DATA_U16:
             for (i = 0; i < count; ++i)
                 icb->data[i] = (int16_t)operands[i];
@@ -3266,12 +3287,14 @@ static enum vkd3d_result value_allocate_constant_array(struct sm6_value *dst, co
             break;
 
         case VSIR_DATA_F32:
+        case VSIR_DATA_I32:
         case VSIR_DATA_U32:
             for (i = 0; i < count; ++i)
                 icb->data[i] = operands[i];
             break;
 
         case VSIR_DATA_F64:
+        case VSIR_DATA_I64:
         case VSIR_DATA_U64:
             data64 = (uint64_t *)icb->data;
             for (i = 0; i < count; ++i)
@@ -3696,12 +3719,14 @@ static void sm6_parser_declare_indexable_temp(struct sm6_parser *sm6, const stru
         unsigned int count, unsigned int alignment, bool has_function_scope, unsigned int init,
         struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
 {
-    enum vsir_data_type data_type = vsir_data_type_from_dxil(elem_type, sm6);
+    enum vsir_data_type data_type = vsir_data_type_from_dxil(elem_type, 0, sm6);
 
     if (!(sm6->program->global_flags & VKD3DSGF_FORCE_NATIVE_LOW_PRECISION))
     {
         if (data_type == VSIR_DATA_F16)
             data_type = VSIR_DATA_F32;
+        else if (data_type == VSIR_DATA_I16)
+            data_type = VSIR_DATA_I32;
         else if (data_type == VSIR_DATA_U16)
             data_type = VSIR_DATA_U32;
     }
@@ -5193,7 +5218,7 @@ static void sm6_parser_emit_dx_cbuffer_load(struct sm6_parser *sm6, enum dx_intr
 
     type = sm6_type_get_scalar_type(dst->type, 0);
     VKD3D_ASSERT(type);
-    src_param->reg.data_type = vsir_data_type_from_dxil(type, sm6);
+    src_param->reg.data_type = vsir_data_type_from_dxil(type, 0, sm6);
     if (data_type_is_64_bit(src_param->reg.data_type))
         src_param->swizzle = vsir_swizzle_64_from_32(src_param->swizzle);
     else

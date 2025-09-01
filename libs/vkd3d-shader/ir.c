@@ -53,6 +53,7 @@ const char *vsir_data_type_get_name(enum vsir_data_type t, const char *error)
         [VSIR_DATA_F16      ] = "f16",
         [VSIR_DATA_F32      ] = "f32",
         [VSIR_DATA_F64      ] = "f64",
+        [VSIR_DATA_I8       ] = "i8",
         [VSIR_DATA_I16      ] = "i16",
         [VSIR_DATA_I32      ] = "i32",
         [VSIR_DATA_I64      ] = "i64",

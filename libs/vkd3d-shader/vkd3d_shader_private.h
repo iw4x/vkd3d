@@ -716,6 +716,7 @@ enum vsir_data_type
     VSIR_DATA_F32,
     VSIR_DATA_F64,
 
+    VSIR_DATA_I8,
     VSIR_DATA_I16,
     VSIR_DATA_I32,
     VSIR_DATA_I64,
@@ -740,8 +741,13 @@ const char *vsir_data_type_get_name(enum vsir_data_type t, const char *error);
 
 static inline bool data_type_is_integer(enum vsir_data_type data_type)
 {
-    return data_type == VSIR_DATA_I16 || data_type == VSIR_DATA_I32 || data_type == VSIR_DATA_I64
-            || data_type == VSIR_DATA_U8 || data_type == VSIR_DATA_U16 || data_type == VSIR_DATA_U32
+    return data_type == VSIR_DATA_I8
+            || data_type == VSIR_DATA_I16
+            || data_type == VSIR_DATA_I32
+            || data_type == VSIR_DATA_I64
+            || data_type == VSIR_DATA_U8
+            || data_type == VSIR_DATA_U16
+            || data_type == VSIR_DATA_U32
             || data_type == VSIR_DATA_U64;
 }
 
