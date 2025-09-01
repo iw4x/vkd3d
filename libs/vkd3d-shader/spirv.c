@@ -3772,9 +3772,7 @@ static uint32_t spirv_compiler_get_type_id_for_reg(struct spirv_compiler *compil
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
 
-    return spirv_get_type_id_for_component_type(builder,
-            vkd3d_component_type_from_data_type(reg->data_type),
-            vsir_write_mask_component_count(write_mask));
+    return spirv_get_type_id(builder, reg->data_type, vsir_write_mask_component_count(write_mask));
 }
 
 static uint32_t spirv_compiler_get_type_id_for_dst(struct spirv_compiler *compiler,
