@@ -4048,7 +4048,7 @@ static uint32_t spirv_compiler_get_buffer_parameter(struct spirv_compiler *compi
     unsigned int index = parameter - compiler->program->parameters;
     uint32_t type_id, ptr_id, ptr_type_id;
 
-    type_id = spirv_get_type_id_for_component_type(builder, vkd3d_component_type_from_data_type(type), component_count);
+    type_id = spirv_get_type_id(builder, type, component_count);
     ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassUniform, type_id);
     ptr_id = vkd3d_spirv_build_op_access_chain1(builder, ptr_type_id,
             compiler->spirv_parameter_info[index].buffer_id,
