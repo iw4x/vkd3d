@@ -9057,7 +9057,7 @@ struct validation_context
     struct vkd3d_shader_message_context *message_context;
     const struct vsir_program *program;
     size_t instruction_idx;
-    struct vkd3d_shader_location null_location;
+    struct vkd3d_shader_location location;
     bool invalid_instruction_idx;
     enum vkd3d_result status;
     bool dcl_temps_found;
@@ -9116,13 +9116,12 @@ static void VKD3D_PRINTF_FUNC(3, 4) validator_error(struct validation_context *c
 
     if (ctx->invalid_instruction_idx)
     {
-        vkd3d_shader_error(ctx->message_context, &ctx->null_location, error, "%s", buf.buffer);
+        vkd3d_shader_error(ctx->message_context, &ctx->location, error, "%s", buf.buffer);
         WARN("VSIR validation error: %s\n", buf.buffer);
     }
     else
     {
-        const struct vkd3d_shader_instruction *ins = &ctx->program->instructions.elements[ctx->instruction_idx];
-        vkd3d_shader_error(ctx->message_context, &ins->location, error,
+        vkd3d_shader_error(ctx->message_context, &ctx->location, error,
                 "instruction %zu: %s", ctx->instruction_idx + 1, buf.buffer);
         WARN("VSIR validation error: instruction %zu: %s\n", ctx->instruction_idx + 1, buf.buffer);
     }
@@ -12029,7 +12028,7 @@ enum vkd3d_result vsir_program_validate(struct vsir_program *program, uint64_t c
     {
         .message_context = message_context,
         .program = program,
-        .null_location = {.source_name = source_name},
+        .location = {.source_name = source_name},
         .status = VKD3D_OK,
         .phase = VSIR_OP_INVALID,
         .invalid_instruction_idx = true,
@@ -12154,11 +12153,13 @@ enum vkd3d_result vsir_program_validate(struct vsir_program *program, uint64_t c
     for (ins = vsir_program_iterator_head(&it); ins && ctx.status != VKD3D_ERROR_OUT_OF_MEMORY;
             ins = vsir_program_iterator_next(&it))
     {
+        ctx.location = ins->location;
         vsir_validate_instruction(&ctx, ins);
         ++ctx.instruction_idx;
     }
 
     ctx.invalid_instruction_idx = true;
+    ctx.location = (struct vkd3d_shader_location){.source_name = source_name};
 
     if (ctx.depth != 0)
         validator_error(&ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_CONTROL_FLOW, "%zu nested blocks were not closed.", ctx.depth);
