@@ -2519,8 +2519,8 @@ static void shader_dst_param_normalise_outpointid(struct vkd3d_shader_dst_param 
 }
 
 static enum vkd3d_result control_point_normaliser_emit_hs_input(struct control_point_normaliser *normaliser,
-        const struct shader_signature *s, unsigned int input_control_point_count, unsigned int dst,
-        const struct vkd3d_shader_location *location)
+        const struct shader_signature *s, unsigned int input_control_point_count,
+        struct vsir_program_iterator *dst_it, const struct vkd3d_shader_location *location)
 {
     struct vkd3d_shader_instruction *ins;
     const struct signature_element *e;
@@ -2529,17 +2529,11 @@ static enum vkd3d_result control_point_normaliser_emit_hs_input(struct control_p
     for (i = 0; i < s->element_count; ++i)
         count += !!s->elements[i].used_mask;
 
-    if (!shader_instruction_array_reserve(&normaliser->instructions, normaliser->instructions.count + count))
+    if (!(ins = vsir_program_iterator_insert_before_and_move(dst_it, count)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
-
-    memmove(&normaliser->instructions.elements[dst + count], &normaliser->instructions.elements[dst],
-            (normaliser->instructions.count - dst) * sizeof(*normaliser->instructions.elements));
-    normaliser->instructions.count += count;
-
-    ins = &normaliser->instructions.elements[dst];
     vsir_instruction_init(ins, location, VSIR_OP_HS_CONTROL_POINT_PHASE);
 
-    ++ins;
+    ins = vsir_program_iterator_next(dst_it);
 
     for (i = 0; i < s->element_count; ++i)
     {
@@ -2571,7 +2565,7 @@ static enum vkd3d_result control_point_normaliser_emit_hs_input(struct control_p
         ins->src[0].reg.idx[0].rel_addr = normaliser->outpointid_param;
         ins->src[0].reg.idx[1].offset = e->register_index;
 
-        ++ins;
+        ins = vsir_program_iterator_next(dst_it);
     }
 
     vsir_instruction_init(ins, location, VSIR_OP_RET);
@@ -2643,8 +2637,8 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
             case VSIR_OP_HS_JOIN_PHASE:
                 /* ins may be relocated if the instruction array expands. */
                 location = ins->location;
-                ret = control_point_normaliser_emit_hs_input(&normaliser, &program->input_signature,
-                        input_control_point_count, i, &location);
+                ret = control_point_normaliser_emit_hs_input(&normaliser,
+                        &program->input_signature, input_control_point_count, &it, &location);
                 program->instructions = normaliser.instructions;
                 program->normalisation_level = VSIR_NORMALISED_HULL_CONTROL_POINT_IO;
                 return ret;
