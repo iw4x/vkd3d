@@ -1310,6 +1310,11 @@ static void msl_store_uav_typed(struct msl_generator *gen, const struct vkd3d_sh
         data_type = VSIR_DATA_F32;
     }
 
+    if (resource_type == VKD3D_SHADER_RESOURCE_TEXTURE_2DMS
+            || resource_type == VKD3D_SHADER_RESOURCE_TEXTURE_2DMSARRAY)
+        msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_UNSUPPORTED,
+                "Storing to resource type %#x is not supported.", resource_type);
+
     if (!(resource_type_info = msl_get_resource_type_info(resource_type)))
     {
         msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
