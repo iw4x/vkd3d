@@ -3998,9 +3998,8 @@ static uint32_t spirv_compiler_emit_spec_constant(struct spirv_compiler *compile
     info = get_spec_constant_info(name);
     default_value = info ? info->default_value.u : 0;
 
-    scalar_type_id = spirv_get_type_id_for_component_type(builder, vkd3d_component_type_from_data_type(type), 1);
-    vector_type_id = spirv_get_type_id_for_component_type(builder,
-            vkd3d_component_type_from_data_type(type), component_count);
+    scalar_type_id = spirv_get_type_id(builder, type, 1);
+    vector_type_id = spirv_get_type_id(builder, type, component_count);
 
     for (unsigned int i = 0; i < component_count; ++i)
     {
