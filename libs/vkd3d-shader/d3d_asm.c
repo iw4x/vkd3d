@@ -834,7 +834,7 @@ static void shader_print_register(struct vkd3d_d3d_asm_compiler *compiler, const
             && reg->type != VKD3DSPR_NULL
             && reg->type != VKD3DSPR_DEPTHOUT)
     {
-        if (offset != ~0u)
+        if (reg->idx_count)
         {
             bool is_sm_5_1 = vkd3d_shader_ver_ge(&compiler->shader_version, 5, 1);
 
@@ -862,10 +862,10 @@ static void shader_print_register(struct vkd3d_d3d_asm_compiler *compiler, const
                 /* For descriptors in sm < 5.1 we move the reg->idx values up one slot
                  * to normalise with 5.1.
                  * Here we should ignore it if it's a descriptor in sm < 5.1. */
-                if (reg->idx[1].offset != ~0u && (!is_descriptor || is_sm_5_1))
+                if (reg->idx_count > 1 && (!is_descriptor || is_sm_5_1))
                     shader_print_subscript(compiler, reg->idx[1].offset, reg->idx[1].rel_addr);
 
-                if (reg->idx[2].offset != ~0u)
+                if (reg->idx_count > 2)
                     shader_print_subscript(compiler, reg->idx[2].offset, reg->idx[2].rel_addr);
             }
         }
