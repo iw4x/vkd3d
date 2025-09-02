@@ -11,8 +11,7 @@ float4 main() : sv_target
 [test]
 uniform 0 float4 10.3 -11.6 12.8 13.1
 draw quad
-todo(msl & sm>=6) probe (0, 0) f32(10, -11, 12, 0)
-
+probe (0, 0) f32(10, -11, 12, 0)
 
 [vertex shader]
 uniform float4 f;
@@ -32,8 +31,7 @@ float4 main(float4 t1 : TEXCOORD1) : sv_target
 [test]
 uniform 0 float4 -0.4 -0.7 -12.8 14.8
 draw quad
-todo(msl & sm>=6) probe (0, 0) f32(0, 0, -12, 14)
-
+probe (0, 0) f32(0, 0, -12, 14)
 
 [pixel shader]
 uniform float f;

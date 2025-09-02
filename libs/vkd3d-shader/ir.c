@@ -11775,8 +11775,7 @@ static void vsir_validate_itof(struct validation_context *ctx, const struct vkd3
     {
         [VSIR_DATA_BOOL] = true,
         [VSIR_DATA_I32] = true,
-        [VSIR_DATA_U32] = true,
-        [VSIR_DATA_U64] = true,
+        [VSIR_DATA_I64] = true,
     };
     static const bool dst_types[VSIR_DATA_TYPE_COUNT] =
     {

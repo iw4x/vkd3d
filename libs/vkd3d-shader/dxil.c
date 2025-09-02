@@ -6966,14 +6966,15 @@ static void sm6_parser_emit_call(struct sm6_parser *sm6, const struct dxil_recor
             fn_value->u.function.name, &operands[1], operand_count - 1, state, dst);
 }
 
-static enum vkd3d_shader_opcode sm6_map_cast_op(uint64_t code, const struct sm6_type *from,
-        const struct sm6_type *to, struct sm6_parser *sm6)
+static enum vkd3d_shader_opcode dxil_map_cast_op(uint64_t code, const struct sm6_type *from,
+        uint32_t *src_type_flags, const struct sm6_type *to, struct sm6_parser *dxil)
 {
     enum vkd3d_shader_opcode op = VSIR_OP_INVALID;
     bool from_int, to_int, from_fp, to_fp;
     unsigned int from_width, to_width;
     bool is_valid = false;
 
+    *src_type_flags = 0;
     from_int = sm6_type_is_integer(from);
     to_int = sm6_type_is_integer(to);
     from_fp = sm6_type_is_floating_point(from);
@@ -6982,15 +6983,13 @@ static enum vkd3d_shader_opcode sm6_map_cast_op(uint64_t code, const struct sm6_
     /* NOTE: DXIL currently doesn't use vectors here. */
     if ((!from_int && !from_fp) || (!to_int && !to_fp))
     {
-        FIXME("Unhandled cast of type class %u to type class %u.\n", from->class, to->class);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Cast of type class %u to type class %u is not implemented.", from->class, to->class);
         return VSIR_OP_INVALID;
     }
     if (to->u.width == 8 || from->u.width == 8)
     {
-        FIXME("Unhandled 8-bit value.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Cast to/from an 8-bit type is not implemented.");
         return VSIR_OP_INVALID;
     }
@@ -7030,6 +7029,7 @@ static enum vkd3d_shader_opcode sm6_map_cast_op(uint64_t code, const struct sm6_
         case CAST_SITOFP:
             op = VSIR_OP_ITOF;
             is_valid = from_int && to_fp;
+            *src_type_flags |= DXIL_TYPE_SIGNED;
             break;
 
         case CAST_FPTRUNC:
@@ -7048,16 +7048,14 @@ static enum vkd3d_shader_opcode sm6_map_cast_op(uint64_t code, const struct sm6_
             break;
 
         default:
-            FIXME("Unhandled cast op %"PRIu64".\n", code);
-            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+            vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                     "Cast operation %"PRIu64" is unhandled.", code);
             return VSIR_OP_INVALID;
     }
 
     if (!is_valid)
     {
-        FIXME("Invalid types %u and/or %u for op %"PRIu64".\n", from->class, to->class, code);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Cast operation %"PRIu64" from type class %u, width %u to type class %u, width %u is invalid.",
                 code, from->class, from->u.width, to->class, to->u.width);
         return VSIR_OP_INVALID;
@@ -7080,22 +7078,23 @@ static enum vkd3d_shader_opcode sm6_map_cast_op(uint64_t code, const struct sm6_
     return op;
 }
 
-static void sm6_parser_emit_cast(struct sm6_parser *sm6, const struct dxil_record *record,
+static void sm6_parser_emit_cast(struct sm6_parser *dxil, const struct dxil_record *record,
         struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
 {
     struct vkd3d_shader_src_param *src_param;
-    enum vkd3d_shader_opcode handler_idx;
     const struct sm6_value *value;
+    enum vkd3d_shader_opcode op;
     const struct sm6_type *type;
+    uint32_t src_type_flags;
     unsigned int i = 0;
 
-    if (!(value = sm6_parser_get_value_by_ref(sm6, record, NULL, &i)))
+    if (!(value = sm6_parser_get_value_by_ref(dxil, record, NULL, &i)))
         return;
 
-    if (!dxil_record_validate_operand_count(record, i + 2, i + 2, sm6))
+    if (!dxil_record_validate_operand_count(record, i + 2, i + 2, dxil))
         return;
 
-    if (!(type = sm6_parser_get_type(sm6, record->operands[i++])))
+    if (!(type = sm6_parser_get_type(dxil, record->operands[i++])))
         return;
 
     dst->type = type;
@@ -7108,28 +7107,28 @@ static void sm6_parser_emit_cast(struct sm6_parser *sm6, const struct dxil_recor
         return;
     }
 
-    if ((handler_idx = sm6_map_cast_op(record->operands[i], value->type, type, sm6)) == VSIR_OP_INVALID)
+    if ((op = dxil_map_cast_op(record->operands[i], value->type, &src_type_flags, type, dxil)) == VSIR_OP_INVALID)
         return;
 
-    vsir_instruction_init(ins, &sm6->p.location, handler_idx);
+    vsir_instruction_init(ins, &dxil->p.location, op);
 
-    if (handler_idx == VSIR_OP_NOP)
+    if (op == VSIR_OP_NOP)
     {
         *dst = *value;
         dst->type = type;
         return;
     }
 
-    if (!(src_param = instruction_src_params_alloc(ins, 1, sm6)))
+    if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
         return;
-    src_param_init_from_value(src_param, value, 0, sm6);
+    src_param_init_from_value(src_param, value, src_type_flags, dxil);
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    instruction_dst_param_init_ssa_scalar(ins, 0, dxil);
 
     /* VSIR bitcasts are represented by source registers with types different
      * from the types they were written with, rather than with different types
      * for the MOV source and destination. */
-    if (handler_idx == VSIR_OP_MOV)
+    if (op == VSIR_OP_MOV)
         src_param->reg.data_type = ins->dst[0].reg.data_type;
 }
 
