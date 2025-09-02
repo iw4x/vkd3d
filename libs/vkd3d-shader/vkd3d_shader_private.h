@@ -1863,7 +1863,8 @@ static inline enum vkd3d_shader_component_type vkd3d_component_type_from_data_ty
     {
         case VSIR_DATA_BOOL:
             return VKD3D_SHADER_COMPONENT_BOOL;
-        case VSIR_DATA_F16: /* Minimum precision. TODO: native 16-bit */
+        case VSIR_DATA_F16:
+            return VKD3D_SHADER_COMPONENT_FLOAT16;
         case VSIR_DATA_F32:
         case VSIR_DATA_SNORM:
         case VSIR_DATA_UNORM:
@@ -1872,7 +1873,8 @@ static inline enum vkd3d_shader_component_type vkd3d_component_type_from_data_ty
             return VKD3D_SHADER_COMPONENT_DOUBLE;
         case VSIR_DATA_I32:
             return VKD3D_SHADER_COMPONENT_INT;
-        case VSIR_DATA_U16: /* Minimum precision. TODO: native 16-bit */
+        case VSIR_DATA_U16:
+            return VKD3D_SHADER_COMPONENT_UINT16;
         case VSIR_DATA_U32:
             return VKD3D_SHADER_COMPONENT_UINT;
         case VSIR_DATA_U64:
