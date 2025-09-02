@@ -12278,6 +12278,18 @@ static void vsir_validate_switch_monolithic(struct validation_context *ctx,
     ctx->inside_block = false;
 }
 
+static void vsir_validate_ushr(struct validation_context *ctx,
+        const struct vkd3d_shader_instruction *instruction)
+{
+    static const bool types[VSIR_DATA_TYPE_COUNT] =
+    {
+        [VSIR_DATA_U32] = true,
+        [VSIR_DATA_U64] = true,
+    };
+
+    vsir_validate_shift_operation(ctx, instruction, types);
+}
+
 struct vsir_validator_instruction_desc
 {
     unsigned int dst_param_count;
@@ -12397,6 +12409,7 @@ static const struct vsir_validator_instruction_desc vsir_validator_instructions[
     [VSIR_OP_SAMPLE_INFO] =                      {1,   1, vsir_validate_sample_info},
     [VSIR_OP_SWITCH] =                           {0,   1, vsir_validate_switch},
     [VSIR_OP_SWITCH_MONOLITHIC] =                {0, ~0u, vsir_validate_switch_monolithic},
+    [VSIR_OP_USHR] =                             {1,   2, vsir_validate_ushr},
 };
 
 static void vsir_validate_instruction(struct validation_context *ctx,
