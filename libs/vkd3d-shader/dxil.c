@@ -4990,6 +4990,7 @@ static enum vkd3d_shader_opcode map_dx_binary_op(enum dx_intrinsic_opcode op,
             *type_flags |= DXIL_TYPE_SIGNED;
             return VSIR_OP_IMAX;
         case DX_IMIN:
+            *type_flags |= DXIL_TYPE_SIGNED;
             return VSIR_OP_IMIN;
         case DX_QUAD_READ_LANE_AT:
             return VSIR_OP_QUAD_READ_LANE_AT;
