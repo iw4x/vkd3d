@@ -4975,8 +4975,11 @@ static void sm6_parser_emit_dx_unary(struct sm6_parser *sm6, enum dx_intrinsic_o
     instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
 }
 
-static enum vkd3d_shader_opcode map_dx_binary_op(enum dx_intrinsic_opcode op, const struct sm6_type *type)
+static enum vkd3d_shader_opcode map_dx_binary_op(enum dx_intrinsic_opcode op,
+        const struct sm6_type *type, uint32_t *type_flags)
 {
+    *type_flags = 0;
+
     switch (op)
     {
         case DX_FMAX:
@@ -4984,6 +4987,7 @@ static enum vkd3d_shader_opcode map_dx_binary_op(enum dx_intrinsic_opcode op, co
         case DX_FMIN:
             return type->u.width == 64 ? VSIR_OP_DMIN : VSIR_OP_MIN;
         case DX_IMAX:
+            *type_flags |= DXIL_TYPE_SIGNED;
             return VSIR_OP_IMAX;
         case DX_IMIN:
             return VSIR_OP_IMIN;
@@ -5005,14 +5009,15 @@ static void sm6_parser_emit_dx_binary(struct sm6_parser *sm6, enum dx_intrinsic_
 {
     struct vkd3d_shader_instruction *ins = state->ins;
     struct vkd3d_shader_src_param *src_params;
+    uint32_t type_flags;
 
-    vsir_instruction_init(ins, &sm6->p.location, map_dx_binary_op(op, operands[0]->type));
+    vsir_instruction_init(ins, &sm6->p.location, map_dx_binary_op(op, operands[0]->type, &type_flags));
     if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
         return;
-    src_param_init_from_value(&src_params[0], operands[0], 0, sm6);
-    src_param_init_from_value(&src_params[1], operands[1], 0, sm6);
+    src_param_init_from_value(&src_params[0], operands[0], type_flags, sm6);
+    src_param_init_from_value(&src_params[1], operands[1], type_flags, sm6);
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    instruction_dst_param_init_ssa_scalar(ins, type_flags, sm6);
 }
 
 static enum vkd3d_shader_opcode map_dx_atomic_binop(const struct sm6_value *operand, struct sm6_parser *sm6)
