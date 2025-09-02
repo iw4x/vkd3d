@@ -4295,7 +4295,7 @@ static uint32_t spirv_compiler_get_descriptor_index(struct spirv_compiler *compi
         struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
         uint32_t type_id, ptr_type_id, ptr_id, offset_id, index_ids[2];
 
-        type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+        type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
         if (!(offset_id = compiler->descriptor_offset_ids[push_constant_index]))
         {
             index_ids[0] = compiler->descriptor_offsets_member_id;
