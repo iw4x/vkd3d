@@ -4627,6 +4627,7 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_reco
     struct vkd3d_shader_src_param *src_params;
     enum vkd3d_shader_opcode handler_idx;
     const struct sm6_value *a, *b;
+    uint32_t type_flags = 0;
     uint64_t code, flags;
     bool silence_warning;
     unsigned int i = 0;
@@ -4668,6 +4669,8 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_reco
             silence_warning = !(flags & ~(OB_NO_UNSIGNED_WRAP | OB_NO_SIGNED_WRAP));
             break;
         case VSIR_OP_ISHR:
+            type_flags |= DXIL_TYPE_SIGNED;
+            /* fall through */
         case VSIR_OP_USHR:
         case VSIR_OP_IDIV:
         case VSIR_OP_UDIV_SIMPLE:
@@ -4692,8 +4695,8 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_reco
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
         return;
-    src_param_init_from_value(&src_params[0], a, 0, sm6);
-    src_param_init_from_value(&src_params[1], b, 0, sm6);
+    src_param_init_from_value(&src_params[0], a, type_flags, sm6);
+    src_param_init_from_value(&src_params[1], b, type_flags, sm6);
     if (code == BINOP_SUB)
         src_params[1].modifiers = VKD3DSPSM_NEG;
 
@@ -4706,7 +4709,7 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_reco
          * do. */
         ins->flags |= VKD3DSI_SHIFT_UNMASKED;
     }
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    instruction_dst_param_init_ssa_scalar(ins, type_flags, sm6);
 }
 
 static const struct sm6_block *sm6_function_get_block(const struct sm6_function *function, uint64_t index,

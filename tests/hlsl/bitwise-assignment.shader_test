@@ -36,7 +36,7 @@ float4 main() : SV_TARGET
 [test]
 uniform 0 uint4 1 0 0 0
 draw quad
-todo(msl & sm>=6) probe (0, 0) f32(2, -6, 2, -6)
+probe (0, 0) f32(2, -6, 2, -6)
 
 [pixel shader]
 uniform uint4 nonconst;

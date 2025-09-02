@@ -11428,19 +11428,20 @@ static void vsir_validate_cast_operation(struct validation_context *ctx,
 }
 
 static void vsir_validate_shift_operation(struct validation_context *ctx,
-        const struct vkd3d_shader_instruction *instruction)
+        const struct vkd3d_shader_instruction *instruction, const bool types[VSIR_DATA_TYPE_COUNT])
 {
     enum vsir_data_type dst_data_type, src_data_type;
 
-    static const bool types[] =
+    static const bool shift_types[] =
     {
         [VSIR_DATA_I32] = true,
+        [VSIR_DATA_I64] = true,
         [VSIR_DATA_U32] = true,
         [VSIR_DATA_U64] = true,
     };
 
     dst_data_type = instruction->dst[0].reg.data_type;
-    if ((size_t)dst_data_type >= ARRAY_SIZE(types) || !types[dst_data_type])
+    if ((size_t)dst_data_type >= VSIR_DATA_TYPE_COUNT || !types[dst_data_type])
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
                 "Invalid destination data type \"%s\" (%#x) for shift operation \"%s\" (%#x).",
                 vsir_data_type_get_name(dst_data_type, "<unknown>"), dst_data_type,
@@ -11455,7 +11456,7 @@ static void vsir_validate_shift_operation(struct validation_context *ctx,
                 vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
 
     src_data_type = instruction->src[1].reg.data_type;
-    if ((size_t)src_data_type >= ARRAY_SIZE(types) || !types[src_data_type])
+    if ((size_t)src_data_type >= ARRAY_SIZE(shift_types) || !shift_types[src_data_type])
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
                 "Invalid source operand 1 data type \"%s\" (%#x) for shift operation \"%s\" (%#x).",
                 vsir_data_type_get_name(src_data_type, "<unknown>"), src_data_type,
@@ -12020,6 +12021,32 @@ static void vsir_validate_ifc(struct validation_context *ctx, const struct vkd3d
     vsir_validator_push_block(ctx, VSIR_OP_IF);
 }
 
+static void vsir_validate_ishl(struct validation_context *ctx,
+        const struct vkd3d_shader_instruction *instruction)
+{
+    static const bool types[VSIR_DATA_TYPE_COUNT] =
+    {
+        [VSIR_DATA_I32] = true,
+        [VSIR_DATA_I64] = true,
+        [VSIR_DATA_U32] = true,
+        [VSIR_DATA_U64] = true,
+    };
+
+    vsir_validate_shift_operation(ctx, instruction, types);
+}
+
+static void vsir_validate_ishr(struct validation_context *ctx,
+        const struct vkd3d_shader_instruction *instruction)
+{
+    static const bool types[VSIR_DATA_TYPE_COUNT] =
+    {
+        [VSIR_DATA_I32] = true,
+        [VSIR_DATA_I64] = true,
+    };
+
+    vsir_validate_shift_operation(ctx, instruction, types);
+}
+
 static void vsir_validate_itof(struct validation_context *ctx, const struct vkd3d_shader_instruction *instruction)
 {
     static const bool src_types[VSIR_DATA_TYPE_COUNT] =
@@ -12339,8 +12366,8 @@ static const struct vsir_validator_instruction_desc vsir_validator_instructions[
     [VSIR_OP_INEG] =                             {1,   1, vsir_validate_integer_elementwise_operation},
     [VSIR_OP_IREM] =                             {1,   2, vsir_validate_integer_elementwise_operation},
     [VSIR_OP_ISFINITE] =                         {1,   1, vsir_validate_float_comparison_operation},
-    [VSIR_OP_ISHL] =                             {1,   2, vsir_validate_shift_operation},
-    [VSIR_OP_ISHR] =                             {1,   2, vsir_validate_shift_operation},
+    [VSIR_OP_ISHL] =                             {1,   2, vsir_validate_ishl},
+    [VSIR_OP_ISHR] =                             {1,   2, vsir_validate_ishr},
     [VSIR_OP_ISINF] =                            {1,   1, vsir_validate_float_comparison_operation},
     [VSIR_OP_ISNAN] =                            {1,   1, vsir_validate_float_comparison_operation},
     [VSIR_OP_ITOF] =                             {1,   1, vsir_validate_itof},
