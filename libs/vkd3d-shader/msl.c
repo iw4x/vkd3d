@@ -1414,6 +1414,12 @@ static void msl_ret(struct msl_generator *gen, const struct vkd3d_shader_instruc
 static void msl_dcl_indexable_temp(struct msl_generator *gen, const struct vkd3d_shader_instruction *ins)
 {
     const char *type = ins->declaration.indexable_temp.component_count == 4 ? "vkd3d_vec4" : "vkd3d_scalar";
+
+    if (ins->declaration.indexable_temp.initialiser)
+        msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
+                "Internal compiler error: Unhandled initialiser for indexable temporary %u.",
+                ins->declaration.indexable_temp.register_idx);
+
     msl_print_indent(gen->buffer, gen->indent);
     vkd3d_string_buffer_printf(gen->buffer, "%s x%u[%u];\n", type,
             ins->declaration.indexable_temp.register_idx,
