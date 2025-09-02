@@ -4524,7 +4524,8 @@ static uint32_t spirv_compiler_emit_bool_to_int64(struct spirv_compiler *compile
     true_id = spirv_compiler_get_constant_uint64_vector(compiler, signedness ? UINT64_MAX : 1,
             component_count);
     false_id = spirv_compiler_get_constant_uint64_vector(compiler, 0, component_count);
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT64, component_count);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_U64, component_count);
+
     return vkd3d_spirv_build_op_select(builder, type_id, val_id, true_id, false_id);
 }
 
