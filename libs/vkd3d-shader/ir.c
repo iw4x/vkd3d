@@ -11299,6 +11299,7 @@ static void vsir_validate_integer_elementwise_operation(struct validation_contex
     static const bool types[VSIR_DATA_TYPE_COUNT] =
     {
         [VSIR_DATA_I32] = true,
+        [VSIR_DATA_I64] = true,
         [VSIR_DATA_U32] = true,
         [VSIR_DATA_U64] = true,
     };
@@ -11394,6 +11395,18 @@ static void vsir_validate_integer_comparison_operation(struct validation_context
         [VSIR_DATA_I32] = true,
         [VSIR_DATA_U32] = true,
         [VSIR_DATA_U64] = true,
+    };
+
+    vsir_validate_comparison_operation(ctx, instruction, types);
+}
+
+static void vsir_validate_signed_integer_comparison_operation(struct validation_context *ctx,
+        const struct vkd3d_shader_instruction *instruction)
+{
+    static const bool types[VSIR_DATA_TYPE_COUNT] =
+    {
+        [VSIR_DATA_I32] = true,
+        [VSIR_DATA_I64] = true,
     };
 
     vsir_validate_comparison_operation(ctx, instruction, types);
@@ -12369,8 +12382,8 @@ static const struct vsir_validator_instruction_desc vsir_validator_instructions[
     [VSIR_OP_IEQ] =                              {1,   2, vsir_validate_integer_comparison_operation},
     [VSIR_OP_IF] =                               {0,   1, vsir_validate_if},
     [VSIR_OP_IFC] =                              {0,   2, vsir_validate_ifc},
-    [VSIR_OP_IGE] =                              {1,   2, vsir_validate_integer_comparison_operation},
-    [VSIR_OP_ILT] =                              {1,   2, vsir_validate_integer_comparison_operation},
+    [VSIR_OP_IGE] =                              {1,   2, vsir_validate_signed_integer_comparison_operation},
+    [VSIR_OP_ILT] =                              {1,   2, vsir_validate_signed_integer_comparison_operation},
     [VSIR_OP_IMAD] =                             {1,   3, vsir_validate_integer_elementwise_operation},
     [VSIR_OP_IMAX] =                             {1,   2, vsir_validate_integer_elementwise_operation},
     [VSIR_OP_IMIN] =                             {1,   2, vsir_validate_integer_elementwise_operation},

@@ -7143,6 +7143,7 @@ struct sm6_cmp_info
 {
     enum vkd3d_shader_opcode handler_idx;
     bool src_swap;
+    uint32_t type_flags;
 };
 
 static const struct sm6_cmp_info *sm6_map_cmp2_op(uint64_t code)
@@ -7172,10 +7173,10 @@ static const struct sm6_cmp_info *sm6_map_cmp2_op(uint64_t code)
         [ICMP_UGE]   = {VSIR_OP_UGE},
         [ICMP_ULT]   = {VSIR_OP_ULT},
         [ICMP_ULE]   = {VSIR_OP_UGE, true},
-        [ICMP_SGT]   = {VSIR_OP_ILT, true},
-        [ICMP_SGE]   = {VSIR_OP_IGE},
-        [ICMP_SLT]   = {VSIR_OP_ILT},
-        [ICMP_SLE]   = {VSIR_OP_IGE, true},
+        [ICMP_SGT]   = {VSIR_OP_ILT, true,  DXIL_TYPE_SIGNED},
+        [ICMP_SGE]   = {VSIR_OP_IGE, false, DXIL_TYPE_SIGNED},
+        [ICMP_SLT]   = {VSIR_OP_ILT, false, DXIL_TYPE_SIGNED},
+        [ICMP_SLE]   = {VSIR_OP_IGE, true,  DXIL_TYPE_SIGNED},
     };
 
     return (code < ARRAY_SIZE(cmp_op_table)) ? &cmp_op_table[code] : NULL;
@@ -7276,8 +7277,8 @@ static void sm6_parser_emit_cmp2(struct sm6_parser *sm6, const struct dxil_recor
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
         return;
-    src_param_init_from_value(&src_params[0 ^ cmp->src_swap], a, 0, sm6);
-    src_param_init_from_value(&src_params[1 ^ cmp->src_swap], b, 0, sm6);
+    src_param_init_from_value(&src_params[0 ^ cmp->src_swap], a, cmp->type_flags, sm6);
+    src_param_init_from_value(&src_params[1 ^ cmp->src_swap], b, cmp->type_flags, sm6);
 
     instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
 }
