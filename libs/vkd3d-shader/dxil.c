@@ -3698,6 +3698,14 @@ static void sm6_parser_declare_indexable_temp(struct sm6_parser *sm6, const stru
 {
     enum vsir_data_type data_type = vsir_data_type_from_dxil(elem_type, sm6);
 
+    if (!(sm6->program->global_flags & VKD3DSGF_FORCE_NATIVE_LOW_PRECISION))
+    {
+        if (data_type == VSIR_DATA_F16)
+            data_type = VSIR_DATA_F32;
+        else if (data_type == VSIR_DATA_U16)
+            data_type = VSIR_DATA_U32;
+    }
+
     if (ins)
         vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_DCL_INDEXABLE_TEMP);
     else
