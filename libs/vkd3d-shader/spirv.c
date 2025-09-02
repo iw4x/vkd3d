@@ -4493,8 +4493,9 @@ static uint32_t spirv_compiler_emit_int_to_bool(struct spirv_compiler *compiler,
 
     VKD3D_ASSERT(!(condition & ~(VKD3D_SHADER_CONDITIONAL_OP_NZ | VKD3D_SHADER_CONDITIONAL_OP_Z)));
 
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_BOOL, component_count);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_BOOL, component_count);
     op = condition & VKD3D_SHADER_CONDITIONAL_OP_Z ? SpvOpIEqual : SpvOpINotEqual;
+
     return vkd3d_spirv_build_op_tr2(builder, &builder->function_stream, op, type_id, val_id,
             data_type == VSIR_DATA_U64
             ? spirv_compiler_get_constant_uint64_vector(compiler, 0, component_count)
