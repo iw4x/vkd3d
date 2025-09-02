@@ -167,6 +167,7 @@ static void msl_print_register_datatype(struct vkd3d_string_buffer *buffer,
         case VSIR_DATA_F32:
             vkd3d_string_buffer_printf(buffer, "f");
             break;
+        case VSIR_DATA_BOOL:
         case VSIR_DATA_I32:
             vkd3d_string_buffer_printf(buffer, "i");
             break;
@@ -799,6 +800,7 @@ static void msl_relop(struct msl_generator *gen, const struct vkd3d_shader_instr
 static void msl_cast(struct msl_generator *gen, const struct vkd3d_shader_instruction *ins, const char *constructor)
 {
     unsigned int component_count;
+    const char *negate;
     struct msl_src src;
     struct msl_dst dst;
     uint32_t mask;
@@ -806,10 +808,11 @@ static void msl_cast(struct msl_generator *gen, const struct vkd3d_shader_instru
     mask = msl_dst_init(&dst, gen, ins, &ins->dst[0]);
     msl_src_init(&src, gen, &ins->src[0], mask);
 
+    negate = ins->opcode == VSIR_OP_UTOF && data_type_is_bool(ins->src[0].reg.data_type) ? "-" : "";
     if ((component_count = vsir_write_mask_component_count(mask)) > 1)
-        msl_print_assignment(gen, &dst, "%s%u(%s)", constructor, component_count, src.str->buffer);
+        msl_print_assignment(gen, &dst, "%s%u(%s%s)", constructor, component_count, negate, src.str->buffer);
     else
-        msl_print_assignment(gen, &dst, "%s(%s)", constructor, src.str->buffer);
+        msl_print_assignment(gen, &dst, "%s(%s%s)", constructor, negate, src.str->buffer);
 
     msl_src_cleanup(&src, &gen->string_buffers);
     msl_dst_cleanup(&dst, &gen->string_buffers);
