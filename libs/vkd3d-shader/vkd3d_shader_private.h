@@ -1508,6 +1508,28 @@ static inline bool vsir_program_iterator_insert_after(struct vsir_program_iterat
     return shader_instruction_array_insert_at(it->array, it->idx + 1, count);
 }
 
+/* When insertion takes place, argument `it' is updated to point to the same
+ * instruction as before the insertion, and the optional argument `ins_it' is
+ * initialized to point to the first inserted instruction.
+ * A pointer to the first inserted instruction is returned. */
+static inline struct vkd3d_shader_instruction *vsir_program_iterator_insert_before(
+        struct vsir_program_iterator *it, struct vsir_program_iterator *ins_it, size_t count)
+{
+    VKD3D_ASSERT(it != ins_it);
+    VKD3D_ASSERT(it->idx != SIZE_MAX);
+
+    if (!shader_instruction_array_insert_at(it->array, it->idx, count))
+        return NULL;
+
+    *ins_it = *it;
+    it->idx += count;
+
+    return vsir_program_iterator_current(ins_it);
+}
+
+/* When insertion takes place, argument `it' is updated to point to the first
+ * inserted instruction. A pointer to this first inserted instruction is
+ * returned. */
 static inline struct vkd3d_shader_instruction *vsir_program_iterator_insert_before_and_move(
         struct vsir_program_iterator *it, size_t count)
 {

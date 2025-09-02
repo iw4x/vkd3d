@@ -568,23 +568,6 @@ static struct vkd3d_shader_src_param *shader_instruction_array_clone_src_params(
     return src_params;
 }
 
-/* NOTE: Immediate constant buffers are not cloned, so the source must not be destroyed while the
- * destination is in use. This seems like a reasonable requirement given how this is currently used. */
-static bool shader_instruction_array_clone_instruction(struct vkd3d_shader_instruction_array *array,
-        size_t dst, size_t src)
-{
-    struct vkd3d_shader_instruction *ins = &array->elements[dst];
-
-    *ins = array->elements[src];
-
-    if (ins->dst_count && ins->dst && !(ins->dst = shader_instruction_array_clone_dst_params(array,
-            ins->dst, ins->dst_count)))
-        return false;
-
-    return !ins->src_count || !!(ins->src = shader_instruction_array_clone_src_params(array,
-            ins->src, ins->src_count));
-}
-
 static void shader_instruction_array_destroy(struct vkd3d_shader_instruction_array *array)
 {
     unsigned int i;
@@ -1099,6 +1082,23 @@ static void vkd3d_shader_instruction_make_nop(struct vkd3d_shader_instruction *i
     struct vkd3d_shader_location location = ins->location;
 
     vsir_instruction_init(ins, &location, VSIR_OP_NOP);
+}
+
+/* NOTE: Immediate constant buffers are not cloned, so the source must not be destroyed while the
+ * destination is in use. This seems like a reasonable requirement given how this is currently used. */
+static bool vsir_program_iterator_clone_instruction(struct vsir_program_iterator *dst_it,
+        const struct vkd3d_shader_instruction *src)
+{
+    struct vkd3d_shader_instruction *dst = vsir_program_iterator_current(dst_it);
+
+    *dst = *src;
+
+    if (dst->dst_count && !(dst->dst = shader_instruction_array_clone_dst_params(dst_it->array,
+            dst->dst, dst->dst_count)))
+        return false;
+
+    return !dst->src_count || !!(dst->src = shader_instruction_array_clone_src_params(dst_it->array,
+            dst->src, dst->src_count));
 }
 
 static bool get_opcode_from_rel_op(enum vkd3d_shader_rel_op rel_op,
@@ -2573,50 +2573,60 @@ static enum vkd3d_result flattener_flatten_phases(struct hull_flattener *normali
         struct shader_phase_location_array *locations)
 {
     struct vkd3d_shader_instruction_array *instructions = &normaliser->program->instructions;
+    struct vsir_program_iterator it = vsir_program_iterator(instructions);
+    unsigned int i, j, k, loc_i, count, added_count;
+    struct vkd3d_shader_instruction *ins;
     struct shader_phase_location *loc;
-    unsigned int i, j, k, end, count;
 
-    for (i = 0, count = 0; i < locations->count; ++i)
-        count += (locations->locations[i].instance_count - 1) * locations->locations[i].instruction_count;
-
-    if (!shader_instruction_array_reserve(instructions, instructions->count + count))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-    end = instructions->count;
-    instructions->count += count;
-
-    for (i = locations->count; i > 0; --i)
+    loc_i = 0;
+    added_count = 0;
+    for (ins = vsir_program_iterator_head(&it), i = 0; ins; ins = vsir_program_iterator_next(&it), ++i)
     {
-        loc = &locations->locations[i - 1];
-        j = loc->index + loc->instruction_count;
-        memmove(&instructions->elements[j + count], &instructions->elements[j],
-                (end - j) * sizeof(*instructions->elements));
-        end = j;
-        count -= (loc->instance_count - 1) * loc->instruction_count;
-        loc->index += count;
-    }
+        if (loc_i >= locations->count)
+            break;
+        loc = &locations->locations[loc_i];
 
-    for (i = 0, count = 0; i < locations->count; ++i)
-    {
-        loc = &locations->locations[i];
-        /* Make a copy of the non-dcl instructions for each instance. */
-        for (j = 1; j < loc->instance_count; ++j)
+        if (i == loc->index + added_count)
         {
-            for (k = 0; k < loc->instruction_count; ++k)
+            struct vsir_program_iterator dst_it, src_it, first_it;
+
+            count = (loc->instance_count - 1) * loc->instruction_count;
+            if (!vsir_program_iterator_insert_before(&it, &first_it, count))
+                return VKD3D_ERROR_OUT_OF_MEMORY;
+            added_count += count;
+
+            /* Make a copy of the non-dcl instructions for each instance. */
+            dst_it = first_it;
+            for (j = 1; j < loc->instance_count; ++j)
             {
-                if (!shader_instruction_array_clone_instruction(instructions,
-                        loc->index + loc->instruction_count * j + k, loc->index + k))
-                    return VKD3D_ERROR_OUT_OF_MEMORY;
-            }
-        }
-        /* Replace each reference to the instance id with a constant instance id. */
-        for (j = 0; j < loc->instance_count; ++j)
-        {
-            if (j != 0)
-                memset(normaliser->ssa_map, 0xff, normaliser->orig_ssa_count * sizeof(*normaliser->ssa_map));
+                src_it = it;
+                for (k = 0; k < loc->instruction_count; ++k)
+                {
+                    if (!vsir_program_iterator_clone_instruction(&dst_it, vsir_program_iterator_current(&src_it)))
+                        return VKD3D_ERROR_OUT_OF_MEMORY;
 
-            for (k = 0; k < loc->instruction_count; ++k)
-                flattener_fixup_registers(normaliser,
-                        &instructions->elements[loc->index + loc->instruction_count * j + k], j);
+                    vsir_program_iterator_next(&dst_it);
+                    vsir_program_iterator_next(&src_it);
+                }
+            }
+            /* Replace each reference to the instance id with a constant instance id. */
+            it = first_it;
+            for (j = 0; j < loc->instance_count; ++j)
+            {
+                if (j != 0)
+                    memset(normaliser->ssa_map, 0xff, normaliser->orig_ssa_count * sizeof(*normaliser->ssa_map));
+
+                for (k = 0; k < loc->instruction_count; ++k)
+                {
+                    ins = vsir_program_iterator_current(&it);
+                    flattener_fixup_registers(normaliser, ins, j);
+                    vsir_program_iterator_next(&it);
+                    ++i;
+                }
+            }
+
+            loc->index += added_count - (loc->instance_count - 1) * loc->instruction_count;
+            ++loc_i;
         }
     }
 
