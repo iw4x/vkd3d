@@ -957,6 +957,22 @@ static void shader_print_reg_type(struct vkd3d_d3d_asm_compiler *compiler,
     vkd3d_string_buffer_printf(buffer, ">%s", suffix);
 }
 
+static void shader_print_indexable_temp_data_type(struct vkd3d_d3d_asm_compiler *compiler,
+        const struct vkd3d_shader_indexable_temp *t)
+{
+    struct vkd3d_string_buffer *buffer = &compiler->buffer;
+
+    if (!(compiler->flags & VSIR_ASM_FLAG_DUMP_TYPES))
+        return;
+
+    if (t->component_count > 1)
+        vkd3d_string_buffer_printf(buffer, " <v%u:", t->component_count);
+    else
+        vkd3d_string_buffer_printf(buffer, " <s:");
+    shader_print_data_type(compiler, t->data_type);
+    vkd3d_string_buffer_printf(buffer, ">");
+}
+
 static void shader_print_write_mask(struct vkd3d_d3d_asm_compiler *compiler,
         const char *prefix, uint32_t mask, const char *suffix)
 {
@@ -1511,6 +1527,7 @@ static void shader_dump_instruction(struct vkd3d_d3d_asm_compiler *compiler,
             vkd3d_string_buffer_printf(buffer, " %sx%u%s", compiler->colours.reg,
                     ins->declaration.indexable_temp.register_idx, compiler->colours.reset);
             shader_print_subscript(compiler, ins->declaration.indexable_temp.register_size, NULL);
+            shader_print_indexable_temp_data_type(compiler, &ins->declaration.indexable_temp);
             shader_print_uint_literal(compiler, ", ", ins->declaration.indexable_temp.component_count, "");
             if (ins->declaration.indexable_temp.alignment)
                 shader_print_uint_literal(compiler, ", align ", ins->declaration.indexable_temp.alignment, "");
