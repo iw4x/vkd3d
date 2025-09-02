@@ -4145,10 +4145,11 @@ static uint32_t spirv_compiler_emit_register_addressing(struct spirv_compiler *c
     addr_id = spirv_compiler_emit_load_src(compiler, reg_index->rel_addr, VKD3DSP_WRITEMASK_0);
     if (reg_index->offset)
     {
-        type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
-        addr_id = vkd3d_spirv_build_op_iadd(builder, type_id,
-                addr_id, spirv_compiler_get_constant_uint(compiler, reg_index->offset));
+        type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
+        addr_id = vkd3d_spirv_build_op_iadd(builder, type_id, addr_id,
+                spirv_compiler_get_constant_uint(compiler, reg_index->offset));
     }
+
     return addr_id;
 }
 
