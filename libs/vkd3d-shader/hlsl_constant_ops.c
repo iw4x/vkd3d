@@ -508,6 +508,19 @@ static bool fold_rcp(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst, cons
     return true;
 }
 
+static bool fold_reinterpret(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
+        const struct hlsl_type *dst_type, const struct hlsl_ir_constant *src)
+{
+    unsigned int k;
+
+    for (k = 0; k < dst_type->e.numeric.dimx; ++k)
+    {
+        dst->u[k] = src->value.u[k];
+    }
+
+    return true;
+}
+
 static bool fold_rsq(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst, const struct hlsl_type *dst_type,
         const struct hlsl_ir_constant *src, const struct vkd3d_shader_location *loc)
 {
@@ -1391,6 +1404,10 @@ bool hlsl_fold_constant_exprs(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
 
         case HLSL_OP1_RCP:
             success = fold_rcp(ctx, &res, instr->data_type, arg1, &instr->loc);
+            break;
+
+        case HLSL_OP1_REINTERPRET:
+            success = fold_reinterpret(ctx, &res, instr->data_type, arg1);
             break;
 
         case HLSL_OP1_RSQ:

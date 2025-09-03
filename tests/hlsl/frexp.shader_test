@@ -55,7 +55,7 @@ uniform 0 uint4 0x0007ffff 0 0 0
 todo(sm<4 | msl & sm>=6) draw quad
 probe (0, 0) f32(0, 0, 0, 0)
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 float4 main() : sv_target
 {
     int arg = 7604;
@@ -66,10 +66,10 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<4) draw quad
+draw quad
 probe (0, 0) f32(13.0, 0.0, 0.0, 0.0)
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 float4 main() : sv_target
 {
     bool arg = true;
@@ -80,11 +80,11 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<4) draw quad
-if(sm<4)  probe (0, 0) f32(0.0, 1.0, 0.0, 0.0)
+draw quad
+if(sm<4)  todo probe (0, 0) f32(0.0, 1.0, 0.0, 0.0)
 if(sm>=4) probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 float4 main() : sv_target
 {
     half arg = 3.141;
@@ -95,7 +95,7 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<4) draw quad
+draw quad
 probe (0, 0) f32(2.0, 0.785250008, 0.0, 0.0)
 
 [require]
