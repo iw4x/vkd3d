@@ -544,6 +544,36 @@ static bool fold_sat(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst, cons
     return true;
 }
 
+static bool fold_sin(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
+        const struct hlsl_type *dst_type, const struct hlsl_ir_constant *src)
+{
+    enum hlsl_base_type type = dst_type->e.numeric.type;
+    unsigned int k;
+
+    VKD3D_ASSERT(type == src->node.data_type->e.numeric.type);
+
+    for (k = 0; k < dst_type->e.numeric.dimx; ++k)
+    {
+        switch (type)
+        {
+            case HLSL_TYPE_FLOAT:
+            case HLSL_TYPE_HALF:
+                dst->u[k].f = sinf(src->value.u[k].f);
+                break;
+
+            case HLSL_TYPE_DOUBLE:
+                dst->u[k].d = sin(src->value.u[k].d);
+                break;
+
+            default:
+                FIXME("Fold 'sin' for type %s.\n", debug_hlsl_type(ctx, dst_type));
+                return false;
+        }
+    }
+
+    return true;
+}
+
 static bool fold_sqrt(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst, const struct hlsl_type *dst_type,
         const struct hlsl_ir_constant *src, const struct vkd3d_shader_location *loc)
 {
@@ -1335,6 +1365,10 @@ bool hlsl_fold_constant_exprs(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
 
         case HLSL_OP1_SAT:
             success = fold_sat(ctx, &res, instr->data_type, arg1);
+            break;
+
+        case HLSL_OP1_SIN:
+            success = fold_sin(ctx, &res, instr->data_type, arg1);
             break;
 
         case HLSL_OP1_SQRT:
