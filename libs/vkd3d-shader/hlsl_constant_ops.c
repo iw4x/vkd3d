@@ -250,6 +250,36 @@ static bool fold_ceil(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
     return true;
 }
 
+static bool fold_cos(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
+        const struct hlsl_type *dst_type, const struct hlsl_ir_constant *src)
+{
+    enum hlsl_base_type type = dst_type->e.numeric.type;
+    unsigned int k;
+
+    VKD3D_ASSERT(type == src->node.data_type->e.numeric.type);
+
+    for (k = 0; k < dst_type->e.numeric.dimx; ++k)
+    {
+        switch (type)
+        {
+            case HLSL_TYPE_FLOAT:
+            case HLSL_TYPE_HALF:
+                dst->u[k].f = cosf(src->value.u[k].f);
+                break;
+
+            case HLSL_TYPE_DOUBLE:
+                dst->u[k].d = cos(src->value.u[k].d);
+                break;
+
+            default:
+                FIXME("Fold 'cos' for type %s.\n", debug_hlsl_type(ctx, dst_type));
+                return false;
+        }
+    }
+
+    return true;
+}
+
 static bool fold_exp2(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
         const struct hlsl_type *dst_type, const struct hlsl_ir_constant *src)
 {
@@ -1329,6 +1359,10 @@ bool hlsl_fold_constant_exprs(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
 
         case HLSL_OP1_CEIL:
             success = fold_ceil(ctx, &res, instr->data_type, arg1);
+            break;
+
+        case HLSL_OP1_COS:
+            success = fold_cos(ctx, &res, instr->data_type, arg1);
             break;
 
         case HLSL_OP1_EXP2:
