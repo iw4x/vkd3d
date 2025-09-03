@@ -974,6 +974,44 @@ static bool fold_lshift(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst, c
     return true;
 }
 
+static bool fold_mad(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst, const struct hlsl_type *dst_type,
+        const struct hlsl_ir_constant *src1, const struct hlsl_ir_constant *src2, const struct hlsl_ir_constant *src3)
+{
+    enum hlsl_base_type type = dst_type->e.numeric.type;
+    unsigned int k;
+
+    VKD3D_ASSERT(type == src1->node.data_type->e.numeric.type);
+    VKD3D_ASSERT(type == src2->node.data_type->e.numeric.type);
+    VKD3D_ASSERT(type == src3->node.data_type->e.numeric.type);
+
+    for (k = 0; k < dst_type->e.numeric.dimx; ++k)
+    {
+        switch (type)
+        {
+            case HLSL_TYPE_FLOAT:
+            case HLSL_TYPE_HALF:
+                dst->u[k].f = fmaf(src1->value.u[k].f, src2->value.u[k].f, src3->value.u[k].f);
+                break;
+
+            case HLSL_TYPE_DOUBLE:
+                dst->u[k].d = fma(src1->value.u[k].d, src2->value.u[k].d, src3->value.u[k].d);
+                break;
+
+            case HLSL_TYPE_INT:
+            case HLSL_TYPE_MIN16UINT:
+            case HLSL_TYPE_UINT:
+                dst->u[k].u = src1->value.u[k].u * src2->value.u[k].u + src3->value.u[k].u;
+                break;
+
+            default:
+                FIXME("Fold 'mad' for type %s.\n", debug_hlsl_type(ctx, dst_type));
+                return false;
+        }
+    }
+
+    return true;
+}
+
 static bool fold_max(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst, const struct hlsl_type *dst_type,
         const struct hlsl_ir_constant *src1, const struct hlsl_ir_constant *src2)
 {
@@ -1371,6 +1409,10 @@ bool hlsl_fold_constant_exprs(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
 
         case HLSL_OP3_DP2ADD:
             success = fold_dp2add(ctx, &res, instr->data_type, arg1, arg2, arg3);
+            break;
+
+        case HLSL_OP3_MAD:
+            success = fold_mad(ctx, &res, instr->data_type, arg1, arg2, arg3);
             break;
 
         case HLSL_OP3_TERNARY:
