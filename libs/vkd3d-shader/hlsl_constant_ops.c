@@ -521,6 +521,35 @@ static bool fold_reinterpret(struct hlsl_ctx *ctx, struct hlsl_constant_value *d
     return true;
 }
 
+static bool fold_round(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
+        const struct hlsl_type *dst_type, const struct hlsl_ir_constant *src)
+{
+    enum hlsl_base_type type = dst_type->e.numeric.type;
+    unsigned int k;
+
+    VKD3D_ASSERT(type == src->node.data_type->e.numeric.type);
+
+    for (k = 0; k < dst_type->e.numeric.dimx; ++k)
+    {
+        switch (type)
+        {
+            case HLSL_TYPE_FLOAT:
+            case HLSL_TYPE_HALF:
+                /* Somewhat unfortunately, constant folded round() rounds
+                 * halfway cases towards positive infinity, as opposed to
+                 * nearest even like vsir/TPF round_ne. */
+                dst->u[k].f = floorf(src->value.u[k].f + 0.5f);
+                break;
+
+            default:
+                FIXME("Fold 'round' for type %s.\n", debug_hlsl_type(ctx, dst_type));
+                return false;
+        }
+    }
+
+    return true;
+}
+
 static bool fold_rsq(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst, const struct hlsl_type *dst_type,
         const struct hlsl_ir_constant *src, const struct vkd3d_shader_location *loc)
 {
@@ -1408,6 +1437,10 @@ bool hlsl_fold_constant_exprs(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
 
         case HLSL_OP1_REINTERPRET:
             success = fold_reinterpret(ctx, &res, instr->data_type, arg1);
+            break;
+
+        case HLSL_OP1_ROUND:
+            success = fold_round(ctx, &res, instr->data_type, arg1);
             break;
 
         case HLSL_OP1_RSQ:
