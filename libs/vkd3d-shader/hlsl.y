@@ -614,10 +614,6 @@ static struct hlsl_default_value evaluate_static_expression(struct hlsl_ctx *ctx
         if (!(ret.string = vkd3d_strdup(string->string)))
             return ret;
     }
-    else if (node->type == HLSL_IR_STRING_CONSTANT)
-    {
-        hlsl_fixme(ctx, &node->loc, "Evaluate string constants as static expressions.");
-    }
     else
     {
         hlsl_error(ctx, &node->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
