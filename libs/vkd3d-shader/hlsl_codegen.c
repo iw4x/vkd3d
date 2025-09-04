@@ -9031,6 +9031,7 @@ static void vsir_src_from_hlsl_constant_value(struct vkd3d_shader_src_param *src
     }
 
     src->reg.dimension = VSIR_DIMENSION_VEC4;
+    src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
     for (i = 0, j = 0; i < 4; ++i)
     {
         if ((map_writemask & (1u << i)) && (j < width))

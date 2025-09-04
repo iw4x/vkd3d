@@ -1305,6 +1305,7 @@ static enum vkd3d_result vsir_program_lower_texkill(struct vsir_program *program
     ins->src[1].reg.u.immconst_f32[1] = 0.0f;
     ins->src[1].reg.u.immconst_f32[2] = 0.0f;
     ins->src[1].reg.u.immconst_f32[3] = 0.0f;
+    ins->src[1].swizzle = VKD3D_SHADER_NO_SWIZZLE;
 
     /* tmp.x = tmp.x || tmp.y */
     /* tmp.x = tmp.x || tmp.z */
@@ -2306,6 +2307,7 @@ static enum vkd3d_result vsir_program_ensure_diffuse(struct vsir_program *progra
     ins->dst[0].write_mask = VKD3DSP_WRITEMASK_ALL & ~program->diffuse_written_mask;
     vsir_src_param_init(&ins->src[0], VKD3DSPR_IMMCONST, VSIR_DATA_F32, 0);
     ins->src[0].reg.dimension = VSIR_DIMENSION_VEC4;
+    ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
     for (i = 0; i < 4; ++i)
         ins->src[0].reg.u.immconst_f32[i] = 1.0f;
     return VKD3D_OK;
@@ -2527,6 +2529,7 @@ static enum vkd3d_result vsir_program_remap_output_signature(struct vsir_program
             dst_param_init_output(&ins->dst[0], VSIR_DATA_F32, e->register_index, e->mask);
             vsir_src_param_init(&ins->src[0], VKD3DSPR_IMMCONST, VSIR_DATA_F32, 0);
             ins->src[0].reg.dimension = VSIR_DIMENSION_VEC4;
+            ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
             ins = vsir_program_iterator_next(&it);
         }
     }
@@ -3669,6 +3672,7 @@ static void shader_register_normalise_flat_constants(struct vkd3d_shader_src_par
 {
     enum vkd3d_shader_d3dbc_constant_register set;
     struct vkd3d_shader_src_param *rel_addr;
+    unsigned int c;
     uint32_t index;
     size_t i, j;
 
@@ -3683,7 +3687,11 @@ static void shader_register_normalise_flat_constants(struct vkd3d_shader_src_par
             param->reg.idx_count = 0;
             param->reg.dimension = VSIR_DIMENSION_VEC4;
             for (j = 0; j < 4; ++j)
-                param->reg.u.immconst_u32[j] = normaliser->defs[i].value[j];
+            {
+                c = vsir_swizzle_get_component(param->swizzle, j);
+                param->reg.u.immconst_u32[j] = normaliser->defs[i].value[c];
+            }
+            param->swizzle = VKD3D_SHADER_NO_SWIZZLE;
             return;
         }
     }
@@ -7932,6 +7940,7 @@ static enum vkd3d_result vsir_program_insert_point_coord(struct vsir_program *pr
         ins->dst[0].write_mask = VKD3DSP_WRITEMASK_2 | VKD3DSP_WRITEMASK_3;
         vsir_src_param_init(&ins->src[0], VKD3DSPR_IMMCONST, VSIR_DATA_F32, 0);
         ins->src[0].reg.dimension = VSIR_DIMENSION_VEC4;
+        ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
         vsir_program_iterator_next(&it);
 
         program->has_point_coord = true;
@@ -10580,6 +10589,16 @@ static void vsir_validate_src_param(struct validation_context *ctx,
     if (src->reg.dimension != VSIR_DIMENSION_VEC4 && src->swizzle != 0)
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_SWIZZLE, "Source of dimension %u has invalid swizzle %#x.",
                 src->reg.dimension, src->swizzle);
+
+    if (src->reg.dimension == VSIR_DIMENSION_VEC4 && src->reg.type == VKD3DSPR_IMMCONST
+            && src->swizzle != VKD3D_SHADER_NO_SWIZZLE)
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_SWIZZLE,
+                "Immediate constant source has invalid swizzle %#x.", src->swizzle);
+
+    if (src->reg.dimension == VSIR_DIMENSION_VEC4 && src->reg.type == VKD3DSPR_IMMCONST64
+            && src->swizzle != VKD3D_SHADER_SWIZZLE(X, Y, X, X))
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_SWIZZLE,
+                "Immediate constant source has invalid swizzle %#x.", src->swizzle);
 
     if (src->modifiers >= VKD3DSPSM_COUNT)
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_MODIFIERS, "Source has invalid modifiers %#x.",

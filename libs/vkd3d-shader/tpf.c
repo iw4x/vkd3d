@@ -3483,7 +3483,9 @@ static uint32_t sm4_encode_register(const struct tpf_compiler *tpf, const struct
         switch (sm4_swizzle_type)
         {
             case VKD3D_SM4_SWIZZLE_NONE:
-                VKD3D_ASSERT(sm4_swizzle || register_is_constant(reg));
+                if (register_is_constant(reg))
+                    break;
+                VKD3D_ASSERT(sm4_swizzle);
                 token |= (sm4_swizzle << VKD3D_SM4_WRITEMASK_SHIFT) & VKD3D_SM4_WRITEMASK_MASK;
                 break;
 
