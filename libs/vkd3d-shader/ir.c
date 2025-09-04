@@ -8823,98 +8823,17 @@ struct temp_allocator
     struct vkd3d_shader_message_context *message_context;
     struct temp_allocator_reg
     {
+        struct liveness_tracker_reg *liveness_reg;
         uint8_t allocated_mask;
         uint32_t temp_id;
+        enum vkd3d_shader_register_type type;
+        unsigned int idx;
     } *ssa_regs, *temp_regs;
     size_t ssa_count, temp_count;
-    size_t allocated_ssa_count, allocated_temp_count;
     unsigned int new_temp_count;
     enum vkd3d_result result;
+    uint8_t *current_allocation;
 };
-
-static uint8_t get_available_writemask(const struct temp_allocator *allocator,
-        const struct liveness_tracker *tracker, unsigned int first_write, unsigned int last_access, uint32_t temp_id)
-{
-    uint8_t writemask = VKD3DSP_WRITEMASK_ALL;
-
-    for (size_t i = 0; i < allocator->allocated_ssa_count; ++i)
-    {
-        const struct temp_allocator_reg *reg = &allocator->ssa_regs[i];
-        const struct liveness_tracker_reg *liveness_reg = &tracker->ssa_regs[i];
-
-        /* We do not overlap if first write == last read:
-         * this is the case where we are allocating the result of that
-         * expression, e.g. "add r0, r0, r1". */
-
-        if (reg->temp_id == temp_id
-                && first_write < liveness_reg->last_access
-                && last_access > liveness_reg->first_write)
-            writemask &= ~reg->allocated_mask;
-
-        if (!writemask)
-            return writemask;
-    }
-
-    for (size_t i = 0; i < allocator->allocated_temp_count; ++i)
-    {
-        const struct temp_allocator_reg *reg = &allocator->temp_regs[i];
-        const struct liveness_tracker_reg *liveness_reg = &tracker->temp_regs[i];
-
-        if (reg->temp_id == temp_id
-                && first_write < liveness_reg->last_access
-                && last_access > liveness_reg->first_write)
-            writemask &= ~reg->allocated_mask;
-
-        if (!writemask)
-            return writemask;
-    }
-
-    return writemask;
-}
-
-static bool temp_allocator_allocate(struct temp_allocator *allocator, const struct liveness_tracker *tracker,
-        struct temp_allocator_reg *reg, const struct liveness_tracker_reg *liveness_reg)
-{
-    if (!liveness_reg->written)
-        return false;
-
-    for (uint32_t id = 0;; ++id)
-    {
-        uint8_t available_mask = get_available_writemask(allocator, tracker,
-                liveness_reg->first_write, liveness_reg->last_access, id);
-
-        if (liveness_reg->fixed_mask)
-        {
-            if ((available_mask & liveness_reg->mask) == liveness_reg->mask)
-            {
-                reg->temp_id = id;
-                reg->allocated_mask = liveness_reg->mask;
-                return true;
-            }
-        }
-        else
-        {
-            /* For SSA values the mask is always zero-based and contiguous.
-             * For TEMP values we assume the register was allocated that way,
-             * but it may only be partially used.
-             * We currently only handle cases where the mask is zero-based and
-             * contiguous, so we need to fill in the missing components to
-             * ensure this. */
-            uint8_t mask = (1u << (vkd3d_log2i(liveness_reg->mask) + 1)) - 1;
-
-            if (vkd3d_popcount(available_mask) >= vkd3d_popcount(mask))
-            {
-                if (mask != liveness_reg->mask)
-                    WARN("Allocating a mask %#x with used components %#x; this is not optimized.\n",
-                            mask, liveness_reg->mask);
-
-                reg->temp_id = id;
-                reg->allocated_mask = vsir_combine_write_masks(available_mask, mask);
-                return true;
-            }
-        }
-    }
-}
 
 static void temp_allocator_set_src(struct temp_allocator *allocator, struct vkd3d_shader_src_param *src)
 {
@@ -9056,45 +8975,248 @@ static void temp_allocator_set_dst(struct temp_allocator *allocator,
     }
 }
 
-static void temp_allocator_compute_allocation_map(struct temp_allocator *allocator,
-        const struct liveness_tracker *tracker)
+static int temp_allocate_compare_open(const void *ptr1, const void *ptr2)
 {
-    /* Reallocate temps first. We do this specifically to make sure that r0 is
-     * the first register to be allocated, and thus will be reallocated in
-     * place, and left alone.
-     * This is necessary because, in pixel shader model 1.x, r0 doubles as the
-     * output register, and needs to remain at r0. (Note that we need to already
-     * have the output in r0, rather than e.g. putting it in o0 and converting
-     * it to r0 after this pass, so that we know when r0 is live.) */
-    for (unsigned int i = 0; i < allocator->temp_count; ++i)
-    {
-        const struct liveness_tracker_reg *liveness_reg = &tracker->temp_regs[i];
-        struct temp_allocator_reg *reg = &allocator->temp_regs[i];
+    const struct temp_allocator_reg * const *reg1 = ptr1, * const *reg2 = ptr2;
+    int ret;
 
-        if (temp_allocator_allocate(allocator, tracker, reg, liveness_reg))
+    if ((ret = vkd3d_u32_compare((*reg1)->liveness_reg->first_write, (*reg2)->liveness_reg->first_write)))
+        return ret;
+    if ((ret = vkd3d_u32_compare((*reg1)->liveness_reg->last_access, (*reg2)->liveness_reg->last_access)))
+        return ret;
+    /* r0 must compare before everything else for SM 1.x PS (see comment below). */
+    if ((*reg1)->type == VKD3DSPR_TEMP && (*reg1)->idx == 0)
+        return -1;
+    if ((*reg2)->type == VKD3DSPR_TEMP && (*reg2)->idx == 0)
+        return 1;
+    return 0;
+}
+
+static int temp_allocate_compare_close(const void *ptr1, const void *ptr2)
+{
+    const struct temp_allocator_reg * const *reg1 = ptr1, * const *reg2 = ptr2;
+    int ret;
+
+    if ((ret = vkd3d_u32_compare((*reg1)->liveness_reg->last_access, (*reg2)->liveness_reg->last_access)))
+        return ret;
+    return vkd3d_u32_compare((*reg1)->liveness_reg->first_write, (*reg2)->liveness_reg->first_write);
+}
+
+static const char *debug_temp_allocator_reg(const struct temp_allocator_reg *reg)
+{
+    return vkd3d_dbg_sprintf("%s%u", reg->type == VKD3DSPR_SSA ? "sr" : "r", reg->idx);
+}
+
+static void temp_allocator_open_register(struct temp_allocator *allocator, struct temp_allocator_reg *reg)
+{
+    const size_t reg_count = allocator->ssa_count + allocator->temp_count;
+    const struct liveness_tracker_reg *liveness_reg = reg->liveness_reg;
+    uint8_t *current_allocation = allocator->current_allocation;
+    size_t i;
+
+    if (!liveness_reg->written)
+        return;
+
+    for (i = 0; i < reg_count; ++i)
+    {
+        const uint8_t available_mask = ~current_allocation[i] & 0xf;
+
+        if (liveness_reg->fixed_mask)
         {
-            TRACE("Reallocated r%u%s for r%u (liveness %u-%u).\n",
-                    reg->temp_id, debug_vsir_writemask(reg->allocated_mask), i,
-                    liveness_reg->first_write, liveness_reg->last_access);
-            allocator->new_temp_count = max(allocator->new_temp_count, reg->temp_id + 1);
+            if ((available_mask & liveness_reg->mask) == liveness_reg->mask)
+            {
+                reg->temp_id = i;
+                reg->allocated_mask = liveness_reg->mask;
+                current_allocation[i] |= reg->allocated_mask;
+                allocator->new_temp_count = max(allocator->new_temp_count, i + 1);
+                TRACE("Allocated r%u%s for %s (liveness %u-%u).\n",
+                        reg->temp_id, debug_vsir_writemask(reg->allocated_mask),
+                        debug_temp_allocator_reg(reg), liveness_reg->first_write, liveness_reg->last_access);
+                break;
+            }
         }
-        ++allocator->allocated_temp_count;
+        else
+        {
+            /* For SSA values the mask is always zero-based and contiguous.
+             * For TEMP values we assume the register was allocated that way,
+             * but it may only be partially used.
+             * We currently only handle cases where the mask is zero-based and
+             * contiguous, so we need to fill in the missing components to
+             * ensure this. */
+            uint8_t mask = (1u << (vkd3d_log2i(liveness_reg->mask) + 1)) - 1;
+
+            if (vkd3d_popcount(available_mask) >= vkd3d_popcount(mask))
+            {
+                if (mask != liveness_reg->mask)
+                    WARN("Allocating a mask %#x with used components %#x; this is not optimized.\n",
+                            mask, liveness_reg->mask);
+
+                reg->temp_id = i;
+                reg->allocated_mask = vsir_combine_write_masks(available_mask, mask);
+                current_allocation[i] |= reg->allocated_mask;
+                allocator->new_temp_count = max(allocator->new_temp_count, i + 1);
+                TRACE("Allocated r%u%s for %s (liveness %u-%u).\n",
+                        reg->temp_id, debug_vsir_writemask(reg->allocated_mask),
+                        debug_temp_allocator_reg(reg), liveness_reg->first_write, liveness_reg->last_access);
+                break;
+            }
+        }
     }
 
-    for (unsigned int i = 0; i < allocator->ssa_count; ++i)
+    VKD3D_ASSERT(i < reg_count);
+}
+
+static void temp_allocator_close_register(struct temp_allocator *allocator, struct temp_allocator_reg *reg)
+{
+    const struct liveness_tracker_reg *liveness_reg = reg->liveness_reg;
+
+    if (!liveness_reg->written)
+        return;
+
+    TRACE("Register %s (liveness %u-%u) reaches end of life.\n",
+            debug_temp_allocator_reg(reg), liveness_reg->first_write, liveness_reg->last_access);
+
+    allocator->current_allocation[reg->temp_id] &= ~reg->allocated_mask;
+}
+
+/* Compute the allocation map. Each register is modeled as a time interval
+ * spanning from `first_write' to `last_access'. We simulate scanning through
+ * all the intervals in time order, keeping the set of currently allocated
+ * registers as a bit map: each time we open an interval (i.e., hit its
+ * `first_write' time) we allocate it to the first available register scanning
+ * the current state; each time we close an interval (i.e., hit its
+ * `last_access' time) we unset the corresponding bits.
+ *
+ * In general at any given time we first process all intervals to be closed and
+ * then all intervals to be opened at that time. This models the fact that an
+ * instruction can write to a register which it also reads from, and the write
+ * won't interfere with the read. In other words, first all reads are
+ * performed, then the instruction is executed, then the writes are performed.
+ *
+ * There is a corner case exception, though: the case of degenerate intervals
+ * that are opened and closed at the same time. This corresponds to registers
+ * that are written and then never read, which in principle shouldn't exist
+ * because they make no sense. However it's better to be robust, and we support
+ * them anyway.
+ *
+ * So that's what we do:
+ *  - First all non-degenerate closes are processed.
+ *  - Then all degenerate opens are processed, because we cannot close them
+ *    before having opened them.
+ *  - Then all non-degenerate opens are processed: this has to happens before
+ *    the degenerate intervals are closed, because they need to be allocated to
+ *    different registers.
+ *  - Then all degenerate closes are processed.
+ *
+ * This is effected with a few different strategies:
+ *  - In the open order, registers are primarily sorted by `first_write' and
+ *    secondarily by `last_access'. This way degenerate registers are always
+ *    opened before non-degenerate ones with the same `first_write' time.
+ *  - In the close order, registers are primarily sorted by `last_access' and
+ *    secondarily by `first_write'. This way non-degenerate registers are
+ *    always closed before degenerate ones with the same `last_access' time.
+ *  - There is a scheduling algorithm that decides at each iteration whether to
+ *    open or close a register. See details below.
+ *
+ * TODO: the algorithm could be further optimized by keeping a few pointers to
+ * the first position in `current_allocation' that has at least one (or two,
+ * three and four) available components, so we don't always have to scan from
+ * the beginning.
+ */
+static enum vkd3d_result temp_allocator_compute_allocation_map(struct temp_allocator *allocator,
+        const struct liveness_tracker *liveness)
+{
+    const size_t reg_count = allocator->ssa_count + allocator->temp_count;
+    struct temp_allocator_reg **open_order = NULL, **close_order = NULL;
+    size_t i, pos_open = 0, pos_close = 0;
+
+    /* In the worst-case scenario each of the `reg_count' registers to be
+     * processed requires its own allocation. We should never exceed that
+     * amount. */
+    if (!(allocator->current_allocation = vkd3d_calloc(reg_count, sizeof(*allocator->current_allocation)))
+            || !(open_order = vkd3d_calloc(reg_count, sizeof(*open_order)))
+            || !(close_order = vkd3d_calloc(reg_count, sizeof(*close_order))))
     {
-        const struct liveness_tracker_reg *liveness_reg = &tracker->ssa_regs[i];
+        vkd3d_free(close_order);
+        vkd3d_free(open_order);
+        vkd3d_free(allocator->current_allocation);
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    }
+
+    for (i = 0; i < reg_count; ++i)
+    {
         struct temp_allocator_reg *reg = &allocator->ssa_regs[i];
 
-        if (temp_allocator_allocate(allocator, tracker, reg, liveness_reg))
+        if (i < allocator->ssa_count)
         {
-            TRACE("Allocated r%u%s for sr%u (liveness %u-%u).\n",
-                    reg->temp_id, debug_vsir_writemask(reg->allocated_mask), i,
-                    liveness_reg->first_write, liveness_reg->last_access);
-            allocator->new_temp_count = max(allocator->new_temp_count, reg->temp_id + 1);
+            reg->type = VKD3DSPR_SSA;
+            reg->idx = i;
         }
-        ++allocator->allocated_ssa_count;
+        else
+        {
+            reg->type = VKD3DSPR_TEMP;
+            reg->idx = i - allocator->ssa_count;
+        }
+
+        reg->liveness_reg = &liveness->ssa_regs[i];
+        open_order[i] = reg;
+        close_order[i] = reg;
     }
+
+    qsort(open_order, reg_count, sizeof(*open_order), temp_allocate_compare_open);
+    qsort(close_order, reg_count, sizeof(*open_order), temp_allocate_compare_close);
+
+    for (;;)
+    {
+        struct temp_allocator_reg *reg_open = NULL, *reg_close = NULL;
+        bool do_open;
+
+        if (pos_open < reg_count)
+            reg_open = open_order[pos_open];
+        if (pos_close < reg_count)
+            reg_close = close_order[pos_close];
+
+        /* We cannot close all the registers before we finish opening them. */
+        VKD3D_ASSERT(!(reg_open && !reg_close));
+
+        /* We finished closing registers, nothing to do any more. */
+        if (!reg_close)
+            break;
+        /* There is nothing to open, so we just close. */
+        else if (!reg_open)
+            do_open = false;
+        /* The next open event happens before the next close event, so we open. */
+        else if (reg_open->liveness_reg->first_write < reg_close->liveness_reg->last_access)
+            do_open = true;
+        /* The other way around, we close. */
+        else if (reg_close->liveness_reg->last_access < reg_open->liveness_reg->first_write)
+            do_open = false;
+        /* Ok, now we have both an open and a close happening at the same time.
+         * According to the strategy above, if the interval to close is
+         * non-degenerate, then we process it. */
+        else if (reg_close->liveness_reg->first_write < reg_close->liveness_reg->last_access)
+            do_open = false;
+        /* Otherwise the interval to close is degenerate, and therefore we first
+         * open whatever needs to be opened. */
+        else
+            do_open = true;
+
+        if (do_open)
+        {
+            temp_allocator_open_register(allocator, reg_open);
+            ++pos_open;
+        }
+        else
+        {
+            temp_allocator_close_register(allocator, reg_close);
+            ++pos_close;
+        }
+    }
+
+    vkd3d_free(close_order);
+    vkd3d_free(open_order);
+    vkd3d_free(allocator->current_allocation);
+    return VKD3D_OK;
 }
 
 /* This pass does two things:
@@ -9139,8 +9261,24 @@ enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
     allocator.temp_count = program->temp_count;
     allocator.ssa_regs = regs;
     allocator.temp_regs = regs + program->ssa_count;
+    allocator.new_temp_count = 0;
 
-    temp_allocator_compute_allocation_map(&allocator, &tracker);
+    /* For SM 1.x ps we need to ensure that r0 is reallocated to itself, because
+     * it doubles as the output register. To do so we artificially make it
+     * alive for the whole program. */
+    if (program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL
+            && program->shader_version.major < 2 && allocator.temp_count >= 1)
+    {
+        tracker.temp_regs[0].first_write = 0;
+        tracker.temp_regs[0].last_access = UINT_MAX;
+    }
+
+    if ((ret = temp_allocator_compute_allocation_map(&allocator, &tracker)) < 0)
+    {
+        liveness_tracker_cleanup(&tracker);
+        vkd3d_free(regs);
+        return ret;
+    }
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
