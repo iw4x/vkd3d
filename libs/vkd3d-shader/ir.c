@@ -2432,8 +2432,6 @@ struct hull_flattener
 {
     struct vsir_program *program;
 
-    unsigned int instance_count;
-    unsigned int phase_body_idx;
     enum vkd3d_shader_opcode phase;
     struct vkd3d_shader_location last_ret_location;
     unsigned int *ssa_map;
@@ -2443,68 +2441,6 @@ struct hull_flattener
 static bool flattener_is_in_fork_or_join_phase(const struct hull_flattener *flattener)
 {
     return flattener->phase == VSIR_OP_HS_FORK_PHASE || flattener->phase == VSIR_OP_HS_JOIN_PHASE;
-}
-
-struct shader_phase_location
-{
-    unsigned int index;
-    unsigned int instance_count;
-    unsigned int instruction_count;
-};
-
-struct shader_phase_location_array
-{
-    /* Unlikely worst case: one phase for each component of each output register. */
-    struct shader_phase_location locations[MAX_REG_OUTPUT * VKD3D_VEC4_SIZE];
-    unsigned int count;
-};
-
-static void flattener_eliminate_phase_related_dcls(struct hull_flattener *normaliser, unsigned int index,
-        struct vkd3d_shader_instruction *ins, struct shader_phase_location_array *locations)
-{
-    struct shader_phase_location *loc;
-    bool b;
-
-    if (ins->opcode == VSIR_OP_HS_FORK_PHASE || ins->opcode == VSIR_OP_HS_JOIN_PHASE)
-    {
-        b = flattener_is_in_fork_or_join_phase(normaliser);
-        /* Reset the phase info. */
-        normaliser->phase_body_idx = ~0u;
-        normaliser->phase = ins->opcode;
-        normaliser->instance_count = 1;
-        /* Leave the first occurrence and delete the rest. */
-        if (b)
-            vkd3d_shader_instruction_make_nop(ins);
-        return;
-    }
-    else if (ins->opcode == VSIR_OP_DCL_HS_FORK_PHASE_INSTANCE_COUNT
-            || ins->opcode == VSIR_OP_DCL_HS_JOIN_PHASE_INSTANCE_COUNT)
-    {
-        normaliser->instance_count = ins->declaration.count + !ins->declaration.count;
-        vkd3d_shader_instruction_make_nop(ins);
-        return;
-    }
-
-    if (normaliser->phase == VSIR_OP_INVALID || vsir_instruction_is_dcl(ins))
-        return;
-
-    if (normaliser->phase_body_idx == ~0u)
-        normaliser->phase_body_idx = index;
-
-    if (ins->opcode == VSIR_OP_RET)
-    {
-        normaliser->last_ret_location = ins->location;
-        vkd3d_shader_instruction_make_nop(ins);
-        if (locations->count >= ARRAY_SIZE(locations->locations))
-        {
-            FIXME("Insufficient space for phase location.\n");
-            return;
-        }
-        loc = &locations->locations[locations->count++];
-        loc->index = normaliser->phase_body_idx;
-        loc->instance_count = normaliser->instance_count;
-        loc->instruction_count = index - normaliser->phase_body_idx;
-    }
 }
 
 static void flattener_fixup_ssa_register(struct hull_flattener *normaliser,
@@ -2569,64 +2505,109 @@ static void flattener_fixup_registers(struct hull_flattener *normaliser,
         flattener_fixup_register_indices(normaliser, &ins->dst[i].reg, instance_id);
 }
 
-static enum vkd3d_result flattener_flatten_phases(struct hull_flattener *normaliser,
-        struct shader_phase_location_array *locations)
+static enum vkd3d_result flattener_replicate_location(struct hull_flattener *normaliser,
+        struct vsir_program_iterator *it, size_t instance_count, size_t instruction_count)
 {
-    struct vkd3d_shader_instruction_array *instructions = &normaliser->program->instructions;
-    struct vsir_program_iterator it = vsir_program_iterator(instructions);
-    unsigned int i, j, k, loc_i, count, added_count;
+    struct vsir_program_iterator dst_it, src_it, first_it;
     struct vkd3d_shader_instruction *ins;
-    struct shader_phase_location *loc;
+    unsigned int i, j;
+    size_t count;
 
-    loc_i = 0;
-    added_count = 0;
-    for (ins = vsir_program_iterator_head(&it), i = 0; ins; ins = vsir_program_iterator_next(&it), ++i)
+    VKD3D_ASSERT(instance_count);
+    count = (instance_count - 1) * instruction_count;
+    if (!vsir_program_iterator_insert_before(it, &first_it, count))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    /* Make a copy of the non-dcl instructions for each instance. */
+    dst_it = first_it;
+    for (i = 1; i < instance_count; ++i)
     {
-        if (loc_i >= locations->count)
-            break;
-        loc = &locations->locations[loc_i];
-
-        if (i == loc->index + added_count)
+        src_it = *it;
+        for (j = 0; j < instruction_count; ++j)
         {
-            struct vsir_program_iterator dst_it, src_it, first_it;
-
-            count = (loc->instance_count - 1) * loc->instruction_count;
-            if (!vsir_program_iterator_insert_before(&it, &first_it, count))
+            if (!vsir_program_iterator_clone_instruction(&dst_it, vsir_program_iterator_current(&src_it)))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
-            added_count += count;
 
-            /* Make a copy of the non-dcl instructions for each instance. */
-            dst_it = first_it;
-            for (j = 1; j < loc->instance_count; ++j)
-            {
-                src_it = it;
-                for (k = 0; k < loc->instruction_count; ++k)
-                {
-                    if (!vsir_program_iterator_clone_instruction(&dst_it, vsir_program_iterator_current(&src_it)))
-                        return VKD3D_ERROR_OUT_OF_MEMORY;
+            vsir_program_iterator_next(&dst_it);
+            vsir_program_iterator_next(&src_it);
+        }
+    }
+    /* Replace each reference to the instance id with a constant instance id. */
+    *it = first_it;
+    for (i = 0; i < instance_count; ++i)
+    {
+        if (i)
+            memset(normaliser->ssa_map, 0xff, normaliser->orig_ssa_count * sizeof(*normaliser->ssa_map));
 
-                    vsir_program_iterator_next(&dst_it);
-                    vsir_program_iterator_next(&src_it);
-                }
-            }
-            /* Replace each reference to the instance id with a constant instance id. */
-            it = first_it;
-            for (j = 0; j < loc->instance_count; ++j)
-            {
-                if (j != 0)
-                    memset(normaliser->ssa_map, 0xff, normaliser->orig_ssa_count * sizeof(*normaliser->ssa_map));
+        for (j = 0; j < instruction_count; ++j)
+        {
+            ins = vsir_program_iterator_current(it);
+            flattener_fixup_registers(normaliser, ins, i);
+            vsir_program_iterator_next(it);
+        }
+    }
 
-                for (k = 0; k < loc->instruction_count; ++k)
-                {
-                    ins = vsir_program_iterator_current(&it);
-                    flattener_fixup_registers(normaliser, ins, j);
-                    vsir_program_iterator_next(&it);
-                    ++i;
-                }
-            }
+    return VKD3D_OK;
+}
 
-            loc->index += added_count - (loc->instance_count - 1) * loc->instruction_count;
-            ++loc_i;
+static enum vkd3d_result flattener_flatten_phases(struct hull_flattener *normaliser)
+{
+    struct vsir_program_iterator it = vsir_program_iterator(&normaliser->program->instructions);
+    struct vsir_program_iterator phase_body_it;
+    struct vkd3d_shader_instruction *ins;
+    bool b, phase_body_it_valid = false;
+    unsigned int instruction_count = 0;
+    unsigned int instance_count = 0;
+    enum vkd3d_result res;
+
+    normaliser->phase = VSIR_OP_INVALID;
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
+    {
+        if (ins->opcode == VSIR_OP_HS_FORK_PHASE || ins->opcode == VSIR_OP_HS_JOIN_PHASE)
+        {
+            b = flattener_is_in_fork_or_join_phase(normaliser);
+            /* Reset the phase info. */
+            phase_body_it_valid = false;
+            normaliser->phase = ins->opcode;
+            instance_count = 1;
+            instruction_count = 0;
+            /* Leave the first occurrence and delete the rest. */
+            if (b)
+                vkd3d_shader_instruction_make_nop(ins);
+            continue;
+        }
+        else if (ins->opcode == VSIR_OP_DCL_HS_FORK_PHASE_INSTANCE_COUNT
+                || ins->opcode == VSIR_OP_DCL_HS_JOIN_PHASE_INSTANCE_COUNT)
+        {
+            instance_count = ins->declaration.count + !ins->declaration.count;
+            vkd3d_shader_instruction_make_nop(ins);
+            ++instruction_count;
+            continue;
+        }
+
+        if (normaliser->phase == VSIR_OP_INVALID)
+            continue;
+
+        if (!phase_body_it_valid && !vsir_instruction_is_dcl(ins))
+        {
+            phase_body_it_valid = true;
+            phase_body_it = it;
+            instruction_count = 0;
+        }
+
+        if (ins->opcode == VSIR_OP_RET)
+        {
+            normaliser->last_ret_location = ins->location;
+            vkd3d_shader_instruction_make_nop(ins);
+            it = phase_body_it;
+            if ((res = flattener_replicate_location(normaliser, &it,
+                    instance_count, instruction_count)) < 0)
+                return res;
+            phase_body_it_valid = false;
+        }
+        else
+        {
+            ++instruction_count;
         }
     }
 
@@ -2636,19 +2617,10 @@ static enum vkd3d_result flattener_flatten_phases(struct hull_flattener *normali
 static enum vkd3d_result vsir_program_flatten_hull_shader_phases(struct vsir_program *program,
         struct vsir_transformation_context *ctx)
 {
-    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
-    struct shader_phase_location_array locations;
     struct hull_flattener flattener = {program};
     struct vkd3d_shader_instruction *ins;
     enum vkd3d_result result = VKD3D_OK;
-    unsigned int i;
 
-    flattener.phase = VSIR_OP_INVALID;
-    locations.count = 0;
-    for (ins = vsir_program_iterator_head(&it), i = 0; ins; ins = vsir_program_iterator_next(&it), ++i)
-    {
-        flattener_eliminate_phase_related_dcls(&flattener, i, ins, &locations);
-    }
     bitmap_clear(program->io_dcls, VKD3DSPR_FORKINSTID);
     bitmap_clear(program->io_dcls, VKD3DSPR_JOININSTID);
 
@@ -2656,8 +2628,7 @@ static enum vkd3d_result vsir_program_flatten_hull_shader_phases(struct vsir_pro
     if (!(flattener.ssa_map = vkd3d_calloc(flattener.orig_ssa_count, sizeof(*flattener.ssa_map))))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
-    result = flattener_flatten_phases(&flattener, &locations);
-
+    result = flattener_flatten_phases(&flattener);
     vkd3d_free(flattener.ssa_map);
     flattener.ssa_map = NULL;
 
