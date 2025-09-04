@@ -96,11 +96,13 @@ static void init_adapter_info(void)
     IDirect3D9_Release(d3d);
 }
 
+static const BOOL windowed = TRUE;
+
 static bool init_test_context(struct d3d9_shader_runner *runner)
 {
     D3DPRESENT_PARAMETERS present_parameters =
     {
-        .Windowed = TRUE,
+        .Windowed = windowed,
         .SwapEffect = D3DSWAPEFFECT_DISCARD,
         .BackBufferWidth = RENDER_TARGET_WIDTH,
         .BackBufferHeight = RENDER_TARGET_HEIGHT,
@@ -191,6 +193,7 @@ static struct resource *d3d9_runner_create_resource(struct shader_runner *r, con
     struct d3d9_shader_runner *runner = d3d9_shader_runner(r);
     IDirect3DDevice9 *device = runner->device;
     struct d3d9_resource *resource;
+    D3DMULTISAMPLE_TYPE ms_type;
     D3DFORMAT format;
     HRESULT hr;
     void *data;
@@ -216,8 +219,31 @@ static struct resource *d3d9_runner_create_resource(struct shader_runner *r, con
     switch (params->desc.type)
     {
         case RESOURCE_TYPE_RENDER_TARGET:
+            ms_type = D3DMULTISAMPLE_NONE;
+            if (params->desc.sample_count > 1)
+            {
+                IDirect3D9 *d3d;
+
+                assert(params->desc.sample_count <= 16);
+                ms_type = (D3DMULTISAMPLE_TYPE)params->desc.sample_count;
+
+                d3d = pDirect3DCreate9(D3D_SDK_VERSION);
+                ok(!!d3d, "Failed to create a D3D object.\n");
+
+                hr = IDirect3D9_CheckDeviceMultiSampleType(d3d, test_options.adapter_idx, D3DDEVTYPE_HAL,
+                        format, windowed, ms_type, NULL);
+                IDirect3D9_Release(d3d);
+
+                if (FAILED(hr))
+                {
+                    fatal_error("Format #%x with sample count %u is not supported.\n",
+                            format, params->desc.sample_count);
+                    break;
+                }
+            }
+
             hr = IDirect3DDevice9_CreateRenderTarget(device, params->desc.width, params->desc.height,
-                    format, D3DMULTISAMPLE_NONE, 0, FALSE, &resource->surface, NULL);
+                    format, ms_type, 0, FALSE, &resource->surface, NULL);
             ok(hr == D3D_OK, "Failed to create render target, hr %#lx.\n", hr);
             break;
 
@@ -669,6 +695,8 @@ static struct resource_readback *d3d9_runner_get_resource_readback(struct shader
     struct d3d9_shader_runner *runner = d3d9_shader_runner(r);
     struct d3d9_resource_readback *rb = malloc(sizeof(*rb));
     struct d3d9_resource *resource = d3d9_resource(res);
+    IDirect3DSurface9 *surface = resource->surface;
+    IDirect3DSurface9 *resolved_surface = NULL;
     D3DLOCKED_RECT map_desc;
     D3DSURFACE_DESC desc;
     HRESULT hr;
@@ -677,14 +705,29 @@ static struct resource_readback *d3d9_runner_get_resource_readback(struct shader
     if (sub_resource_idx)
         fatal_error("Unsupported sub-resource index %u.\n", sub_resource_idx);
 
-    hr = IDirect3DSurface9_GetDesc(resource->surface, &desc);
+    hr = IDirect3DSurface9_GetDesc(surface, &desc);
     ok(hr == D3D_OK, "Failed to get surface desc, hr %#lx.\n", hr);
     hr = IDirect3DDevice9Ex_CreateOffscreenPlainSurface(runner->device, desc.Width,
             desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &rb->surface, NULL);
     ok(hr == D3D_OK, "Failed to create surface, hr %#lx.\n", hr);
 
-    hr = IDirect3DDevice9Ex_GetRenderTargetData(runner->device, resource->surface, rb->surface);
+    if (desc.MultiSampleType != D3DMULTISAMPLE_NONE)
+    {
+        hr = IDirect3DDevice9_CreateRenderTarget(runner->device, desc.Width, desc.Height, desc.Format,
+                D3DMULTISAMPLE_NONE, 0, FALSE, &resolved_surface, NULL);
+        ok(hr == D3D_OK, "Failed to create resolved render target, hr %#lx.\n", hr);
+
+        hr = IDirect3DDevice9_StretchRect(runner->device, surface, NULL, resolved_surface, NULL, D3DTEXF_NONE);
+        ok(hr == D3D_OK, "Failed to resolve multisampled surface, hr %#lx.\n", hr);
+
+        surface = resolved_surface;
+    }
+
+    hr = IDirect3DDevice9Ex_GetRenderTargetData(runner->device, surface, rb->surface);
     ok(hr == D3D_OK, "Failed to get render target data, hr %#lx.\n", hr);
+
+    if (resolved_surface)
+        IDirect3DSurface9_Release(resolved_surface);
 
     hr = IDirect3DSurface9_LockRect(rb->surface, &map_desc, NULL, D3DLOCK_READONLY);
     ok(hr == D3D_OK, "Failed to lock surface, hr %#lx.\n", hr);
