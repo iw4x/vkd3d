@@ -5315,17 +5315,16 @@ static uint32_t sv_front_face_fixup(struct spirv_compiler *compiler,
 }
 
 /* frag_coord.w = 1.0f / frag_coord.w */
-static uint32_t frag_coord_fixup(struct spirv_compiler *compiler,
-        uint32_t frag_coord_id)
+static uint32_t frag_coord_fixup(struct spirv_compiler *compiler, uint32_t frag_coord_id)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     uint32_t type_id, w_id;
 
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_FLOAT, 1);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_F32, 1);
     w_id = vkd3d_spirv_build_op_composite_extract1(builder, type_id, frag_coord_id, 3);
-    w_id = vkd3d_spirv_build_op_fdiv(builder, type_id,
-            spirv_compiler_get_constant_float(compiler, 1.0f), w_id);
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_FLOAT, VKD3D_VEC4_SIZE);
+    w_id = vkd3d_spirv_build_op_fdiv(builder, type_id, spirv_compiler_get_constant_float(compiler, 1.0f), w_id);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_F32, VKD3D_VEC4_SIZE);
+
     return vkd3d_spirv_build_op_composite_insert1(builder, type_id, w_id, frag_coord_id, 3);
 }
 
