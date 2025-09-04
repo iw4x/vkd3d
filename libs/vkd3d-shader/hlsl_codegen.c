@@ -8654,6 +8654,12 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
     }
     else
     {
+        if (var->storage_modifiers & HLSL_INTERPOLATION_MODIFIERS_MASK)
+        {
+            hlsl_fixme(ctx, &var->loc, "SM1 interpolation modifiers.");
+            return;
+        }
+
         if ((!output && !var->last_read) || (output && !var->first_write))
             return;
 
