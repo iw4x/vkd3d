@@ -8817,9 +8817,8 @@ static enum vsir_data_type vsir_data_type_from_hlsl_type(struct hlsl_ctx *ctx, c
             case HLSL_TYPE_DOUBLE:
                 return VSIR_DATA_F64;
             case HLSL_TYPE_FLOAT:
-                return VSIR_DATA_F32;
             case HLSL_TYPE_HALF:
-                return VSIR_DATA_F16;
+                return VSIR_DATA_F32;
             case HLSL_TYPE_INT:
                 return VSIR_DATA_I32;
             case HLSL_TYPE_UINT:
