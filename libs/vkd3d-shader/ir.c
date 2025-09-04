@@ -8826,12 +8826,14 @@ struct temp_allocator
         uint8_t allocated_mask;
         uint32_t temp_id;
     } *ssa_regs, *temp_regs;
+    size_t ssa_count, temp_count;
     size_t allocated_ssa_count, allocated_temp_count;
+    unsigned int new_temp_count;
     enum vkd3d_result result;
 };
 
 static uint8_t get_available_writemask(const struct temp_allocator *allocator,
-        struct liveness_tracker *tracker, unsigned int first_write, unsigned int last_access, uint32_t temp_id)
+        const struct liveness_tracker *tracker, unsigned int first_write, unsigned int last_access, uint32_t temp_id)
 {
     uint8_t writemask = VKD3DSP_WRITEMASK_ALL;
 
@@ -8870,7 +8872,7 @@ static uint8_t get_available_writemask(const struct temp_allocator *allocator,
     return writemask;
 }
 
-static bool temp_allocator_allocate(struct temp_allocator *allocator, struct liveness_tracker *tracker,
+static bool temp_allocator_allocate(struct temp_allocator *allocator, const struct liveness_tracker *tracker,
         struct temp_allocator_reg *reg, const struct liveness_tracker_reg *liveness_reg)
 {
     if (!liveness_reg->written)
@@ -9054,6 +9056,47 @@ static void temp_allocator_set_dst(struct temp_allocator *allocator,
     }
 }
 
+static void temp_allocator_compute_allocation_map(struct temp_allocator *allocator,
+        const struct liveness_tracker *tracker)
+{
+    /* Reallocate temps first. We do this specifically to make sure that r0 is
+     * the first register to be allocated, and thus will be reallocated in
+     * place, and left alone.
+     * This is necessary because, in pixel shader model 1.x, r0 doubles as the
+     * output register, and needs to remain at r0. (Note that we need to already
+     * have the output in r0, rather than e.g. putting it in o0 and converting
+     * it to r0 after this pass, so that we know when r0 is live.) */
+    for (unsigned int i = 0; i < allocator->temp_count; ++i)
+    {
+        const struct liveness_tracker_reg *liveness_reg = &tracker->temp_regs[i];
+        struct temp_allocator_reg *reg = &allocator->temp_regs[i];
+
+        if (temp_allocator_allocate(allocator, tracker, reg, liveness_reg))
+        {
+            TRACE("Reallocated r%u%s for r%u (liveness %u-%u).\n",
+                    reg->temp_id, debug_vsir_writemask(reg->allocated_mask), i,
+                    liveness_reg->first_write, liveness_reg->last_access);
+            allocator->new_temp_count = max(allocator->new_temp_count, reg->temp_id + 1);
+        }
+        ++allocator->allocated_temp_count;
+    }
+
+    for (unsigned int i = 0; i < allocator->ssa_count; ++i)
+    {
+        const struct liveness_tracker_reg *liveness_reg = &tracker->ssa_regs[i];
+        struct temp_allocator_reg *reg = &allocator->ssa_regs[i];
+
+        if (temp_allocator_allocate(allocator, tracker, reg, liveness_reg))
+        {
+            TRACE("Allocated r%u%s for sr%u (liveness %u-%u).\n",
+                    reg->temp_id, debug_vsir_writemask(reg->allocated_mask), i,
+                    liveness_reg->first_write, liveness_reg->last_access);
+            allocator->new_temp_count = max(allocator->new_temp_count, reg->temp_id + 1);
+        }
+        ++allocator->allocated_ssa_count;
+    }
+}
+
 /* This pass does two things:
  *
  * - converts SSA registers (sr#) into temp registers (r#);
@@ -9074,66 +9117,30 @@ enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
         struct vkd3d_shader_message_context *message_context)
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
-    const unsigned int prev_temp_count = program->temp_count;
     struct temp_allocator allocator = {0};
     struct vkd3d_shader_instruction *ins;
     struct temp_allocator_reg *regs;
     struct liveness_tracker tracker;
     enum vkd3d_result ret;
 
-    if (!program->ssa_count && !prev_temp_count)
+    if (!program->ssa_count && !program->temp_count)
         return VKD3D_OK;
 
     if ((ret = track_liveness(program, &tracker)))
         return ret;
 
-    if (!(regs = vkd3d_calloc(program->ssa_count + prev_temp_count, sizeof(*regs))))
+    if (!(regs = vkd3d_calloc(program->ssa_count + program->temp_count, sizeof(*regs))))
     {
         liveness_tracker_cleanup(&tracker);
         return VKD3D_ERROR_OUT_OF_MEMORY;
     }
     allocator.message_context = message_context;
+    allocator.ssa_count = program->ssa_count;
+    allocator.temp_count = program->temp_count;
     allocator.ssa_regs = regs;
     allocator.temp_regs = regs + program->ssa_count;
 
-    program->temp_count = 0;
-
-    /* Reallocate temps first. We do this specifically to make sure that r0 is
-     * the first register to be allocated, and thus will be reallocated in
-     * place, and left alone.
-     * This is necessary because, in pixel shader model 1.x, r0 doubles as the
-     * output register, and needs to remain at r0. (Note that we need to already
-     * have the output in r0, rather than e.g. putting it in o0 and converting
-     * it to r0 after this pass, so that we know when r0 is live.) */
-    for (unsigned int i = 0; i < prev_temp_count; ++i)
-    {
-        const struct liveness_tracker_reg *liveness_reg = &tracker.temp_regs[i];
-        struct temp_allocator_reg *reg = &allocator.temp_regs[i];
-
-        if (temp_allocator_allocate(&allocator, &tracker, reg, liveness_reg))
-        {
-            TRACE("Reallocated r%u%s for r%u (liveness %u-%u).\n",
-                    reg->temp_id, debug_vsir_writemask(reg->allocated_mask), i,
-                    liveness_reg->first_write, liveness_reg->last_access);
-            program->temp_count = max(program->temp_count, reg->temp_id + 1);
-        }
-        ++allocator.allocated_temp_count;
-    }
-
-    for (unsigned int i = 0; i < program->ssa_count; ++i)
-    {
-        const struct liveness_tracker_reg *liveness_reg = &tracker.ssa_regs[i];
-        struct temp_allocator_reg *reg = &allocator.ssa_regs[i];
-
-        if (temp_allocator_allocate(&allocator, &tracker, reg, liveness_reg))
-        {
-            TRACE("Allocated r%u%s for sr%u (liveness %u-%u).\n",
-                    reg->temp_id, debug_vsir_writemask(reg->allocated_mask), i,
-                    liveness_reg->first_write, liveness_reg->last_access);
-            program->temp_count = max(program->temp_count, reg->temp_id + 1);
-        }
-        ++allocator.allocated_ssa_count;
-    }
+    temp_allocator_compute_allocation_map(&allocator, &tracker);
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
@@ -9146,9 +9153,11 @@ enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
     }
 
     program->ssa_count = 0;
+    program->temp_count = allocator.new_temp_count;
 
     vkd3d_free(regs);
     liveness_tracker_cleanup(&tracker);
+
     return allocator.result;
 }
 
