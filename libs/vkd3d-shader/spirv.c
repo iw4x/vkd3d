@@ -5286,9 +5286,8 @@ static uint32_t spirv_compiler_emit_draw_parameter_fixup(struct spirv_compiler *
     vkd3d_spirv_add_iface_variable(builder, base_var_id);
     spirv_compiler_decorate_builtin(compiler, base_var_id, base);
 
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_INT, 1);
-    base_id = vkd3d_spirv_build_op_load(builder,
-            type_id, base_var_id, SpvMemoryAccessMaskNone);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_I32, 1);
+    base_id = vkd3d_spirv_build_op_load(builder, type_id, base_var_id, SpvMemoryAccessMaskNone);
 
     return vkd3d_spirv_build_op_isub(builder, type_id, index_id, base_id);
 }
