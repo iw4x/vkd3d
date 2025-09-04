@@ -5530,7 +5530,8 @@ static uint32_t spirv_compiler_emit_load_invocation_id(struct spirv_compiler *co
     uint32_t type_id, id;
 
     id = spirv_compiler_get_invocation_id(compiler);
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_INT, 1);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_I32, 1);
+
     return vkd3d_spirv_build_op_load(builder, type_id, id, SpvMemoryAccessMaskNone);
 }
 
