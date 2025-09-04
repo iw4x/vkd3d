@@ -4550,7 +4550,8 @@ static uint32_t spirv_compiler_emit_bool_to_double(struct spirv_compiler *compil
 
     true_id = spirv_compiler_get_constant_double_vector(compiler, signedness ? -1.0 : 1.0, component_count);
     false_id = spirv_compiler_get_constant_double_vector(compiler, 0.0, component_count);
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_DOUBLE, component_count);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_F64, component_count);
+
     return vkd3d_spirv_build_op_select(builder, type_id, val_id, true_id, false_id);
 }
 
