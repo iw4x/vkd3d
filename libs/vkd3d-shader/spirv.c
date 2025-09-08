@@ -3254,6 +3254,14 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
                 compiler->features = option->value;
                 break;
 
+            case VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ORDER:
+            case VKD3D_SHADER_COMPILE_OPTION_BACKWARD_COMPATIBILITY:
+            case VKD3D_SHADER_COMPILE_OPTION_CHILD_EFFECT:
+            case VKD3D_SHADER_COMPILE_OPTION_WARN_IMPLICIT_TRUNCATION:
+            case VKD3D_SHADER_COMPILE_OPTION_INCLUDE_EMPTY_BUFFERS_IN_EFFECTS:
+                /* Explicitly ignored for this target. */
+                break;
+
             default:
                 WARN("Ignoring unrecognised option %#x with value %#x.\n", option->name, option->value);
                 break;
