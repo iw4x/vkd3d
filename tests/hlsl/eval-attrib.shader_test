@@ -215,11 +215,11 @@ float4 main(float4 pos : SV_Position, float2 attr : ATTR_centRoid,
 
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
-if(sm<6) draw triangle list 3
-if(sm<6) todo probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
+if(sm<6) todo(msl | glsl) draw triangle list 3
+if(sm<6) todo(llvmpipe) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
 if(sm<6) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm<6) todo probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
-if(sm<6) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
+if(sm<6) probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
+if(sm<6) todo(llvmpipe) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % The "_centroid" semantic modifier can be specified together with the "centroid" prefix attribute.
 
@@ -285,11 +285,11 @@ float4 main(ps_in data) : SV_Target
 
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
-if(sm<6) draw triangle list 3
-if(sm<6) todo probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
+if(sm<6) todo(msl | glsl) draw triangle list 3
+if(sm<6) todo(llvmpipe) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
 if(sm<6) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm<6) todo probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
-if(sm<6) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
+if(sm<6) probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
+if(sm<6) todo(llvmpipe) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 [pixel shader]
 static const float2 positions[4] =
@@ -329,9 +329,9 @@ float4 main(float4 pos : SV_Position, float2 attr : ATTR, float2 attr2 : ATTR_ce
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
 % This test causes the GPU to hang with MVK.
-if(sm<6 & !mvk) draw triangle list 3
-if(sm<6 & !mvk) probe (0, 0) f32(1.0, 1.75, 0.25, 0.25)
-if(sm<6 & !mvk) probe (638, 0) f32(1.0, 2.0, 0.0, 0.0)
+if(sm<6 & !mvk) todo(msl | glsl) draw triangle list 3
+if(sm<6 & !mvk) todo probe (0, 0) f32(1.0, 1.75, 0.25, 0.25)
+if(sm<6 & !mvk) todo probe (638, 0) f32(1.0, 2.0, 0.0, 0.0)
 
 % Sample interpolation.
 

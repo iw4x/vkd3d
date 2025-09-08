@@ -1082,7 +1082,7 @@ static bool gen_struct_fields(struct hlsl_ctx *ctx, struct parse_fields *fields,
         field->loc = v->loc;
         field->name = v->name;
         field->semantic = v->semantic;
-        field->storage_modifiers = modifiers;
+        field->storage_modifiers = modifiers | v->semantic.modifiers;
         if (v->initializer.args_count)
         {
             hlsl_error(ctx, &v->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX, "Illegal initializer on a struct field.");
@@ -1211,16 +1211,17 @@ static void initialize_var_components(struct hlsl_ctx *ctx, struct hlsl_block *i
 static bool add_func_parameter(struct hlsl_ctx *ctx, struct hlsl_func_parameters *parameters,
         struct parse_parameter *param, const struct vkd3d_shader_location *loc)
 {
+    uint32_t modifiers = param->modifiers | param->semantic.modifiers;
     struct hlsl_ir_var *var;
 
     if (param->type->class == HLSL_CLASS_MATRIX)
         VKD3D_ASSERT(param->type->modifiers & HLSL_MODIFIERS_MAJORITY_MASK);
 
-    if ((param->modifiers & HLSL_STORAGE_OUT) && (param->modifiers & HLSL_STORAGE_UNIFORM))
+    if ((modifiers & HLSL_STORAGE_OUT) && (modifiers & HLSL_STORAGE_UNIFORM))
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_MODIFIER,
                 "Parameter '%s' is declared as both \"out\" and \"uniform\".", param->name);
 
-    if ((param->modifiers & HLSL_STORAGE_OUT) && !(param->modifiers & HLSL_STORAGE_IN)
+    if ((modifiers & HLSL_STORAGE_OUT) && !(modifiers & HLSL_STORAGE_IN)
             && (param->type->modifiers & HLSL_MODIFIER_CONST))
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_MODIFIER,
                 "Parameter '%s' is declared as both \"out\" and \"const\".", param->name);
@@ -1234,14 +1235,14 @@ static bool add_func_parameter(struct hlsl_ctx *ctx, struct hlsl_func_parameters
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_MISSING_INITIALIZER,
                 "Missing default value for parameter '%s'.", param->name);
 
-    if (param->initializer.args_count && (param->modifiers & HLSL_STORAGE_OUT))
+    if (param->initializer.args_count && (modifiers & HLSL_STORAGE_OUT))
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_MODIFIER,
                 "Output parameter '%s' has a default value.", param->name);
 
     if (hlsl_get_stream_output_type(param->type))
         check_invalid_stream_output_object(ctx, param->type, param->name, loc);
 
-    if (!(var = hlsl_new_var(ctx, param->name, param->type, loc, &param->semantic, param->modifiers,
+    if (!(var = hlsl_new_var(ctx, param->name, param->type, loc, &param->semantic, modifiers,
             &param->reg_reservation)))
         return false;
     var->is_param = 1;
@@ -2408,10 +2409,10 @@ static void check_invalid_object_fields(struct hlsl_ctx *ctx, const struct hlsl_
 
 static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
 {
+    uint32_t modifiers = v->modifiers | v->semantic.modifiers;
     struct hlsl_type *basic_type = v->basic_type;
     struct hlsl_ir_function_decl *func;
     struct hlsl_semantic new_semantic;
-    uint32_t modifiers = v->modifiers;
     bool unbounded_res_array = false;
     bool constant_buffer = false;
     struct hlsl_ir_var *var;
@@ -7847,15 +7848,28 @@ colon_attributes:
 semantic:
       ':' any_identifier
         {
+            static const char *centroid_suffix = "_centroid";
+            uint32_t modifiers = 0;
+            size_t len;
             char *p;
 
             if (!($$.raw_name = hlsl_strdup(ctx, $2)))
                 YYABORT;
 
-            for (p = $2 + strlen($2); p > $2 && isdigit(p[-1]); --p)
+            len = strlen($2);
+            if (ascii_strncasecmp($2, "sv_", 3)
+                    && len > strlen(centroid_suffix)
+                    && !ascii_strcasecmp($2 + (len - strlen(centroid_suffix)), centroid_suffix))
+            {
+                modifiers = HLSL_STORAGE_CENTROID;
+                len -= strlen(centroid_suffix);
+            }
+
+            for (p = $2 + len; p > $2 && isdigit(p[-1]); --p)
                 ;
             $$.name = $2;
             $$.index = atoi(p);
+            $$.modifiers = modifiers;
             $$.reported_missing = false;
             $$.reported_duplicated_output_next_index = 0;
             $$.reported_duplicated_input_incompatible_next_index = 0;

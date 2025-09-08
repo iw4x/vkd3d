@@ -248,6 +248,7 @@ struct hlsl_semantic
     const char *name;
     uint32_t index;
     uint32_t stream_index;
+    uint32_t modifiers;
 
     /* Name exactly as it appears in the sources. */
     const char *raw_name;
