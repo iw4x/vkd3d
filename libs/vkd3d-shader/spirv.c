@@ -6544,7 +6544,7 @@ static void spirv_compiler_emit_dcl_indexable_temp(struct spirv_compiler *compil
     vkd3d_spirv_begin_function_stream_insertion(builder, function_location);
 
     component_type = vkd3d_component_type_from_data_type(temp->data_type);
-    type_id = spirv_get_type_id_for_component_type(builder, component_type, temp->component_count);
+    type_id = spirv_get_type_id(builder, temp->data_type, temp->component_count);
     length_id = spirv_compiler_get_constant_uint(compiler, temp->register_size);
     type_id = vkd3d_spirv_get_op_type_array(builder, type_id, length_id);
     ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, storage_class, type_id);
