@@ -12677,7 +12677,7 @@ static void sm4_generate_vsir_add_dcl_constant_buffer(struct hlsl_ctx *ctx,
         return;
     }
 
-    ins->declaration.cb.size = cbuffer->size;
+    ins->declaration.cb.size = align(cbuffer->size, 4) * sizeof(float);
 
     src_param = &ins->declaration.cb.src;
     vsir_src_param_init(src_param, VKD3DSPR_CONSTBUFFER, VSIR_DATA_F32, 0);

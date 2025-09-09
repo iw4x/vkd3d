@@ -3695,7 +3695,7 @@ static void write_sm4_instruction(const struct tpf_compiler *tpf, const struct s
 static void tpf_dcl_constant_buffer(const struct tpf_compiler *tpf, const struct vkd3d_shader_instruction *ins)
 {
     const struct vkd3d_shader_constant_buffer *cb = &ins->declaration.cb;
-    size_t size = (cb->size + 3) / 4;
+    size_t size = cb->size / VKD3D_VEC4_SIZE / sizeof(float);
 
     struct sm4_instruction instr =
     {
