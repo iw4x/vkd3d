@@ -8695,6 +8695,7 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
         if (!ascii_strcasecmp(var->semantic.name, "PSIZE") && output
                 && program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX)
         {
+            program->has_point_size = true;
             if (var->data_type->e.numeric.dimx > 1)
                 hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
                         "PSIZE output must have only 1 component in this shader model.");
