@@ -6313,7 +6313,7 @@ static void spirv_compiler_emit_shader_epilogue_function(struct spirv_compiler *
     function_id = compiler->epilogue_function_id;
 
     void_id = vkd3d_spirv_get_op_type_void(builder);
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_FLOAT, 4);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_F32, 4);
     ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassPrivate, type_id);
     for (i = 0, count = 0; i < ARRAY_SIZE(compiler->private_output_variable); ++i)
     {
