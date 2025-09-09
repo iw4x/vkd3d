@@ -6585,7 +6585,7 @@ static void spirv_compiler_emit_push_constant_buffers(struct spirv_compiler *com
     if (!(member_ids = vkd3d_calloc(count, sizeof(*member_ids))))
         return;
 
-    vec4_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_FLOAT, VKD3D_VEC4_SIZE);
+    vec4_id = spirv_get_type_id(builder, VSIR_DATA_F32, VKD3D_VEC4_SIZE);
 
     for (i = 0, j = 0; i < compiler->shader_interface.push_constant_buffer_count; ++i)
     {
@@ -6602,7 +6602,7 @@ static void spirv_compiler_emit_push_constant_buffers(struct spirv_compiler *com
 
     if (compiler->offset_info.descriptor_table_count)
     {
-        uint32_t type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+        uint32_t type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
         length_id = spirv_compiler_get_constant_uint(compiler, compiler->offset_info.descriptor_table_count);
         member_ids[j] = vkd3d_spirv_build_op_type_array(builder, type_id, length_id);
         vkd3d_spirv_build_op_decorate1(builder, member_ids[j], SpvDecorationArrayStride, 4);
