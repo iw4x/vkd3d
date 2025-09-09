@@ -1441,15 +1441,11 @@ struct vkd3d_shader_instruction_array
     struct vkd3d_shader_src_param *outpointid_param;
 };
 
-bool shader_instruction_array_init(struct vkd3d_shader_instruction_array *instructions, size_t reserve);
 bool shader_instruction_array_reserve(struct vkd3d_shader_instruction_array *instructions, size_t reserve);
 bool shader_instruction_array_insert_at(struct vkd3d_shader_instruction_array *instructions,
         size_t idx, size_t count);
 bool shader_instruction_array_add_icb(struct vkd3d_shader_instruction_array *instructions,
         struct vkd3d_shader_immediate_constant_buffer *icb);
-bool shader_instruction_array_clone_instruction(struct vkd3d_shader_instruction_array *instructions,
-        size_t dst, size_t src);
-void shader_instruction_array_destroy(struct vkd3d_shader_instruction_array *instructions);
 
 struct vsir_program_iterator
 {

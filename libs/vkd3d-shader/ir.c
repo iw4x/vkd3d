@@ -416,6 +416,200 @@ const char *vsir_opcode_get_name(enum vkd3d_shader_opcode op, const char *error)
     return error;
 }
 
+static struct vkd3d_shader_param_node *shader_param_allocator_node_create(
+        struct vkd3d_shader_param_allocator *allocator)
+{
+    struct vkd3d_shader_param_node *node;
+
+    if (!(node = vkd3d_malloc(offsetof(struct vkd3d_shader_param_node, param[allocator->count * allocator->stride]))))
+        return NULL;
+    node->next = NULL;
+
+    return node;
+}
+
+static void shader_param_allocator_init(struct vkd3d_shader_param_allocator *allocator, size_t count, size_t stride)
+{
+    allocator->count = max(count, MAX_REG_OUTPUT);
+    allocator->stride = stride;
+    allocator->head = NULL;
+    allocator->current = NULL;
+    allocator->index = allocator->count;
+}
+
+static void shader_param_allocator_destroy(struct vkd3d_shader_param_allocator *allocator)
+{
+    struct vkd3d_shader_param_node *current = allocator->head;
+
+    while (current)
+    {
+        struct vkd3d_shader_param_node *next = current->next;
+        vkd3d_free(current);
+        current = next;
+    }
+}
+
+void *shader_param_allocator_get(struct vkd3d_shader_param_allocator *allocator, size_t count)
+{
+    void *params;
+
+    if (!allocator->current || count > allocator->count - allocator->index)
+    {
+        struct vkd3d_shader_param_node *next;
+
+        allocator->count = max(allocator->count, count);
+        if (!(next = shader_param_allocator_node_create(allocator)))
+            return NULL;
+        if (allocator->current)
+            allocator->current->next = next;
+        else
+            allocator->head = next;
+        allocator->current = next;
+        allocator->index = 0;
+    }
+
+    params = &allocator->current->param[allocator->index * allocator->stride];
+    allocator->index += count;
+
+    return params;
+}
+
+bool shader_instruction_array_reserve(struct vkd3d_shader_instruction_array *array, size_t reserve)
+{
+    if (!vkd3d_array_reserve((void **)&array->elements, &array->capacity, reserve, sizeof(*array->elements)))
+    {
+        ERR("Failed to allocate instructions.\n");
+        return false;
+    }
+
+    return true;
+}
+
+bool shader_instruction_array_insert_at(struct vkd3d_shader_instruction_array *array, size_t idx, size_t count)
+{
+    VKD3D_ASSERT(idx <= array->count);
+
+    if (!shader_instruction_array_reserve(array, array->count + count))
+        return false;
+
+    memmove(&array->elements[idx + count], &array->elements[idx], (array->count - idx) * sizeof(*array->elements));
+    memset(&array->elements[idx], 0, count * sizeof(*array->elements));
+    array->count += count;
+
+    return true;
+}
+
+bool shader_instruction_array_add_icb(struct vkd3d_shader_instruction_array *array,
+        struct vkd3d_shader_immediate_constant_buffer *icb)
+{
+    if (!vkd3d_array_reserve((void **)&array->icbs, &array->icb_capacity, array->icb_count + 1, sizeof(*array->icbs)))
+        return false;
+
+    array->icbs[array->icb_count++] = icb;
+
+    return true;
+}
+
+static struct vkd3d_shader_src_param *shader_instruction_array_clone_src_params(
+        struct vkd3d_shader_instruction_array *array, const struct vkd3d_shader_src_param *params, size_t count);
+
+static bool shader_register_clone_relative_addresses(struct vkd3d_shader_register *reg,
+        struct vkd3d_shader_instruction_array *array)
+{
+    size_t i;
+
+    for (i = 0; i < reg->idx_count; ++i)
+    {
+        if (!reg->idx[i].rel_addr)
+            continue;
+
+        if (!(reg->idx[i].rel_addr = shader_instruction_array_clone_src_params(array, reg->idx[i].rel_addr, 1)))
+            return false;
+    }
+
+    return true;
+}
+
+static struct vkd3d_shader_dst_param *shader_instruction_array_clone_dst_params(
+        struct vkd3d_shader_instruction_array *array, const struct vkd3d_shader_dst_param *params, size_t count)
+{
+    struct vkd3d_shader_dst_param *dst_params;
+    size_t i;
+
+    if (!(dst_params = shader_dst_param_allocator_get(&array->dst_params, count)))
+        return NULL;
+
+    memcpy(dst_params, params, count * sizeof(*params));
+    for (i = 0; i < count; ++i)
+    {
+        if (!shader_register_clone_relative_addresses(&dst_params[i].reg, array))
+            return NULL;
+    }
+
+    return dst_params;
+}
+
+static struct vkd3d_shader_src_param *shader_instruction_array_clone_src_params(
+        struct vkd3d_shader_instruction_array *array, const struct vkd3d_shader_src_param *params, size_t count)
+{
+    struct vkd3d_shader_src_param *src_params;
+    size_t i;
+
+    if (!(src_params = shader_src_param_allocator_get(&array->src_params, count)))
+        return NULL;
+
+    memcpy(src_params, params, count * sizeof(*params));
+    for (i = 0; i < count; ++i)
+    {
+        if (!shader_register_clone_relative_addresses(&src_params[i].reg, array))
+            return NULL;
+    }
+
+    return src_params;
+}
+
+/* NOTE: Immediate constant buffers are not cloned, so the source must not be destroyed while the
+ * destination is in use. This seems like a reasonable requirement given how this is currently used. */
+static bool shader_instruction_array_clone_instruction(struct vkd3d_shader_instruction_array *array,
+        size_t dst, size_t src)
+{
+    struct vkd3d_shader_instruction *ins = &array->elements[dst];
+
+    *ins = array->elements[src];
+
+    if (ins->dst_count && ins->dst && !(ins->dst = shader_instruction_array_clone_dst_params(array,
+            ins->dst, ins->dst_count)))
+        return false;
+
+    return !ins->src_count || !!(ins->src = shader_instruction_array_clone_src_params(array,
+            ins->src, ins->src_count));
+}
+
+static void shader_instruction_array_destroy(struct vkd3d_shader_instruction_array *array)
+{
+    unsigned int i;
+
+    vkd3d_free(array->elements);
+    shader_param_allocator_destroy(&array->dst_params);
+    shader_param_allocator_destroy(&array->src_params);
+    for (i = 0; i < array->icb_count; ++i)
+    {
+        vkd3d_free(array->icbs[i]);
+    }
+    vkd3d_free(array->icbs);
+}
+
+static bool shader_instruction_array_init(struct vkd3d_shader_instruction_array *array, size_t reserve)
+{
+    memset(array, 0, sizeof(*array));
+    /* Size the parameter initial allocations so they are large enough for most shaders. The
+     * code path for chained allocations will be tested if a few shaders need to use it. */
+    shader_param_allocator_init(&array->dst_params, reserve - reserve / 8u, sizeof(struct vkd3d_shader_dst_param));
+    shader_param_allocator_init(&array->src_params, reserve * 2u, sizeof(struct vkd3d_shader_src_param));
+
+    return shader_instruction_array_reserve(array, reserve);
+}
+
 static int convert_parameter_info(const struct vkd3d_shader_compile_info *compile_info,
         unsigned int *ret_count, const struct vkd3d_shader_parameter1 **ret_parameters)
 {
