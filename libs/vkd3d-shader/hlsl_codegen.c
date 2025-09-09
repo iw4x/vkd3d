@@ -8949,7 +8949,7 @@ static void sm1_generate_vsir_sampler_dcls(struct hlsl_ctx *ctx,
                 semantic->resource_type = resource_type;
 
                 dst_param = &semantic->resource.reg;
-                vsir_register_init(&dst_param->reg, VKD3DSPR_SAMPLER, VSIR_DATA_F32, 1);
+                vsir_register_init(&dst_param->reg, VKD3DSPR_COMBINED_SAMPLER, VSIR_DATA_F32, 1);
                 dst_param->reg.dimension = VSIR_DIMENSION_NONE;
                 dst_param->reg.idx[0].offset = var->regs[HLSL_REGSET_SAMPLERS].index + i;
                 dst_param->write_mask = 0;
