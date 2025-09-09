@@ -6796,7 +6796,7 @@ static void spirv_compiler_emit_cbv_declaration(struct spirv_compiler *compiler,
         return;
     }
 
-    vec4_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_FLOAT, VKD3D_VEC4_SIZE);
+    vec4_id = spirv_get_type_id(builder, VSIR_DATA_F32, VKD3D_VEC4_SIZE);
     length_id = spirv_compiler_get_constant_uint(compiler, size);
     array_type_id = vkd3d_spirv_build_op_type_array(builder, vec4_id, length_id);
     vkd3d_spirv_build_op_decorate1(builder, array_type_id, SpvDecorationArrayStride, 16);
