@@ -7061,7 +7061,7 @@ static void spirv_compiler_emit_resource_declaration(struct spirv_compiler *comp
     {
         uint32_t array_type_id, struct_id;
 
-        type_id = spirv_get_type_id_for_component_type(builder, sampled_type, 1);
+        type_id = spirv_get_type_id(builder, descriptor->resource_data_type, 1);
 
         array_type_id = vkd3d_spirv_get_op_type_runtime_array(builder, type_id);
         vkd3d_spirv_build_op_decorate1(builder, array_type_id, SpvDecorationArrayStride, 4);
@@ -7102,7 +7102,7 @@ static void spirv_compiler_emit_resource_declaration(struct spirv_compiler *comp
         {
             VKD3D_ASSERT(structure_stride); /* counters are valid only for structured buffers */
 
-            counter_type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+            counter_type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
             if (spirv_compiler_is_opengl_target(compiler))
             {
                 vkd3d_spirv_enable_capability(builder, SpvCapabilityAtomicStorage);
