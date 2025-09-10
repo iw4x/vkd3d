@@ -152,6 +152,7 @@ float4 main() : sv_target
     // Make sure `out` variables don't work with literals
     sincos(12345.0, 10.0, 20.0);
     return float4(6789);
+}
 
 [pixel shader fail]
 float4 main() : sv_target
