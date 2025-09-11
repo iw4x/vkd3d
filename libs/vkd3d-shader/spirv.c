@@ -8019,7 +8019,7 @@ static void spirv_compiler_emit_swapc(struct spirv_compiler *compiler,
     src2_id = spirv_compiler_emit_load_src(compiler, &src[2], dst->write_mask);
 
     component_count = vsir_write_mask_component_count(dst->write_mask);
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_FLOAT, component_count);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_F32, component_count);
 
     condition_id = spirv_compiler_emit_int_to_bool(compiler,
             VKD3D_SHADER_CONDITIONAL_OP_NZ, src[0].reg.data_type, component_count, condition_id);
