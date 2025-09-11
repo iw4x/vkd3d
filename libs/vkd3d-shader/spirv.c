@@ -7166,7 +7166,7 @@ static void spirv_compiler_emit_workgroup_memory(struct spirv_compiler *compiler
     if (alignment)
         TRACE("Ignoring alignment %u.\n", alignment);
 
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
     length_id = spirv_compiler_get_constant_uint(compiler, size);
     array_type_id = vkd3d_spirv_get_op_type_array(builder, type_id, length_id);
 
