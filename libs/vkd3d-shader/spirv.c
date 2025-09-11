@@ -7992,8 +7992,8 @@ static void spirv_compiler_emit_movc(struct spirv_compiler *compiler,
     {
         if (instruction->opcode == VSIR_OP_CMP)
             condition_id = vkd3d_spirv_build_op_tr2(builder, &builder->function_stream, SpvOpFOrdGreaterThanEqual,
-                    spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_BOOL, component_count),
-                    condition_id, spirv_compiler_get_constant_float_vector(compiler, 0.0f, component_count));
+                    spirv_get_type_id(builder, VSIR_DATA_BOOL, component_count), condition_id,
+                    spirv_compiler_get_constant_float_vector(compiler, 0.0f, component_count));
         else
             condition_id = spirv_compiler_emit_int_to_bool(compiler,
                     VKD3D_SHADER_CONDITIONAL_OP_NZ, src[0].reg.data_type, component_count, condition_id);
