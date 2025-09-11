@@ -7887,8 +7887,7 @@ static void spirv_compiler_emit_ext_glsl_instruction(struct spirv_compiler *comp
         component_count = vsir_write_mask_component_count(dst->write_mask);
         uint_max_id = spirv_compiler_get_constant_uint_vector(compiler, UINT32_MAX, component_count);
         condition_id = vkd3d_spirv_build_op_tr2(builder, &builder->function_stream, SpvOpIEqual,
-                spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_BOOL, component_count),
-                val_id, uint_max_id);
+                spirv_get_type_id(builder, VSIR_DATA_BOOL, component_count), val_id, uint_max_id);
         rev_val_id = vkd3d_spirv_build_op_isub(builder, type_id,
                 spirv_compiler_get_constant_uint_vector(compiler, 31, component_count), val_id);
         val_id = vkd3d_spirv_build_op_select(builder, type_id, condition_id, val_id, rev_val_id);
