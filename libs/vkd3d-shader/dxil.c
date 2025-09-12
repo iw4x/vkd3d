@@ -3246,7 +3246,7 @@ static enum vkd3d_result value_allocate_constant_array(struct sm6_value *dst, co
                 "Out of memory allocating an immediate constant buffer of count %u.", count);
         return VKD3D_ERROR_OUT_OF_MEMORY;
     }
-    if (!shader_instruction_array_add_icb(&sm6->program->instructions, icb))
+    if (!vsir_program_add_icb(sm6->program, icb))
     {
         ERR("Failed to store icb object.\n");
         vkd3d_free(icb);

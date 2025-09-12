@@ -502,13 +502,13 @@ bool shader_instruction_array_insert_at(struct vkd3d_shader_instruction_array *a
     return true;
 }
 
-bool shader_instruction_array_add_icb(struct vkd3d_shader_instruction_array *array,
-        struct vkd3d_shader_immediate_constant_buffer *icb)
+bool vsir_program_add_icb(struct vsir_program *program, struct vkd3d_shader_immediate_constant_buffer *icb)
 {
-    if (!vkd3d_array_reserve((void **)&array->icbs, &array->icb_capacity, array->icb_count + 1, sizeof(*array->icbs)))
+    if (!vkd3d_array_reserve((void **)&program->icbs, &program->icb_capacity,
+            program->icb_count + 1, sizeof(*program->icbs)))
         return false;
 
-    array->icbs[array->icb_count++] = icb;
+    program->icbs[program->icb_count++] = icb;
 
     return true;
 }
@@ -573,16 +573,9 @@ static struct vkd3d_shader_src_param *shader_instruction_array_clone_src_params(
 
 static void shader_instruction_array_destroy(struct vkd3d_shader_instruction_array *array)
 {
-    unsigned int i;
-
     vkd3d_free(array->elements);
     shader_param_allocator_destroy(&array->dst_params);
     shader_param_allocator_destroy(&array->src_params);
-    for (i = 0; i < array->icb_count; ++i)
-    {
-        vkd3d_free(array->icbs[i]);
-    }
-    vkd3d_free(array->icbs);
 }
 
 static bool shader_instruction_array_init(struct vkd3d_shader_instruction_array *array, size_t reserve)
@@ -694,6 +687,11 @@ void vsir_program_cleanup(struct vsir_program *program)
     shader_signature_cleanup(&program->output_signature);
     shader_signature_cleanup(&program->patch_constant_signature);
     vkd3d_shader_free_scan_descriptor_info1(&program->descriptors);
+    for (i = 0; i < program->icb_count; ++i)
+    {
+        vkd3d_free(program->icbs[i]);
+    }
+    vkd3d_free(program->icbs);
 }
 
 const struct vkd3d_shader_parameter1 *vsir_program_get_parameter(

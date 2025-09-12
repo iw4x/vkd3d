@@ -1443,9 +1443,6 @@ struct vkd3d_shader_instruction_array
 
     struct vkd3d_shader_param_allocator src_params;
     struct vkd3d_shader_param_allocator dst_params;
-    struct vkd3d_shader_immediate_constant_buffer **icbs;
-    size_t icb_capacity;
-    size_t icb_count;
 
     struct vkd3d_shader_src_param *outpointid_param;
 };
@@ -1453,8 +1450,6 @@ struct vkd3d_shader_instruction_array
 bool shader_instruction_array_reserve(struct vkd3d_shader_instruction_array *instructions, size_t reserve);
 bool shader_instruction_array_insert_at(struct vkd3d_shader_instruction_array *instructions,
         size_t idx, size_t count);
-bool shader_instruction_array_add_icb(struct vkd3d_shader_instruction_array *instructions,
-        struct vkd3d_shader_immediate_constant_buffer *icb);
 
 struct vsir_program_iterator
 {
@@ -1638,12 +1633,18 @@ struct vsir_program
     struct vkd3d_shader_source_list source_files;
     const char **block_names;
     size_t block_name_count;
+
+    struct vkd3d_shader_immediate_constant_buffer **icbs;
+    size_t icb_capacity;
+    size_t icb_count;
 };
 
 enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
         struct vkd3d_shader_message_context *message_context);
 enum vkd3d_result vsir_update_dcl_temps(struct vsir_program *program,
         struct vkd3d_shader_message_context *message_context);
+
+bool vsir_program_add_icb(struct vsir_program *program, struct vkd3d_shader_immediate_constant_buffer *icb);
 void vsir_program_cleanup(struct vsir_program *program);
 const struct vkd3d_shader_parameter1 *vsir_program_get_parameter(
         const struct vsir_program *program, enum vkd3d_shader_parameter_name name);
