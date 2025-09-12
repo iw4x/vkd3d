@@ -1443,8 +1443,6 @@ struct vkd3d_shader_instruction_array
 
     struct vkd3d_shader_param_allocator src_params;
     struct vkd3d_shader_param_allocator dst_params;
-
-    struct vkd3d_shader_src_param *outpointid_param;
 };
 
 bool shader_instruction_array_reserve(struct vkd3d_shader_instruction_array *instructions, size_t reserve);

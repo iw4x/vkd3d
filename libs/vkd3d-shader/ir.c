@@ -2784,9 +2784,6 @@ struct vkd3d_shader_src_param *vsir_program_create_outpointid_param(struct vsir_
     struct vkd3d_shader_instruction_array *instructions = &program->instructions;
     struct vkd3d_shader_src_param *rel_addr;
 
-    if (instructions->outpointid_param)
-        return instructions->outpointid_param;
-
     if (!(rel_addr = shader_src_param_allocator_get(&instructions->src_params, 1)))
         return NULL;
 
@@ -2794,7 +2791,6 @@ struct vkd3d_shader_src_param *vsir_program_create_outpointid_param(struct vsir_
     rel_addr->swizzle = 0;
     rel_addr->modifiers = 0;
 
-    instructions->outpointid_param = rel_addr;
     return rel_addr;
 }
 
