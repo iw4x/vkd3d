@@ -2769,7 +2769,7 @@ static enum vkd3d_result vsir_program_flatten_hull_shader_phases(struct vsir_pro
 
 struct control_point_normaliser
 {
-    struct vkd3d_shader_instruction_array *instructions;
+    struct vsir_program *program;
     enum vkd3d_shader_opcode phase;
     struct vkd3d_shader_src_param *outpointid_param;
 };
@@ -2835,9 +2835,9 @@ static enum vkd3d_result control_point_normaliser_emit_hs_input(struct control_p
             continue;
 
         vsir_instruction_init(ins, location, VSIR_OP_MOV);
-        ins->dst = shader_dst_param_allocator_get(&normaliser->instructions->dst_params, 1);
+        ins->dst = vsir_program_get_dst_params(normaliser->program, 1);
         ins->dst_count = 1;
-        ins->src = shader_src_param_allocator_get(&normaliser->instructions->src_params, 1);
+        ins->src = vsir_program_get_src_params(normaliser->program, 1);
         ins->src_count = 1;
 
         if (!ins->dst || ! ins->src)
@@ -2845,6 +2845,8 @@ static enum vkd3d_result control_point_normaliser_emit_hs_input(struct control_p
             WARN("Failed to allocate dst/src param.\n");
             return VKD3D_ERROR_OUT_OF_MEMORY;
         }
+
+        VKD3D_ASSERT(normaliser->outpointid_param);
 
         vsir_dst_param_init_io(&ins->dst[0], VKD3DSPR_OUTPUT, e, 2);
         ins->dst[0].reg.dimension = VSIR_DIMENSION_VEC4;
@@ -2890,8 +2892,8 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
         ERR("Failed to allocate src param.\n");
         return VKD3D_ERROR_OUT_OF_MEMORY;
     }
-    normaliser.instructions = &program->instructions;
-    it = vsir_program_iterator(normaliser.instructions);
+    normaliser.program = program;
+    it = vsir_program_iterator(&normaliser.program->instructions);
     normaliser.phase = VSIR_OP_INVALID;
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
