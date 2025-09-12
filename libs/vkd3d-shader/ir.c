@@ -513,11 +513,10 @@ bool vsir_program_add_icb(struct vsir_program *program, struct vkd3d_shader_imme
     return true;
 }
 
-static struct vkd3d_shader_src_param *shader_instruction_array_clone_src_params(
-        struct vkd3d_shader_instruction_array *array, const struct vkd3d_shader_src_param *params, size_t count);
+static struct vkd3d_shader_src_param *vsir_program_clone_src_params(
+        struct vsir_program *program, const struct vkd3d_shader_src_param *params, size_t count);
 
-static bool shader_register_clone_relative_addresses(struct vkd3d_shader_register *reg,
-        struct vkd3d_shader_instruction_array *array)
+static bool shader_register_clone_relative_addresses(struct vkd3d_shader_register *reg, struct vsir_program *program)
 {
     size_t i;
 
@@ -526,45 +525,45 @@ static bool shader_register_clone_relative_addresses(struct vkd3d_shader_registe
         if (!reg->idx[i].rel_addr)
             continue;
 
-        if (!(reg->idx[i].rel_addr = shader_instruction_array_clone_src_params(array, reg->idx[i].rel_addr, 1)))
+        if (!(reg->idx[i].rel_addr = vsir_program_clone_src_params(program, reg->idx[i].rel_addr, 1)))
             return false;
     }
 
     return true;
 }
 
-static struct vkd3d_shader_dst_param *shader_instruction_array_clone_dst_params(
-        struct vkd3d_shader_instruction_array *array, const struct vkd3d_shader_dst_param *params, size_t count)
+static struct vkd3d_shader_dst_param *vsir_program_clone_dst_params(
+        struct vsir_program *program, const struct vkd3d_shader_dst_param *params, size_t count)
 {
     struct vkd3d_shader_dst_param *dst_params;
     size_t i;
 
-    if (!(dst_params = shader_dst_param_allocator_get(&array->dst_params, count)))
+    if (!(dst_params = vsir_program_get_dst_params(program, count)))
         return NULL;
 
     memcpy(dst_params, params, count * sizeof(*params));
     for (i = 0; i < count; ++i)
     {
-        if (!shader_register_clone_relative_addresses(&dst_params[i].reg, array))
+        if (!shader_register_clone_relative_addresses(&dst_params[i].reg, program))
             return NULL;
     }
 
     return dst_params;
 }
 
-static struct vkd3d_shader_src_param *shader_instruction_array_clone_src_params(
-        struct vkd3d_shader_instruction_array *array, const struct vkd3d_shader_src_param *params, size_t count)
+static struct vkd3d_shader_src_param *vsir_program_clone_src_params(
+        struct vsir_program *program, const struct vkd3d_shader_src_param *params, size_t count)
 {
     struct vkd3d_shader_src_param *src_params;
     size_t i;
 
-    if (!(src_params = shader_src_param_allocator_get(&array->src_params, count)))
+    if (!(src_params = vsir_program_get_src_params(program, count)))
         return NULL;
 
     memcpy(src_params, params, count * sizeof(*params));
     for (i = 0; i < count; ++i)
     {
-        if (!shader_register_clone_relative_addresses(&src_params[i].reg, array))
+        if (!shader_register_clone_relative_addresses(&src_params[i].reg, program))
             return NULL;
     }
 
@@ -574,17 +573,11 @@ static struct vkd3d_shader_src_param *shader_instruction_array_clone_src_params(
 static void shader_instruction_array_destroy(struct vkd3d_shader_instruction_array *array)
 {
     vkd3d_free(array->elements);
-    shader_param_allocator_destroy(&array->dst_params);
-    shader_param_allocator_destroy(&array->src_params);
 }
 
 static bool shader_instruction_array_init(struct vkd3d_shader_instruction_array *array, size_t reserve)
 {
     memset(array, 0, sizeof(*array));
-    /* Size the parameter initial allocations so they are large enough for most shaders. The
-     * code path for chained allocations will be tested if a few shaders need to use it. */
-    shader_param_allocator_init(&array->dst_params, reserve - reserve / 8u, sizeof(struct vkd3d_shader_dst_param));
-    shader_param_allocator_init(&array->src_params, reserve * 2u, sizeof(struct vkd3d_shader_src_param));
 
     return shader_instruction_array_reserve(array, reserve);
 }
@@ -660,6 +653,11 @@ bool vsir_program_init(struct vsir_program *program, const struct vkd3d_shader_c
     program->shader_version = *version;
     program->cf_type = cf_type;
     program->normalisation_level = normalisation_level;
+
+    /* Size the parameter initial allocations so they are large enough for most shaders. The
+     * code path for chained allocations will be tested if a few shaders need to use it. */
+    shader_param_allocator_init(&program->dst_params, reserve - reserve / 8u, sizeof(struct vkd3d_shader_dst_param));
+    shader_param_allocator_init(&program->src_params, reserve * 2u, sizeof(struct vkd3d_shader_src_param));
     if (!shader_instruction_array_init(&program->instructions, reserve))
     {
         if (program->free_parameters)
@@ -687,6 +685,8 @@ void vsir_program_cleanup(struct vsir_program *program)
     shader_signature_cleanup(&program->output_signature);
     shader_signature_cleanup(&program->patch_constant_signature);
     vkd3d_shader_free_scan_descriptor_info1(&program->descriptors);
+    shader_param_allocator_destroy(&program->src_params);
+    shader_param_allocator_destroy(&program->dst_params);
     for (i = 0; i < program->icb_count; ++i)
     {
         vkd3d_free(program->icbs[i]);
@@ -1087,19 +1087,17 @@ static void vkd3d_shader_instruction_make_nop(struct vkd3d_shader_instruction *i
 
 /* NOTE: Immediate constant buffers are not cloned, so the source must not be destroyed while the
  * destination is in use. This seems like a reasonable requirement given how this is currently used. */
-static bool vsir_program_iterator_clone_instruction(struct vsir_program_iterator *dst_it,
-        const struct vkd3d_shader_instruction *src)
+static bool vsir_program_iterator_clone_instruction(struct vsir_program *program,
+        struct vsir_program_iterator *dst_it, const struct vkd3d_shader_instruction *src)
 {
     struct vkd3d_shader_instruction *dst = vsir_program_iterator_current(dst_it);
 
     *dst = *src;
 
-    if (dst->dst_count && !(dst->dst = shader_instruction_array_clone_dst_params(dst_it->array,
-            dst->dst, dst->dst_count)))
+    if (dst->dst_count && !(dst->dst = vsir_program_clone_dst_params(program, dst->dst, dst->dst_count)))
         return false;
 
-    return !dst->src_count || !!(dst->src = shader_instruction_array_clone_src_params(dst_it->array,
-            dst->src, dst->src_count));
+    return !dst->src_count || (dst->src = vsir_program_clone_src_params(program, dst->src, dst->src_count));
 }
 
 static bool get_opcode_from_rel_op(enum vkd3d_shader_rel_op rel_op,
@@ -1660,7 +1658,7 @@ static enum vkd3d_result vsir_program_lower_texld_sm1(struct vsir_program *progr
         return VKD3D_ERROR_NOT_IMPLEMENTED;
     }
 
-    if (!(srcs = shader_src_param_allocator_get(&program->instructions.src_params, 3)))
+    if (!(srcs = vsir_program_get_src_params(program, 3)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     /* Note we run before I/O normalization. */
@@ -1736,7 +1734,7 @@ static enum vkd3d_result vsir_program_lower_texld(struct vsir_program *program,
     VKD3D_ASSERT(tex->src[1].reg.idx_count == 1);
     VKD3D_ASSERT(!tex->src[1].reg.idx[0].rel_addr);
 
-    if (!(srcs = shader_src_param_allocator_get(&program->instructions.src_params, 4)))
+    if (!(srcs = vsir_program_get_src_params(program, 4)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     srcs[0] = tex->src[0];
@@ -1779,7 +1777,7 @@ static enum vkd3d_result vsir_program_lower_texldd(struct vsir_program *program,
     VKD3D_ASSERT(texldd->src[1].reg.idx_count == 1);
     VKD3D_ASSERT(!texldd->src[1].reg.idx[0].rel_addr);
 
-    if (!(srcs = shader_src_param_allocator_get(&program->instructions.src_params, 5)))
+    if (!(srcs = vsir_program_get_src_params(program, 5)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     srcs[0] = texldd->src[0];
@@ -1805,7 +1803,7 @@ static enum vkd3d_result vsir_program_lower_texldl(struct vsir_program *program,
     VKD3D_ASSERT(texldl->src[1].reg.idx_count == 1);
     VKD3D_ASSERT(!texldl->src[1].reg.idx[0].rel_addr);
 
-    if (!(srcs = shader_src_param_allocator_get(&program->instructions.src_params, 4)))
+    if (!(srcs = vsir_program_get_src_params(program, 4)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     srcs[0] = texldl->src[0];
@@ -1834,7 +1832,7 @@ static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program, st
     /* We run before I/O normalization. */
     VKD3D_ASSERT(program->normalisation_level < VSIR_NORMALISED_SM6);
 
-    if (!(srcs = shader_src_param_allocator_get(&program->instructions.src_params, 3)))
+    if (!(srcs = vsir_program_get_src_params(program, 3)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     vsir_src_param_init(&srcs[0], VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
@@ -1864,7 +1862,7 @@ static enum vkd3d_result vsir_program_lower_texcoord(struct vsir_program *progra
     /* We run before I/O normalization. */
     VKD3D_ASSERT(program->normalisation_level < VSIR_NORMALISED_SM6);
 
-    if (!(srcs = shader_src_param_allocator_get(&program->instructions.src_params, 1)))
+    if (!(srcs = vsir_program_get_src_params(program, 1)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     vsir_src_param_init(&srcs[0], VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
@@ -2631,7 +2629,7 @@ static enum vkd3d_result flattener_replicate_location(struct hull_flattener *nor
         struct vsir_program_iterator *it, size_t instance_count, size_t instruction_count)
 {
     struct vsir_program_iterator dst_it, src_it, first_it;
-    struct vkd3d_shader_instruction *ins;
+    struct vkd3d_shader_instruction *ins, *src_ins;
     unsigned int i, j;
     size_t count;
 
@@ -2647,7 +2645,8 @@ static enum vkd3d_result flattener_replicate_location(struct hull_flattener *nor
         src_it = *it;
         for (j = 0; j < instruction_count; ++j)
         {
-            if (!vsir_program_iterator_clone_instruction(&dst_it, vsir_program_iterator_current(&src_it)))
+            src_ins = vsir_program_iterator_current(&src_it);
+            if (!vsir_program_iterator_clone_instruction(normaliser->program, &dst_it, src_ins))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
 
             vsir_program_iterator_next(&dst_it);
@@ -2781,10 +2780,9 @@ static bool control_point_normaliser_is_in_control_point_phase(const struct cont
 
 struct vkd3d_shader_src_param *vsir_program_create_outpointid_param(struct vsir_program *program)
 {
-    struct vkd3d_shader_instruction_array *instructions = &program->instructions;
     struct vkd3d_shader_src_param *rel_addr;
 
-    if (!(rel_addr = shader_src_param_allocator_get(&instructions->src_params, 1)))
+    if (!(rel_addr = vsir_program_get_src_params(program, 1)))
         return NULL;
 
     vsir_register_init(&rel_addr->reg, VKD3DSPR_OUTPOINTID, VSIR_DATA_U32, 0);

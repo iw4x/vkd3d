@@ -1421,28 +1421,11 @@ struct vkd3d_shader_param_allocator
 
 void *shader_param_allocator_get(struct vkd3d_shader_param_allocator *allocator, size_t count);
 
-static inline struct vkd3d_shader_src_param *shader_src_param_allocator_get(
-        struct vkd3d_shader_param_allocator *allocator, size_t count)
-{
-    VKD3D_ASSERT(allocator->stride == sizeof(struct vkd3d_shader_src_param));
-    return shader_param_allocator_get(allocator, count);
-}
-
-static inline struct vkd3d_shader_dst_param *shader_dst_param_allocator_get(
-        struct vkd3d_shader_param_allocator *allocator, size_t count)
-{
-    VKD3D_ASSERT(allocator->stride == sizeof(struct vkd3d_shader_dst_param));
-    return shader_param_allocator_get(allocator, count);
-}
-
 struct vkd3d_shader_instruction_array
 {
     struct vkd3d_shader_instruction *elements;
     size_t capacity;
     size_t count;
-
-    struct vkd3d_shader_param_allocator src_params;
-    struct vkd3d_shader_param_allocator dst_params;
 };
 
 bool shader_instruction_array_reserve(struct vkd3d_shader_instruction_array *instructions, size_t reserve);
@@ -1635,6 +1618,9 @@ struct vsir_program
     struct vkd3d_shader_immediate_constant_buffer **icbs;
     size_t icb_capacity;
     size_t icb_count;
+
+    struct vkd3d_shader_param_allocator src_params;
+    struct vkd3d_shader_param_allocator dst_params;
 };
 
 enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
@@ -1676,13 +1662,21 @@ static inline struct vkd3d_shader_instruction *vsir_program_append(struct vsir_p
 static inline struct vkd3d_shader_dst_param *vsir_program_get_dst_params(
         struct vsir_program *program, unsigned int count)
 {
-    return shader_dst_param_allocator_get(&program->instructions.dst_params, count);
+    struct vkd3d_shader_param_allocator *allocator = &program->dst_params;
+
+    VKD3D_ASSERT(allocator->stride == sizeof(struct vkd3d_shader_dst_param));
+
+    return shader_param_allocator_get(allocator, count);
 }
 
 static inline struct vkd3d_shader_src_param *vsir_program_get_src_params(
         struct vsir_program *program, unsigned int count)
 {
-    return shader_src_param_allocator_get(&program->instructions.src_params, count);
+    struct vkd3d_shader_param_allocator *allocator = &program->src_params;
+
+    VKD3D_ASSERT(allocator->stride == sizeof(struct vkd3d_shader_src_param));
+
+    return shader_param_allocator_get(allocator, count);
 }
 
 struct vkd3d_shader_parser
