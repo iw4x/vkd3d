@@ -2769,7 +2769,7 @@ static enum vkd3d_result vsir_program_flatten_hull_shader_phases(struct vsir_pro
 
 struct control_point_normaliser
 {
-    struct vkd3d_shader_instruction_array instructions;
+    struct vkd3d_shader_instruction_array *instructions;
     enum vkd3d_shader_opcode phase;
     struct vkd3d_shader_src_param *outpointid_param;
 };
@@ -2835,9 +2835,9 @@ static enum vkd3d_result control_point_normaliser_emit_hs_input(struct control_p
             continue;
 
         vsir_instruction_init(ins, location, VSIR_OP_MOV);
-        ins->dst = shader_dst_param_allocator_get(&normaliser->instructions.dst_params, 1);
+        ins->dst = shader_dst_param_allocator_get(&normaliser->instructions->dst_params, 1);
         ins->dst_count = 1;
-        ins->src = shader_src_param_allocator_get(&normaliser->instructions.src_params, 1);
+        ins->src = shader_src_param_allocator_get(&normaliser->instructions->src_params, 1);
         ins->src_count = 1;
 
         if (!ins->dst || ! ins->src)
@@ -2890,8 +2890,8 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
         ERR("Failed to allocate src param.\n");
         return VKD3D_ERROR_OUT_OF_MEMORY;
     }
-    normaliser.instructions = program->instructions;
-    it = vsir_program_iterator(&normaliser.instructions);
+    normaliser.instructions = &program->instructions;
+    it = vsir_program_iterator(normaliser.instructions);
     normaliser.phase = VSIR_OP_INVALID;
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
@@ -2923,7 +2923,6 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
                 input_control_point_count = ins->declaration.count;
                 break;
             case VSIR_OP_HS_CONTROL_POINT_PHASE:
-                program->instructions = normaliser.instructions;
                 program->normalisation_level = VSIR_NORMALISED_HULL_CONTROL_POINT_IO;
                 return VKD3D_OK;
             case VSIR_OP_HS_FORK_PHASE:
@@ -2932,7 +2931,6 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
                 location = ins->location;
                 ret = control_point_normaliser_emit_hs_input(&normaliser,
                         &program->input_signature, input_control_point_count, &it, &location);
-                program->instructions = normaliser.instructions;
                 program->normalisation_level = VSIR_NORMALISED_HULL_CONTROL_POINT_IO;
                 return ret;
             default:
@@ -2940,7 +2938,6 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
         }
     }
 
-    program->instructions = normaliser.instructions;
     program->normalisation_level = VSIR_NORMALISED_HULL_CONTROL_POINT_IO;
     return VKD3D_OK;
 }
