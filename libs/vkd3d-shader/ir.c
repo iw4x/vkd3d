@@ -502,6 +502,14 @@ bool shader_instruction_array_insert_at(struct vkd3d_shader_instruction_array *a
     return true;
 }
 
+struct vkd3d_shader_instruction *shader_instruction_array_append(struct vkd3d_shader_instruction_array *array)
+{
+    if (!shader_instruction_array_insert_at(array, array->count, 1))
+        return NULL;
+
+    return &array->elements[array->count - 1];
+}
+
 bool vsir_program_add_icb(struct vsir_program *program, struct vkd3d_shader_immediate_constant_buffer *icb)
 {
     if (!vkd3d_array_reserve((void **)&program->icbs, &program->icb_capacity,
