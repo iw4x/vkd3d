@@ -7215,7 +7215,7 @@ static enum vkd3d_result vsir_program_materialize_undominated_ssas_to_temps(stru
 
     VKD3D_ASSERT(program->cf_type == VSIR_CF_BLOCKS);
 
-    for (ins = vsir_program_iterator_head(&it); ins;)
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_current(&it))
     {
         switch (ins->opcode)
         {
@@ -7225,8 +7225,6 @@ static enum vkd3d_result vsir_program_materialize_undominated_ssas_to_temps(stru
                 if ((ret = vsir_program_materialize_undominated_ssas_to_temps_in_function(
                         program, message_context, &it)) < 0)
                     return ret;
-                ins = vsir_program_iterator_current(&it);
-                VKD3D_ASSERT(!ins);
                 break;
 
             case VSIR_OP_HS_CONTROL_POINT_PHASE:
@@ -7238,11 +7236,10 @@ static enum vkd3d_result vsir_program_materialize_undominated_ssas_to_temps(stru
                 if ((ret = vsir_program_materialize_undominated_ssas_to_temps_in_function(
                         program, message_context, &it)) < 0)
                     return ret;
-                ins = vsir_program_iterator_current(&it);
                 break;
 
             default:
-                ins = vsir_program_iterator_next(&it);
+                vsir_program_iterator_next(&it);
                 break;
         }
     }
