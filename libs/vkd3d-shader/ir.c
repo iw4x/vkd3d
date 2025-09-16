@@ -9426,6 +9426,9 @@ enum vkd3d_result vsir_update_dcl_temps(struct vsir_program *program,
     struct vkd3d_shader_instruction *ins;
     unsigned int temp_count = 0;
 
+    if (program->shader_version.major < 4)
+        return VKD3D_OK;
+
     for (ins = vsir_program_iterator_tail(&it); ins; ins = vsir_program_iterator_prev(&it))
     {
         location = ins->location;
@@ -9437,10 +9440,9 @@ enum vkd3d_result vsir_update_dcl_temps(struct vsir_program *program,
             continue;
         }
 
-        if (temp_count && program->shader_version.major >= 4
-                && (ins->opcode == VSIR_OP_HS_CONTROL_POINT_PHASE
-                        || ins->opcode == VSIR_OP_HS_FORK_PHASE
-                        || ins->opcode == VSIR_OP_HS_JOIN_PHASE))
+        if (temp_count && (ins->opcode == VSIR_OP_HS_CONTROL_POINT_PHASE
+                || ins->opcode == VSIR_OP_HS_FORK_PHASE
+                || ins->opcode == VSIR_OP_HS_JOIN_PHASE))
         {
             /* The phase didn't have a dcl_temps instruction, but we added
              * temps here, so we need to insert one. */
@@ -9467,7 +9469,7 @@ enum vkd3d_result vsir_update_dcl_temps(struct vsir_program *program,
         }
     }
 
-    if (temp_count && program->shader_version.major >= 4)
+    if (temp_count)
     {
         ins = vsir_program_iterator_head(&it);
         location = ins->location;
