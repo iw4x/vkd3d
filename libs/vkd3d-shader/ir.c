@@ -2970,12 +2970,7 @@ struct io_normaliser
     struct shader_signature *output_signature;
     struct shader_signature *patch_constant_signature;
 
-    unsigned int instance_count;
-    unsigned int phase_body_idx;
     enum vkd3d_shader_opcode phase;
-    unsigned int output_control_point_count;
-
-    struct vkd3d_shader_src_param *outpointid_param;
 
     struct vkd3d_shader_dst_param *input_dcl_params[MAX_REG_OUTPUT];
     struct vkd3d_shader_dst_param *output_dcl_params[MAX_REG_OUTPUT];
@@ -3597,9 +3592,6 @@ static enum vkd3d_result vsir_program_normalise_io_registers(struct vsir_program
     {
         switch (ins->opcode)
         {
-            case VSIR_OP_DCL_OUTPUT_CONTROL_POINT_COUNT:
-                normaliser.output_control_point_count = ins->declaration.count;
-                break;
             case VSIR_OP_DCL_INDEX_RANGE:
                 if ((ret = io_normaliser_add_index_range(&normaliser, ins)) < 0)
                     return ret;
