@@ -3849,6 +3849,13 @@ static void dump_ir_jump(struct vkd3d_string_buffer *buffer, const struct hlsl_i
             vkd3d_string_buffer_printf(buffer, "unresolved_continue");
             break;
     }
+
+    if (jump->condition.node)
+    {
+        vkd3d_string_buffer_printf(buffer, " (");
+        dump_src(buffer, &jump->condition);
+        vkd3d_string_buffer_printf(buffer, ")");
+    }
 }
 
 static void dump_ir_loop(struct hlsl_ctx *ctx, struct vkd3d_string_buffer *buffer, const struct hlsl_ir_loop *loop)
