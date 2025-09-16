@@ -1017,16 +1017,15 @@ static void dst_param_init_output(struct vkd3d_shader_dst_param *dst,
     dst->write_mask = write_mask;
 }
 
-void vsir_instruction_init(struct vkd3d_shader_instruction *ins, const struct vkd3d_shader_location *location,
-        enum vkd3d_shader_opcode opcode)
+void vsir_instruction_init(struct vkd3d_shader_instruction *ins,
+        const struct vkd3d_shader_location *location, enum vkd3d_shader_opcode opcode)
 {
-    memset(ins, 0, sizeof(*ins));
-    ins->location = *location;
-    ins->opcode = opcode;
-    ins->resource_data_type[0] = VSIR_DATA_F32;
-    ins->resource_data_type[1] = VSIR_DATA_F32;
-    ins->resource_data_type[2] = VSIR_DATA_F32;
-    ins->resource_data_type[3] = VSIR_DATA_F32;
+    *ins = (struct vkd3d_shader_instruction)
+    {
+        .location = *location,
+        .opcode = opcode,
+        .resource_data_type = {VSIR_DATA_F32, VSIR_DATA_F32, VSIR_DATA_F32, VSIR_DATA_F32},
+    };
 }
 
 bool vsir_instruction_init_with_params(struct vsir_program *program,
