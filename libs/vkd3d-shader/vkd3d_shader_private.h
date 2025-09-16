@@ -1486,8 +1486,9 @@ static inline struct vkd3d_shader_instruction *vsir_program_iterator_prev(
 }
 
 /* When insertion takes place, argument `it' is updated to point to the same
- * instruction as before the insertion, but all other iterators and pointers
- * to the same container are invalidated and cannot be used any more. */
+ * instruction as before the insertion, but all existing pointers to the same
+ * container, as well as any iterators pointing to instructions after the
+ * insertion point should be considered invalid. */
 static inline bool vsir_program_iterator_insert_after(struct vsir_program_iterator *it, size_t count)
 {
     return shader_instruction_array_insert_at(it->array, it->idx + 1, count);

@@ -3884,7 +3884,7 @@ struct cf_flattener_switch_case
 
 struct cf_flattener_switch_info
 {
-    size_t ins_location;
+    struct vsir_program_iterator ins_it;
     const struct vkd3d_shader_src_param *condition;
     unsigned int id;
     unsigned int merge_block_id;
@@ -3919,9 +3919,7 @@ struct cf_flattener
     struct vkd3d_shader_location location;
     enum vkd3d_result status;
 
-    struct vkd3d_shader_instruction *instructions;
-    size_t instruction_capacity;
-    size_t instruction_count;
+    struct vkd3d_shader_instruction_array instructions;
 
     unsigned int block_id;
     const char **block_names;
@@ -3944,18 +3942,6 @@ static void cf_flattener_set_error(struct cf_flattener *flattener, enum vkd3d_re
     flattener->status = error;
 }
 
-static struct vkd3d_shader_instruction *cf_flattener_require_space(struct cf_flattener *flattener, size_t count)
-{
-    if (!vkd3d_array_reserve((void **)&flattener->instructions, &flattener->instruction_capacity,
-            flattener->instruction_count + count, sizeof(*flattener->instructions)))
-    {
-        ERR("Failed to allocate instructions.\n");
-        cf_flattener_set_error(flattener, VKD3D_ERROR_OUT_OF_MEMORY);
-        return NULL;
-    }
-    return &flattener->instructions[flattener->instruction_count];
-}
-
 static bool cf_flattener_copy_instruction(struct cf_flattener *flattener,
         const struct vkd3d_shader_instruction *instruction)
 {
@@ -3964,11 +3950,10 @@ static bool cf_flattener_copy_instruction(struct cf_flattener *flattener,
     if (instruction->opcode == VSIR_OP_NOP)
         return true;
 
-    if (!(dst_ins = cf_flattener_require_space(flattener, 1)))
+    if (!(dst_ins = shader_instruction_array_append(&flattener->instructions)))
         return false;
 
     *dst_ins = *instruction;
-    ++flattener->instruction_count;
     return true;
 }
 
@@ -3996,12 +3981,13 @@ static void cf_flattener_emit_label(struct cf_flattener *flattener, unsigned int
 {
     struct vkd3d_shader_instruction *ins;
 
-    if (!(ins = cf_flattener_require_space(flattener, 1)))
+    if (!(ins = shader_instruction_array_append(&flattener->instructions)))
         return;
-    if (vsir_instruction_init_label(ins, &flattener->location, label_id, flattener->program))
-        ++flattener->instruction_count;
-    else
+    if (!vsir_instruction_init_label(ins, &flattener->location, label_id, flattener->program))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         cf_flattener_set_error(flattener, VKD3D_ERROR_OUT_OF_MEMORY);
+    }
 }
 
 /* For conditional branches, this returns the false target branch parameter. */
@@ -4013,14 +3999,17 @@ static struct vkd3d_shader_src_param *cf_flattener_emit_branch(struct cf_flatten
     struct vkd3d_shader_src_param *src_params, *false_branch_param;
     struct vkd3d_shader_instruction *ins;
 
-    if (!(ins = cf_flattener_require_space(flattener, 1)))
+    if (!(ins = shader_instruction_array_append(&flattener->instructions)))
         return NULL;
     vsir_instruction_init(ins, &flattener->location, VSIR_OP_BRANCH);
 
     if (condition)
     {
         if (!(src_params = instruction_src_params_alloc(ins, 4 + !!continue_block_id, flattener)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
             return NULL;
+        }
         src_params[0] = *condition;
         if (flags == VKD3D_SHADER_CONDITIONAL_OP_Z)
         {
@@ -4041,7 +4030,10 @@ static struct vkd3d_shader_src_param *cf_flattener_emit_branch(struct cf_flatten
     else
     {
         if (!(src_params = instruction_src_params_alloc(ins, merge_block_id ? 3 : 1, flattener)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
             return NULL;
+        }
         vsir_src_param_init_label(&src_params[0], true_id);
         if (merge_block_id)
         {
@@ -4052,8 +4044,6 @@ static struct vkd3d_shader_src_param *cf_flattener_emit_branch(struct cf_flatten
         }
         false_branch_param = NULL;
     }
-
-    ++flattener->instruction_count;
 
     return false_branch_param;
 }
@@ -4160,8 +4150,12 @@ static enum vkd3d_result cf_flattener_iterate_instruction_array(struct cf_flatte
     is_hull_shader = program->shader_version.type == VKD3D_SHADER_TYPE_HULL;
     after_declarations_section = is_hull_shader;
 
-    if (!cf_flattener_require_space(flattener, instructions->count + 1))
+    if (!shader_instruction_array_reserve(&flattener->instructions, instructions->count + 1))
+    {
+        ERR("Failed to allocate instructions.\n");
+        cf_flattener_set_error(flattener, VKD3D_ERROR_OUT_OF_MEMORY);
         return VKD3D_ERROR_OUT_OF_MEMORY;
+    }
 
     it = vsir_program_iterator(instructions);
     for (instruction = vsir_program_iterator_head(&it); instruction; instruction = vsir_program_iterator_next(&it))
@@ -4301,13 +4295,14 @@ static enum vkd3d_result cf_flattener_iterate_instruction_array(struct cf_flatte
 
                 merge_block_id = cf_flattener_alloc_block_id(flattener);
 
-                cf_info->u.switch_.ins_location = flattener->instruction_count;
                 cf_info->u.switch_.condition = src;
 
-                if (!(dst_ins = cf_flattener_require_space(flattener, 1)))
+                if (!(dst_ins = shader_instruction_array_append(&flattener->instructions)))
                     return VKD3D_ERROR_OUT_OF_MEMORY;
                 vsir_instruction_init(dst_ins, &instruction->location, VSIR_OP_SWITCH_MONOLITHIC);
-                ++flattener->instruction_count;
+
+                cf_info->u.switch_.ins_it = vsir_program_iterator(&flattener->instructions);
+                vsir_program_iterator_tail(&cf_info->u.switch_.ins_it);
 
                 cf_info->u.switch_.id = flattener->switch_id;
                 cf_info->u.switch_.merge_block_id = merge_block_id;
@@ -4340,8 +4335,12 @@ static enum vkd3d_result cf_flattener_iterate_instruction_array(struct cf_flatte
                 /* The SWITCH instruction is completed when the endswitch
                  * instruction is processed because we do not know the number
                  * of case statements or the default block id in advance.*/
-                dst_ins = &flattener->instructions[cf_info->u.switch_.ins_location];
-                if (!(src_params = instruction_src_params_alloc(dst_ins, cf_info->u.switch_.cases_count * 2 + 3, flattener)))
+                /* NOTE: This relies on iterators not being invalidated
+                 * when new instructions are appended to the
+                 * vkd3d_shader_instruction_array. */
+                dst_ins = vsir_program_iterator_current(&cf_info->u.switch_.ins_it);
+                if (!(src_params = instruction_src_params_alloc(dst_ins,
+                        cf_info->u.switch_.cases_count * 2 + 3, flattener)))
                 {
                     vkd3d_free(cf_info->u.switch_.cases);
                     return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -4504,16 +4503,13 @@ static enum vkd3d_result vsir_program_flatten_control_flow_constructs(struct vsi
 
     if ((result = cf_flattener_iterate_instruction_array(&flattener, message_context)) >= 0)
     {
-        vkd3d_free(program->instructions.elements);
-        program->instructions.elements = flattener.instructions;
-        program->instructions.capacity = flattener.instruction_capacity;
-        program->instructions.count = flattener.instruction_count;
+        vsir_program_replace_instructions(program, &flattener.instructions);
         program->block_count = flattener.block_id;
         program->cf_type = VSIR_CF_BLOCKS;
     }
     else
     {
-        vkd3d_free(flattener.instructions);
+        shader_instruction_array_destroy(&flattener.instructions);
     }
 
     vkd3d_free(flattener.control_flow_info);
