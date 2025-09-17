@@ -8257,7 +8257,7 @@ static void spirv_compiler_emit_bitfield_instruction(struct spirv_compiler *comp
     VKD3D_ASSERT(2 <= src_count && src_count <= ARRAY_SIZE(src_ids));
 
     component_type = vkd3d_component_type_from_data_type(dst->reg.data_type);
-    type_id = spirv_get_type_id_for_component_type(builder, component_type, 1);
+    type_id = spirv_get_type_id(builder, dst->reg.data_type, 1);
     size = data_type_is_64_bit(src[src_count - 1].reg.data_type) ? 0x40 : 0x20;
     mask_id = spirv_compiler_get_constant_uint(compiler, size - 1);
     size_id = spirv_compiler_get_constant_uint(compiler, size);
