@@ -8155,7 +8155,7 @@ static void spirv_compiler_emit_ftoi(struct spirv_compiler *compiler,
     component_type = vkd3d_component_type_from_data_type(dst->reg.data_type);
 
     int_max_id = spirv_compiler_get_constant_vector(compiler, component_type, component_count, INT_MAX);
-    condition_type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_BOOL, component_count);
+    condition_type_id = spirv_get_type_id(builder, VSIR_DATA_BOOL, component_count);
     condition_id = vkd3d_spirv_build_op_tr2(builder, &builder->function_stream,
             SpvOpFOrdGreaterThanEqual, condition_type_id, val_id, float_max_id);
 
