@@ -4517,6 +4517,18 @@ static void test_reset_command_allocator(void)
     hr = ID3D12Device_CreateCommandList(device, 0, D3D12_COMMAND_LIST_TYPE_DIRECT,
             command_allocator, NULL, &IID_ID3D12GraphicsCommandList, (void **)&command_list2);
     ok(hr == S_OK, "Failed to create command list, hr %#x.\n", hr);
+    hr = ID3D12GraphicsCommandList_Close(command_list2);
+    ok(SUCCEEDED(hr), "Failed to close command list, hr %#x.\n", hr);
+
+    ID3D12CommandAllocator_Release(command_allocator2);
+
+    /* Reset with mismatching allocator type. */
+    hr = ID3D12Device_CreateCommandAllocator(device, D3D12_COMMAND_LIST_TYPE_BUNDLE,
+            &IID_ID3D12CommandAllocator, (void **)&command_allocator2);
+    ok(SUCCEEDED(hr), "Failed to create command allocator, hr %#x.\n", hr);
+
+    hr = ID3D12GraphicsCommandList_Reset(command_list2, command_allocator2, NULL);
+    ok(hr == E_INVALIDARG, "Got unexpected hr %#x.\n", hr);
 
     ID3D12CommandAllocator_Release(command_allocator);
     ID3D12CommandAllocator_Release(command_allocator2);

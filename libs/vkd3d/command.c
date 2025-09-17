@@ -2701,6 +2701,13 @@ static HRESULT STDMETHODCALLTYPE d3d12_command_list_Reset(ID3D12GraphicsCommandL
         return E_INVALIDARG;
     }
 
+    if (allocator_impl->type != list->type)
+    {
+        WARN("Command list types do not match (allocator %#x, list %#x).\n",
+                allocator_impl->type, list->type);
+        return E_INVALIDARG;
+    }
+
     if (list->is_recording)
     {
         WARN("Command list is in the recording state.\n");
