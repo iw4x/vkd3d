@@ -8314,8 +8314,8 @@ static void spirv_compiler_emit_f16tof32(struct spirv_compiler *compiler,
     unsigned int i, j;
 
     instr_set_id = vkd3d_spirv_get_glsl_std450_instr_set(builder);
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_FLOAT, 2);
-    scalar_type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_FLOAT, 1);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_F32, 2);
+    scalar_type_id = spirv_get_type_id(builder, VSIR_DATA_F32, 1);
 
     /* FIXME: Consider a single UnpackHalf2x16 instruction per 2 components. */
     VKD3D_ASSERT(dst->write_mask & VKD3DSP_WRITEMASK_ALL);
