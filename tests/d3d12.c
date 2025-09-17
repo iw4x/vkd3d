@@ -1327,8 +1327,10 @@ static void test_create_command_allocator(void)
 static void test_create_command_list(void)
 {
     ID3D12CommandAllocator *command_allocator;
+    ID3D12GraphicsCommandList *command_list2;
     ID3D12Device *device, *tmp_device;
     ID3D12CommandList *command_list;
+    ID3D12Device4 *device4;
     ULONG refcount;
     HRESULT hr;
 
@@ -1424,6 +1426,27 @@ static void test_create_command_list(void)
     ok(!refcount, "ID3D12CommandList has %u references left.\n", (unsigned int)refcount);
     refcount = ID3D12CommandAllocator_Release(command_allocator);
     ok(!refcount, "ID3D12CommandAllocator has %u references left.\n", (unsigned int)refcount);
+
+    if (SUCCEEDED(ID3D12Device_QueryInterface(device, &IID_ID3D12Device4, (void **)&device4)))
+    {
+        hr = ID3D12Device4_CreateCommandList1(device4, 0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                D3D12_COMMAND_LIST_FLAG_NONE, &IID_ID3D12GraphicsCommandList, (void **)&command_list2);
+        ok(SUCCEEDED(hr), "Failed to create command list, hr %#x.\n", hr);
+
+        hr = ID3D12Device_CreateCommandAllocator(device, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                &IID_ID3D12CommandAllocator, (void **)&command_allocator);
+        ok(SUCCEEDED(hr), "Failed to create command allocator, hr %#x.\n", hr);
+
+        hr = ID3D12GraphicsCommandList_Reset(command_list2, command_allocator, NULL);
+        ok(SUCCEEDED(hr), "Failed to reset command list, hr %#x.\n", hr);
+
+        refcount = ID3D12CommandAllocator_Release(command_allocator);
+        ok(!refcount, "ID3D12CommandAllocator has %u references left.\n", (unsigned int)refcount);
+        refcount = ID3D12GraphicsCommandList_Release(command_list2);
+        ok(!refcount, "ID3D12CommandList has %u references left.\n", (unsigned int)refcount);
+
+        ID3D12Device4_Release(device4);
+    }
 
     refcount = ID3D12Device_Release(device);
     ok(!refcount, "ID3D12Device has %u references left.\n", (unsigned int)refcount);
