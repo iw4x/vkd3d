@@ -4526,17 +4526,6 @@ static unsigned int label_from_src_param(const struct vkd3d_shader_src_param *pa
     return param->reg.idx[0].offset;
 }
 
-static bool reserve_instructions(struct vkd3d_shader_instruction **instructions, size_t *capacity, size_t count)
-{
-    if (!vkd3d_array_reserve((void **)instructions, capacity, count, sizeof(**instructions)))
-    {
-        ERR("Failed to allocate instructions.\n");
-        return false;
-    }
-
-    return true;
-}
-
 /* A record represents replacing a jump from block `switch_label' to
  * block `target_label' with a jump from block `if_label' to block
  * `target_label'. */
@@ -4767,11 +4756,11 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps(struct vsir_
         struct vsir_transformation_context *ctx)
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
-    size_t ins_capacity = 0, ins_count = 0, phi_count, incoming_count;
     struct ssas_to_temps_block_info *info, *block_info = NULL;
-    struct vkd3d_shader_instruction *instructions = NULL;
+    struct vkd3d_shader_instruction_array instructions = {0};
+    struct vkd3d_shader_instruction *ins, *dst_ins;
     struct ssas_to_temps_alloc alloc = {0};
-    struct vkd3d_shader_instruction *ins;
+    size_t phi_count, incoming_count;
     unsigned int current_label = 0;
 
     VKD3D_ASSERT(program->cf_type == VSIR_CF_BLOCKS);
@@ -4828,7 +4817,7 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps(struct vsir_
     if (!phi_count)
         goto done;
 
-    if (!reserve_instructions(&instructions, &ins_capacity, program->instructions.count + incoming_count - phi_count))
+    if (!shader_instruction_array_reserve(&instructions, program->instructions.count + incoming_count - phi_count))
         goto fail;
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
@@ -4856,9 +4845,12 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps(struct vsir_
                 {
                     struct phi_incoming_to_temp *incoming = &info->incomings[j];
 
-                    mov_ins = &instructions[ins_count++];
+                    mov_ins = shader_instruction_array_append(&instructions);
                     if (!vsir_instruction_init_with_params(program, mov_ins, &ins->location, VSIR_OP_MOV, 1, 0))
+                    {
+                        vkd3d_shader_instruction_make_nop(mov_ins);
                         goto fail;
+                    }
                     *mov_ins->dst = *incoming->dst;
                     mov_ins->src = incoming->src;
                     mov_ins->src_count = 1;
@@ -4872,13 +4864,11 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps(struct vsir_
                 break;
         }
 
-        instructions[ins_count++] = *ins;
+        dst_ins = shader_instruction_array_append(&instructions);
+        *dst_ins = *ins;
     }
 
-    vkd3d_free(program->instructions.elements);
-    program->instructions.elements = instructions;
-    program->instructions.capacity = ins_capacity;
-    program->instructions.count = ins_count;
+    vsir_program_replace_instructions(program, &instructions);
     program->temp_count = alloc.next_temp_idx;
 done:
     ssas_to_temps_block_info_cleanup(block_info, program->block_count);
@@ -4887,7 +4877,7 @@ done:
     return VKD3D_OK;
 
 fail:
-    vkd3d_free(instructions);
+    shader_instruction_array_destroy(&instructions);
     ssas_to_temps_block_info_cleanup(block_info, program->block_count);
     vkd3d_free(alloc.table);
 
