@@ -4570,14 +4570,14 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
 {
     unsigned int block_count = program->block_count, ssa_count = program->ssa_count, current_label = 0, if_label;
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
-    size_t ins_capacity = 0, ins_count = 0, map_capacity = 0, map_count = 0;
-    struct vkd3d_shader_instruction *instructions = NULL;
     struct lower_switch_to_if_ladder_block_mapping *block_map = NULL;
-    struct vkd3d_shader_instruction *ins;
+    struct vkd3d_shader_instruction_array instructions = {0};
+    struct vkd3d_shader_instruction *ins, *dst_ins;
+    size_t map_capacity = 0, map_count = 0;
 
     VKD3D_ASSERT(program->cf_type == VSIR_CF_BLOCKS);
 
-    if (!reserve_instructions(&instructions, &ins_capacity, program->instructions.count))
+    if (!shader_instruction_array_reserve(&instructions, program->instructions.count))
         goto fail;
 
     /* First subpass: convert SWITCH_MONOLITHIC instructions to
@@ -4591,18 +4591,18 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
         {
             case VSIR_OP_LABEL:
                 current_label = label_from_src_param(&ins->src[0]);
-                if (!reserve_instructions(&instructions, &ins_capacity, ins_count + 1))
+                if (!(dst_ins = shader_instruction_array_append(&instructions)))
                     goto fail;
-                instructions[ins_count++] = *ins;
+                *dst_ins = *ins;
                 continue;
 
             case VSIR_OP_SWITCH_MONOLITHIC:
                 break;
 
             default:
-                if (!reserve_instructions(&instructions, &ins_capacity, ins_count + 1))
+                if (!(dst_ins = shader_instruction_array_append(&instructions)))
                     goto fail;
-                instructions[ins_count++] = *ins;
+                *dst_ins = *ins;
                 continue;
         }
 
@@ -4613,17 +4613,18 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
          * just have to jump to the default label. */
         if (case_count == 0)
         {
-            if (!reserve_instructions(&instructions, &ins_capacity, ins_count + 1))
+            if (!(dst_ins = shader_instruction_array_append(&instructions)))
                 goto fail;
 
-            if (!vsir_instruction_init_with_params(program, &instructions[ins_count],
-                    &ins->location, VSIR_OP_BRANCH, 0, 1))
+            if (!vsir_instruction_init_with_params(program, dst_ins, &ins->location, VSIR_OP_BRANCH, 0, 1))
+            {
+                vkd3d_shader_instruction_make_nop(dst_ins);
                 goto fail;
-            vsir_src_param_init_label(&instructions[ins_count].src[0], default_label);
-            ++ins_count;
+            }
+            vsir_src_param_init_label(&dst_ins->src[0], default_label);
         }
 
-        if (!reserve_instructions(&instructions, &ins_capacity, ins_count + 3 * case_count - 1))
+        if (!shader_instruction_array_reserve(&instructions, instructions.count + 3 * case_count - 1))
             goto fail;
 
         if_label = current_label;
@@ -4632,13 +4633,15 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
         {
             unsigned int fallthrough_label, case_label = label_from_src_param(&ins->src[3 + 2 * j + 1]);
 
-            if (!vsir_instruction_init_with_params(program,
-                    &instructions[ins_count], &ins->location, VSIR_OP_IEQ, 1, 2))
+            dst_ins = shader_instruction_array_append(&instructions);
+            if (!vsir_instruction_init_with_params(program, dst_ins, &ins->location, VSIR_OP_IEQ, 1, 2))
+            {
+                vkd3d_shader_instruction_make_nop(dst_ins);
                 goto fail;
-            dst_param_init_ssa_bool(&instructions[ins_count].dst[0], ssa_count);
-            instructions[ins_count].src[0] = ins->src[0];
-            instructions[ins_count].src[1] = ins->src[3 + 2 * j];
-            ++ins_count;
+            }
+            dst_param_init_ssa_bool(&dst_ins->dst[0], ssa_count);
+            dst_ins->src[0] = ins->src[0];
+            dst_ins->src[1] = ins->src[3 + 2 * j];
 
             /* For all cases except the last one we fall through to
              * the following case; the last one has to jump to the
@@ -4648,13 +4651,15 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
             else
                 fallthrough_label = block_count + 1;
 
-            if (!vsir_instruction_init_with_params(program, &instructions[ins_count],
-                    &ins->location, VSIR_OP_BRANCH, 0, 3))
+            dst_ins = shader_instruction_array_append(&instructions);
+            if (!vsir_instruction_init_with_params(program, dst_ins, &ins->location, VSIR_OP_BRANCH, 0, 3))
+            {
+                vkd3d_shader_instruction_make_nop(dst_ins);
                 goto fail;
-            src_param_init_ssa_bool(&instructions[ins_count].src[0], ssa_count);
-            vsir_src_param_init_label(&instructions[ins_count].src[1], case_label);
-            vsir_src_param_init_label(&instructions[ins_count].src[2], fallthrough_label);
-            ++ins_count;
+            }
+            src_param_init_ssa_bool(&dst_ins->src[0], ssa_count);
+            vsir_src_param_init_label(&dst_ins->src[1], case_label);
+            vsir_src_param_init_label(&dst_ins->src[2], fallthrough_label);
 
             ++ssa_count;
 
@@ -4670,29 +4675,28 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
             }
             else
             {
-                if (!vsir_instruction_init_with_params(program,
-                        &instructions[ins_count], &ins->location, VSIR_OP_LABEL, 0, 1))
+                dst_ins = shader_instruction_array_append(&instructions);
+                if (!vsir_instruction_init_with_params(program, dst_ins, &ins->location, VSIR_OP_LABEL, 0, 1))
+                {
+                    vkd3d_shader_instruction_make_nop(dst_ins);
                     goto fail;
-                vsir_src_param_init_label(&instructions[ins_count].src[0], ++block_count);
-                ++ins_count;
+                }
+                vsir_src_param_init_label(&dst_ins->src[0], ++block_count);
 
                 if_label = block_count;
             }
         }
     }
 
-    vkd3d_free(program->instructions.elements);
+    vsir_program_replace_instructions(program, &instructions);
     vkd3d_free(block_map);
-    program->instructions.elements = instructions;
-    program->instructions.capacity = ins_capacity;
-    program->instructions.count = ins_count;
     program->block_count = block_count;
     program->ssa_count = ssa_count;
 
     return VKD3D_OK;
 
 fail:
-    vkd3d_free(instructions);
+    shader_instruction_array_destroy(&instructions);
     vkd3d_free(block_map);
 
     return VKD3D_ERROR_OUT_OF_MEMORY;
