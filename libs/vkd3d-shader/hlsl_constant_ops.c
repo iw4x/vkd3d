@@ -1649,6 +1649,7 @@ bool hlsl_fold_constant_exprs(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
 
 bool hlsl_fold_constant_identities(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
 {
+    static const struct hlsl_constant_value zero;
     struct hlsl_ir_constant *const_arg = NULL;
     struct hlsl_ir_node *mut_arg = NULL;
     struct hlsl_ir_node *res_node;
@@ -1709,6 +1710,17 @@ bool hlsl_fold_constant_identities(struct hlsl_ctx *ctx, struct hlsl_ir_node *in
                 res_node = mut_arg;
             else if (hlsl_constant_is_one(const_arg))
                 res_node = &const_arg->node;
+            break;
+
+        case HLSL_OP2_LESS:
+            /* x < 0 -> false, if x is unsigned. */
+            if (!hlsl_type_is_unsigned_integer(expr->operands[0].node->data_type)
+                    || expr->operands[1].node->type != HLSL_IR_CONSTANT
+                    || !hlsl_constant_is_zero(hlsl_ir_constant(expr->operands[1].node)))
+                break;
+            if (!(res_node = hlsl_new_constant(ctx, instr->data_type, &zero, &instr->loc)))
+                break;
+            list_add_before(&expr->node.entry, &res_node->entry);
             break;
 
         default:
