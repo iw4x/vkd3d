@@ -9885,6 +9885,37 @@ static void vsir_validate_io_register(struct validation_context *ctx, const stru
                 reg->idx[control_point_index].offset, control_point_count, reg->type);
 }
 
+static void vsir_validate_texture_register(struct validation_context *ctx, const struct vkd3d_shader_register *reg)
+{
+    const struct vkd3d_shader_version *version = &ctx->program->shader_version;
+    uint32_t idx;
+
+    if (version->type != VKD3D_SHADER_TYPE_PIXEL)
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
+                "TEXTURE registers cannot be used in shader type %#x.", version->type);
+
+    if (reg->idx_count != 1)
+    {
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_INDEX_COUNT,
+                "Invalid index count %u for a TEXTURE register.", reg->idx_count);
+        return;
+    }
+
+    if (reg->idx[0].rel_addr)
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_INDEX,
+                "Non-NULL relative address for a TEXTURE register.");
+
+    if (version->major >= 3)
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
+                "TEXTURE registers cannot be used in version %u.%u.", version->major, version->minor);
+
+    idx = reg->idx[0].offset;
+    if (idx >= 8 || (vkd3d_shader_ver_le(version, 1, 4) && idx >= 6)
+            || (vkd3d_shader_ver_le(version, 1, 3) && idx >= 4))
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_INDEX,
+                "Register t%u exceeds limits for version %u.%u.", idx, version->major, version->minor);
+}
+
 static void vsir_validate_temp_register(struct validation_context *ctx,
         const struct vkd3d_shader_register *reg)
 {
@@ -10354,6 +10385,10 @@ static void vsir_validate_register(struct validation_context *ctx,
             vsir_validate_register_without_indices(ctx, reg);
             break;
 
+        case VKD3DSPR_TEXTURE:
+            vsir_validate_texture_register(ctx, reg);
+            break;
+
         case VKD3DSPR_SSA:
             vsir_validate_ssa_register(ctx, reg);
             break;
@@ -10402,6 +10437,8 @@ static void vsir_validate_io_dst_param(struct validation_context *ctx,
 static void vsir_validate_dst_param(struct validation_context *ctx,
         const struct vkd3d_shader_dst_param *dst)
 {
+    const struct vkd3d_shader_version *version = &ctx->program->shader_version;
+
     vsir_validate_register(ctx, &dst->reg);
 
     if (dst->write_mask & ~VKD3DSP_WRITEMASK_ALL)
@@ -10530,6 +10567,11 @@ static void vsir_validate_dst_param(struct validation_context *ctx,
         case VKD3DSPR_PATCHCONST:
             vsir_validate_io_dst_param(ctx, dst);
             break;
+
+        case VKD3DSPR_TEXTURE:
+            if (vkd3d_shader_ver_ge(version, 1, 4))
+                validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
+                        "Texture registers cannot be written in version %u.%u.", version->major, version->minor);
 
         default:
             break;
