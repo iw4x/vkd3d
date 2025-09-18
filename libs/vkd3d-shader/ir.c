@@ -11553,6 +11553,27 @@ static void vsir_validate_shift_operation(struct validation_context *ctx,
                 vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
 }
 
+static void vsir_validate_bem(struct validation_context *ctx, const struct vkd3d_shader_instruction *instruction)
+{
+    const struct vkd3d_shader_version *version = &ctx->program->shader_version;
+
+    if (version->type != VKD3D_SHADER_TYPE_PIXEL)
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
+                "BEM cannot be used in shader type %#x.", version->type);
+
+    if (version->major != 1 || version->minor != 4)
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_OPCODE,
+                "BEM cannot be used in version %u.%u.", version->major, version->minor);
+
+    if (instruction->dst[0].write_mask != 0x3)
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_WRITE_MASK,
+                "Invalid BEM write mask %#x.", instruction->dst[0].write_mask);
+
+    /* Strictly not an elementwise operation, but we expect all the arguments
+     * to be float. */
+    vsir_validate_float_elementwise_operation(ctx, instruction);
+}
+
 static void vsir_validate_branch(struct validation_context *ctx, const struct vkd3d_shader_instruction *instruction)
 {
     size_t i;
@@ -12395,6 +12416,7 @@ static const struct vsir_validator_instruction_desc vsir_validator_instructions[
     [VSIR_OP_AND] =                              {1,   2, vsir_validate_logic_elementwise_operation},
     [VSIR_OP_ASIN] =                             {1,   1, vsir_validate_float_elementwise_operation},
     [VSIR_OP_ATAN] =                             {1,   1, vsir_validate_float_elementwise_operation},
+    [VSIR_OP_BEM] =                              {1,   2, vsir_validate_bem},
     [VSIR_OP_BRANCH] =                           {0, ~0u, vsir_validate_branch},
     [VSIR_OP_DADD] =                             {1,   2, vsir_validate_double_elementwise_operation},
     [VSIR_OP_DCL_GS_INSTANCES] =                 {0,   0, vsir_validate_dcl_gs_instances},
