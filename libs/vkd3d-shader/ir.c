@@ -4501,6 +4501,8 @@ static enum vkd3d_result vsir_program_flatten_control_flow_constructs(struct vsi
 
     VKD3D_ASSERT(program->cf_type == VSIR_CF_STRUCTURED);
 
+    shader_instruction_array_init(&flattener.instructions, 0);
+
     if ((result = cf_flattener_iterate_instruction_array(&flattener, message_context)) >= 0)
     {
         vsir_program_replace_instructions(program, &flattener.instructions);
@@ -4560,14 +4562,14 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
     unsigned int block_count = program->block_count, ssa_count = program->ssa_count, current_label = 0, if_label;
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
     struct lower_switch_to_if_ladder_block_mapping *block_map = NULL;
-    struct vkd3d_shader_instruction_array instructions = {0};
+    struct vkd3d_shader_instruction_array instructions;
     struct vkd3d_shader_instruction *ins, *dst_ins;
     size_t map_capacity = 0, map_count = 0;
 
     VKD3D_ASSERT(program->cf_type == VSIR_CF_BLOCKS);
 
-    if (!shader_instruction_array_reserve(&instructions, program->instructions.count))
-        goto fail;
+    if (!shader_instruction_array_init(&instructions, program->instructions.count))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
 
     /* First subpass: convert SWITCH_MONOLITHIC instructions to
      * selection ladders, keeping a map between blocks before and
@@ -4757,13 +4759,16 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps(struct vsir_
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
     struct ssas_to_temps_block_info *info, *block_info = NULL;
-    struct vkd3d_shader_instruction_array instructions = {0};
+    struct vkd3d_shader_instruction_array instructions;
     struct vkd3d_shader_instruction *ins, *dst_ins;
     struct ssas_to_temps_alloc alloc = {0};
     size_t phi_count, incoming_count;
     unsigned int current_label = 0;
 
     VKD3D_ASSERT(program->cf_type == VSIR_CF_BLOCKS);
+
+    if (!shader_instruction_array_init(&instructions, 0))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
 
     if (!(block_info = vkd3d_calloc(program->block_count, sizeof(*block_info))))
     {
@@ -7033,7 +7038,7 @@ static enum vkd3d_result vsir_program_structurize(struct vsir_program *program,
     target.jump_target_temp_idx = program->temp_count;
     target.temp_count = program->temp_count + 1;
 
-    if (!shader_instruction_array_reserve(&target.instructions, target.instructions.count))
+    if (!shader_instruction_array_init(&target.instructions, 0))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     for (ins = vsir_program_iterator_head(&it); ins;)
