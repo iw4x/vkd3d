@@ -8427,7 +8427,7 @@ static void spirv_compiler_emit_comparison_instruction(struct spirv_compiler *co
     src0_id = spirv_compiler_emit_load_src(compiler, &src[0], write_mask);
     src1_id = spirv_compiler_emit_load_src(compiler, &src[1], write_mask);
 
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_BOOL, component_count);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_BOOL, component_count);
     result_id = vkd3d_spirv_build_op_tr2(builder, &builder->function_stream,
             op, type_id, src0_id, src1_id);
 
