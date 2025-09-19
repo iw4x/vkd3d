@@ -4,6 +4,8 @@ float4 main() : sv_target { return 0; }
 GeometryShader gs1 = CompileShader(gs_5_0, main());
 GeometryShader gs2 = ConstructGSWithSO(gs1, "random_string", "another_string", NULL, NULL, 1);
 
+float4 ConstructGSWithSO;
+
 technique11
 {
     pass
