@@ -8940,11 +8940,13 @@ struct temp_allocator
         uint32_t temp_id;
         enum vkd3d_shader_register_type type;
         unsigned int idx;
+        bool force_first;
     } *ssa_regs, *temp_regs;
     size_t ssa_count, temp_count;
     unsigned int new_temp_count;
     enum vkd3d_result result;
     uint8_t *current_allocation;
+    bool ps_1_x;
 };
 
 static void temp_allocator_set_src(struct temp_allocator *allocator, struct vkd3d_shader_src_param *src)
@@ -9092,15 +9094,12 @@ static int temp_allocate_compare_open(const void *ptr1, const void *ptr2)
     const struct temp_allocator_reg * const *reg1 = ptr1, * const *reg2 = ptr2;
     int ret;
 
+    if ((ret = vkd3d_u32_compare((*reg1)->force_first, (*reg2)->force_first)))
+        return -ret;
     if ((ret = vkd3d_u32_compare((*reg1)->liveness_reg->first_write, (*reg2)->liveness_reg->first_write)))
         return ret;
     if ((ret = vkd3d_u32_compare((*reg1)->liveness_reg->last_access, (*reg2)->liveness_reg->last_access)))
         return ret;
-    /* r0 must compare before everything else for SM 1.x PS (see comment below). */
-    if ((*reg1)->type == VKD3DSPR_TEMP && (*reg1)->idx == 0)
-        return -1;
-    if ((*reg2)->type == VKD3DSPR_TEMP && (*reg2)->idx == 0)
-        return 1;
     return 0;
 }
 
@@ -9268,6 +9267,17 @@ static enum vkd3d_result temp_allocator_compute_allocation_map(struct temp_alloc
         {
             reg->type = VKD3DSPR_TEMP;
             reg->idx = i - allocator->ssa_count;
+
+            /* For SM 1.x ps we need to ensure that r0 is reallocated to itself,
+             * because it doubles as the output register. To do so we
+             * artificially make it alive for the whole program and make it
+             * compare before anything else. */
+            if (reg->idx == 0 && allocator->ps_1_x)
+            {
+                reg->force_first = true;
+                liveness->ssa_regs[i].first_write = 0;
+                liveness->ssa_regs[i].last_access = UINT_MAX;
+            }
         }
 
         reg->liveness_reg = &liveness->ssa_regs[i];
@@ -9375,15 +9385,8 @@ enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
     allocator.temp_regs = regs + program->ssa_count;
     allocator.new_temp_count = 0;
 
-    /* For SM 1.x ps we need to ensure that r0 is reallocated to itself, because
-     * it doubles as the output register. To do so we artificially make it
-     * alive for the whole program. */
-    if (program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL
-            && program->shader_version.major < 2 && allocator.temp_count >= 1)
-    {
-        tracker.temp_regs[0].first_write = 0;
-        tracker.temp_regs[0].last_access = UINT_MAX;
-    }
+    if (program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL && program->shader_version.major < 2)
+        allocator.ps_1_x = true;
 
     if ((ret = temp_allocator_compute_allocation_map(&allocator, &tracker)) < 0)
     {
