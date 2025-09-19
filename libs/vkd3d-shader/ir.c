@@ -4747,11 +4747,11 @@ static void ssas_to_temps_block_info_cleanup(struct ssas_to_temps_block_info *bl
     vkd3d_free(block_info);
 }
 
-static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps(struct vsir_program *program,
-        struct vsir_transformation_context *ctx)
+static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps_in_function(
+        struct vsir_program *program, struct vsir_program_iterator *it)
 {
-    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
     struct ssas_to_temps_block_info *info, *block_info = NULL;
+    struct vsir_program_iterator it_begin = *it;
     struct ssas_to_temps_alloc alloc = {0};
     struct vkd3d_shader_instruction *ins;
     size_t phi_count, incoming_count;
@@ -4770,14 +4770,31 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps(struct vsir_
 
     phi_count = 0;
     incoming_count = 0;
-    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
+    for (ins = vsir_program_iterator_current(it); ins; ins = vsir_program_iterator_next(it))
     {
         unsigned int j, temp_idx;
+        bool finish = false;
 
         /* Only phi src/dst SSA values need be converted here. Structurisation may
          * introduce new cases of undominated SSA use, which will be handled later. */
-        if (ins->opcode != VSIR_OP_PHI)
-            continue;
+        switch (ins->opcode)
+        {
+            case VSIR_OP_PHI:
+                break;
+
+            case VSIR_OP_HS_CONTROL_POINT_PHASE:
+            case VSIR_OP_HS_FORK_PHASE:
+            case VSIR_OP_HS_JOIN_PHASE:
+                finish = true;
+                break;
+
+            default:
+                continue;
+        }
+
+        if (finish)
+            break;
+
         ++phi_count;
 
         temp_idx = alloc.next_temp_idx++;
@@ -4814,9 +4831,12 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps(struct vsir_
     if (!shader_instruction_array_reserve(&program->instructions, program->instructions.count + incoming_count))
         goto fail;
 
-    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
+    *it = it_begin;
+
+    for (ins = vsir_program_iterator_current(it); ins; ins = vsir_program_iterator_next(it))
     {
         struct vkd3d_shader_instruction *mov_ins;
+        bool finish = false;
         size_t j;
 
         for (j = 0; j < ins->dst_count; ++j)
@@ -4835,7 +4855,7 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps(struct vsir_
             case VSIR_OP_SWITCH_MONOLITHIC:
                 info = &block_info[current_label - 1];
 
-                mov_ins = vsir_program_iterator_insert_before_and_move(&it, info->incoming_count);
+                mov_ins = vsir_program_iterator_insert_before_and_move(it, info->incoming_count);
                 VKD3D_ASSERT(mov_ins);
 
                 for (j = 0; j < info->incoming_count; ++j)
@@ -4851,7 +4871,7 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps(struct vsir_
                     mov_ins->src = incoming->src;
                     mov_ins->src_count = 1;
 
-                    mov_ins = vsir_program_iterator_next(&it);
+                    mov_ins = vsir_program_iterator_next(it);
                 }
                 break;
 
@@ -4859,9 +4879,18 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps(struct vsir_
                 vkd3d_shader_instruction_make_nop(ins);
                 break;
 
+            case VSIR_OP_HS_CONTROL_POINT_PHASE:
+            case VSIR_OP_HS_FORK_PHASE:
+            case VSIR_OP_HS_JOIN_PHASE:
+                finish = true;
+                break;
+
             default:
                 break;
         }
+
+        if (finish)
+            break;
     }
 
     program->temp_count = alloc.next_temp_idx;
@@ -4876,6 +4905,45 @@ fail:
     vkd3d_free(alloc.table);
 
     return VKD3D_ERROR_OUT_OF_MEMORY;
+}
+
+static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps(struct vsir_program *program,
+        struct vsir_transformation_context *ctx)
+{
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
+    struct vkd3d_shader_instruction *ins;
+    enum vkd3d_result ret;
+
+    VKD3D_ASSERT(program->cf_type == VSIR_CF_BLOCKS);
+
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_current(&it))
+    {
+        switch (ins->opcode)
+        {
+            case VSIR_OP_LABEL:
+                VKD3D_ASSERT(program->shader_version.type != VKD3D_SHADER_TYPE_HULL);
+                TRACE("Materializing undominated SSAs in a non-hull shader.\n");
+                if ((ret = vsir_program_materialise_phi_ssas_to_temps_in_function(program, &it)) < 0)
+                    return ret;
+                break;
+
+            case VSIR_OP_HS_CONTROL_POINT_PHASE:
+            case VSIR_OP_HS_FORK_PHASE:
+            case VSIR_OP_HS_JOIN_PHASE:
+                VKD3D_ASSERT(program->shader_version.type == VKD3D_SHADER_TYPE_HULL);
+                TRACE("Materializing undominated SSAs in phase %u of a hull shader.\n", ins->opcode);
+                vsir_program_iterator_next(&it);
+                if ((ret = vsir_program_materialise_phi_ssas_to_temps_in_function(program, &it)) < 0)
+                    return ret;
+                break;
+
+            default:
+                vsir_program_iterator_next(&it);
+                break;
+        }
+    }
+
+    return VKD3D_OK;
 }
 
 struct vsir_block_list
