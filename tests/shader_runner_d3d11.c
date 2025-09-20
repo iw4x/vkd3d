@@ -258,6 +258,39 @@ static bool get_format_support(ID3D11Device *device, enum DXGI_FORMAT format)
     return ret;
 }
 
+static bool get_adapter_desc(ID3D11Device *device, DXGI_ADAPTER_DESC *desc)
+{
+    IDXGIDevice *dxgi_device;
+    IDXGIAdapter *adapter;
+    HRESULT hr;
+
+    memset(desc, 0, sizeof(*desc));
+
+    if (!vkd3d_test_platform_is_windows())
+        return false;
+
+    hr = ID3D11Device_QueryInterface(device, &IID_IDXGIDevice, (void **)&dxgi_device);
+    ok(hr == S_OK, "Failed to get DXGI device, hr %#lx.\n", hr);
+
+    hr = IDXGIDevice_GetAdapter(dxgi_device, &adapter);
+    ok(hr == S_OK, "Failed to get DXGI adapter, hr %#lx.\n", hr);
+
+    hr = IDXGIAdapter_GetDesc(adapter, desc);
+    ok(hr == S_OK, "Failed to get adapter desc, hr %#lx.\n", hr);
+
+    IDXGIAdapter_Release(adapter);
+    IDXGIDevice_Release(dxgi_device);
+
+    return true;
+}
+
+static bool is_nvidia_windows_device(ID3D11Device *device)
+{
+    DXGI_ADAPTER_DESC desc;
+
+    return get_adapter_desc(device, &desc) && desc.VendorId == 0x10de;
+}
+
 static BOOL init_test_context(struct d3d11_shader_runner *runner)
 {
     D3D11_FEATURE_DATA_D3D11_OPTIONS2 options2 = {0};
@@ -326,8 +359,11 @@ static BOOL init_test_context(struct d3d11_shader_runner *runner)
     }
 
     runner->caps.tag_count = 0;
+    runner->caps.tags[runner->caps.tag_count++] = "d3d11";
     if (test_options.use_warp_device)
         runner->caps.tags[runner->caps.tag_count++] = "warp";
+    if (is_nvidia_windows_device(runner->device))
+        runner->caps.tags[runner->caps.tag_count++] = "nvidia";
 
     rt_width = RENDER_TARGET_WIDTH;
     rt_height = RENDER_TARGET_HEIGHT;

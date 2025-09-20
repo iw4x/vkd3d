@@ -151,6 +151,7 @@ static bool check_qualifier_args_conjunction(struct shader_runner *runner,
      * prefix of X. */
     static const char *const valid_tags[] =
     {
+        "d3d11",
         "d3d12",
         "glsl",
         "llvmpipe",
@@ -158,6 +159,7 @@ static bool check_qualifier_args_conjunction(struct shader_runner *runner,
         "msl",
         "mvk<1.2.11",
         "mvk",
+        "nvidia",
         "opengl",
         "vulkan",
         "warp",
