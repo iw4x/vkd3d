@@ -1137,7 +1137,13 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
             runner->caps.tags[runner->caps.tag_count++] = "mesa<23.3";
         if (test_options.use_warp_device)
             runner->caps.tags[runner->caps.tag_count++] = "warp";
+        if (is_nvidia_windows_device(device) || is_nvidia_device(device))
+            runner->caps.tags[runner->caps.tag_count++] = "nvidia";
     }
+
+#ifdef _WIN32
+    runner->caps.tags[runner->caps.tag_count++] = "windows";
+#endif
 
     for (unsigned int i = 0; i < ARRAY_SIZE(formats); ++i)
     {
