@@ -432,16 +432,16 @@ int64_t i;
 
 uint4 main() : sv_target
 {
-    return uint4(0, firstbitlow(u), firstbithigh(u), firstbithigh(i));
+    return uint4(firstbitlow(u), firstbithigh(u), firstbitlow(i), firstbithigh(i));
 }
 
 [test]
 uniform 0 uint64_t2 0 0
 todo draw quad
-probe (0, 0) u32(0, 0xffffffff, 0xffffffff, 0xffffffff)
+probe (0, 0) u32(0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff)
 uniform 0 int64_t2 -1 -1
 todo draw quad
-probe (0, 0) u32(64, 0, 63, 0xffffffff)
+probe (0, 0) u32(0, 63, 0, 0xffffffff)
 uniform 0 uint64_t2 0xcccccccccccccccc 0xcccccccccccccccc
 todo draw quad
-probe (0, 0) u32(32, 2, 63, 61)
+probe (0, 0) u32(2, 63, 2, 61)
