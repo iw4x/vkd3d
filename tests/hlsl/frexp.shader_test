@@ -37,12 +37,12 @@ probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
 uniform 0 float4 INF 0.0 0.0 0.0
 todo(sm<4) draw quad
-if(sm<4)  probe (0, 0) f32(-NAN, -NAN, 0, 0)
+% Results for sm<4 are not uniform across drivers.
 if(sm>=4) probe (0, 0) f32(129, 0.5, 0, 0)
 
 uniform 0 float4 -INF 0.0 0.0 0.0
 todo(sm<4) draw quad
-if(sm<4)  probe (0, 0) f32(-NAN, -NAN, 0, 0)
+% Results for sm<4 are not uniform across drivers.
 if(sm>=4) probe (0, 0) f32(129, 0.5, 0, 0)
 
 % NaN, with a well defined mantissa (pi / 4)
