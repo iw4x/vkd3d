@@ -9983,14 +9983,14 @@ static void spirv_compiler_emit_resinfo(struct spirv_compiler *compiler,
     size_component_count = image.resource_type_info->coordinate_component_count;
     if (image.resource_type_info->dim == SpvDimCube)
         --size_component_count;
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, size_component_count);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_U32, size_component_count);
 
     supports_mipmaps = src[1].reg.type != VKD3DSPR_UAV && !image.resource_type_info->ms;
     if (supports_mipmaps)
     {
         lod_id = spirv_compiler_emit_load_src(compiler, &src[0], VKD3DSP_WRITEMASK_0);
         val_id = vkd3d_spirv_build_op_image_query_size_lod(builder, type_id, image.image_id, lod_id);
-        type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+        type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
         miplevel_count_id = vkd3d_spirv_build_op_image_query_levels(builder, type_id, image.image_id);
     }
     else
@@ -10004,14 +10004,13 @@ static void spirv_compiler_emit_resinfo(struct spirv_compiler *compiler,
     for (i = 0; i < 3 - size_component_count; ++i)
         constituents[i + 1] = spirv_compiler_get_constant_uint(compiler, 0);
     constituents[i + 1] = miplevel_count_id;
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, VKD3D_VEC4_SIZE);
-    val_id = vkd3d_spirv_build_op_composite_construct(builder,
-            type_id, constituents, i + 2);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_U32, VKD3D_VEC4_SIZE);
+    val_id = vkd3d_spirv_build_op_composite_construct(builder, type_id, constituents, i + 2);
 
     if (!(instruction->flags & VKD3DSI_RESINFO_UINT))
     {
         component_type = VKD3D_SHADER_COMPONENT_FLOAT;
-        type_id = spirv_get_type_id_for_component_type(builder, component_type, VKD3D_VEC4_SIZE);
+        type_id = spirv_get_type_id(builder, VSIR_DATA_F32, VKD3D_VEC4_SIZE);
         val_id = vkd3d_spirv_build_op_convert_utof(builder, type_id, val_id);
         if (instruction->flags & VKD3DSI_PRECISE_XYZW)
             vkd3d_spirv_build_op_decorate(builder, val_id, SpvDecorationNoContraction, NULL, 0);
