@@ -10038,7 +10038,7 @@ static uint32_t spirv_compiler_emit_query_sample_count(struct spirv_compiler *co
         vkd3d_spirv_enable_capability(builder, SpvCapabilityImageQuery);
 
         spirv_compiler_prepare_image(compiler, &image, &src->reg, NULL, VKD3D_IMAGE_FLAG_NONE);
-        type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+        type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
         val_id = vkd3d_spirv_build_op_image_query_samples(builder, type_id, image.image_id);
     }
 
