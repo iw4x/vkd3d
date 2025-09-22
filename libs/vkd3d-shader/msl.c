@@ -1648,6 +1648,9 @@ static void msl_handle_instruction(struct msl_generator *gen, const struct vkd3d
         case VSIR_OP_SWITCH:
             msl_switch(gen, ins);
             break;
+        case VSIR_OP_TAN:
+            msl_intrinsic(gen, ins, "tan");
+            break;
         case VSIR_OP_XOR:
             msl_binop(gen, ins, "^");
             break;
