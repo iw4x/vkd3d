@@ -82,13 +82,11 @@ float4 main() : sv_target
 
 [test]
 uniform 0 float4 -6.28318531 -0.88137359 0.88137359 6.28318531
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (-267.744894, -1.0, 1.0, 267.744894) 2
+draw quad
+probe (0, 0) f32(-267.744894, -1.0, 1.0, 267.744894) 2
 uniform 0 float4 -0.0 0.0 -90.0 90.0
-todo(msl & sm>=6) draw quad
-% mingw does not support "inf" for scanf(), but numbers beyond FLOAT_MAX consistently result in inf.
-probe (0, 0) rgba (0.0, 0.0, -1.0e39, 1.0e39) 1
-
+draw quad
+probe (0, 0) f32(0.0, 0.0, -inf, inf) 1
 
 [pixel shader]
 uniform float4 a;
