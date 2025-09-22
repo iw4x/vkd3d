@@ -44,8 +44,8 @@ float4 main() : sv_target
 
 [test]
 uniform 0 float4 -1.0 0.0 0.0 0.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (-31416.0, 0.0, 0.0, 0.0)
+draw quad
+probe (0, 0) f32(-31416.0, 0.0, 0.0, 0.0)
 
 [require]
 shader model < 6.0
@@ -72,25 +72,24 @@ shader model >= 6.0
 % RADV are a bit lower than these, hence the large max ulp difference.
 [test]
 uniform 0 float4 -0.5 0.0 0.0 0.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (-10472.0, 0.0, 0.0, 0.0) 4096
+draw quad
+probe (0, 0) f32(-10472.0, 0.0, 0.0, 0.0) 4096
 
 uniform 0 float4 0.0 0.0 0.0 0.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (0.0, 0.0, 0.0, 0.0)
+draw quad
+probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
 uniform 0 float4 0.5 0.0 0.0 0.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (10472.0, 0.0, 0.0, 0.0) 4096
+draw quad
+probe (0, 0) f32(10472.0, 0.0, 0.0, 0.0) 4096
 
 [require]
 % reset requirements
 
 [test]
 uniform 0 float4 1.0 0.0 0.0 0.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (31416.0, 0.0, 0.0, 0.0)
-
+draw quad
+probe (0, 0) f32(31416.0, 0.0, 0.0, 0.0)
 
 [pixel shader]
 uniform float4 a;
