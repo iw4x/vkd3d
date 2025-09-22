@@ -1636,6 +1636,9 @@ static void msl_handle_instruction(struct msl_generator *gen, const struct vkd3d
         case VSIR_OP_RSQ:
             msl_intrinsic(gen, ins, "rsqrt");
             break;
+        case VSIR_OP_SIN:
+            msl_intrinsic(gen, ins, "sin");
+            break;
         case VSIR_OP_SQRT:
             msl_intrinsic(gen, ins, "sqrt");
             break;
