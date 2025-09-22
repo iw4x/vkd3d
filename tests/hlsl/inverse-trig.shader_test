@@ -13,24 +13,24 @@ float4 main() : sv_target
 
 [test]
 uniform 0 float4 -1.0 0.0 0.0 0.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (3.14159274, 0.0, 0.0, 0.0) 128
+draw quad
+probe (0, 0) f32(3.14159274, 0.0, 0.0, 0.0) 128
 
 uniform 0 float4 -0.5 0.0 0.0 0.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (2.094441441, 0.0, 0.0, 0.0) 256
+draw quad
+probe (0, 0) f32(2.094441441, 0.0, 0.0, 0.0) 256
 
 uniform 0 float4 0.0 0.0 0.0 0.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (1.57072878, 0.0, 0.0, 0.0) 1024
+draw quad
+probe (0, 0) f32(1.57072878, 0.0, 0.0, 0.0) 1024
 
 uniform 0 float4 0.5 0.0 0.0 0.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (1.04715133, 0.0, 0.0, 0.0) 512
+draw quad
+probe (0, 0) f32(1.04715133, 0.0, 0.0, 0.0) 512
 
 uniform 0 float4 1.0 0.0 0.0 0.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (0.0, 0.0, 0.0, 0.0) 128
+draw quad
+probe (0, 0) f32(0.0, 0.0, 0.0, 0.0) 128
 
 [pixel shader]
 uniform float4 a;

@@ -1460,6 +1460,9 @@ static void msl_handle_instruction(struct msl_generator *gen, const struct vkd3d
 
     switch (ins->opcode)
     {
+        case VSIR_OP_ACOS:
+            msl_intrinsic(gen, ins, "acos");
+            break;
         case VSIR_OP_ADD:
         case VSIR_OP_IADD:
             msl_binop(gen, ins, "+");
