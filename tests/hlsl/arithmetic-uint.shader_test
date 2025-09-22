@@ -236,7 +236,7 @@ uniform 0 uint 0xfffe
 uniform 4 uint 0xb
 uniform 8 uint 0xffff
 uniform 12 uint 0xffff
-todo(msl) draw quad
+todo(msl & sm>=6) draw quad
 probe (0, 0) u32(0x10, 2, 0x10, 0x3333)
 
 [require]
