@@ -1562,6 +1562,9 @@ static void msl_handle_instruction(struct msl_generator *gen, const struct vkd3d
         case VSIR_OP_HSIN:
             msl_intrinsic(gen, ins, "sinh");
             break;
+        case VSIR_OP_HTAN:
+            msl_intrinsic(gen, ins, "tanh");
+            break;
         case VSIR_OP_IF:
             msl_if(gen, ins);
             break;
