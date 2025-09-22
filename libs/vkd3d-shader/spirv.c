@@ -9529,7 +9529,7 @@ static void spirv_compiler_emit_store_tgsm(struct spirv_compiler *compiler,
     if (!spirv_compiler_get_register_info(compiler, &dst->reg, &reg_info))
         return;
 
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
     ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, reg_info.storage_class, type_id);
     base_coordinate_id = spirv_compiler_emit_raw_structured_addressing(compiler,
             type_id, reg_info.structure_stride, &src[0], VKD3DSP_WRITEMASK_0, &src[1], VKD3DSP_WRITEMASK_0);
