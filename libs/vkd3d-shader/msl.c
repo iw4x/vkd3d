@@ -1543,6 +1543,9 @@ static void msl_handle_instruction(struct msl_generator *gen, const struct vkd3d
         case VSIR_OP_FRC:
             msl_intrinsic(gen, ins, "fract");
             break;
+        case VSIR_OP_FREM:
+            msl_intrinsic(gen, ins, "fmod");
+            break;
         case VSIR_OP_FTOI:
             msl_cast(gen, ins, "int");
             break;

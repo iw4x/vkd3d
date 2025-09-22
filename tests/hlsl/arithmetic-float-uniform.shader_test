@@ -43,9 +43,8 @@ float4 main() : SV_TARGET
 
 [test]
 uniform 0 float4 42.0 5.0 0.0 0.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (2.0, -2.0, 2.0, -2.0) 16
-
+draw quad
+probe (0, 0) f32(2.0, -2.0, 2.0, -2.0) 16
 
 [pixel shader fail(sm<2)]
 uniform float2 a;
@@ -59,9 +58,8 @@ float4 main() : SV_TARGET
 
 [test]
 uniform 0 float4 45.0 5.0 0.0 0.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (0.0, 0.0, 0.0, 0.0)
-
+draw quad
+probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
 [pixel shader fail(sm<2)]
 float4 x, y;
@@ -74,9 +72,8 @@ float4 main() : sv_target
 [test]
 uniform 0 float4 5.0 -42.1 4.0 45.0
 uniform 4 float4 15.0 -5.0 4.1 5.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (5.0, -2.1, 4.0, 0.0) 6
-
+draw quad
+probe (0, 0) f32(5.0, -2.1, 4.0, 0.0) 6
 
 [pixel shader notimpl(sm<2)]
 uniform float2 a;
