@@ -9675,7 +9675,7 @@ static void spirv_compiler_emit_uav_counter_instruction(struct spirv_compiler *c
     counter_id = resource_symbol->info.resource.uav_counter_id;
     VKD3D_ASSERT(counter_id);
 
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
 
     if (resource_symbol->info.resource.uav_counter_array)
     {
