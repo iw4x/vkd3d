@@ -10064,14 +10064,16 @@ static void spirv_compiler_emit_sample_info(struct spirv_compiler *compiler,
 
     constituents[0] = val_id;
     for (i = 1; i < VKD3D_VEC4_SIZE; ++i)
+    {
         constituents[i] = spirv_compiler_get_constant_uint(compiler, 0);
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, VKD3D_VEC4_SIZE);
+    }
+    type_id = spirv_get_type_id(builder, VSIR_DATA_U32, VKD3D_VEC4_SIZE);
     val_id = vkd3d_spirv_build_op_composite_construct(builder, type_id, constituents, VKD3D_VEC4_SIZE);
 
     if (!(instruction->flags & VKD3DSI_SAMPLE_INFO_UINT))
     {
         component_type = VKD3D_SHADER_COMPONENT_FLOAT;
-        type_id = spirv_get_type_id_for_component_type(builder, component_type, VKD3D_VEC4_SIZE);
+        type_id = spirv_get_type_id(builder, VSIR_DATA_F32, VKD3D_VEC4_SIZE);
         val_id = vkd3d_spirv_build_op_convert_utof(builder, type_id, val_id);
         if (instruction->flags & VKD3DSI_PRECISE_XYZW)
             vkd3d_spirv_build_op_decorate(builder, val_id, SpvDecorationNoContraction, NULL, 0);
