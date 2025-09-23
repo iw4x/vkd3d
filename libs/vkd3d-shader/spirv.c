@@ -10508,7 +10508,7 @@ static void spirv_compiler_emit_wave_bit_count(struct spirv_compiler *compiler,
             : SpvGroupOperationReduce;
 
     val_id = spirv_compiler_emit_group_nonuniform_ballot(compiler, instruction->src);
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
     val_id = vkd3d_spirv_build_op_group_nonuniform_ballot_bit_count(builder, type_id, group_op, val_id);
 
     spirv_compiler_emit_store_dst(compiler, dst, val_id);
