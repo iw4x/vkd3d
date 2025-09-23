@@ -4675,12 +4675,12 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_reco
             silence_warning = !(flags & ~(OB_NO_UNSIGNED_WRAP | OB_NO_SIGNED_WRAP));
             break;
         case VSIR_OP_IDIV:
+        case VSIR_OP_IREM:
         case VSIR_OP_ISHR:
             type_flags |= DXIL_TYPE_SIGNED;
             /* fall through */
         case VSIR_OP_USHR:
         case VSIR_OP_UDIV_SIMPLE:
-        case VSIR_OP_IREM:
         case VSIR_OP_UREM:
             silence_warning = !(flags & ~PEB_EXACT);
             break;
