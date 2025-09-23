@@ -118,7 +118,7 @@ static enum program_result run_program(const char *cmdline, const char *log_file
 
     ret = exit_code == 0 ? PROGRAM_RESULT_SUCCESS : PROGRAM_RESULT_FAILURE;
 
-    printf("%s: %s\n", ret == PROGRAM_RESULT_SUCCESS ? "PASS" : "FAIL", cmdline);
+    printf("%s: %s\n", ret == PROGRAM_RESULT_SUCCESS ? "\x1b[32mPASS\x1b[m" : "\x1b[91mFAIL\x1b[m", cmdline);
 
 out:
     if (info.hProcess && !CloseHandle(info.hProcess))
