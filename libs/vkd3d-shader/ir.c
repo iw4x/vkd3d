@@ -12833,6 +12833,7 @@ static const struct vsir_validator_instruction_desc vsir_validator_instructions[
     [VSIR_OP_HS_JOIN_PHASE] =                    {0,   0, vsir_validate_hull_shader_phase},
     [VSIR_OP_HTAN] =                             {1,   1, vsir_validate_float_elementwise_operation},
     [VSIR_OP_IADD] =                             {1,   2, vsir_validate_integer_elementwise_operation},
+    [VSIR_OP_IDIV] =                             {1,   2, vsir_validate_signed_integer_elementwise_operation},
     [VSIR_OP_IEQ] =                              {1,   2, vsir_validate_integer_comparison_operation},
     [VSIR_OP_IF] =                               {0,   1, vsir_validate_if},
     [VSIR_OP_IFC] =                              {0,   2, vsir_validate_ifc},
