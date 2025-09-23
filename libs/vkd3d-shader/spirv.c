@@ -10139,13 +10139,12 @@ static void spirv_compiler_emit_sample_position(struct spirv_compiler *compiler,
     sample_count_id = spirv_compiler_emit_query_sample_count(compiler, &instruction->src[0]);
     sample_index_id = spirv_compiler_emit_load_src(compiler, &instruction->src[1], VKD3DSP_WRITEMASK_0);
 
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
     index_id = vkd3d_spirv_build_op_iadd(builder, type_id, sample_count_id, sample_index_id);
-    index_id = vkd3d_spirv_build_op_isub(builder,
-            type_id, index_id, spirv_compiler_get_constant_uint(compiler, 1));
+    index_id = vkd3d_spirv_build_op_isub(builder, type_id, index_id, spirv_compiler_get_constant_uint(compiler, 1));
 
     /* Validate sample index. */
-    bool_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_BOOL, 1);
+    bool_id = spirv_get_type_id(builder, VSIR_DATA_BOOL, 1);
     id = vkd3d_spirv_build_op_logical_and(builder, bool_id,
             vkd3d_spirv_build_op_uless_than(builder, bool_id, sample_index_id, sample_count_id),
             vkd3d_spirv_build_op_uless_than_equal(builder,
@@ -10153,7 +10152,7 @@ static void spirv_compiler_emit_sample_position(struct spirv_compiler *compiler,
     index_id = vkd3d_spirv_build_op_select(builder, type_id,
             id, index_id, spirv_compiler_get_constant_uint(compiler, 0));
 
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_FLOAT, 2);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_F32, 2);
     if (!(id = compiler->sample_positions_id))
     {
         length_id = spirv_compiler_get_constant_uint(compiler, ARRAY_SIZE(standard_sample_positions));
