@@ -1135,6 +1135,10 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
             runner->caps.tags[runner->caps.tag_count++] = "llvmpipe";
         if (is_mesa_device_lt(device, 23, 3, 0))
             runner->caps.tags[runner->caps.tag_count++] = "mesa<23.3";
+        if (is_mesa_device_lt(device, 25, 1, 0))
+            runner->caps.tags[runner->caps.tag_count++] = "mesa<25.1";
+        if (is_mesa_device_with_llvm_ge(device, 16, 0, 0))
+            runner->caps.tags[runner->caps.tag_count++] = "llvm>=16";
         if (test_options.use_warp_device)
             runner->caps.tags[runner->caps.tag_count++] = "warp";
         if (is_nvidia_windows_device(device) || is_nvidia_device(device))

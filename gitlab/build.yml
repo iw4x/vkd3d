@@ -2,7 +2,7 @@
   stage: build
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-  image: $CI_REGISTRY/wine/vkd3d:debian-bookworm
+  image: $CI_REGISTRY/wine/vkd3d:debian-trixie
   interruptible: true
   needs:
     - job: image-linux
@@ -36,9 +36,6 @@ build-radv-64:
 
 build-llvmpipe-64:
   extends: .build-linux
-  allow_failure:
-    exit_codes:
-      - 2
   variables:
     VK_LOADER_DRIVERS_SELECT: 'lvp_*'
     VKD3D_SHADER_CONFIG: 'force_validation'
@@ -56,21 +53,9 @@ build-radv-32:
 
 build-llvmpipe-32:
   extends: .build-linux
-  allow_failure:
-    exit_codes:
-      - 2
   variables:
     VK_LOADER_DRIVERS_SELECT: 'lvp_*'
     CC: 'i686-linux-gnu-gcc'
-    VKD3D_SHADER_CONFIG: 'force_validation'
-    VKD3D_TEST_DEBUG: '1'
-
-build-llvmpipe-64-mesa24:
-  extends: .build-linux
-  variables:
-    VK_DRIVER_FILES: '/opt/mesa24/share/vulkan/icd.d/lvp_icd.x86_64.json'
-    LD_LIBRARY_PATH: '/opt/mesa24/lib/x86_64-linux-gnu'
-    __EGL_VENDOR_LIBRARY_FILENAMES: '/opt/mesa24/share/glvnd/egl_vendor.d/50_mesa.json'
     VKD3D_SHADER_CONFIG: 'force_validation'
     VKD3D_TEST_DEBUG: '1'
 
@@ -78,7 +63,7 @@ build-crosstest:
   stage: build
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-  image: $CI_REGISTRY/wine/vkd3d:debian-bookworm
+  image: $CI_REGISTRY/wine/vkd3d:debian-trixie
   interruptible: true
   needs:
     - job: image-linux
@@ -104,7 +89,7 @@ build-crosstest:
   stage: build
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-  image: $CI_REGISTRY/wine/vkd3d:debian-bookworm
+  image: $CI_REGISTRY/wine/vkd3d:debian-trixie
   interruptible: true
   needs:
     - job: image-linux

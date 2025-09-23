@@ -300,7 +300,10 @@ probe (0, 0) rgba (0.3, 0.3, 0.6, 0.6) 1
 
 uniform 8 float4 0.5 0.0 0.0 0.0
 todo(sm<4) draw quad
-probe (0, 0) rgba (0.3, 0.5, 0.6, 0.6) 1
+% Apparently fixed by Mesa commit 9785fa460c41b9498c24a82b98069655a91224c5,
+% which only adds optimization; so it might just be hiding the bug rather than
+% solving it; see also https://gitlab.freedesktop.org/mesa/mesa/-/issues/13092
+bug(mesa<25.1 & llvm>=16) probe (0, 0) f32(0.3, 0.5, 0.6, 0.6) 1
 
 uniform 0 float4 1.0 0.0 0.0 0.0
 todo(sm<4) draw quad

@@ -168,7 +168,7 @@ struct shader_runner_caps
 {
     const char *runner;
     const char *compiler;
-    const char *tags[4];
+    const char *tags[6];
     size_t tag_count;
     enum shader_model minimum_shader_model;
     enum shader_model maximum_shader_model;

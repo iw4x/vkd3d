@@ -1789,10 +1789,18 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
     {
         if (device_info.driver_properties.driverID == VK_DRIVER_ID_MESA_LLVMPIPE)
             runner->caps.tags[runner->caps.tag_count++] = "llvmpipe";
-        if (is_mesa_vulkan_driver(&device_info.driver_properties)
-                && !is_vulkan_driver_version_ge(&device_info.properties2.properties,
-                        &device_info.driver_properties, 23, 3, 0))
-            runner->caps.tags[runner->caps.tag_count++] = "mesa<23.3";
+        if (is_mesa_vulkan_driver(&device_info.driver_properties))
+        {
+            if (!is_vulkan_driver_version_ge(&device_info.properties2.properties,
+                    &device_info.driver_properties, 23, 3, 0))
+                runner->caps.tags[runner->caps.tag_count++] = "mesa<23.3";
+            if (!is_vulkan_driver_version_ge(&device_info.properties2.properties,
+                    &device_info.driver_properties, 25, 1, 0))
+                runner->caps.tags[runner->caps.tag_count++] = "mesa<25.1";
+            if (compare_version_string_ge(device_info.properties2.properties.deviceName,
+                    "LLVM ", 16, 0 ,0))
+                runner->caps.tags[runner->caps.tag_count++] = "llvm>=16";
+        }
     }
 
     runner->caps.shader_caps[SHADER_CAP_CLIP_PLANES] = true;

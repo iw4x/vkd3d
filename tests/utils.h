@@ -702,4 +702,51 @@ static inline IDxcCompiler3 *dxcompiler_create(void)
 }
 #endif
 
+static inline int compare_versions(uint32_t major1, uint32_t minor1, uint32_t patch1,
+        uint32_t major2, uint32_t minor2, uint32_t patch2)
+{
+    int ret;
+
+    if ((ret = vkd3d_u32_compare(major1, major2)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(minor1, minor2)))
+        return ret;
+    return vkd3d_u32_compare(patch1, patch2);
+}
+
+static inline bool find_version_string(const char *str, const char *tag,
+        uint32_t *major, uint32_t *minor, uint32_t *patch)
+{
+    const char *ptr;
+
+    if (!(ptr = strstr(str, tag)))
+        return false;
+
+    ptr += strlen(tag);
+
+    return 3 == sscanf(ptr, "%u.%u.%u", major, minor, patch);
+}
+
+static inline bool compare_version_string_lt(const char *str, const char *tag,
+        uint32_t major, uint32_t minor, uint32_t patch)
+{
+    uint32_t major2, minor2, patch2;
+
+    if (!find_version_string(str, tag, &major2, &minor2, &patch2))
+        return false;
+
+    return compare_versions(major, minor, patch, major2, minor2, patch2) > 0;
+}
+
+static inline bool compare_version_string_ge(const char *str, const char *tag,
+        uint32_t major, uint32_t minor, uint32_t patch)
+{
+    uint32_t major2, minor2, patch2;
+
+    if (!find_version_string(str, tag, &major2, &minor2, &patch2))
+        return false;
+
+    return compare_versions(major, minor, patch, major2, minor2, patch2) <= 0;
+}
+
 #endif

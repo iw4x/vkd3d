@@ -247,6 +247,16 @@ static uint32_t get_format_support(struct gl_runner *runner, enum DXGI_FORMAT fo
     return ret;
 }
 
+static bool check_mesa_version_lt(unsigned int major, unsigned int minor, unsigned int patch)
+{
+    return compare_version_string_lt((const char *)glGetString(GL_VERSION), "Mesa ", major, minor, patch);
+}
+
+static bool check_llvm_version_ge(unsigned int major, unsigned int minor, unsigned int patch)
+{
+    return compare_version_string_ge((const char *)glGetString(GL_RENDERER), "LLVM ", major, minor, patch);
+}
+
 static bool gl_runner_init(struct gl_runner *runner, enum shading_language language)
 {
     PFNEGLQUERYDEVICESEXTPROC eglQueryDevicesEXT;
@@ -374,6 +384,10 @@ static bool gl_runner_init(struct gl_runner *runner, enum shading_language langu
             runner->caps.tags[runner->caps.tag_count++] = "glsl";
         if (strncmp((const char *)glGetString(GL_RENDERER), "llvmpipe ", 9) == 0)
             runner->caps.tags[runner->caps.tag_count++] = "llvmpipe";
+        if (check_mesa_version_lt(25, 1, 0))
+            runner->caps.tags[runner->caps.tag_count++] = "mesa<25.1";
+        if (check_llvm_version_ge(16, 0, 0))
+            runner->caps.tags[runner->caps.tag_count++] = "llvm>=16";
 
         glGetIntegerv(GL_NUM_EXTENSIONS, &extension_count);
         if (check_gl_extension("GL_ARB_internalformat_query2", extension_count))

@@ -54,7 +54,7 @@ if(sm>=4) probe (0, 0) f32(129, 0.785398185, 0, 0)
 % Subnormals.
 uniform 0 uint4 0x0007ffff 0 0 0
 todo(sm<4) draw quad
-probe (0, 0) f32(0, 0, 0, 0)
+bug(llvmpipe & llvm>=16) probe (0, 0) f32(0, 0, 0, 0)
 
 [pixel shader]
 float4 main() : sv_target

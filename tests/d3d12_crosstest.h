@@ -548,6 +548,11 @@ static inline bool is_mvk_device_lt(ID3D12Device *device, uint32_t major, uint32
     return false;
 }
 
+static inline bool is_mesa_device_with_llvm_ge(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
+{
+    return false;
+}
+
 static inline bool is_macos_lt(unsigned int major, unsigned int minor, unsigned int patch)
 {
     return false;
@@ -906,6 +911,16 @@ static inline bool is_mvk_device_lt(ID3D12Device *device, uint32_t major, uint32
         return false;
 
     return device_properties.driverVersion < MVK_MAKE_API_VERSION(major, minor, patch);
+}
+
+static inline bool is_mesa_device_with_llvm_ge(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
+{
+    VkPhysicalDeviceDriverPropertiesKHR driver_properties;
+    VkPhysicalDeviceProperties device_properties;
+
+    get_driver_properties(device, &device_properties, &driver_properties);
+    return is_mesa_vulkan_driver(&driver_properties)
+            && compare_version_string_ge(device_properties.deviceName, "LLVM ", 16, 0 ,0);
 }
 
 #ifdef __APPLE__
