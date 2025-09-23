@@ -10216,7 +10216,7 @@ static void spirv_compiler_emit_eval_attrib(struct spirv_compiler *compiler,
         src_ids[src_count++] = spirv_compiler_emit_load_src(compiler, &src[1], VKD3DSP_WRITEMASK_0);
     }
 
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_FLOAT,
+    type_id = spirv_get_type_id(builder, VSIR_DATA_F32,
             vsir_write_mask_component_count(register_info.write_mask));
 
     instr_set_id = vkd3d_spirv_get_glsl_std450_instr_set(builder);
