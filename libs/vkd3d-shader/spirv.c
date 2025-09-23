@@ -10425,7 +10425,7 @@ static uint32_t spirv_compiler_emit_group_nonuniform_ballot(struct spirv_compile
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     uint32_t type_id, val_id;
 
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, VKD3D_VEC4_SIZE);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_U32, VKD3D_VEC4_SIZE);
     val_id = spirv_compiler_emit_load_src(compiler, src, VKD3DSP_WRITEMASK_0);
     val_id = vkd3d_spirv_build_op_group_nonuniform_ballot(builder, type_id, val_id);
 
