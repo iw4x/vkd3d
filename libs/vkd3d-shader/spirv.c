@@ -4117,32 +4117,32 @@ default_parameter:
 }
 
 static uint32_t spirv_compiler_emit_construct_vector(struct spirv_compiler *compiler,
-        enum vkd3d_shader_component_type component_type, unsigned int component_count,
-        uint32_t val_id, unsigned int val_component_idx, unsigned int val_component_count)
+        enum vsir_data_type data_type, unsigned int component_count, uint32_t val_id,
+        unsigned int val_component_idx, unsigned int val_component_count)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     uint32_t components[VKD3D_VEC4_SIZE];
-    uint32_t type_id, result_id;
+    uint32_t type_id;
     unsigned int i;
 
     VKD3D_ASSERT(val_component_idx < val_component_count);
 
-    type_id = spirv_get_type_id_for_component_type(builder, component_type, component_count);
+    type_id = spirv_get_type_id(builder, data_type, component_count);
     if (val_component_count == 1)
     {
         for (i = 0; i < component_count; ++i)
+        {
             components[i] = val_id;
-        result_id = vkd3d_spirv_build_op_composite_construct(builder,
-                type_id, components, component_count);
+        }
+        return vkd3d_spirv_build_op_composite_construct(builder, type_id, components, component_count);
     }
-    else
+
+    for (i = 0; i < component_count; ++i)
     {
-        for (i = 0; i < component_count; ++i)
-            components[i] = val_component_idx;
-        result_id = vkd3d_spirv_build_op_vector_shuffle(builder,
-                type_id, val_id, val_id, components, component_count);
+        components[i] = val_component_idx;
     }
-    return result_id;
+
+    return vkd3d_spirv_build_op_vector_shuffle(builder, type_id, val_id, val_id, components, component_count);
 }
 
 static uint32_t spirv_compiler_emit_load_src(struct spirv_compiler *compiler,
@@ -8048,13 +8048,13 @@ static void spirv_compiler_emit_dot(struct spirv_compiler *compiler,
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     const struct vkd3d_shader_dst_param *dst = instruction->dst;
     const struct vkd3d_shader_src_param *src = instruction->src;
-    enum vkd3d_shader_component_type component_type;
     uint32_t type_id, val_id, src_ids[2];
     unsigned int component_count, i;
+    enum vsir_data_type data_type;
     uint32_t write_mask;
 
     component_count = vsir_write_mask_component_count(dst->write_mask);
-    component_type = vkd3d_component_type_from_data_type(dst->reg.data_type);
+    data_type = dst->reg.data_type;
 
     if (instruction->opcode == VSIR_OP_DP4)
         write_mask = VKD3DSP_WRITEMASK_ALL;
@@ -8067,15 +8067,12 @@ static void spirv_compiler_emit_dot(struct spirv_compiler *compiler,
     for (i = 0; i < ARRAY_SIZE(src_ids); ++i)
         src_ids[i] = spirv_compiler_emit_load_src(compiler, &src[i], write_mask);
 
-    type_id = spirv_get_type_id(builder, dst->reg.data_type, 1);
+    type_id = spirv_get_type_id(builder, data_type, 1);
 
     val_id = vkd3d_spirv_build_op_tr2(builder, &builder->function_stream,
             SpvOpDot, type_id, src_ids[0], src_ids[1]);
     if (component_count > 1)
-    {
-        val_id = spirv_compiler_emit_construct_vector(compiler,
-                component_type, component_count, val_id, 0, 1);
-    }
+        val_id = spirv_compiler_emit_construct_vector(compiler, data_type, component_count, val_id, 0, 1);
     if (instruction->flags & VKD3DSI_PRECISE_XYZW)
         vkd3d_spirv_build_op_decorate(builder, val_id, SpvDecorationNoContraction, NULL, 0);
 
@@ -9499,7 +9496,7 @@ static void spirv_compiler_emit_store_uav_raw_structured(struct spirv_compiler *
         for (component_idx = 0; component_idx < component_count; ++component_idx)
         {
             /* Mesa Vulkan drivers require the texel parameter to be a vector. */
-            data_id = spirv_compiler_emit_construct_vector(compiler, VKD3D_SHADER_COMPONENT_UINT,
+            data_id = spirv_compiler_emit_construct_vector(compiler, VSIR_DATA_U32,
                     VKD3D_VEC4_SIZE, val_id, component_idx, component_count);
 
             coordinate_id = base_coordinate_id;
