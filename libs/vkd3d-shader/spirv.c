@@ -11092,8 +11092,7 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
         {
             uint32_t type_id, struct_id, ptr_type_id, var_id;
 
-            type_id = spirv_get_type_id_for_component_type(builder,
-                    vkd3d_component_type_from_data_type(parameter_data_type_map[parameter->data_type].type),
+            type_id = spirv_get_type_id(builder, parameter_data_type_map[parameter->data_type].type,
                     parameter_data_type_map[parameter->data_type].component_count);
 
             struct_id = vkd3d_spirv_build_op_type_struct(builder, &type_id, 1);
