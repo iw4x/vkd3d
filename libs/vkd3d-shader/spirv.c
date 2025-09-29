@@ -3742,16 +3742,18 @@ static uint32_t spirv_compiler_get_constant_float(struct spirv_compiler *compile
 }
 
 static uint32_t spirv_compiler_get_constant_vector(struct spirv_compiler *compiler,
-        enum vkd3d_shader_component_type component_type, unsigned int component_count, uint32_t value)
+        enum vsir_data_type data_type, unsigned int component_count, uint32_t value)
 {
     const uint32_t values[] = {value, value, value, value};
-    return spirv_compiler_get_constant(compiler, component_type, component_count, values);
+
+    return spirv_compiler_get_constant(compiler,
+            vkd3d_component_type_from_data_type(data_type), component_count, values);
 }
 
 static uint32_t spirv_compiler_get_constant_uint_vector(struct spirv_compiler *compiler,
         uint32_t value, unsigned int component_count)
 {
-    return spirv_compiler_get_constant_vector(compiler, VKD3D_SHADER_COMPONENT_UINT, component_count, value);
+    return spirv_compiler_get_constant_vector(compiler, VSIR_DATA_U32, component_count, value);
 }
 
 static uint32_t spirv_compiler_get_constant_float_vector(struct spirv_compiler *compiler,
@@ -6252,7 +6254,7 @@ static void spirv_compiler_emit_store_shader_output(struct spirv_compiler *compi
         /* Set values to 0 for not initialized shader output components. */
         write_mask |= uninit_mask;
         zero_id = spirv_compiler_get_constant_vector(compiler,
-                output_info->component_type, VKD3D_VEC4_SIZE, 0);
+                vsir_data_type_from_component_type(output_info->component_type), VKD3D_VEC4_SIZE, 0);
         val_id = spirv_compiler_emit_vector_shuffle(compiler,
                 zero_id, val_id, swizzle, uninit_mask, output_info->component_type,
                 vsir_write_mask_component_count(write_mask));
@@ -7758,7 +7760,7 @@ static enum vkd3d_result spirv_compiler_emit_alu_instruction(struct spirv_compil
             || instruction->opcode == VSIR_OP_ISHR || instruction->opcode == VSIR_OP_USHR))
     {
         uint32_t mask_id = spirv_compiler_get_constant_vector(compiler,
-                VKD3D_SHADER_COMPONENT_UINT, vsir_write_mask_component_count(dst->write_mask), 0x1f);
+                VSIR_DATA_U32, vsir_write_mask_component_count(dst->write_mask), 0x1f);
         src_ids[1] = vkd3d_spirv_build_op_and(builder, type_id, src_ids[1], mask_id);
     }
 
@@ -8128,7 +8130,6 @@ static void spirv_compiler_emit_ftoi(struct spirv_compiler *compiler,
     const struct vkd3d_shader_dst_param *dst = instruction->dst;
     const struct vkd3d_shader_src_param *src = instruction->src;
     uint32_t src_type_id, dst_type_id, condition_type_id;
-    enum vkd3d_shader_component_type component_type;
     unsigned int component_count;
     uint32_t write_mask;
 
@@ -8160,9 +8161,8 @@ static void spirv_compiler_emit_ftoi(struct spirv_compiler *compiler,
     val_id = vkd3d_spirv_build_op_glsl_std450_max(builder, src_type_id, src_id, int_min_id);
 
     /* VSIR allows the destination of a signed conversion to be unsigned. */
-    component_type = vkd3d_component_type_from_data_type(dst->reg.data_type);
 
-    int_max_id = spirv_compiler_get_constant_vector(compiler, component_type, component_count, INT_MAX);
+    int_max_id = spirv_compiler_get_constant_vector(compiler, dst->reg.data_type, component_count, INT_MAX);
     condition_type_id = spirv_get_type_id(builder, VSIR_DATA_BOOL, component_count);
     condition_id = vkd3d_spirv_build_op_tr2(builder, &builder->function_stream,
             SpvOpFOrdGreaterThanEqual, condition_type_id, val_id, float_max_id);
@@ -8170,7 +8170,7 @@ static void spirv_compiler_emit_ftoi(struct spirv_compiler *compiler,
     val_id = vkd3d_spirv_build_op_tr1(builder, &builder->function_stream, SpvOpConvertFToS, dst_type_id, val_id);
     val_id = vkd3d_spirv_build_op_select(builder, dst_type_id, condition_id, int_max_id, val_id);
 
-    zero_id = spirv_compiler_get_constant_vector(compiler, component_type, component_count, 0);
+    zero_id = spirv_compiler_get_constant_vector(compiler, dst->reg.data_type, component_count, 0);
     condition_id = vkd3d_spirv_build_op_tr1(builder, &builder->function_stream, SpvOpIsNan, condition_type_id, src_id);
     val_id = vkd3d_spirv_build_op_select(builder, dst_type_id, condition_id, zero_id, val_id);
 
