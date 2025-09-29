@@ -62,7 +62,7 @@ void main(uint id : SV_GroupIndex)
 }
 
 [test]
-dispatch 1 1 1
+todo(msl) dispatch 1 1 1
 probe uav 2 (0) u32(0xf01)
 bug(mvk) probe uav 2 (1) u32(0x503)
 probe uav 2 (2) u32(0x511)
@@ -130,7 +130,7 @@ void main(uint id : SV_GroupIndex)
 }
 
 [test]
-dispatch 1 1 1
+todo(msl) dispatch 1 1 1
 probe uav 2 (0) u32(0x701)
 bug(mvk) probe uav 2 (1) u32(0x503)
 probe uav 2 (2) u32(0x511)

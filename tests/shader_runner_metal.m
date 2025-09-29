@@ -1192,6 +1192,32 @@ static bool metal_runner_init(struct metal_runner *runner)
     runner->caps.tags[0] = "msl";
     runner->caps.tag_count = 1;
 
+    if (runner->device.readWriteTextureSupport >= MTLReadWriteTextureTier1)
+    {
+        runner->caps.format_caps[DXGI_FORMAT_R32_UINT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R32_SINT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R32_FLOAT] |= FORMAT_CAP_UAV_LOAD;
+    }
+
+    if (runner->device.readWriteTextureSupport >= MTLReadWriteTextureTier2)
+    {
+        runner->caps.format_caps[DXGI_FORMAT_R32G32B32A32_UINT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R32G32B32A32_SINT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R32G32B32A32_FLOAT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R16G16B16A16_UINT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R16G16B16A16_SINT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R16G16B16A16_FLOAT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R8G8B8A8_UNORM] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R8G8B8A8_UINT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R8G8B8A8_SINT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R16_UINT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R16_SINT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R16_FLOAT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R8_UNORM] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R8_UINT] |= FORMAT_CAP_UAV_LOAD;
+        runner->caps.format_caps[DXGI_FORMAT_R8_SINT] |= FORMAT_CAP_UAV_LOAD;
+    }
+
     return true;
 }
 
