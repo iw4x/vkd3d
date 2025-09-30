@@ -5345,7 +5345,7 @@ static uint32_t frag_coord_fixup(struct spirv_compiler *compiler, uint32_t frag_
 
 struct vkd3d_spirv_builtin
 {
-    enum vkd3d_shader_component_type component_type;
+    enum vsir_data_type data_type;
     unsigned int component_count;
     SpvBuiltIn spirv_builtin;
     vkd3d_spirv_builtin_fixup_pfn fixup_pfn;
@@ -5365,43 +5365,43 @@ static const struct
 }
 vkd3d_system_value_builtins[] =
 {
-    {VKD3D_SHADER_SV_VERTEX_ID,             {VKD3D_SHADER_COMPONENT_INT, 1, SpvBuiltInVertexId},
+    {VKD3D_SHADER_SV_VERTEX_ID,                 {VSIR_DATA_I32,  1, SpvBuiltInVertexId},
             VKD3D_SHADER_SPIRV_ENVIRONMENT_OPENGL_4_5},
-    {VKD3D_SHADER_SV_INSTANCE_ID,           {VKD3D_SHADER_COMPONENT_INT, 1, SpvBuiltInInstanceId},
+    {VKD3D_SHADER_SV_INSTANCE_ID,               {VSIR_DATA_I32,  1, SpvBuiltInInstanceId},
             VKD3D_SHADER_SPIRV_ENVIRONMENT_OPENGL_4_5},
 
-    {VKD3D_SHADER_SV_POSITION,              {VKD3D_SHADER_COMPONENT_FLOAT, 4, SpvBuiltInPosition}},
-    {VKD3D_SHADER_SV_VERTEX_ID,             {VKD3D_SHADER_COMPONENT_INT, 1, SpvBuiltInVertexIndex, sv_vertex_id_fixup}},
-    {VKD3D_SHADER_SV_INSTANCE_ID,           {VKD3D_SHADER_COMPONENT_INT, 1, SpvBuiltInInstanceIndex, sv_instance_id_fixup}},
+    {VKD3D_SHADER_SV_POSITION,                  {VSIR_DATA_F32,  4, SpvBuiltInPosition}},
+    {VKD3D_SHADER_SV_VERTEX_ID,                 {VSIR_DATA_I32,  1, SpvBuiltInVertexIndex, sv_vertex_id_fixup}},
+    {VKD3D_SHADER_SV_INSTANCE_ID,               {VSIR_DATA_I32,  1, SpvBuiltInInstanceIndex, sv_instance_id_fixup}},
 
-    {VKD3D_SHADER_SV_PRIMITIVE_ID,          {VKD3D_SHADER_COMPONENT_INT, 1, SpvBuiltInPrimitiveId}},
+    {VKD3D_SHADER_SV_PRIMITIVE_ID,              {VSIR_DATA_I32,  1, SpvBuiltInPrimitiveId}},
 
-    {VKD3D_SHADER_SV_RENDER_TARGET_ARRAY_INDEX, {VKD3D_SHADER_COMPONENT_INT, 1, SpvBuiltInLayer}},
-    {VKD3D_SHADER_SV_VIEWPORT_ARRAY_INDEX,      {VKD3D_SHADER_COMPONENT_INT, 1, SpvBuiltInViewportIndex}},
+    {VKD3D_SHADER_SV_RENDER_TARGET_ARRAY_INDEX, {VSIR_DATA_I32,  1, SpvBuiltInLayer}},
+    {VKD3D_SHADER_SV_VIEWPORT_ARRAY_INDEX,      {VSIR_DATA_I32,  1, SpvBuiltInViewportIndex}},
 
-    {VKD3D_SHADER_SV_IS_FRONT_FACE,         {VKD3D_SHADER_COMPONENT_BOOL, 1, SpvBuiltInFrontFacing, sv_front_face_fixup}},
+    {VKD3D_SHADER_SV_IS_FRONT_FACE,             {VSIR_DATA_BOOL, 1, SpvBuiltInFrontFacing, sv_front_face_fixup}},
 
-    {VKD3D_SHADER_SV_SAMPLE_INDEX,          {VKD3D_SHADER_COMPONENT_UINT, 1, SpvBuiltInSampleId}},
+    {VKD3D_SHADER_SV_SAMPLE_INDEX,              {VSIR_DATA_U32,  1, SpvBuiltInSampleId}},
 
-    {VKD3D_SHADER_SV_CLIP_DISTANCE,         {VKD3D_SHADER_COMPONENT_FLOAT, 1, SpvBuiltInClipDistance, NULL, 1}},
-    {VKD3D_SHADER_SV_CULL_DISTANCE,         {VKD3D_SHADER_COMPONENT_FLOAT, 1, SpvBuiltInCullDistance, NULL, 1}},
+    {VKD3D_SHADER_SV_CLIP_DISTANCE,             {VSIR_DATA_F32,  1, SpvBuiltInClipDistance, NULL, 1}},
+    {VKD3D_SHADER_SV_CULL_DISTANCE,             {VSIR_DATA_F32,  1, SpvBuiltInCullDistance, NULL, 1}},
 
-    {VKD3D_SHADER_SV_TESS_FACTOR_QUADEDGE,  {VKD3D_SHADER_COMPONENT_FLOAT, 1, SpvBuiltInTessLevelOuter, NULL, 4}},
-    {VKD3D_SHADER_SV_TESS_FACTOR_QUADINT,   {VKD3D_SHADER_COMPONENT_FLOAT, 1, SpvBuiltInTessLevelInner, NULL, 2}},
+    {VKD3D_SHADER_SV_TESS_FACTOR_QUADEDGE,      {VSIR_DATA_F32,  1, SpvBuiltInTessLevelOuter, NULL, 4}},
+    {VKD3D_SHADER_SV_TESS_FACTOR_QUADINT,       {VSIR_DATA_F32,  1, SpvBuiltInTessLevelInner, NULL, 2}},
 
-    {VKD3D_SHADER_SV_TESS_FACTOR_TRIEDGE,   {VKD3D_SHADER_COMPONENT_FLOAT, 1, SpvBuiltInTessLevelOuter, NULL, 4}},
-    {VKD3D_SHADER_SV_TESS_FACTOR_TRIINT,    {VKD3D_SHADER_COMPONENT_FLOAT, 1, SpvBuiltInTessLevelInner, NULL, 2}},
+    {VKD3D_SHADER_SV_TESS_FACTOR_TRIEDGE,       {VSIR_DATA_F32,  1, SpvBuiltInTessLevelOuter, NULL, 4}},
+    {VKD3D_SHADER_SV_TESS_FACTOR_TRIINT,        {VSIR_DATA_F32,  1, SpvBuiltInTessLevelInner, NULL, 2}},
 
-    {VKD3D_SHADER_SV_TESS_FACTOR_LINEDEN,   {VKD3D_SHADER_COMPONENT_FLOAT, 1, SpvBuiltInTessLevelOuter, NULL, 4, 0}},
-    {VKD3D_SHADER_SV_TESS_FACTOR_LINEDET,   {VKD3D_SHADER_COMPONENT_FLOAT, 1, SpvBuiltInTessLevelOuter, NULL, 4, 1}},
+    {VKD3D_SHADER_SV_TESS_FACTOR_LINEDEN,       {VSIR_DATA_F32,  1, SpvBuiltInTessLevelOuter, NULL, 4, 0}},
+    {VKD3D_SHADER_SV_TESS_FACTOR_LINEDET,       {VSIR_DATA_F32,  1, SpvBuiltInTessLevelOuter, NULL, 4, 1}},
 };
 static const struct vkd3d_spirv_builtin vkd3d_pixel_shader_position_builtin =
 {
-    VKD3D_SHADER_COMPONENT_FLOAT, 4, SpvBuiltInFragCoord, frag_coord_fixup,
+    VSIR_DATA_F32, 4, SpvBuiltInFragCoord, frag_coord_fixup,
 };
 static const struct vkd3d_spirv_builtin vkd3d_output_point_size_builtin =
 {
-    VKD3D_SHADER_COMPONENT_FLOAT, 1, SpvBuiltInPointSize,
+    VSIR_DATA_F32, 1, SpvBuiltInPointSize,
 };
 static const struct
 {
@@ -5411,31 +5411,31 @@ static const struct
 }
 vkd3d_register_builtins[] =
 {
-    {VKD3DSPR_THREADID,         SpvStorageClassInput,  {VKD3D_SHADER_COMPONENT_INT, 3, SpvBuiltInGlobalInvocationId}},
-    {VKD3DSPR_LOCALTHREADID,    SpvStorageClassInput,  {VKD3D_SHADER_COMPONENT_INT, 3, SpvBuiltInLocalInvocationId}},
-    {VKD3DSPR_LOCALTHREADINDEX, SpvStorageClassInput,  {VKD3D_SHADER_COMPONENT_INT, 1, SpvBuiltInLocalInvocationIndex}},
-    {VKD3DSPR_THREADGROUPID,    SpvStorageClassInput,  {VKD3D_SHADER_COMPONENT_INT, 3, SpvBuiltInWorkgroupId}},
+    {VKD3DSPR_THREADID,         SpvStorageClassInput,  {VSIR_DATA_I32, 3, SpvBuiltInGlobalInvocationId}},
+    {VKD3DSPR_LOCALTHREADID,    SpvStorageClassInput,  {VSIR_DATA_I32, 3, SpvBuiltInLocalInvocationId}},
+    {VKD3DSPR_LOCALTHREADINDEX, SpvStorageClassInput,  {VSIR_DATA_I32, 1, SpvBuiltInLocalInvocationIndex}},
+    {VKD3DSPR_THREADGROUPID,    SpvStorageClassInput,  {VSIR_DATA_I32, 3, SpvBuiltInWorkgroupId}},
 
-    {VKD3DSPR_GSINSTID,         SpvStorageClassInput,  {VKD3D_SHADER_COMPONENT_INT, 1, SpvBuiltInInvocationId}},
-    {VKD3DSPR_OUTPOINTID,       SpvStorageClassInput,  {VKD3D_SHADER_COMPONENT_INT, 1, SpvBuiltInInvocationId}},
+    {VKD3DSPR_GSINSTID,         SpvStorageClassInput,  {VSIR_DATA_I32, 1, SpvBuiltInInvocationId}},
+    {VKD3DSPR_OUTPOINTID,       SpvStorageClassInput,  {VSIR_DATA_I32, 1, SpvBuiltInInvocationId}},
 
-    {VKD3DSPR_PRIMID,           SpvStorageClassInput,  {VKD3D_SHADER_COMPONENT_INT, 1, SpvBuiltInPrimitiveId}},
+    {VKD3DSPR_PRIMID,           SpvStorageClassInput,  {VSIR_DATA_I32, 1, SpvBuiltInPrimitiveId}},
 
-    {VKD3DSPR_TESSCOORD,        SpvStorageClassInput,  {VKD3D_SHADER_COMPONENT_FLOAT, 3, SpvBuiltInTessCoord}},
+    {VKD3DSPR_TESSCOORD,        SpvStorageClassInput,  {VSIR_DATA_F32, 3, SpvBuiltInTessCoord}},
 
-    {VKD3DSPR_POINT_COORD,      SpvStorageClassInput,  {VKD3D_SHADER_COMPONENT_FLOAT, 2, SpvBuiltInPointCoord}},
+    {VKD3DSPR_POINT_COORD,      SpvStorageClassInput,  {VSIR_DATA_F32, 2, SpvBuiltInPointCoord}},
 
-    {VKD3DSPR_COVERAGE,         SpvStorageClassInput,  {VKD3D_SHADER_COMPONENT_UINT, 1, SpvBuiltInSampleMask, NULL, 1}},
-    {VKD3DSPR_SAMPLEMASK,       SpvStorageClassOutput, {VKD3D_SHADER_COMPONENT_UINT, 1, SpvBuiltInSampleMask, NULL, 1}},
+    {VKD3DSPR_COVERAGE,         SpvStorageClassInput,  {VSIR_DATA_U32, 1, SpvBuiltInSampleMask, NULL, 1}},
+    {VKD3DSPR_SAMPLEMASK,       SpvStorageClassOutput, {VSIR_DATA_U32, 1, SpvBuiltInSampleMask, NULL, 1}},
 
-    {VKD3DSPR_DEPTHOUT,         SpvStorageClassOutput, {VKD3D_SHADER_COMPONENT_FLOAT, 1, SpvBuiltInFragDepth}},
-    {VKD3DSPR_DEPTHOUTGE,       SpvStorageClassOutput, {VKD3D_SHADER_COMPONENT_FLOAT, 1, SpvBuiltInFragDepth}},
-    {VKD3DSPR_DEPTHOUTLE,       SpvStorageClassOutput, {VKD3D_SHADER_COMPONENT_FLOAT, 1, SpvBuiltInFragDepth}},
+    {VKD3DSPR_DEPTHOUT,         SpvStorageClassOutput, {VSIR_DATA_F32, 1, SpvBuiltInFragDepth}},
+    {VKD3DSPR_DEPTHOUTGE,       SpvStorageClassOutput, {VSIR_DATA_F32, 1, SpvBuiltInFragDepth}},
+    {VKD3DSPR_DEPTHOUTLE,       SpvStorageClassOutput, {VSIR_DATA_F32, 1, SpvBuiltInFragDepth}},
 
-    {VKD3DSPR_OUTSTENCILREF,    SpvStorageClassOutput, {VKD3D_SHADER_COMPONENT_UINT, 1, SpvBuiltInFragStencilRefEXT}},
+    {VKD3DSPR_OUTSTENCILREF,    SpvStorageClassOutput, {VSIR_DATA_U32, 1, SpvBuiltInFragStencilRefEXT}},
 
-    {VKD3DSPR_WAVELANECOUNT,    SpvStorageClassInput,  {VKD3D_SHADER_COMPONENT_UINT, 1, SpvBuiltInSubgroupSize}},
-    {VKD3DSPR_WAVELANEINDEX,    SpvStorageClassInput,  {VKD3D_SHADER_COMPONENT_UINT, 1, SpvBuiltInSubgroupLocalInvocationId}},
+    {VKD3DSPR_WAVELANECOUNT,    SpvStorageClassInput,  {VSIR_DATA_U32, 1, SpvBuiltInSubgroupSize}},
+    {VKD3DSPR_WAVELANEINDEX,    SpvStorageClassInput,  {VSIR_DATA_U32, 1, SpvBuiltInSubgroupLocalInvocationId}},
 };
 
 static void spirv_compiler_emit_register_execution_mode(struct spirv_compiler *compiler,
@@ -5660,13 +5660,12 @@ static uint32_t spirv_compiler_emit_builtin_variable_v(struct spirv_compiler *co
     sizes[0] = max(sizes[0], builtin->spirv_array_size);
 
     id = spirv_compiler_emit_array_variable(compiler, &builder->global_stream, storage_class,
-            builtin->component_type, builtin->component_count, array_sizes, size_count);
+            vkd3d_component_type_from_data_type(builtin->data_type), builtin->component_count, array_sizes, size_count);
     vkd3d_spirv_add_iface_variable(builder, id);
     spirv_compiler_decorate_builtin(compiler, id, builtin->spirv_builtin);
 
     if (compiler->shader_type == VKD3D_SHADER_TYPE_PIXEL && storage_class == SpvStorageClassInput
-            && builtin->component_type != VKD3D_SHADER_COMPONENT_FLOAT
-            && builtin->component_type != VKD3D_SHADER_COMPONENT_BOOL)
+            && builtin->data_type != VSIR_DATA_F32 && builtin->data_type != VSIR_DATA_BOOL)
         vkd3d_spirv_build_op_decorate(builder, id, SpvDecorationFlat, NULL, 0);
 
     return id;
@@ -5730,8 +5729,8 @@ static const struct vkd3d_symbol *spirv_compiler_emit_io_register(struct spirv_c
     spirv_compiler_emit_register_debug_name(builder, id, reg);
 
     write_mask = vkd3d_write_mask_from_component_count(builtin->component_count);
-    vkd3d_symbol_set_register_info(&reg_symbol, id,
-            storage_class, builtin->component_type, write_mask);
+    vkd3d_symbol_set_register_info(&reg_symbol, id, storage_class,
+            vkd3d_component_type_from_data_type(builtin->data_type), write_mask);
     reg_symbol.info.reg.is_aggregate = builtin->spirv_array_size;
 
     return spirv_compiler_put_symbol(compiler, &reg_symbol);
@@ -5800,7 +5799,7 @@ static void spirv_compiler_emit_input(struct spirv_compiler *compiler,
 
     if (builtin)
     {
-        component_type = builtin->component_type;
+        component_type = vkd3d_component_type_from_data_type(builtin->data_type);
         input_component_count = builtin->component_count;
     }
     else
@@ -6075,7 +6074,7 @@ static void spirv_compiler_emit_output(struct spirv_compiler *compiler,
     output_component_count = vsir_write_mask_component_count(write_mask);
     if (builtin)
     {
-        component_type = builtin->component_type;
+        component_type = vkd3d_component_type_from_data_type(builtin->data_type);
         if (!builtin->spirv_array_size)
             output_component_count = builtin->component_count;
     }
