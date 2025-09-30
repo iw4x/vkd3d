@@ -3681,18 +3681,6 @@ static bool bitcode_parse_alignment(uint64_t encoded_alignment, unsigned int *al
     return true;
 }
 
-static struct vkd3d_shader_instruction *sm6_parser_require_space(struct sm6_parser *sm6, size_t extra)
-{
-    struct vkd3d_shader_instruction_array *instructions = &sm6->program->instructions;
-
-    if (!shader_instruction_array_reserve(instructions, instructions->count + extra))
-    {
-        ERR("Failed to allocate instruction.\n");
-        return NULL;
-    }
-    return &instructions->elements[instructions->count];
-}
-
 static struct vkd3d_shader_instruction *sm6_parser_add_instruction(struct sm6_parser *sm6,
         enum vkd3d_shader_opcode op)
 {
@@ -10723,7 +10711,6 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
 {
     size_t count, length, function_count, expected_function_count, byte_code_size = dxbc_desc->byte_code_size;
     const struct vkd3d_shader_location location = {.source_name = compile_info->source_name};
-    struct shader_signature *patch_constant_signature, *output_signature, *input_signature;
     uint32_t version_token, dxil_version, token_count, magic;
     const uint32_t *byte_code = dxbc_desc->byte_code;
     unsigned int chunk_offset, chunk_size;
@@ -10837,9 +10824,6 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
             break;
     }
 
-    input_signature = &program->input_signature;
-    output_signature = &program->output_signature;
-    patch_constant_signature = &program->patch_constant_signature;
     program->features = dxbc_desc->features;
     memset(dxbc_desc, 0, sizeof(*dxbc_desc));
 
@@ -10978,15 +10962,6 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
         else if (ret == VKD3D_ERROR_INVALID_SHADER)
             vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_MODULE,
                     "DXIL module is invalid.");
-        goto fail;
-    }
-
-    if (!sm6_parser_require_space(sm6, output_signature->element_count + input_signature->element_count
-            + patch_constant_signature->element_count))
-    {
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
-                "Out of memory emitting shader signature declarations.");
-        ret = VKD3D_ERROR_OUT_OF_MEMORY;
         goto fail;
     }
 

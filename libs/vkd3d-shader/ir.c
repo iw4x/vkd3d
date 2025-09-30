@@ -477,7 +477,7 @@ void *shader_param_allocator_get(struct vkd3d_shader_param_allocator *allocator,
     return params;
 }
 
-bool shader_instruction_array_reserve(struct vkd3d_shader_instruction_array *array, size_t reserve)
+static bool shader_instruction_array_reserve(struct vkd3d_shader_instruction_array *array, size_t reserve)
 {
     if (!vkd3d_array_reserve((void **)&array->elements, &array->capacity, reserve, sizeof(*array->elements)))
     {

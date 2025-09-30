@@ -1438,7 +1438,6 @@ struct vkd3d_shader_instruction_array
 
 struct vkd3d_shader_instruction *shader_instruction_array_append(struct vkd3d_shader_instruction_array *array);
 bool shader_instruction_array_insert_at(struct vkd3d_shader_instruction_array *instructions, size_t idx, size_t count);
-bool shader_instruction_array_reserve(struct vkd3d_shader_instruction_array *instructions, size_t reserve);
 
 struct vsir_program_iterator
 {
