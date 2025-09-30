@@ -2805,7 +2805,7 @@ struct vkd3d_symbol_register_data
 struct vkd3d_symbol_resource_data
 {
     struct vkd3d_shader_register_range range;
-    enum vkd3d_shader_component_type sampled_type;
+    enum vsir_data_type sampled_type;
     uint32_t type_id;
     const struct vkd3d_spirv_resource_type *resource_type_info;
     unsigned int structure_stride;
@@ -6999,7 +6999,7 @@ static void spirv_compiler_emit_combined_sampler_declarations(struct spirv_compi
         symbol.id = var_id;
         symbol.descriptor_array = NULL;
         symbol.info.resource.range = *resource_range;
-        symbol.info.resource.sampled_type = sampled_type;
+        symbol.info.resource.sampled_type = vsir_data_type_from_component_type(sampled_type);
         symbol.info.resource.type_id = image_type_id;
         symbol.info.resource.resource_type_info = resource_type_info;
         symbol.info.resource.structure_stride = structure_stride;
@@ -7129,7 +7129,7 @@ static void spirv_compiler_emit_resource_declaration(struct spirv_compiler *comp
     resource_symbol.id = var_id;
     resource_symbol.descriptor_array = var_info.array_symbol;
     resource_symbol.info.resource.range = *range;
-    resource_symbol.info.resource.sampled_type = sampled_type;
+    resource_symbol.info.resource.sampled_type = descriptor->resource_data_type;
     resource_symbol.info.resource.type_id = type_id;
     resource_symbol.info.resource.resource_type_info = resource_type_info;
     resource_symbol.info.resource.structure_stride = structure_stride;
@@ -8898,7 +8898,7 @@ static void spirv_compiler_prepare_image(struct spirv_compiler *compiler,
         image->id = symbol->id;
         image->image_type_id = symbol->info.resource.type_id;
     }
-    image->sampled_type = symbol->info.resource.sampled_type;
+    image->sampled_type = vkd3d_component_type_from_data_type(symbol->info.resource.sampled_type);
     image->resource_type_info = symbol->info.resource.resource_type_info;
     image->structure_stride = symbol->info.resource.structure_stride;
     image->raw = symbol->info.resource.raw;
@@ -9297,7 +9297,7 @@ static void spirv_compiler_emit_ld_raw_structured_srv_uav(struct spirv_compiler 
 
     if (storage_buffer_uav)
     {
-        texel_type_id = spirv_get_type_id_for_component_type(builder, resource_symbol->info.resource.sampled_type, 1);
+        texel_type_id = spirv_get_type_id(builder, resource_symbol->info.resource.sampled_type, 1);
         ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassUniform, texel_type_id);
 
         type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
@@ -9434,7 +9434,7 @@ static void spirv_compiler_emit_store_uav_raw_structured(struct spirv_compiler *
 
     if (spirv_compiler_use_storage_buffer(compiler, &resource_symbol->info.resource))
     {
-        type_id = spirv_get_type_id_for_component_type(builder, resource_symbol->info.resource.sampled_type, 1);
+        type_id = spirv_get_type_id(builder, resource_symbol->info.resource.sampled_type, 1);
         ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassUniform, type_id);
 
         type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
@@ -9566,7 +9566,7 @@ static void spirv_compiler_emit_ld_uav_typed(struct spirv_compiler *compiler,
 
     if (spirv_compiler_use_storage_buffer(compiler, &resource_symbol->info.resource))
     {
-        type_id = spirv_get_type_id_for_component_type(builder, resource_symbol->info.resource.sampled_type, 1);
+        type_id = spirv_get_type_id(builder, resource_symbol->info.resource.sampled_type, 1);
         ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassUniform, type_id);
         coordinate_id = spirv_compiler_emit_load_src(compiler, &src[0], VKD3DSP_WRITEMASK_0);
         indices[0] = spirv_compiler_get_constant_uint(compiler, 0);
@@ -9576,7 +9576,7 @@ static void spirv_compiler_emit_ld_uav_typed(struct spirv_compiler *compiler,
         val_id = vkd3d_spirv_build_op_load(builder, type_id, ptr_id, SpvMemoryAccessMaskNone);
 
         spirv_compiler_emit_store_dst_swizzled(compiler, dst, val_id,
-                resource_symbol->info.resource.sampled_type, src[1].swizzle);
+                vkd3d_component_type_from_data_type(resource_symbol->info.resource.sampled_type), src[1].swizzle);
     }
     else
     {
@@ -9609,14 +9609,14 @@ static void spirv_compiler_emit_store_uav_typed(struct spirv_compiler *compiler,
 
     if (spirv_compiler_use_storage_buffer(compiler, &resource_symbol->info.resource))
     {
-        type_id = spirv_get_type_id_for_component_type(builder, resource_symbol->info.resource.sampled_type, 1);
+        type_id = spirv_get_type_id(builder, resource_symbol->info.resource.sampled_type, 1);
         ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassUniform, type_id);
         coordinate_id = spirv_compiler_emit_load_src(compiler, &src[0], VKD3DSP_WRITEMASK_0);
         indices[0] = spirv_compiler_get_constant_uint(compiler, 0);
         indices[1] = coordinate_id;
 
-        val_id = spirv_compiler_emit_load_src_with_type(compiler, &src[1],
-                VKD3DSP_WRITEMASK_0, resource_symbol->info.resource.sampled_type);
+        val_id = spirv_compiler_emit_load_src_with_type(compiler, &src[1], VKD3DSP_WRITEMASK_0,
+                vkd3d_component_type_from_data_type(resource_symbol->info.resource.sampled_type));
         ptr_id = vkd3d_spirv_build_op_access_chain(builder, ptr_type_id, resource_symbol->id, indices, 2);
         vkd3d_spirv_build_op_store(builder, ptr_id, val_id, SpvMemoryAccessMaskNone);
     }
@@ -9840,7 +9840,7 @@ static void spirv_compiler_emit_atomic_instruction(struct spirv_compiler *compil
     {
         if (spirv_compiler_use_storage_buffer(compiler, &resource_symbol->info.resource))
         {
-            component_type = resource_symbol->info.resource.sampled_type;
+            component_type = vkd3d_component_type_from_data_type(resource_symbol->info.resource.sampled_type);
             type_id = spirv_get_type_id_for_component_type(builder, component_type, 1);
             ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassUniform, type_id);
             operands[0] = spirv_compiler_get_constant_uint(compiler, 0);
