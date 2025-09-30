@@ -401,41 +401,57 @@ static const char *close_parentheses(const char *line)
     return line;
 }
 
+static const struct format_info
+{
+    const char *string;
+    unsigned int texel_size;
+    DXGI_FORMAT format;
+    bool is_shadow;
+}
+format_info[] =
+{
+    {"r32g32b32a32-float",  16, DXGI_FORMAT_R32G32B32A32_FLOAT},
+    {"r32g32b32a32-sint",   16, DXGI_FORMAT_R32G32B32A32_SINT},
+    {"r32g32b32a32-uint",   16, DXGI_FORMAT_R32G32B32A32_UINT},
+    {"r32g32-float",         8, DXGI_FORMAT_R32G32_FLOAT},
+    {"r32g32-sint",          8, DXGI_FORMAT_R32G32_SINT},
+    {"r32g32-uint",          8, DXGI_FORMAT_R32G32_UINT},
+    {"r32-float-shadow",     4, DXGI_FORMAT_R32_FLOAT, true},
+    {"r32-float",            4, DXGI_FORMAT_R32_FLOAT},
+    {"r32-sint",             4, DXGI_FORMAT_R32_SINT},
+    {"r32-uint",             4, DXGI_FORMAT_R32_UINT},
+    {"r32-typeless",         4, DXGI_FORMAT_R32_TYPELESS},
+    {"unknown",              0, DXGI_FORMAT_UNKNOWN},
+};
+
+static const char *get_format_name(DXGI_FORMAT f)
+{
+    const struct format_info *info;
+    size_t i;
+
+    for (i = 0; i < ARRAY_SIZE(format_info); ++i)
+    {
+        info = &format_info[i];
+        if (info->format == f && !info->is_shadow)
+            return info->string;
+    }
+
+    return NULL;
+}
+
 static DXGI_FORMAT parse_format(const char *line, unsigned int *texel_size, bool *is_shadow, const char **rest)
 {
-    static const struct
-    {
-        const char *string;
-        unsigned int texel_size;
-        DXGI_FORMAT format;
-        bool is_shadow;
-    }
-    formats[] =
-    {
-        {"r32g32b32a32-float",  16, DXGI_FORMAT_R32G32B32A32_FLOAT},
-        {"r32g32b32a32-sint",   16, DXGI_FORMAT_R32G32B32A32_SINT},
-        {"r32g32b32a32-uint",   16, DXGI_FORMAT_R32G32B32A32_UINT},
-        {"r32g32-float",         8, DXGI_FORMAT_R32G32_FLOAT},
-        {"r32g32-sint",          8, DXGI_FORMAT_R32G32_SINT},
-        {"r32g32-uint",          8, DXGI_FORMAT_R32G32_UINT},
-        {"r32-float-shadow",     4, DXGI_FORMAT_R32_FLOAT, true},
-        {"r32-float",            4, DXGI_FORMAT_R32_FLOAT},
-        {"r32-sint",             4, DXGI_FORMAT_R32_SINT},
-        {"r32-uint",             4, DXGI_FORMAT_R32_UINT},
-        {"r32-typeless",         4, DXGI_FORMAT_R32_TYPELESS},
-        {"unknown",              0, DXGI_FORMAT_UNKNOWN},
-    };
     unsigned int i;
 
-    for (i = 0; i < ARRAY_SIZE(formats); ++i)
+    for (i = 0; i < ARRAY_SIZE(format_info); ++i)
     {
-        if (match_string(line, formats[i].string, rest))
+        if (match_string(line, format_info[i].string, rest))
         {
             if (texel_size)
-                *texel_size = formats[i].texel_size;
+                *texel_size = format_info[i].texel_size;
             if (is_shadow)
-                *is_shadow = formats[i].is_shadow;
-            return formats[i].format;
+                *is_shadow = format_info[i].is_shadow;
+            return format_info[i].format;
         }
     }
 
@@ -2201,6 +2217,7 @@ static void trace_format_cap(const struct shader_runner_caps *caps, enum format_
 {
     bool show_none = true;
     char buffer[80], *p;
+    const char *name;
     size_t rem;
     int rc;
 
@@ -2214,7 +2231,10 @@ static void trace_format_cap(const struct shader_runner_caps *caps, enum format_
     {
         if (caps->format_caps[i] & cap)
         {
-            rc = snprintf(p, rem, " 0x%x", i);
+            if ((name = get_format_name(i)))
+                rc = snprintf(p, rem, " %s", name);
+            else
+                rc = snprintf(p, rem, " 0x%x", i);
             if (!(rc >= 0 && (size_t)rc < rem))
             {
                 *p = 0;
