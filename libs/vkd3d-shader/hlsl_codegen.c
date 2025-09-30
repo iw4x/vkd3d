@@ -6756,8 +6756,8 @@ static void allocate_temp_registers(struct hlsl_ctx *ctx, struct hlsl_block *bod
     allocate_temp_registers_recurse(ctx, body);
 }
 
-static enum vkd3d_shader_interpolation_mode sm4_get_interpolation_mode(struct hlsl_type *type,
-        unsigned int storage_modifiers)
+static enum vkd3d_shader_interpolation_mode get_interpolation_mode(const struct vkd3d_shader_version *version,
+        struct hlsl_type *type, unsigned int storage_modifiers)
 {
     unsigned int i;
 
@@ -6778,6 +6778,9 @@ static enum vkd3d_shader_interpolation_mode sm4_get_interpolation_mode(struct hl
         type = type->e.array.type;
 
     VKD3D_ASSERT(hlsl_is_numeric_type(type));
+
+    if (version->major < 4)
+        storage_modifiers &= HLSL_STORAGE_LINEAR | HLSL_STORAGE_CENTROID;
 
     if ((storage_modifiers & HLSL_STORAGE_NOINTERPOLATION)
             || base_type_get_semantic_equivalent(type->e.numeric.type) == HLSL_TYPE_UINT)
@@ -6885,12 +6888,11 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
     {
         unsigned int component_count = is_primitive
                 ? var->data_type->e.array.type->e.numeric.dimx : var->data_type->e.numeric.dimx;
-        int mode = (ctx->profile->major_version < 4)
-                ? 0 : sm4_get_interpolation_mode(var->data_type, var->storage_modifiers);
         unsigned int reg_size = optimize ? component_count : 4;
+        int mode = VKD3DSIM_NONE;
 
-        if (special_interpolation)
-            mode = VKD3DSIM_NONE;
+        if (version.major >= 4 && !special_interpolation)
+            mode = get_interpolation_mode(&version, var->data_type, var->storage_modifiers);
 
         var->regs[HLSL_REGSET_NUMERIC] = allocate_register(ctx, allocator,
                 reg_size, component_count, mode, var->force_align, vip_allocation);
@@ -8582,12 +8584,16 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
         struct shader_signature *signature, bool output, struct hlsl_ir_var *var)
 {
     enum vkd3d_shader_component_type component_type = VKD3D_SHADER_COMPONENT_VOID;
+    enum vkd3d_shader_interpolation_mode interpolation_mode = VKD3DSIM_NONE;
     bool is_primitive = hlsl_type_is_primitive_array(var->data_type);
     enum vkd3d_shader_sysval_semantic sysval = VKD3D_SHADER_SV_NONE;
     unsigned int register_index, mask, use_mask;
     const char *name = var->semantic.name;
     enum vkd3d_shader_register_type type;
     struct signature_element *element;
+
+    if (program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL && !output)
+        interpolation_mode = get_interpolation_mode(&program->shader_version, var->data_type, var->storage_modifiers);
 
     if (hlsl_version_ge(ctx, 4, 0))
     {
@@ -8654,12 +8660,6 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
     }
     else
     {
-        if (var->storage_modifiers & HLSL_INTERPOLATION_MODIFIERS_MASK)
-        {
-            hlsl_fixme(ctx, &var->loc, "SM1 interpolation modifiers.");
-            return;
-        }
-
         if ((!output && !var->last_read) || (output && !var->first_write))
             return;
 
@@ -8673,6 +8673,13 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
                 else if (type == VKD3DSPR_ATTROUT
                         || (type == VKD3DSPR_INPUT && program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL))
                     register_index += SM1_COLOR_REGISTER_OFFSET;
+            }
+
+            if (interpolation_mode == VKD3DSIM_LINEAR_CENTROID
+                    && (vkd3d_shader_ver_ge(&program->shader_version, 3, 0) || type != VKD3DSPR_TEXTURE))
+            {
+                hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_MODIFIER,
+                        "The centroid interpolation mode is not supported by the '%s' semantic.", var->semantic.name);
             }
         }
         else
@@ -8741,13 +8748,7 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
     element->register_count = 1;
     element->mask = mask;
     element->used_mask = use_mask;
-    if (program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL && !output)
-    {
-        if (program->shader_version.major >= 4)
-            element->interpolation_mode = sm4_get_interpolation_mode(var->data_type, var->storage_modifiers);
-        else
-            element->interpolation_mode = VKD3DSIM_LINEAR;
-    }
+    element->interpolation_mode = interpolation_mode;
 
     switch (var->data_type->e.numeric.type)
     {
@@ -10813,7 +10814,7 @@ static void sm4_generate_vsir_instr_dcl_semantic(struct hlsl_ctx *ctx, struct vs
     dst_param->write_mask = write_mask;
 
     if (var->is_input_semantic && version->type == VKD3D_SHADER_TYPE_PIXEL)
-        ins->flags = sm4_get_interpolation_mode(var->data_type, var->storage_modifiers);
+        ins->flags = get_interpolation_mode(version, var->data_type, var->storage_modifiers);
 }
 
 static void sm4_generate_vsir_instr_dcl_temps(struct hlsl_ctx *ctx, struct vsir_program *program,

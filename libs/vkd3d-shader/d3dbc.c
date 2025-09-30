@@ -659,7 +659,7 @@ static unsigned int make_mask_contiguous(unsigned int mask)
 
 static bool add_signature_element(struct vkd3d_shader_sm1_parser *sm1, bool output,
         const char *name, unsigned int index, enum vkd3d_shader_sysval_semantic sysval,
-        unsigned int register_index, bool is_dcl, unsigned int mask)
+        unsigned int register_index, bool is_dcl, unsigned int mask, uint32_t dst_modifiers)
 {
     struct vsir_program *program = sm1->program;
     struct shader_signature *signature;
@@ -695,7 +695,8 @@ static bool add_signature_element(struct vkd3d_shader_sm1_parser *sm1, bool outp
     element->mask = make_mask_contiguous(mask);
     element->used_mask = is_dcl ? 0 : mask;
     if (program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL && !output)
-        element->interpolation_mode = VKD3DSIM_LINEAR;
+        element->interpolation_mode = (dst_modifiers & VKD3DSPDM_MSAMPCENTROID)
+                ? VKD3DSIM_LINEAR_CENTROID : VKD3DSIM_LINEAR;
 
     return true;
 }
@@ -748,7 +749,7 @@ static void add_signature_mask(struct vkd3d_shader_sm1_parser *sm1, bool output,
 }
 
 static bool add_signature_element_from_register(struct vkd3d_shader_sm1_parser *sm1,
-        const struct vkd3d_shader_register *reg, bool is_dcl, unsigned int mask)
+        const struct vkd3d_shader_register *reg, bool is_dcl, unsigned int mask, uint32_t dst_modifiers)
 {
     const struct vkd3d_shader_version *version = &sm1->program->shader_version;
     unsigned int register_index = reg->idx_count > 0 ? reg->idx[0].offset : 0;
@@ -757,7 +758,8 @@ static bool add_signature_element_from_register(struct vkd3d_shader_sm1_parser *
     {
         case VKD3DSPR_TEMP:
             if (version->type == VKD3D_SHADER_TYPE_PIXEL && version->major == 1 && !register_index)
-                return add_signature_element(sm1, true, "COLOR", 0, VKD3D_SHADER_SV_TARGET, 0, is_dcl, mask);
+                return add_signature_element(sm1, true, "COLOR", 0, VKD3D_SHADER_SV_TARGET,
+                        0, is_dcl, mask, dst_modifiers);
             return true;
 
         case VKD3DSPR_INPUT:
@@ -769,15 +771,15 @@ static bool add_signature_element_from_register(struct vkd3d_shader_sm1_parser *
                 return true;
             }
             return add_signature_element(sm1, false, "COLOR", register_index,
-                    VKD3D_SHADER_SV_NONE, SM1_COLOR_REGISTER_OFFSET + register_index, is_dcl, mask);
+                    VKD3D_SHADER_SV_NONE, SM1_COLOR_REGISTER_OFFSET + register_index, is_dcl, mask, dst_modifiers);
 
         case VKD3DSPR_TEXTURE:
             return add_signature_element(sm1, false, "TEXCOORD", register_index,
-                    VKD3D_SHADER_SV_NONE, register_index, is_dcl, mask);
+                    VKD3D_SHADER_SV_NONE, register_index, is_dcl, mask, dst_modifiers);
 
         case VKD3DSPR_TEXCRDOUT:
             return add_signature_element(sm1, true, "TEXCOORD", register_index,
-                    VKD3D_SHADER_SV_NONE, register_index, is_dcl, mask);
+                    VKD3D_SHADER_SV_NONE, register_index, is_dcl, mask, dst_modifiers);
 
         case VKD3DSPR_OUTPUT:
             if (version->type == VKD3D_SHADER_TYPE_VERTEX)
@@ -789,30 +791,30 @@ static bool add_signature_element_from_register(struct vkd3d_shader_sm1_parser *
 
         case VKD3DSPR_ATTROUT:
             return add_signature_element(sm1, true, "COLOR", register_index,
-                    VKD3D_SHADER_SV_NONE, SM1_COLOR_REGISTER_OFFSET + register_index, is_dcl, mask);
+                    VKD3D_SHADER_SV_NONE, SM1_COLOR_REGISTER_OFFSET + register_index, is_dcl, mask, dst_modifiers);
 
         case VKD3DSPR_COLOROUT:
             return add_signature_element(sm1, true, "COLOR", register_index,
-                    VKD3D_SHADER_SV_TARGET, register_index, is_dcl, mask);
+                    VKD3D_SHADER_SV_TARGET, register_index, is_dcl, mask, dst_modifiers);
 
         case VKD3DSPR_DEPTHOUT:
             return add_signature_element(sm1, true, "DEPTH", 0,
-                    VKD3D_SHADER_SV_DEPTH, register_index, is_dcl, 0x1);
+                    VKD3D_SHADER_SV_DEPTH, register_index, is_dcl, 0x1, dst_modifiers);
 
         case VKD3DSPR_RASTOUT:
             switch (register_index)
             {
                 case 0:
-                    return add_signature_element(sm1, true, "POSITION", 0,
-                            VKD3D_SHADER_SV_POSITION, SM1_RASTOUT_REGISTER_OFFSET + register_index, is_dcl, mask);
+                    return add_signature_element(sm1, true, "POSITION", 0, VKD3D_SHADER_SV_POSITION,
+                            SM1_RASTOUT_REGISTER_OFFSET + register_index, is_dcl, mask, dst_modifiers);
 
                 case 1:
-                    return add_signature_element(sm1, true, "FOG", 0,
-                            VKD3D_SHADER_SV_NONE, SM1_RASTOUT_REGISTER_OFFSET + register_index, is_dcl, 0x1);
+                    return add_signature_element(sm1, true, "FOG", 0, VKD3D_SHADER_SV_NONE,
+                            SM1_RASTOUT_REGISTER_OFFSET + register_index, is_dcl, 0x1, dst_modifiers);
 
                 case 2:
-                    return add_signature_element(sm1, true, "PSIZE", 0,
-                            VKD3D_SHADER_SV_NONE, SM1_RASTOUT_REGISTER_OFFSET + register_index, is_dcl, 0x1);
+                    return add_signature_element(sm1, true, "PSIZE", 0, VKD3D_SHADER_SV_NONE,
+                            SM1_RASTOUT_REGISTER_OFFSET + register_index, is_dcl, 0x1, dst_modifiers);
 
                 default:
                     vkd3d_shader_parser_error(&sm1->p, VKD3D_SHADER_ERROR_D3DBC_INVALID_REGISTER_INDEX,
@@ -825,11 +827,11 @@ static bool add_signature_element_from_register(struct vkd3d_shader_sm1_parser *
             {
                 case 0:
                     return add_signature_element(sm1, false, "VPOS", 0,
-                            VKD3D_SHADER_SV_POSITION, register_index, is_dcl, mask);
+                            VKD3D_SHADER_SV_POSITION, register_index, is_dcl, mask, dst_modifiers);
 
                 case 1:
                     return add_signature_element(sm1, false, "VFACE", 0,
-                            VKD3D_SHADER_SV_IS_FRONT_FACE, register_index, is_dcl, 0x1);
+                            VKD3D_SHADER_SV_IS_FRONT_FACE, register_index, is_dcl, 0x1, dst_modifiers);
 
                 default:
                     vkd3d_shader_parser_error(&sm1->p, VKD3D_SHADER_ERROR_D3DBC_INVALID_REGISTER_INDEX,
@@ -849,6 +851,7 @@ static bool add_signature_element_from_semantic(struct vkd3d_shader_sm1_parser *
     const struct vkd3d_shader_register *reg = &semantic->resource.reg.reg;
     enum vkd3d_shader_sysval_semantic sysval = VKD3D_SHADER_SV_NONE;
     unsigned int mask = semantic->resource.reg.write_mask;
+    uint32_t modifiers = semantic->resource.reg.modifiers;
     bool output;
 
     static const char sm1_semantic_names[][13] =
@@ -874,11 +877,11 @@ static bool add_signature_element_from_semantic(struct vkd3d_shader_sm1_parser *
     else if (reg->type == VKD3DSPR_INPUT || reg->type == VKD3DSPR_TEXTURE)
         output = false;
     else /* vpos and vface don't have a semantic. */
-        return add_signature_element_from_register(sm1, reg, true, mask);
+        return add_signature_element_from_register(sm1, reg, true, mask, modifiers);
 
     /* sm2 pixel shaders use DCL but don't provide a semantic. */
     if (version->type == VKD3D_SHADER_TYPE_PIXEL && version->major == 2)
-        return add_signature_element_from_register(sm1, reg, true, mask);
+        return add_signature_element_from_register(sm1, reg, true, mask, modifiers);
 
     /* With the exception of vertex POSITION output, none of these are system
      * values. Pixel POSITION input is not equivalent to SV_Position; the closer
@@ -887,8 +890,8 @@ static bool add_signature_element_from_semantic(struct vkd3d_shader_sm1_parser *
             && output && semantic->usage == VKD3D_DECL_USAGE_POSITION)
         sysval = VKD3D_SHADER_SV_POSITION;
 
-    return add_signature_element(sm1, output, sm1_semantic_names[semantic->usage],
-            semantic->usage_idx, sysval, reg->idx[0].offset, true, mask);
+    return add_signature_element(sm1, output, sm1_semantic_names[semantic->usage], semantic->usage_idx, sysval,
+            reg->idx[0].offset, true, mask, modifiers);
 }
 
 static void record_constant_register(struct vkd3d_shader_sm1_parser *sm1,
@@ -932,7 +935,7 @@ static void shader_sm1_scan_register(struct vkd3d_shader_sm1_parser *sm1,
             break;
     }
 
-    add_signature_element_from_register(sm1, reg, false, mask);
+    add_signature_element_from_register(sm1, reg, false, mask, 0);
 }
 
 /* Read a parameter token from the input stream, and possibly a relative
@@ -2100,6 +2103,8 @@ static void d3dbc_write_semantic_dcl(struct d3dbc_compiler *d3dbc,
     put_u32(buffer, token);
 
     reg.write_mask = element->mask;
+    if (element->interpolation_mode == VKD3DSIM_LINEAR_CENTROID)
+        reg.modifiers |= VKD3DSPDM_MSAMPCENTROID;
     write_sm1_dst_register(buffer, &reg);
 }
 

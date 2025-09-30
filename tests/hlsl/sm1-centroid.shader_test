@@ -46,7 +46,7 @@ probe (638, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % Centroid interpolation.
 % The WARP driver doesn't seem to support centroid interpolation for SM < 4.
-[pixel shader todo]
+[pixel shader]
 static const float2 sample_pos = {-0.001f, 0.000f};
 
 float4 main(centroid float2 t : TEXCOORD0) : SV_Target
@@ -61,14 +61,14 @@ float4 main(centroid float2 t : TEXCOORD0) : SV_Target
 
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
-todo draw triangle list 3
+draw triangle list 3
 todo probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)
 todo probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % The WARP driver doesn't seem to support centroid interpolation for SM < 4.
-[pixel shader todo]
+[pixel shader]
 static const float2 sample_pos = {-0.001f, 0.000f};
 
 float4 main(float2 t : TEXCOORD0_centRoid) : SV_Target
@@ -83,14 +83,14 @@ float4 main(float2 t : TEXCOORD0_centRoid) : SV_Target
 
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
-todo draw triangle list 3
+draw triangle list 3
 todo probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)
 todo probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % The WARP driver doesn't seem to support centroid interpolation for SM < 4.
-[pixel shader todo]
+[pixel shader]
 static const float2 sample_pos = {-0.001f, 0.000f};
 
 struct ps_in
@@ -110,7 +110,7 @@ float4 main(ps_in data) : SV_Target
 
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
-todo draw triangle list 3
+draw triangle list 3
 todo probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)
 todo probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
@@ -118,7 +118,7 @@ probe (638, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % The "_centroid" semantic modifier can be specified together with the "centroid" prefix attribute.
 % The WARP driver doesn't seem to support centroid interpolation for SM < 4.
-[pixel shader todo]
+[pixel shader]
 static const float2 sample_pos = {-0.001f, 0.000f};
 
 float4 main(centroid float2 t : TEXCOORD0_centroid) : SV_Target
@@ -133,7 +133,7 @@ float4 main(centroid float2 t : TEXCOORD0_centroid) : SV_Target
 
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
-todo draw triangle list 3
+draw triangle list 3
 todo probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)
 todo probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
@@ -155,8 +155,7 @@ float4 main(float2 t : TEXCOORD0_centroid_centroid) : SV_Target
 
 % The centroid mode can only be applied to texcoord registers in SM2,
 % and cannot be applied to any semantic registers in SM3.
-
-[pixel shader fail(sm<3) todo]
+[pixel shader fail(sm<3)]
 float4 main(centroid float2 t : COLOR) : SV_Target
 {
     return t.x;
@@ -168,13 +167,13 @@ float4 main(centroid float2 t : COLOR) : SV_Target
 shader model >= 3.0
 shader model < 4.0
 
-[pixel shader fail todo]
+[pixel shader fail]
 float4 main(centroid float t : VFACE) : SV_Target
 {
     return t;
 }
 
-[pixel shader fail todo]
+[pixel shader fail]
 float4 main(centroid float3 t : VPOS) : SV_Target
 {
     return t.x;
