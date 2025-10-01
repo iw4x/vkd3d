@@ -9133,6 +9133,8 @@ static bool sm4_generate_vsir_reg_from_deref(struct hlsl_ctx *ctx, struct vsir_p
             reg->type = VKD3DSPR_RESOURCE;
             reg->dimension = VSIR_DIMENSION_VEC4;
             reg->idx[0].offset = var->regs[HLSL_REGSET_TEXTURES].id;
+            if (vkd3d_shader_ver_le(version, 5, 0))
+                reg->idx[0].offset += hlsl_offset_from_deref_safe(ctx, deref);
             reg->idx[1].offset = var->regs[HLSL_REGSET_TEXTURES].index;
             reg->idx[1].offset += hlsl_offset_from_deref_safe(ctx, deref);
             reg->idx_count = 2;
@@ -9144,6 +9146,8 @@ static bool sm4_generate_vsir_reg_from_deref(struct hlsl_ctx *ctx, struct vsir_p
             reg->type = VKD3DSPR_UAV;
             reg->dimension = VSIR_DIMENSION_VEC4;
             reg->idx[0].offset = var->regs[HLSL_REGSET_UAVS].id;
+            if (vkd3d_shader_ver_le(version, 5, 0))
+                reg->idx[0].offset += hlsl_offset_from_deref_safe(ctx, deref);
             reg->idx[1].offset = var->regs[HLSL_REGSET_UAVS].index;
             reg->idx[1].offset += hlsl_offset_from_deref_safe(ctx, deref);
             reg->idx_count = 2;
@@ -9155,6 +9159,8 @@ static bool sm4_generate_vsir_reg_from_deref(struct hlsl_ctx *ctx, struct vsir_p
             reg->type = VKD3DSPR_SAMPLER;
             reg->dimension = VSIR_DIMENSION_NONE;
             reg->idx[0].offset = var->regs[HLSL_REGSET_SAMPLERS].id;
+            if (vkd3d_shader_ver_le(version, 5, 0))
+                reg->idx[0].offset += hlsl_offset_from_deref_safe(ctx, deref);
             reg->idx[1].offset = var->regs[HLSL_REGSET_SAMPLERS].index;
             reg->idx[1].offset += hlsl_offset_from_deref_safe(ctx, deref);
             reg->idx_count = 2;
@@ -12530,7 +12536,7 @@ static struct extern_resource *sm4_get_extern_resources(struct hlsl_ctx *ctx, un
                 extern_resources[*count].component_type = component_type;
 
                 extern_resources[*count].regset = regset;
-                extern_resources[*count].id = var->regs[regset].id;
+                extern_resources[*count].id = var->regs[regset].id + regset_offset;
                 extern_resources[*count].space = var->regs[regset].space;
                 extern_resources[*count].index = var->regs[regset].index + regset_offset;
                 extern_resources[*count].bind_count = 1;
@@ -12765,7 +12771,7 @@ static void sm4_generate_vsir_add_dcl_sampler(struct hlsl_ctx *ctx,
         ins->declaration.sampler.range.last = array_last;
         ins->declaration.sampler.range.space = resource->space;
 
-        src_param->reg.idx[0].offset = resource->id;
+        src_param->reg.idx[0].offset = resource->id + i;
         src_param->reg.idx[1].offset = array_first;
         src_param->reg.idx[2].offset = array_last;
         src_param->reg.idx_count = 3;
@@ -12923,7 +12929,7 @@ static void sm4_generate_vsir_add_dcl_texture(struct hlsl_ctx *ctx,
         vsir_resource->range.last = array_last;
         vsir_resource->range.space = resource->space;
 
-        vsir_resource->reg.reg.idx[0].offset = resource->id;
+        vsir_resource->reg.reg.idx[0].offset = resource->id + i;
         vsir_resource->reg.reg.idx[1].offset = array_first;
         vsir_resource->reg.reg.idx[2].offset = array_last;
         vsir_resource->reg.reg.idx_count = 3;
