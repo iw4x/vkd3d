@@ -3874,8 +3874,11 @@ static void tpf_dcl_texture(const struct tpf_compiler *tpf, const struct vkd3d_s
 
     if (ins->opcode == VSIR_OP_DCL || ins->opcode == VSIR_OP_DCL_UAV_TYPED)
     {
+        enum vkd3d_sm4_resource_type resource_type = sm4_resource_dimension(ins->declaration.semantic.resource_type);
+
         instr.idx[0] = pack_resource_data_type(ins->declaration.semantic.resource_data_type);
         instr.idx_count = 1;
+        instr.extra_bits |= resource_type << VKD3D_SM4_RESOURCE_TYPE_SHIFT;
         instr.extra_bits |= ins->declaration.semantic.sample_count << VKD3D_SM4_RESOURCE_SAMPLE_COUNT_SHIFT;
         resource = &ins->declaration.semantic.resource;
     }
@@ -3909,8 +3912,6 @@ static void tpf_dcl_texture(const struct tpf_compiler *tpf, const struct vkd3d_s
 
     if (uav)
         instr.extra_bits |= ins->flags << VKD3D_SM5_UAV_FLAGS_SHIFT;
-
-    instr.extra_bits |= (sm4_resource_dimension(ins->resource_type) << VKD3D_SM4_RESOURCE_TYPE_SHIFT);
 
     write_sm4_instruction(tpf, &instr);
 }

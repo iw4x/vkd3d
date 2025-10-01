@@ -12928,8 +12928,6 @@ static void sm4_generate_vsir_add_dcl_texture(struct hlsl_ctx *ctx,
         vsir_resource->reg.reg.idx[2].offset = array_last;
         vsir_resource->reg.reg.idx_count = 3;
 
-        ins->resource_type = sm4_generate_vsir_get_resource_type(resource->component_type);
-
         if (component_type->sampler_dim == HLSL_SAMPLER_DIM_RAW_BUFFER)
         {
             ins->raw = true;
@@ -12942,6 +12940,8 @@ static void sm4_generate_vsir_add_dcl_texture(struct hlsl_ctx *ctx,
         }
         else
         {
+            ins->declaration.semantic.resource_type = sm4_generate_vsir_get_resource_type(resource->component_type);
+
             for (unsigned int j = 0; j < 4; ++j)
                 ins->declaration.semantic.resource_data_type[j] = sm4_generate_vsir_get_format_type(component_type);
 
