@@ -3011,8 +3011,7 @@ static bool sm6_value_validate_is_backward_ref(const struct sm6_value *value, st
 {
     if (!value->is_back_ref)
     {
-        FIXME("Forward-referenced pointers are not supported.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                 "Forward-referenced pointer declarations are not supported.");
         return false;
     }
@@ -3224,8 +3223,7 @@ static enum vkd3d_result value_allocate_constant_array(struct sm6_value *dst, co
     /* Multidimensional arrays are emitted in flattened form. */
     if (elem_type->class != TYPE_CLASS_INTEGER && elem_type->class != TYPE_CLASS_FLOAT)
     {
-        FIXME("Unhandled element type %u for data array.\n", elem_type->class);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                 "The element data type for an immediate constant buffer is not scalar integer or floating point.");
         return VKD3D_ERROR_INVALID_SHADER;
     }
@@ -3776,11 +3774,8 @@ static void sm6_parser_declare_tgsm_raw(struct sm6_parser *sm6, const struct sm6
     if (byte_count == 2)
         byte_count = 4;
     if (byte_count != 4)
-    {
-        FIXME("Unsupported byte count %u.\n", byte_count);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                 "Raw TGSM byte count %u is not supported.", byte_count);
-    }
     ins->declaration.tgsm_raw.byte_count = byte_count;
     /* The initialiser value index will be resolved later when forward references can be handled. */
     ins->flags = init;
@@ -3802,11 +3797,8 @@ static void sm6_parser_declare_tgsm_structured(struct sm6_parser *sm6, const str
         dst->structure_stride = 4;
     vsir_register_from_dxil_value(&ins->declaration.tgsm_structured.reg.reg, dst, 0, sm6);
     if (dst->structure_stride != 4)
-    {
-        FIXME("Unsupported structure stride %u.\n", dst->structure_stride);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                 "Structured TGSM byte stride %u is not supported.", dst->structure_stride);
-    }
     ins->declaration.tgsm_structured.alignment = alignment;
     ins->declaration.tgsm_structured.byte_stride = dst->structure_stride;
     ins->declaration.tgsm_structured.structure_count = count;
@@ -3831,8 +3823,7 @@ static bool sm6_parser_declare_global(struct sm6_parser *sm6, const struct dxil_
     {
         if (!sm6_type_is_scalar(type->u.array.elem_type))
         {
-            FIXME("Unsupported nested type class %u.\n", type->u.array.elem_type->class);
-            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                     "Global array variables with nested type class %u are not supported.",
                     type->u.array.elem_type->class);
             return false;
@@ -3847,8 +3838,7 @@ static bool sm6_parser_declare_global(struct sm6_parser *sm6, const struct dxil_
     }
     else
     {
-        FIXME("Unsupported type class %u.\n", type->class);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                 "Global variables of type class %u are not supported.", type->class);
         return false;
     }
@@ -3953,8 +3943,7 @@ static bool sm6_parser_declare_global(struct sm6_parser *sm6, const struct dxil_
     }
     else
     {
-        FIXME("Unhandled address space %"PRIu64".\n", address_space);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                 "Global variables with address space %"PRIu64" are not supported.", address_space);
         return false;
     }
@@ -4011,8 +4000,7 @@ static bool resolve_forward_zero_initialiser(size_t index, struct sm6_parser *sm
         return false;
     }
 
-    FIXME("Non-zero initialisers are not supported.\n");
-    vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+    vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
             "Non-zero TGSM initialisers are not supported.");
     return false;
 }
@@ -4364,8 +4352,7 @@ static void sm6_parser_emit_alloca(struct sm6_parser *sm6, const struct dxil_rec
         WARN("Ignoring in_alloca flag.\n");
     if (!(packed_operands & ALLOCA_FLAG_EXPLICIT_TYPE))
     {
-        FIXME("Unhandled implicit type.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                 "Implicit result type for ALLOCA instructions is not supported.");
         return;
     }
@@ -4401,8 +4388,7 @@ static void sm6_parser_emit_alloca(struct sm6_parser *sm6, const struct dxil_rec
     /* A size of 1 means one instance of type[0], i.e. one array. */
     if (sm6_value_get_constant_uint(size, sm6) != 1)
     {
-        FIXME("Allocation size is not 1.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                 "ALLOCA instruction allocation sizes other than 1 are not supported.");
         return;
     }
@@ -4484,8 +4470,7 @@ static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, const struct dxil_
 
     if ((op = map_dx_atomicrmw_op(code = record->operands[i++])) == VSIR_OP_INVALID)
     {
-        FIXME("Unhandled atomicrmw op %"PRIu64".\n", code);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                 "Operation %"PRIu64" for an atomicrmw instruction is unhandled.", code);
         return;
     }
@@ -4613,8 +4598,7 @@ static enum vkd3d_shader_opcode map_binary_op(uint64_t code, const struct sm6_ty
             is_valid = is_int;
             break;
         default:
-            FIXME("Unhandled binary op %#"PRIx64".\n", code);
-            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                     "Binary operation %#"PRIx64" is unhandled.", code);
             return VSIR_OP_INVALID;
     }
@@ -5055,8 +5039,7 @@ static enum vkd3d_shader_opcode map_dx_atomic_binop(const struct sm6_value *oper
             return VSIR_OP_IMM_ATOMIC_XOR;
         /* DXIL currently doesn't use SUB and NAND. */
         default:
-            FIXME("Unhandled atomic binop %"PRIu64".\n", code);
-            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                     "Operation %"PRIu64" for an atomic binop instruction is unhandled.", code);
             return VSIR_OP_INVALID;
     }
@@ -5164,8 +5147,7 @@ static void sm6_parser_emit_dx_buffer_update_counter(struct sm6_parser *sm6, enu
 
     if (!sm6_value_is_constant(operands[1]))
     {
-        FIXME("Unsupported dynamic update operand.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                 "A dynamic update value for a UAV counter operation is not supported.");
         return;
     }

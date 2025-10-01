@@ -746,6 +746,14 @@ void VKD3D_PRINTF_FUNC(3, 4) vkd3d_shader_parser_error(struct vkd3d_shader_parse
     {
         switch (error)
         {
+            case VKD3D_SHADER_ERROR_SPV_NOT_IMPLEMENTED:
+            case VKD3D_SHADER_ERROR_HLSL_NOT_IMPLEMENTED:
+            case VKD3D_SHADER_ERROR_D3DBC_NOT_IMPLEMENTED:
+            case VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED:
+            case VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED:
+            case VKD3D_SHADER_ERROR_FX_NOT_IMPLEMENTED:
+                parser->status = VKD3D_ERROR_NOT_IMPLEMENTED;
+                break;
             case VKD3D_SHADER_ERROR_DXBC_OUT_OF_MEMORY:
             case VKD3D_SHADER_ERROR_TPF_OUT_OF_MEMORY:
             case VKD3D_SHADER_ERROR_SPV_OUT_OF_MEMORY:
