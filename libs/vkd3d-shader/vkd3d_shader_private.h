@@ -1368,6 +1368,13 @@ static inline bool vkd3d_shader_ver_le(const struct vkd3d_shader_version *v, uns
 void vsir_instruction_init(struct vkd3d_shader_instruction *ins,
         const struct vkd3d_shader_location *location, enum vkd3d_shader_opcode opcode);
 
+static inline void vkd3d_shader_instruction_make_nop(struct vkd3d_shader_instruction *ins)
+{
+    struct vkd3d_shader_location location = ins->location;
+
+    vsir_instruction_init(ins, &location, VSIR_OP_NOP);
+}
+
 static inline bool vkd3d_shader_instruction_has_texel_offset(const struct vkd3d_shader_instruction *ins)
 {
     return ins->texel_offset.u || ins->texel_offset.v || ins->texel_offset.w;

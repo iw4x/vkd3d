@@ -1085,13 +1085,6 @@ static bool vsir_instruction_is_dcl(const struct vkd3d_shader_instruction *instr
             || opcode == VSIR_OP_HS_DECLS;
 }
 
-static void vkd3d_shader_instruction_make_nop(struct vkd3d_shader_instruction *ins)
-{
-    struct vkd3d_shader_location location = ins->location;
-
-    vsir_instruction_init(ins, &location, VSIR_OP_NOP);
-}
-
 /* NOTE: Immediate constant buffers are not cloned, so the source must not be destroyed while the
  * destination is in use. This seems like a reasonable requirement given how this is currently used. */
 static bool vsir_program_iterator_clone_instruction(struct vsir_program *program,

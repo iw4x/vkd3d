@@ -3701,7 +3701,11 @@ static struct vkd3d_shader_instruction *sm6_parser_add_instruction(struct sm6_pa
     struct vkd3d_shader_instruction *ins;
 
     if (!(ins = vsir_program_append(sm6->program)))
+    {
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
+                "Out of memory allocating instruction.");
         return NULL;
+    }
     vsir_instruction_init(ins, &sm6->p.location, op);
 
     return ins;
@@ -3712,7 +3716,8 @@ static void sm6_parser_declare_icb(struct sm6_parser *sm6, const struct sm6_type
 {
     struct vkd3d_shader_instruction *ins;
 
-    ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_IMMEDIATE_CONSTANT_BUFFER);
+    if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_IMMEDIATE_CONSTANT_BUFFER)))
+        return;
     /* The icb value index will be resolved later so forward references can be handled. */
     ins->declaration.icb = (void *)(intptr_t)init;
     dst->value_type = VALUE_TYPE_ICB;
@@ -3737,8 +3742,8 @@ static void sm6_parser_declare_indexable_temp(struct sm6_parser *sm6, const stru
 
     if (ins)
         vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_DCL_INDEXABLE_TEMP);
-    else
-        ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_INDEXABLE_TEMP);
+    else if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_INDEXABLE_TEMP)))
+        return;
     ins->declaration.indexable_temp.register_idx = sm6->indexable_temp_count++;
     ins->declaration.indexable_temp.register_size = count;
     ins->declaration.indexable_temp.alignment = alignment;
@@ -3758,7 +3763,8 @@ static void sm6_parser_declare_tgsm_raw(struct sm6_parser *sm6, const struct sm6
     struct vkd3d_shader_instruction *ins;
     unsigned int byte_count;
 
-    ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_TGSM_RAW);
+    if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_TGSM_RAW)))
+        return;
     dst_param_init(&ins->declaration.tgsm_raw.reg);
     dst->value_type = VALUE_TYPE_GROUPSHAREDMEM;
     dst->u.groupsharedmem.id = sm6->tgsm_count++;
@@ -3785,7 +3791,8 @@ static void sm6_parser_declare_tgsm_structured(struct sm6_parser *sm6, const str
 {
     struct vkd3d_shader_instruction *ins;
 
-    ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_TGSM_STRUCTURED);
+    if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_TGSM_STRUCTURED)))
+        return;
     dst_param_init(&ins->declaration.tgsm_structured.reg);
     dst->value_type = VALUE_TYPE_GROUPSHAREDMEM;
     dst->u.groupsharedmem.id = sm6->tgsm_count++;
@@ -5256,7 +5263,8 @@ static void sm6_parser_dcl_register_builtin(struct sm6_parser *sm6, enum vkd3d_s
     if (!bitmap_is_set(sm6->io_regs_declared, reg_type))
     {
         bitmap_set(sm6->io_regs_declared, reg_type);
-        ins = sm6_parser_add_instruction(sm6, handler_idx);
+        if (!(ins = sm6_parser_add_instruction(sm6, handler_idx)))
+            return;
         dst_param = &ins->declaration.dst;
         vsir_register_init(&dst_param->reg, reg_type, data_type, 0);
         dst_param_init_vector(dst_param, component_count);
@@ -8467,18 +8475,26 @@ static void sm6_block_emit_terminator(const struct sm6_block *block, struct sm6_
         case TERMINATOR_UNCOND_BR:
             if (!block->terminator.true_block)
                 return;
-            ins = sm6_parser_add_instruction(sm6, VSIR_OP_BRANCH);
-            if (!(src_params = instruction_src_params_alloc(ins, 1, sm6)))
+            if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_BRANCH)))
                 return;
+            if (!(src_params = instruction_src_params_alloc(ins, 1, sm6)))
+            {
+                vkd3d_shader_instruction_make_nop(ins);
+                return;
+            }
             vsir_src_param_init_label(&src_params[0], block->terminator.true_block->id);
             break;
 
         case TERMINATOR_COND_BR:
             if (!block->terminator.true_block || !block->terminator.false_block)
                 return;
-            ins = sm6_parser_add_instruction(sm6, VSIR_OP_BRANCH);
-            if (!(src_params = instruction_src_params_alloc(ins, 3, sm6)))
+            if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_BRANCH)))
                 return;
+            if (!(src_params = instruction_src_params_alloc(ins, 3, sm6)))
+            {
+                vkd3d_shader_instruction_make_nop(ins);
+                return;
+            }
             src_param_init(&src_params[0]);
             src_params[0].reg = block->terminator.conditional_reg;
             vsir_src_param_init_label(&src_params[1], block->terminator.true_block->id);
@@ -8486,9 +8502,13 @@ static void sm6_block_emit_terminator(const struct sm6_block *block, struct sm6_
             break;
 
         case TERMINATOR_SWITCH:
-            ins = sm6_parser_add_instruction(sm6, VSIR_OP_SWITCH_MONOLITHIC);
-            if (!(src_params = instruction_src_params_alloc(ins, block->terminator.case_count * 2u + 1, sm6)))
+            if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_SWITCH_MONOLITHIC)))
                 return;
+            if (!(src_params = instruction_src_params_alloc(ins, block->terminator.case_count * 2u + 1, sm6)))
+            {
+                vkd3d_shader_instruction_make_nop(ins);
+                return;
+            }
             src_param_init(&src_params[0]);
             src_params[0].reg = block->terminator.conditional_reg;
             /* TODO: emit the merge block id. */
@@ -8555,11 +8575,18 @@ static void sm6_block_emit_phi(const struct sm6_block *block, struct sm6_parser 
         src_phi = &block->phi[i];
         incoming_count = src_phi->incoming_count;
 
-        ins = sm6_parser_add_instruction(sm6, VSIR_OP_PHI);
+        if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_PHI)))
+            return;
         if (!(src_params = instruction_src_params_alloc(ins, incoming_count * 2u, sm6)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
             return;
+        }
         if (!(dst_param = instruction_dst_params_alloc(ins, 1, sm6)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
             return;
+        }
 
         for (j = 0; j < incoming_count; ++j)
         {
@@ -8641,10 +8668,13 @@ static void sm6_parser_emit_label(struct sm6_parser *sm6, unsigned int label_id)
     struct vkd3d_shader_src_param *src_param;
     struct vkd3d_shader_instruction *ins;
 
-    ins = sm6_parser_add_instruction(sm6, VSIR_OP_LABEL);
-
-    if (!(src_param = instruction_src_params_alloc(ins, 1, sm6)))
+    if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_LABEL)))
         return;
+    if (!(src_param = instruction_src_params_alloc(ins, 1, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
     vsir_src_param_init_label(src_param, label_id);
 }
 
@@ -9627,11 +9657,7 @@ static enum vkd3d_result sm6_parser_descriptor_type_init(struct sm6_parser *sm6,
         }
 
         if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_NOP)))
-        {
-            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
-                    "Out of memory emitting shader instructions.");
             return VKD3D_ERROR_OUT_OF_MEMORY;
-        }
 
         switch (type)
         {
@@ -10060,7 +10086,8 @@ static void sm6_parser_emit_global_flags(struct sm6_parser *sm6, const struct sm
     rotated_flags = (rotated_flags >> 1) | ((rotated_flags & 1) << 4);
     global_flags = (global_flags & ~mask) | rotated_flags;
 
-    ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_GLOBAL_FLAGS);
+    if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_GLOBAL_FLAGS)))
+        return;
     ins->declaration.global_flags = global_flags;
     sm6->program->global_flags = global_flags;
 }
@@ -10117,7 +10144,8 @@ static enum vkd3d_result sm6_parser_emit_thread_group(struct sm6_parser *sm6, co
         }
     }
 
-    ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_THREAD_GROUP);
+    if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_THREAD_GROUP)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
     ins->declaration.thread_group_size.x = group_sizes[0];
     ins->declaration.thread_group_size.y = group_sizes[1];
     ins->declaration.thread_group_size.z = group_sizes[2];
@@ -10130,7 +10158,8 @@ static void sm6_parser_emit_dcl_count(struct sm6_parser *sm6, enum vkd3d_shader_
 {
     struct vkd3d_shader_instruction *ins;
 
-    ins = sm6_parser_add_instruction(sm6, handler_idx);
+    if (!(ins = sm6_parser_add_instruction(sm6, handler_idx)))
+        return;
     ins->declaration.count = count;
 }
 
@@ -10140,7 +10169,8 @@ static void sm6_parser_emit_dcl_primitive_topology(struct sm6_parser *sm6,
 {
     struct vkd3d_shader_instruction *ins;
 
-    ins = sm6_parser_add_instruction(sm6, handler_idx);
+    if (!(ins = sm6_parser_add_instruction(sm6, handler_idx)))
+        return;
     ins->declaration.primitive_type.type = primitive_type;
     ins->declaration.primitive_type.patch_vertex_count = patch_vertex_count;
 }
@@ -10157,7 +10187,8 @@ static void sm6_parser_emit_dcl_tessellator_domain(struct sm6_parser *sm6,
                 "Domain shader tessellator domain %u is unhandled.", tessellator_domain);
     }
 
-    ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_TESSELLATOR_DOMAIN);
+    if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_TESSELLATOR_DOMAIN)))
+        return;
     ins->declaration.tessellator_domain = tessellator_domain;
     sm6->program->tess_domain = tessellator_domain;
 }
@@ -10185,7 +10216,8 @@ static void sm6_parser_emit_dcl_tessellator_partitioning(struct sm6_parser *sm6,
                 "Hull shader tessellator partitioning %u is unhandled.", tessellator_partitioning);
     }
 
-    ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_TESSELLATOR_PARTITIONING);
+    if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_TESSELLATOR_PARTITIONING)))
+        return;
     ins->declaration.tessellator_partitioning = tessellator_partitioning;
 
     sm6->program->tess_partitioning = tessellator_partitioning;
@@ -10203,7 +10235,8 @@ static void sm6_parser_emit_dcl_tessellator_output_primitive(struct sm6_parser *
                 "Hull shader tessellator output primitive %u is unhandled.", primitive);
     }
 
-    ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_TESSELLATOR_OUTPUT_PRIMITIVE);
+    if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_TESSELLATOR_OUTPUT_PRIMITIVE)))
+        return;
     ins->declaration.tessellator_output_primitive = primitive;
 
     sm6->program->tess_output_primitive = primitive;
@@ -10230,7 +10263,8 @@ static void sm6_parser_emit_dcl_max_tessellation_factor(struct sm6_parser *sm6, 
                 "Hull shader max tessellation factor %f is invalid.", max_tessellation_factor);
     }
 
-    ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_HS_MAX_TESSFACTOR);
+    if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_HS_MAX_TESSFACTOR)))
+        return;
     ins->declaration.max_tessellation_factor = max_tessellation_factor;
 }
 
