@@ -3949,7 +3949,7 @@ static bool sm6_parser_declare_global(struct sm6_parser *sm6, const struct dxil_
     }
 
     ++sm6->value_count;
-    return true;
+    return (sm6->p.status >= 0);
 }
 
 static const struct vkd3d_shader_immediate_constant_buffer *resolve_forward_initialiser(
@@ -4039,7 +4039,10 @@ static enum vkd3d_result sm6_parser_globals_init(struct sm6_parser *sm6)
 
             case MODULE_CODE_GLOBALVAR:
                 if (!sm6_parser_declare_global(sm6, record))
-                    return VKD3D_ERROR_INVALID_SHADER;
+                {
+                    VKD3D_ASSERT(sm6->p.status < 0);
+                    return sm6->p.status;
+                }
                 break;
 
             case MODULE_CODE_VERSION:
