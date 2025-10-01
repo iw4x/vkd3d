@@ -4008,8 +4008,8 @@ static bool resolve_forward_zero_initialiser(size_t index, struct sm6_parser *sm
 static enum vkd3d_result sm6_parser_globals_init(struct sm6_parser *sm6)
 {
     struct vsir_program_iterator it = vsir_program_iterator(&sm6->program->instructions);
-    size_t i, count, base_value_idx = sm6->value_count;
     const struct dxil_block *block = &sm6->root_block;
+    size_t i, base_value_idx = sm6->value_count;
     struct vkd3d_shader_instruction *ins;
     const struct dxil_record *record;
     enum vkd3d_result ret;
@@ -4017,10 +4017,6 @@ static enum vkd3d_result sm6_parser_globals_init(struct sm6_parser *sm6)
 
     sm6->p.location.line = block->id;
     sm6->p.location.column = 0;
-
-    for (i = 0, count = 0; i < block->record_count; ++i)
-        count += block->records[i]->code == MODULE_CODE_GLOBALVAR;
-    sm6_parser_require_space(sm6, count);
 
     for (i = 0; i < block->record_count; ++i)
     {
