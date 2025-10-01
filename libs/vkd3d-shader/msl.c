@@ -490,6 +490,10 @@ static enum msl_data_type msl_print_register_name(struct vkd3d_string_buffer *bu
             vkd3d_string_buffer_printf(buffer, "v_thread_id");
             return MSL_DATA_UNION;
 
+        case VKD3DSPR_THREADGROUPID:
+            vkd3d_string_buffer_printf(buffer, "v_thread_group_id");
+            return MSL_DATA_UNION;
+
         case VKD3DSPR_LOCALTHREADID:
             vkd3d_string_buffer_printf(buffer, "v_local_thread_id");
             return MSL_DATA_UNION;
@@ -2031,6 +2035,12 @@ static void msl_generate_entrypoint_prologue(struct msl_generator *gen)
         vkd3d_string_buffer_printf(buffer, "v_thread_id.u = uint4(thread_id, 0u);\n");
     }
 
+    if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_THREADGROUPID))
+    {
+        msl_print_indent(gen->buffer, 1);
+        vkd3d_string_buffer_printf(buffer, "v_thread_group_id.u = uint4(thread_group_id, 0u);\n");
+    }
+
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_LOCALTHREADID))
     {
         msl_print_indent(gen->buffer, 1);
@@ -2134,6 +2144,12 @@ static void msl_generate_entrypoint(struct msl_generator *gen)
         vkd3d_string_buffer_printf(gen->buffer, "uint3 thread_id [[thread_position_in_grid]],\n");
     }
 
+    if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_THREADGROUPID))
+    {
+        msl_print_indent(gen->buffer, 2);
+        vkd3d_string_buffer_printf(gen->buffer, "uint3 thread_group_id [[threadgroup_position_in_grid]],\n");
+    }
+
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_LOCALTHREADID))
     {
         msl_print_indent(gen->buffer, 2);
@@ -2157,6 +2173,8 @@ static void msl_generate_entrypoint(struct msl_generator *gen)
         vkd3d_string_buffer_printf(gen->buffer, "    vkd3d_scalar o_mask;\n");
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_THREADID))
         vkd3d_string_buffer_printf(gen->buffer, "    vkd3d_vec4 v_thread_id;\n");
+    if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_THREADGROUPID))
+        vkd3d_string_buffer_printf(gen->buffer, "    vkd3d_vec4 v_thread_group_id;\n");
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_LOCALTHREADID))
         vkd3d_string_buffer_printf(gen->buffer, "    vkd3d_vec4 v_local_thread_id;\n");
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_LOCALTHREADINDEX))
@@ -2174,6 +2192,8 @@ static void msl_generate_entrypoint(struct msl_generator *gen)
         vkd3d_string_buffer_printf(gen->buffer, ", o_mask");
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_THREADID))
         vkd3d_string_buffer_printf(gen->buffer, ", v_thread_id");
+    if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_THREADGROUPID))
+        vkd3d_string_buffer_printf(gen->buffer, ", v_thread_group_id");
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_LOCALTHREADID))
         vkd3d_string_buffer_printf(gen->buffer, ", v_local_thread_id");
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_LOCALTHREADINDEX))
@@ -2253,6 +2273,8 @@ static int msl_generator_generate(struct msl_generator *gen, struct vkd3d_shader
         vkd3d_string_buffer_printf(gen->buffer, ", thread vkd3d_scalar &o_mask");
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_THREADID))
         vkd3d_string_buffer_printf(gen->buffer, ", thread vkd3d_vec4 &v_thread_id");
+    if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_THREADGROUPID))
+        vkd3d_string_buffer_printf(gen->buffer, ", thread vkd3d_vec4 &v_thread_group_id");
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_LOCALTHREADID))
         vkd3d_string_buffer_printf(gen->buffer, ", thread vkd3d_vec4 &v_local_thread_id");
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_LOCALTHREADINDEX))
