@@ -981,7 +981,7 @@ static uint32_t sm6_parser_read_uint32(struct sm6_parser *sm6)
 {
     if (sm6_parser_is_end(sm6))
     {
-        sm6->p.failed = true;
+        sm6->p.status = VKD3D_ERROR_INVALID_SHADER;
         return 0;
     }
     return *sm6->ptr++;
@@ -999,7 +999,7 @@ static uint32_t sm6_parser_read_bits(struct sm6_parser *sm6, unsigned int length
 
     if (sm6_parser_is_end(sm6))
     {
-        sm6->p.failed = true;
+        sm6->p.status = VKD3D_ERROR_INVALID_SHADER;
         return 0;
     }
 
@@ -1011,7 +1011,7 @@ static uint32_t sm6_parser_read_bits(struct sm6_parser *sm6, unsigned int length
         ++sm6->ptr;
         if (sm6_parser_is_end(sm6) && l < length)
         {
-            sm6->p.failed = true;
+            sm6->p.status = VKD3D_ERROR_INVALID_SHADER;
             return bits;
         }
         sm6->bitpos = 0;
@@ -1033,7 +1033,7 @@ static uint64_t sm6_parser_read_vbr(struct sm6_parser *sm6, unsigned int length)
 
     if (sm6_parser_is_end(sm6))
     {
-        sm6->p.failed = true;
+        sm6->p.status = VKD3D_ERROR_INVALID_SHADER;
         return 0;
     }
 
@@ -1044,9 +1044,10 @@ static uint64_t sm6_parser_read_vbr(struct sm6_parser *sm6, unsigned int length)
         bits = sm6_parser_read_bits(sm6, length);
         result |= (uint64_t)(bits & mask) << shift;
         shift += length - 1;
-    } while ((bits & flag) && !sm6->p.failed && shift < 64);
+    } while ((bits & flag) && (sm6->p.status >= 0) && shift < 64);
 
-    sm6->p.failed |= !!(bits & flag);
+    if (bits & flag)
+        sm6->p.status = VKD3D_ERROR_INVALID_SHADER;
 
     return result;
 }
@@ -1058,7 +1059,7 @@ static void sm6_parser_align_32(struct sm6_parser *sm6)
 
     if (sm6_parser_is_end(sm6))
     {
-        sm6->p.failed = true;
+        sm6->p.status = VKD3D_ERROR_INVALID_SHADER;
         return;
     }
 
@@ -1149,8 +1150,8 @@ static enum vkd3d_result sm6_parser_read_unabbrev_record(struct sm6_parser *sm6)
 
     for (i = 0; i < count; ++i)
         record->operands[i] = sm6_parser_read_vbr(sm6, 6);
-    if (sm6->p.failed)
-        ret = VKD3D_ERROR_INVALID_SHADER;
+    if (sm6->p.status < 0)
+        ret = sm6->p.status;
 
     if (ret < 0 || (ret = dxil_block_add_record(block, record)) < 0)
         vkd3d_free(record);
@@ -1161,25 +1162,25 @@ static enum vkd3d_result sm6_parser_read_unabbrev_record(struct sm6_parser *sm6)
 static bool sm6_parser_read_literal_operand(struct sm6_parser *sm6, uint64_t context, uint64_t *op)
 {
     *op = context;
-    return !sm6->p.failed;
+    return sm6->p.status >= 0;
 }
 
 static bool sm6_parser_read_fixed_operand(struct sm6_parser *sm6, uint64_t context, uint64_t *op)
 {
     *op = sm6_parser_read_bits(sm6, context);
-    return !sm6->p.failed;
+    return sm6->p.status >= 0;
 }
 
 static bool sm6_parser_read_vbr_operand(struct sm6_parser *sm6, uint64_t context, uint64_t *op)
 {
     *op = sm6_parser_read_vbr(sm6, context);
-    return !sm6->p.failed;
+    return sm6->p.status >= 0;
 }
 
 static bool sm6_parser_read_char6_operand(struct sm6_parser *sm6, uint64_t context, uint64_t *op)
 {
     *op = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._"[sm6_parser_read_bits(sm6, 6)];
-    return !sm6->p.failed;
+    return sm6->p.status >= 0;
 }
 
 static bool sm6_parser_read_blob_operand(struct sm6_parser *sm6, uint64_t context, uint64_t *op)
@@ -1199,7 +1200,7 @@ static enum vkd3d_result dxil_abbrev_init(struct dxil_abbrev *abbrev, unsigned i
 
     abbrev->is_array = false;
 
-    for (i = 0, prev_type = 0; i < count && !sm6->p.failed; ++i)
+    for (i = 0, prev_type = 0; i < count && (sm6->p.status >= 0); ++i)
     {
         if (sm6_parser_read_bits(sm6, 1))
         {
@@ -1252,7 +1253,7 @@ static enum vkd3d_result dxil_abbrev_init(struct dxil_abbrev *abbrev, unsigned i
 
     abbrev->count = count;
 
-    return sm6->p.failed ? VKD3D_ERROR_INVALID_SHADER : VKD3D_OK;
+    return sm6->p.status;
 }
 
 static enum vkd3d_result sm6_parser_add_global_abbrev(struct sm6_parser *sm6)
@@ -1464,7 +1465,7 @@ static enum vkd3d_result dxil_block_read(struct dxil_block *parent, struct sm6_p
                 }
                 break;
         }
-    } while (!sm6->p.failed);
+    } while (sm6->p.status >= 0);
 
     return VKD3D_ERROR_INVALID_SHADER;
 }
@@ -1515,8 +1516,8 @@ static enum vkd3d_result dxil_block_init(struct dxil_block *block, const struct 
     block->length = sm6_parser_read_uint32(sm6);
     block->start = sm6->ptr - sm6->start;
 
-    if (sm6->p.failed)
-        return VKD3D_ERROR_INVALID_SHADER;
+    if (sm6->p.status < 0)
+        return sm6->p.status;
 
     if ((block->abbrev_count = sm6_parser_compute_global_abbrev_count_for_block_id(sm6, block->id)))
     {
@@ -8418,8 +8419,8 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6, const 
                 return VKD3D_ERROR_INVALID_SHADER;
         }
 
-        if (sm6->p.failed)
-            return VKD3D_ERROR;
+        if (sm6->p.status < 0)
+            return sm6->p.status;
 
         if (record->attachment)
             metadata_attachment_record_apply(record->attachment, record->code, ins, dst, sm6);
@@ -8501,7 +8502,7 @@ static void sm6_block_emit_terminator(const struct sm6_block *block, struct sm6_
                 switch_case = &block->terminator.cases[i];
                 if (!(case_block = switch_case->block))
                 {
-                    VKD3D_ASSERT(sm6->p.failed);
+                    VKD3D_ASSERT(sm6->p.status < 0);
                     continue;
                 }
                 if (switch_case->is_default)
@@ -8570,7 +8571,7 @@ static void sm6_block_emit_phi(const struct sm6_block *block, struct sm6_parser 
             if (incoming_block)
                 vsir_src_param_init_label(&src_params[index + 1], incoming_block->id);
             else
-                VKD3D_ASSERT(sm6->p.failed);
+                VKD3D_ASSERT(sm6->p.status < 0);
         }
 
         dst_param_init(dst_param);
@@ -11026,9 +11027,9 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
 
     dxil_block_destroy(&sm6->root_block);
 
-    if (sm6->p.failed)
+    if (sm6->p.status < 0)
     {
-        ret = VKD3D_ERROR_INVALID_SHADER;
+        ret = sm6->p.status;
         goto fail;
     }
 

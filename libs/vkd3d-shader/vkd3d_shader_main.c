@@ -742,7 +742,24 @@ void VKD3D_PRINTF_FUNC(3, 4) vkd3d_shader_parser_error(struct vkd3d_shader_parse
     vkd3d_shader_verror(parser->message_context, &parser->location, error, format, args);
     va_end(args);
 
-    parser->failed = true;
+    if (parser->status >= 0)
+    {
+        switch (error)
+        {
+            case VKD3D_SHADER_ERROR_DXBC_OUT_OF_MEMORY:
+            case VKD3D_SHADER_ERROR_TPF_OUT_OF_MEMORY:
+            case VKD3D_SHADER_ERROR_SPV_OUT_OF_MEMORY:
+            case VKD3D_SHADER_ERROR_RS_OUT_OF_MEMORY:
+            case VKD3D_SHADER_ERROR_D3DBC_OUT_OF_MEMORY:
+            case VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY:
+            case VKD3D_SHADER_ERROR_FX_OUT_OF_MEMORY:
+                parser->status = VKD3D_ERROR_OUT_OF_MEMORY;
+                break;
+            default:
+                parser->status = VKD3D_ERROR_INVALID_SHADER;
+                break;
+        }
+    }
 }
 
 void VKD3D_PRINTF_FUNC(3, 4) vkd3d_shader_parser_warning(struct vkd3d_shader_parser *parser,

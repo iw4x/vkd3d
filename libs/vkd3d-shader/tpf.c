@@ -2976,13 +2976,13 @@ int tpf_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t con
         }
     }
     if (program->shader_version.type == VKD3D_SHADER_TYPE_HULL
-            && !sm4.has_control_point_phase && !sm4.p.failed)
+            && !sm4.has_control_point_phase && sm4.p.status >= 0)
         shader_sm4_validate_default_phase_index_ranges(&sm4);
 
-    if (sm4.p.failed)
+    if (sm4.p.status < 0)
     {
         vsir_program_cleanup(program);
-        return VKD3D_ERROR_INVALID_SHADER;
+        return sm4.p.status;
     }
 
     return VKD3D_OK;

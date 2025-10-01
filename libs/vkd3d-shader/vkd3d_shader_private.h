@@ -1679,7 +1679,7 @@ struct vkd3d_shader_parser
 {
     struct vkd3d_shader_message_context *message_context;
     struct vkd3d_shader_location location;
-    bool failed;
+    enum vkd3d_result status;
 };
 
 void vkd3d_shader_parser_error(struct vkd3d_shader_parser *parser,

@@ -1506,8 +1506,8 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
     for (i = 0; i < ARRAY_SIZE(program->flat_constant_count); ++i)
         program->flat_constant_count[i] = get_external_constant_count(&sm1, i);
 
-    if (sm1.p.failed && ret >= 0)
-        ret = VKD3D_ERROR_INVALID_SHADER;
+    if (ret >= 0 && sm1.p.status < 0)
+        ret = sm1.p.status;
 
     if (ret < 0)
     {
