@@ -8671,25 +8671,23 @@ static enum vkd3d_result sm6_function_emit_blocks(const struct sm6_function *fun
     {
         const struct sm6_block *block = function->blocks[i];
 
-        /* Space for the label and terminator. */
-        if (!sm6_parser_require_space(sm6, block->instruction_count + block->phi_count + 2))
-        {
-            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
-                    "Out of memory emitting shader instructions.");
-            return VKD3D_ERROR_OUT_OF_MEMORY;
-        }
         sm6_parser_emit_label(sm6, block->id);
         sm6_block_emit_phi(block, sm6);
 
         for (j = 0; j < block->instruction_count; ++j)
         {
-            ins = vsir_program_append(program);
+            if (!(ins = vsir_program_append(program)))
+            {
+                vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
+                        "Out of memory emitting block instructions.");
+                return sm6->p.status;
+            }
             *ins = block->instructions[j];
         }
         sm6_block_emit_terminator(block, sm6);
     }
 
-    return VKD3D_OK;
+    return sm6->p.status;
 }
 
 static bool sm6_parser_allocate_named_metadata(struct sm6_parser *sm6)
