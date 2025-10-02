@@ -516,6 +516,19 @@ static void parse_require_directive(struct shader_runner *runner, const char *li
 
         fatal_error("Unknown shader model '%s'.\n", line);
     }
+    else if (match_string(line, "compile shader model", &line))
+    {
+        for (i = 0; i < ARRAY_SIZE(model_strings); ++i)
+        {
+            if (match_string(line, model_strings[i], &line))
+            {
+                bitmap_set(&runner->compile_model_mask, i);
+                return;
+            }
+        }
+
+        fatal_error("Unknown shader model '%s'.\n", line);
+    }
     else if (match_string(line, "options:", &line))
     {
         static const struct option
@@ -2421,7 +2434,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                         static const uint32_t sm1_mask = (1u << SHADER_MODEL_4_0) - 1;
                         static const uint32_t sm4_mask = ((1u << SHADER_MODEL_6_0) - 1) & ~sm1_mask;
 
-                        uint32_t model_mask = 0;
+                        uint32_t model_mask = runner->compile_model_mask;
 
                         if (runner->hlsl_hrs[runner->minimum_shader_model] == S_OK)
                             bitmap_set(&model_mask, runner->minimum_shader_model);
@@ -2541,6 +2554,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                 state = STATE_REQUIRE;
                 runner->minimum_shader_model = caps->minimum_shader_model;
                 runner->maximum_shader_model = caps->maximum_shader_model;
+                runner->compile_model_mask = 0;
                 memset(runner->require_shader_caps, 0, sizeof(runner->require_shader_caps));
                 memset(runner->require_format_caps, 0, sizeof(runner->require_format_caps));
                 runner->compile_options = 0;
