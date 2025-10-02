@@ -9311,6 +9311,7 @@ struct temp_allocator
         enum vkd3d_shader_register_type type;
         unsigned int idx;
         bool force_first;
+        bool fixed_mask;
     } *ssa_regs, *temp_regs;
     size_t ssa_count, temp_count;
     unsigned int new_temp_count;
@@ -9430,7 +9431,16 @@ static void temp_allocator_set_dst(struct temp_allocator *allocator,
     dst->reg.type = VKD3DSPR_TEMP;
     dst->reg.dimension = VSIR_DIMENSION_VEC4;
     dst->reg.idx[0].offset = reg->temp_id;
+
+    if (reg->fixed_mask)
+    {
+        VKD3D_ASSERT((reg->allocated_mask & dst->write_mask) == dst->write_mask);
+        return;
+    }
+
     remapped_mask = vsir_combine_write_masks(reg->allocated_mask, dst->write_mask);
+    VKD3D_ASSERT(vkd3d_popcount(remapped_mask) == vkd3d_popcount(dst->write_mask));
+
     if (dst->write_mask != remapped_mask)
     {
         dst->write_mask = remapped_mask;
@@ -9508,6 +9518,7 @@ static void temp_allocator_open_register(struct temp_allocator *allocator, struc
             {
                 reg->temp_id = i;
                 reg->allocated_mask = liveness_reg->mask;
+                reg->fixed_mask = true;
                 current_allocation[i] |= reg->allocated_mask;
                 allocator->new_temp_count = max(allocator->new_temp_count, i + 1);
                 TRACE("Allocated r%u%s for %s (liveness %u-%u).\n",
@@ -9534,6 +9545,7 @@ static void temp_allocator_open_register(struct temp_allocator *allocator, struc
 
                 reg->temp_id = i;
                 reg->allocated_mask = vsir_combine_write_masks(available_mask, mask);
+                reg->fixed_mask = false;
                 current_allocation[i] |= reg->allocated_mask;
                 allocator->new_temp_count = max(allocator->new_temp_count, i + 1);
                 TRACE("Allocated r%u%s for %s (liveness %u-%u).\n",
