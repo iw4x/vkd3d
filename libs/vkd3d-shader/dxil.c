@@ -11047,14 +11047,12 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
     dxil_block_destroy(&sm6->root_block);
 
     if (sm6->p.status < 0)
-    {
-        ret = sm6->p.status;
         goto fail;
-    }
-
     return VKD3D_OK;
 
 fail:
+    if (ret >= 0 && sm6->p.status < 0)
+        ret = sm6->p.status;
     sm6_parser_cleanup(sm6);
     vsir_program_cleanup(program);
     return ret;
