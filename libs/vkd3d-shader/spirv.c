@@ -4473,7 +4473,7 @@ static uint32_t spirv_compiler_emit_swizzle(struct spirv_compiler *compiler, uin
 
 static uint32_t spirv_compiler_emit_vector_shuffle(struct spirv_compiler *compiler,
         uint32_t vector1_id, uint32_t vector2_id, uint32_t swizzle, uint32_t write_mask,
-        enum vkd3d_shader_component_type component_type, unsigned int component_count)
+        enum vsir_data_type data_type, unsigned int component_count)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     uint32_t components[VKD3D_VEC4_SIZE];
@@ -4489,10 +4489,10 @@ static uint32_t spirv_compiler_emit_vector_shuffle(struct spirv_compiler *compil
         else
             components[i] = VKD3D_VEC4_SIZE + vsir_swizzle_get_component(swizzle, i);
     }
+    type_id = spirv_get_type_id(builder, data_type, component_count);
 
-    type_id = spirv_get_type_id_for_component_type(builder, component_type, component_count);
-    return vkd3d_spirv_build_op_vector_shuffle(builder,
-            type_id, vector1_id, vector2_id, components, component_count);
+    return vkd3d_spirv_build_op_vector_shuffle(builder, type_id,
+            vector1_id, vector2_id, components, component_count);
 }
 
 static uint32_t spirv_compiler_emit_int_to_bool(struct spirv_compiler *compiler,
@@ -6247,7 +6247,7 @@ static void spirv_compiler_emit_store_shader_output(struct spirv_compiler *compi
         write_mask |= uninit_mask;
         zero_id = spirv_compiler_get_constant_vector(compiler, data_type, VKD3D_VEC4_SIZE, 0);
         val_id = spirv_compiler_emit_vector_shuffle(compiler, zero_id, val_id, swizzle,
-                uninit_mask, component_type, vsir_write_mask_component_count(write_mask));
+                uninit_mask, data_type, vsir_write_mask_component_count(write_mask));
     }
     else
     {
