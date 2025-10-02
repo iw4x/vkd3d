@@ -3063,7 +3063,7 @@ struct spirv_compiler
     struct vkd3d_shader_output_info
     {
         uint32_t id;
-        enum vkd3d_shader_component_type component_type;
+        enum vsir_data_type data_type;
         uint32_t array_element_mask;
     } *output_info;
     uint32_t private_output_variable[MAX_REG_OUTPUT + 1]; /* 1 entry for oDepth */
@@ -5979,13 +5979,13 @@ static void spirv_compiler_emit_shader_signature_outputs(struct spirv_compiler *
         {
             case VKD3D_SHADER_SV_CLIP_DISTANCE:
                 compiler->output_info[i].id = clip_distance_id;
-                compiler->output_info[i].component_type = VKD3D_SHADER_COMPONENT_FLOAT;
+                compiler->output_info[i].data_type = VSIR_DATA_F32;
                 compiler->output_info[i].array_element_mask = clip_distance_mask;
                 break;
 
             case VKD3D_SHADER_SV_CULL_DISTANCE:
                 compiler->output_info[i].id = cull_distance_id;
-                compiler->output_info[i].component_type = VKD3D_SHADER_COMPONENT_FLOAT;
+                compiler->output_info[i].data_type = VSIR_DATA_F32;
                 compiler->output_info[i].array_element_mask = cull_distance_mask;
                 break;
 
@@ -6149,7 +6149,7 @@ static void spirv_compiler_emit_output(struct spirv_compiler *compiler,
     if (!is_patch_constant)
     {
         compiler->output_info[element_idx].id = id;
-        compiler->output_info[element_idx].component_type = component_type;
+        compiler->output_info[element_idx].data_type = data_type;
     }
 
     var_id = id;
@@ -6205,6 +6205,7 @@ static void spirv_compiler_emit_store_shader_output(struct spirv_compiler *compi
     uint32_t dst_write_mask, use_mask, uninit_mask, swizzle, mask;
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     uint32_t type_id, zero_id, ptr_type_id, chain_id, object_id;
+    enum vkd3d_shader_component_type component_type;
     const struct signature_element *element;
     unsigned int i, index, array_idx;
     uint32_t output_id;
@@ -6232,9 +6233,11 @@ static void spirv_compiler_emit_store_shader_output(struct spirv_compiler *compi
     if (!write_mask)
         return;
 
-    if (output_info->component_type != VKD3D_SHADER_COMPONENT_FLOAT)
+    component_type = vkd3d_component_type_from_data_type(output_info->data_type);
+
+    if (output_info->data_type != VSIR_DATA_F32)
     {
-        type_id = spirv_get_type_id_for_component_type(builder, output_info->component_type, VKD3D_VEC4_SIZE);
+        type_id = spirv_get_type_id(builder, output_info->data_type, VKD3D_VEC4_SIZE);
         val_id = vkd3d_spirv_build_op_bitcast(builder, type_id, val_id);
     }
 
@@ -6244,35 +6247,33 @@ static void spirv_compiler_emit_store_shader_output(struct spirv_compiler *compi
     {
         /* Set values to 0 for not initialized shader output components. */
         write_mask |= uninit_mask;
-        zero_id = spirv_compiler_get_constant_vector(compiler,
-                vsir_data_type_from_component_type(output_info->component_type), VKD3D_VEC4_SIZE, 0);
-        val_id = spirv_compiler_emit_vector_shuffle(compiler,
-                zero_id, val_id, swizzle, uninit_mask, output_info->component_type,
-                vsir_write_mask_component_count(write_mask));
+        zero_id = spirv_compiler_get_constant_vector(compiler, output_info->data_type, VKD3D_VEC4_SIZE, 0);
+        val_id = spirv_compiler_emit_vector_shuffle(compiler, zero_id, val_id, swizzle,
+                uninit_mask, component_type, vsir_write_mask_component_count(write_mask));
     }
     else
     {
-        val_id = spirv_compiler_emit_swizzle(compiler,
-                val_id, VKD3DSP_WRITEMASK_ALL, output_info->component_type, swizzle, write_mask);
+        val_id = spirv_compiler_emit_swizzle(compiler, val_id,
+                VKD3DSP_WRITEMASK_ALL, component_type, swizzle, write_mask);
     }
 
     output_id = output_info->id;
     if (output_index_id)
     {
-        type_id = spirv_get_type_id_for_component_type(builder,
-                output_info->component_type, vsir_write_mask_component_count(dst_write_mask));
+        type_id = spirv_get_type_id(builder, output_info->data_type,
+                vsir_write_mask_component_count(dst_write_mask));
         ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassOutput, type_id);
         output_id = vkd3d_spirv_build_op_access_chain1(builder, ptr_type_id, output_id, output_index_id);
     }
 
     if (!output_info->array_element_mask)
     {
-        spirv_compiler_emit_store(compiler,
-                output_id, dst_write_mask, output_info->component_type, SpvStorageClassOutput, write_mask, val_id);
+        spirv_compiler_emit_store(compiler, output_id, dst_write_mask,
+                component_type, SpvStorageClassOutput, write_mask, val_id);
         return;
     }
 
-    type_id = spirv_get_type_id_for_component_type(builder, output_info->component_type, 1);
+    type_id = spirv_get_type_id(builder, output_info->data_type, 1);
     ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassOutput, type_id);
     mask = output_info->array_element_mask;
     array_idx = spirv_compiler_get_output_array_index(compiler, output);
@@ -6285,9 +6286,9 @@ static void spirv_compiler_emit_store_shader_output(struct spirv_compiler *compi
         chain_id = vkd3d_spirv_build_op_access_chain1(builder,
                 ptr_type_id, output_id, spirv_compiler_get_constant_uint(compiler, index));
         object_id = spirv_compiler_emit_swizzle(compiler, val_id, write_mask,
-                output_info->component_type, VKD3D_SHADER_NO_SWIZZLE, VKD3DSP_WRITEMASK_0 << i);
-        spirv_compiler_emit_store(compiler, chain_id, VKD3DSP_WRITEMASK_0,
-                output_info->component_type, SpvStorageClassOutput, VKD3DSP_WRITEMASK_0 << i, object_id);
+                component_type, VKD3D_SHADER_NO_SWIZZLE, VKD3DSP_WRITEMASK_0 << i);
+        spirv_compiler_emit_store(compiler, chain_id, VKD3DSP_WRITEMASK_0, component_type,
+                SpvStorageClassOutput, VKD3DSP_WRITEMASK_0 << i, object_id);
         ++index;
     }
 }
