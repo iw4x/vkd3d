@@ -125,6 +125,11 @@ enum vkd3d_shader_structure_type
      * \since 1.18
      */
     VKD3D_SHADER_STRUCTURE_TYPE_SCAN_THREAD_GROUP_SIZE_INFO,
+    /**
+     * The structure is a vkd3d_shader_d3dbc_source_info structure.
+     * \since 1.18
+     */
+    VKD3D_SHADER_STRUCTURE_TYPE_D3DBC_SOURCE_INFO,
 
     VKD3D_FORCE_32_BIT_ENUM(VKD3D_SHADER_STRUCTURE_TYPE),
 };
@@ -2313,6 +2318,41 @@ struct vkd3d_shader_scan_thread_group_size_info
 };
 
 /**
+ * A chained structure containing legacy Direct3D bytecode compilation parameters.
+ * This structure specifies some information about the source environment that
+ * is not specified in the source shader format, but may be necessary for the
+ * target format.
+ *
+ * This structure is optional.
+ *
+ * This structure extends vkd3d_shader_compile_info.
+ *
+ * This structure contains only input parameters.
+ *
+ * \since 1.18
+ */
+struct vkd3d_shader_d3dbc_source_info
+{
+    /** Must be set to VKD3D_SHADER_STRUCTURE_TYPE_D3DBC_SOURCE_INFO. */
+    enum vkd3d_shader_structure_type type;
+    /** Optional pointer to a structure containing further parameters. */
+    const void *next;
+
+    /**
+     * The dimension of each texture bound to the shader.
+     *
+     * If this structure is not specified, the dimension for all textures will
+     * be VKD3D_SHADER_RESOURCE_TEXTURE_2D.
+     *
+     * The dimension of textures in this array not used by the shader will be
+     * ignored.
+     *
+     * This field is ignored for shader models 2 and higher.
+     */
+    enum vkd3d_shader_resource_type texture_dimensions[6];
+};
+
+/**
  * Data type of a shader varying, returned as part of struct
  * vkd3d_shader_signature_element.
  */
@@ -2805,6 +2845,7 @@ VKD3D_SHADER_API const enum vkd3d_shader_target_type *vkd3d_shader_get_supported
  *
  * Depending on the source and target types, this function may support the
  * following chained structures:
+ * - vkd3d_shader_d3dbc_source_info
  * - vkd3d_shader_descriptor_offset_info
  * - vkd3d_shader_hlsl_source_info
  * - vkd3d_shader_interface_info

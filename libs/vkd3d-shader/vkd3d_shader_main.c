@@ -950,6 +950,7 @@ static bool vkd3d_shader_signature_from_shader_signature(struct vkd3d_shader_sig
 struct vkd3d_shader_scan_context
 {
     const struct vkd3d_shader_version *version;
+    const struct vkd3d_shader_d3dbc_source_info *d3dbc_source_info;
 
     struct vkd3d_shader_scan_descriptor_info1 *scan_descriptor_info;
     size_t descriptors_size;
@@ -1017,6 +1018,7 @@ static void vkd3d_shader_scan_context_init(struct vkd3d_shader_scan_context *con
     context->location.line = 2; /* Line 1 is the version token. */
     context->api_version = VKD3D_SHADER_API_VERSION_1_2;
     context->combined_sampler_info = combined_sampler_info;
+    context->d3dbc_source_info = vkd3d_find_struct(compile_info->next, D3DBC_SOURCE_INFO);
 
     for (i = 0; i < compile_info->option_count; ++i)
     {

@@ -248,6 +248,8 @@ struct vkd3d_shader_sm1_parser
     struct vkd3d_shader_parser p;
     struct vsir_program *program;
 
+    const struct vkd3d_shader_d3dbc_source_info *d3dbc_source_info;
+
     uint16_t texture_descriptors;
 
     struct
@@ -1223,6 +1225,8 @@ static void shader_sm1_read_comment(struct vkd3d_shader_sm1_parser *sm1)
 static void d3dbc_update_descriptors(struct vkd3d_shader_sm1_parser *d3dbc,
         const struct vkd3d_shader_instruction *ins)
 {
+    enum vkd3d_shader_resource_type type = VKD3D_SHADER_RESOURCE_TEXTURE_2D;
+    const struct vkd3d_shader_d3dbc_source_info *source_info;
     unsigned int sampler_idx;
 
     switch (ins->opcode)
@@ -1243,7 +1247,10 @@ static void d3dbc_update_descriptors(struct vkd3d_shader_sm1_parser *d3dbc,
             if ((d3dbc->texture_descriptors & (1u << sampler_idx)))
                 break;
 
-            d3dbc_add_combined_sampler_descriptor(d3dbc, sampler_idx, VKD3D_SHADER_RESOURCE_TEXTURE_2D);
+            if ((source_info = d3dbc->d3dbc_source_info)
+                    && sampler_idx < ARRAY_SIZE(source_info->texture_dimensions))
+                type = source_info->texture_dimensions[sampler_idx];
+            d3dbc_add_combined_sampler_descriptor(d3dbc, sampler_idx, type);
             d3dbc->texture_descriptors |= (1u << sampler_idx);
             break;
 
@@ -1455,6 +1462,8 @@ static enum vkd3d_result shader_sm1_init(struct vkd3d_shader_sm1_parser *sm1, st
     struct vkd3d_shader_version version;
     uint16_t shader_type;
     size_t token_count;
+
+    sm1->d3dbc_source_info = vkd3d_find_struct(compile_info->next, D3DBC_SOURCE_INFO);
 
     token_count = code_size / sizeof(*sm1->start);
 

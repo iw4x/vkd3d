@@ -43,6 +43,58 @@ probe (480, 240) f32(1, 0, 1, 0)
 probe (320, 360) f32(1, 1, 0, 0)
 probe (480, 360) f32(1, 0, 0, 0)
 
+[srv 0]
+size (3d, 2, 2, 2)
+1.0 0.0 0.0 0.0     1.0 1.0 0.0 0.0
+1.0 0.0 1.0 0.0     1.0 1.0 1.0 0.0
+
+1.0 0.0 0.0 1.0     1.0 1.0 0.0 1.0
+1.0 0.0 1.0 1.0     1.0 1.0 1.0 1.0
+
+[test]
+draw quad
+probe (320, 240) f32(1, 1, 1, 1)
+probe (480, 240) f32(1, 0, 1, 1)
+probe (320, 360) f32(1, 1, 0, 1)
+probe (480, 360) f32(1, 0, 0, 1)
+
+[srv 0]
+size (cube, 1)
+1.0 0.0 0.0 0.0
+1.0 0.0 0.1 0.0
+1.0 0.0 0.2 0.0
+1.0 0.0 0.3 0.0
+1.0 0.0 0.4 0.0
+1.0 0.0 0.5 0.0
+
+[vertex shader]
+float4 coord;
+
+void main(inout float4 pos : position, out float4 tex : texcoord)
+{
+    tex = coord;
+}
+
+[test]
+uniform 0 float4  1 0 0 0
+draw quad
+probe (0, 0) f32(1.0, 0.0, 0.0, 0)
+uniform 0 float4 -1 0 0 0
+draw quad
+probe (0, 0) f32(1.0, 0.0, 0.1, 0)
+uniform 0 float4 0  1 0 0
+draw quad
+probe (0, 0) f32(1.0, 0.0, 0.2, 0)
+uniform 0 float4 0 -1 0 0
+draw quad
+probe (0, 0) f32(1.0, 0.0, 0.3, 0)
+uniform 0 float4 0 0  1 0
+draw quad
+probe (0, 0) f32(1.0, 0.0, 0.4, 0)
+uniform 0 float4 0 0 -1 0
+draw quad
+probe (0, 0) f32(1.0, 0.0, 0.5, 0)
+
 [vertex shader]
 void main(inout float4 pos : position, out float4 tex : texcoord)
 {

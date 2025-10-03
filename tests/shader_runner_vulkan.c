@@ -354,6 +354,7 @@ static bool compile_hlsl_and_scan(struct vulkan_shader_runner *runner, enum shad
 static bool compile_d3d_code(struct vulkan_shader_runner *runner,
         enum shader_type type, struct vkd3d_shader_code *spirv)
 {
+    struct vkd3d_shader_d3dbc_source_info d3dbc_source_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_D3DBC_SOURCE_INFO};
     struct vkd3d_shader_varying_map_info varying_map_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_VARYING_MAP_INFO};
     struct vkd3d_shader_spirv_target_info spirv_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_SPIRV_TARGET_INFO};
     struct vkd3d_shader_interface_info interface_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_INTERFACE_INFO};
@@ -397,6 +398,28 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
                 &runner->signatures[SHADER_TYPE_PS].input, &varying_map_info.varying_count, varying_map);
         ok(varying_map_info.varying_count <= ARRAY_SIZE(varying_map),
                 "Got unexpected count %u.\n", varying_map_info.varying_count);
+    }
+    else if (type == SHADER_TYPE_PS && info.source_type == VKD3D_SHADER_SOURCE_D3D_BYTECODE)
+    {
+        info.next = &d3dbc_source_info;
+
+        d3dbc_source_info.next = &spirv_info;
+
+        for (i = 0; i < runner->r.resource_count; ++i)
+        {
+            const struct resource *resource = runner->r.resources[i];
+
+            if (resource->desc.type != RESOURCE_TYPE_TEXTURE
+                    || resource->desc.slot > ARRAY_SIZE(d3dbc_source_info.texture_dimensions))
+                continue;
+
+            if (resource->desc.dimension == RESOURCE_DIMENSION_3D)
+                d3dbc_source_info.texture_dimensions[resource->desc.slot] = VKD3D_SHADER_RESOURCE_TEXTURE_3D;
+            else if (resource->desc.dimension == RESOURCE_DIMENSION_CUBE)
+                d3dbc_source_info.texture_dimensions[resource->desc.slot] = VKD3D_SHADER_RESOURCE_TEXTURE_CUBE;
+            else
+                d3dbc_source_info.texture_dimensions[resource->desc.slot] = VKD3D_SHADER_RESOURCE_TEXTURE_2D;
+        }
     }
 
     spirv_info.next = &interface_info;
