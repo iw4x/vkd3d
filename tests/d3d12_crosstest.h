@@ -837,21 +837,19 @@ static inline bool is_nvidia_device(ID3D12Device *device)
     return properties.driverID == VK_DRIVER_ID_NVIDIA_PROPRIETARY_KHR;
 }
 
-/* NVIDIA uses a different bit pattern than standard Vulkan. */
-#define NV_MAKE_API_VERSION(major, minor, patch) \
-    ((((uint32_t)(major)) << 22u) | (((uint32_t)(minor)) << 14u) | (((uint32_t)(patch)) << 6u))
-
 static inline bool is_nvidia_device_lt(ID3D12Device *device,
         uint32_t major, uint32_t minor, uint32_t patch)
 {
     VkPhysicalDeviceDriverPropertiesKHR driver_properties;
+    uint32_t driver_major, driver_minor, driver_patch;
     VkPhysicalDeviceProperties device_properties;
 
     get_driver_properties(device, &device_properties, &driver_properties);
-    if (driver_properties.driverID != VK_DRIVER_ID_NVIDIA_PROPRIETARY_KHR)
+
+    if (!get_nvidia_driver_version(&device_properties, &driver_properties, &driver_major, &driver_minor, &driver_patch))
         return false;
 
-    return device_properties.driverVersion < NV_MAKE_API_VERSION(major, minor, patch);
+    return compare_versions(driver_major, driver_minor, driver_patch, major, minor, patch) < 0;
 }
 
 static inline bool is_qualcomm_device(ID3D12Device *device)

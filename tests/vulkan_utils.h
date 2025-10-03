@@ -507,4 +507,20 @@ static inline bool get_mvk_driver_version(const VkPhysicalDeviceProperties *devi
     return true;
 }
 
+static inline bool get_nvidia_driver_version(const VkPhysicalDeviceProperties *device_properties,
+        const VkPhysicalDeviceDriverPropertiesKHR *driver_properties,
+        uint32_t *major, uint32_t *minor, uint32_t *patch)
+{
+    uint32_t version = device_properties->driverVersion;
+
+    if (driver_properties->driverID != VK_DRIVER_ID_NVIDIA_PROPRIETARY_KHR)
+        return false;
+
+    *major = (version >> 22u);
+    *minor = (version >> 14u) & ((1u << (22 - 14)) - 1);
+    *patch = (version >> 6u) & ((1u << (14 - 6)) - 1);
+
+    return true;
+}
+
 #endif /* __VKD3D_VULKAN_UTILS_H */
