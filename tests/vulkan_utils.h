@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include "vulkan/vulkan.h"
 #include "vkd3d_test.h"
+#include "utils.h"
 
 /* The helpers in this file are not part of utils.h because vkd3d_api.c
  * needs its own Vulkan helpers specific to API tests. */
@@ -429,24 +430,34 @@ static inline void vulkan_test_context_destroy(const struct vulkan_test_context 
 }
 
 /* This doesn't work for NVIDIA or MoltenVK, because they use a different bit pattern. */
-static inline bool is_vulkan_driver_version_ge(const VkPhysicalDeviceProperties *device_properties,
+static inline void get_vulkan_driver_version(const VkPhysicalDeviceProperties *device_properties,
         const VkPhysicalDeviceDriverPropertiesKHR *driver_properties,
-        uint32_t major, uint32_t minor, uint32_t patch)
+        uint32_t *major, uint32_t *minor, uint32_t *patch)
 {
     uint32_t version = device_properties->driverVersion;
 
     if (version == 1)
     {
-        uint32_t driver_major, driver_minor, driver_patch;
-
         /* llvmpipe doesn't provide a valid driverVersion value, so we resort to
          * parsing the driverInfo string. */
-        if (sscanf(driver_properties->driverInfo, "Mesa %u.%u.%u",
-                &driver_major, &driver_minor, &driver_patch) == 3)
-            version = VK_MAKE_API_VERSION(0, driver_major, driver_minor, driver_patch);
+        if (sscanf(driver_properties->driverInfo, "Mesa %u.%u.%u", major, minor, patch) == 3)
+            return;
     }
 
-    return version >= VK_MAKE_API_VERSION(0, major, minor, patch);
+    *major = VK_VERSION_MAJOR(version);
+    *minor = VK_VERSION_MINOR(version);
+    *patch = VK_VERSION_PATCH(version);
+}
+
+static inline bool is_vulkan_driver_version_ge(const VkPhysicalDeviceProperties *device_properties,
+        const VkPhysicalDeviceDriverPropertiesKHR *driver_properties,
+        uint32_t major, uint32_t minor, uint32_t patch)
+{
+    uint32_t driver_major, driver_minor, driver_patch;
+
+    get_vulkan_driver_version(device_properties, driver_properties, &driver_major, &driver_minor, &driver_patch);
+
+    return compare_versions(driver_major, driver_minor, driver_patch, major, minor, patch) >= 0;
 }
 
 static inline bool is_mesa_vulkan_driver(const VkPhysicalDeviceDriverPropertiesKHR *properties)
