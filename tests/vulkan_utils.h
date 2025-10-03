@@ -479,4 +479,16 @@ static inline bool is_mesa_vulkan_driver(const VkPhysicalDeviceDriverPropertiesK
     }
 }
 
+static inline bool get_mesa_driver_version(const VkPhysicalDeviceProperties *device_properties,
+        const VkPhysicalDeviceDriverPropertiesKHR *driver_properties,
+        uint32_t *major, uint32_t *minor, uint32_t *patch)
+{
+    if (!is_mesa_vulkan_driver(driver_properties))
+        return false;
+
+    get_vulkan_driver_version(device_properties, driver_properties, major, minor, patch);
+
+    return true;
+}
+
 #endif /* __VKD3D_VULKAN_UTILS_H */

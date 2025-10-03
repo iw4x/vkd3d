@@ -799,11 +799,15 @@ static inline bool is_mesa_device(ID3D12Device *device)
 static inline bool is_mesa_device_lt(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
 {
     VkPhysicalDeviceDriverPropertiesKHR driver_properties;
+    uint32_t driver_major, driver_minor, driver_patch;
     VkPhysicalDeviceProperties device_properties;
 
     get_driver_properties(device, &device_properties, &driver_properties);
-    return is_mesa_vulkan_driver(&driver_properties)
-            && !is_vulkan_driver_version_ge(&device_properties, &driver_properties, major, minor, patch);
+
+    if (!get_mesa_driver_version(&device_properties, &driver_properties, &driver_major, &driver_minor, &driver_patch))
+        return false;
+
+    return compare_versions(driver_major, driver_minor, driver_patch, major, minor, patch) < 0;
 }
 
 static inline bool is_llvmpipe_device(ID3D12Device *device)
