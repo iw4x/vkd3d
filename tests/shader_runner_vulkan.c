@@ -1779,29 +1779,22 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
     get_physical_device_info(runner, &device_info);
     ret_features = &device_info.features2.features;
 
-    runner->caps.tag_count = 0;
-    runner->caps.tags[runner->caps.tag_count++] = "vulkan";
-    if (device_info.driver_properties.driverID == VK_DRIVER_ID_MOLTENVK)
-    {
-        runner->caps.tags[runner->caps.tag_count++] = "mvk";
-    }
-    else
-    {
-        if (device_info.driver_properties.driverID == VK_DRIVER_ID_MESA_LLVMPIPE)
-            runner->caps.tags[runner->caps.tag_count++] = "llvmpipe";
-        if (is_mesa_vulkan_driver(&device_info.driver_properties))
-        {
-            if (!is_vulkan_driver_version_ge(&device_info.properties2.properties,
-                    &device_info.driver_properties, 23, 3, 0))
-                runner->caps.tags[runner->caps.tag_count++] = "mesa<23.3";
-            if (!is_vulkan_driver_version_ge(&device_info.properties2.properties,
-                    &device_info.driver_properties, 25, 1, 0))
-                runner->caps.tags[runner->caps.tag_count++] = "mesa<25.1";
-            if (compare_version_string_ge(device_info.properties2.properties.deviceName,
-                    "LLVM ", 16, 0 ,0))
-                runner->caps.tags[runner->caps.tag_count++] = "llvm>=16";
-        }
-    }
+    runner->caps.tags[SHADER_RUNNER_TAG_VULKAN].present = true;
+
+    runner->caps.tags[SHADER_RUNNER_TAG_MVK].present = get_mvk_driver_version(&device_info.properties2.properties,
+            &device_info.driver_properties, &runner->caps.tags[SHADER_RUNNER_TAG_MVK].major,
+            &runner->caps.tags[SHADER_RUNNER_TAG_MVK].minor, &runner->caps.tags[SHADER_RUNNER_TAG_MVK].patch);
+
+    runner->caps.tags[SHADER_RUNNER_TAG_MESA].present = get_mesa_driver_version(&device_info.properties2.properties,
+            &device_info.driver_properties, &runner->caps.tags[SHADER_RUNNER_TAG_MESA].major,
+            &runner->caps.tags[SHADER_RUNNER_TAG_MESA].minor, &runner->caps.tags[SHADER_RUNNER_TAG_MESA].patch);
+
+    runner->caps.tags[SHADER_RUNNER_TAG_LLVM].present = get_llvm_driver_version(
+            &device_info.properties2.properties, &runner->caps.tags[SHADER_RUNNER_TAG_LLVM].major,
+            &runner->caps.tags[SHADER_RUNNER_TAG_LLVM].minor, &runner->caps.tags[SHADER_RUNNER_TAG_LLVM].patch);
+
+    if (device_info.driver_properties.driverID == VK_DRIVER_ID_MESA_LLVMPIPE)
+        runner->caps.tags[SHADER_RUNNER_TAG_LLVMPIPE].present = true;
 
     runner->caps.shader_caps[SHADER_CAP_CLIP_PLANES] = true;
     runner->caps.shader_caps[SHADER_CAP_FOG] = true;

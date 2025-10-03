@@ -247,14 +247,14 @@ static uint32_t get_format_support(struct gl_runner *runner, enum DXGI_FORMAT fo
     return ret;
 }
 
-static bool check_mesa_version_lt(unsigned int major, unsigned int minor, unsigned int patch)
+static bool get_mesa_version(uint32_t *major, uint32_t *minor, uint32_t *patch)
 {
-    return compare_version_string_lt((const char *)glGetString(GL_VERSION), "Mesa ", major, minor, patch);
+    return find_version_string((const char *)glGetString(GL_VERSION), "Mesa ", major, minor, patch);
 }
 
-static bool check_llvm_version_ge(unsigned int major, unsigned int minor, unsigned int patch)
+static bool get_llvm_version(uint32_t *major, uint32_t *minor, uint32_t *patch)
 {
-    return compare_version_string_ge((const char *)glGetString(GL_RENDERER), "LLVM ", major, minor, patch);
+    return find_version_string((const char *)glGetString(GL_RENDERER), "LLVM ", major, minor, patch);
 }
 
 static bool gl_runner_init(struct gl_runner *runner, enum shading_language language)
@@ -378,16 +378,21 @@ static bool gl_runner_init(struct gl_runner *runner, enum shading_language langu
         runner->caps.maximum_shader_model = SHADER_MODEL_5_1;
         runner->caps.shader_caps[SHADER_CAP_GEOMETRY_SHADER] = true;
 
-        runner->caps.tag_count = 0;
-        runner->caps.tags[runner->caps.tag_count++] = "opengl";
+        runner->caps.tags[SHADER_RUNNER_TAG_OPENGL].present = true;
+
         if (runner->language == GLSL)
-            runner->caps.tags[runner->caps.tag_count++] = "glsl";
+            runner->caps.tags[SHADER_RUNNER_TAG_GLSL].present = true;
+
         if (strncmp((const char *)glGetString(GL_RENDERER), "llvmpipe ", 9) == 0)
-            runner->caps.tags[runner->caps.tag_count++] = "llvmpipe";
-        if (check_mesa_version_lt(25, 1, 0))
-            runner->caps.tags[runner->caps.tag_count++] = "mesa<25.1";
-        if (check_llvm_version_ge(16, 0, 0))
-            runner->caps.tags[runner->caps.tag_count++] = "llvm>=16";
+            runner->caps.tags[SHADER_RUNNER_TAG_LLVMPIPE].present = true;
+
+        runner->caps.tags[SHADER_RUNNER_TAG_MESA].present = get_mesa_version(
+            &runner->caps.tags[SHADER_RUNNER_TAG_MESA].major, &runner->caps.tags[SHADER_RUNNER_TAG_MESA].minor,
+            &runner->caps.tags[SHADER_RUNNER_TAG_MESA].patch);
+
+        runner->caps.tags[SHADER_RUNNER_TAG_LLVM].present = get_llvm_version(
+            &runner->caps.tags[SHADER_RUNNER_TAG_LLVM].major, &runner->caps.tags[SHADER_RUNNER_TAG_LLVM].minor,
+            &runner->caps.tags[SHADER_RUNNER_TAG_LLVM].patch);
 
         glGetIntegerv(GL_NUM_EXTENSIONS, &extension_count);
         if (check_gl_extension("GL_ARB_internalformat_query2", extension_count))

@@ -1189,8 +1189,8 @@ static bool metal_runner_init(struct metal_runner *runner)
     }
 
     runner->caps.runner = "Metal";
-    runner->caps.tags[0] = "msl";
-    runner->caps.tag_count = 1;
+
+    runner->caps.tags[SHADER_RUNNER_TAG_MSL].present = true;
 
     if (runner->device.readWriteTextureSupport >= MTLReadWriteTextureTier1)
     {

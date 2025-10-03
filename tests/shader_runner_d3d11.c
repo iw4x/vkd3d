@@ -358,12 +358,14 @@ static BOOL init_test_context(struct d3d11_shader_runner *runner)
         runner->caps.format_caps[formats[i]] = get_format_support(runner->device, formats[i]);
     }
 
-    runner->caps.tag_count = 0;
-    runner->caps.tags[runner->caps.tag_count++] = "d3d11";
+    runner->caps.tags[SHADER_RUNNER_TAG_D3D11].present = true;
+    runner->caps.tags[SHADER_RUNNER_TAG_WINDOWS].present = true;
+
     if (test_options.use_warp_device)
-        runner->caps.tags[runner->caps.tag_count++] = "warp";
+        runner->caps.tags[SHADER_RUNNER_TAG_WARP].present = true;
+
     if (is_nvidia_windows_device(runner->device))
-        runner->caps.tags[runner->caps.tag_count++] = "nvidia";
+        runner->caps.tags[SHADER_RUNNER_TAG_NVIDIA].present = true;
 
     rt_width = RENDER_TARGET_WIDTH;
     rt_height = RENDER_TARGET_HEIGHT;

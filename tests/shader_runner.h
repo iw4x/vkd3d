@@ -164,12 +164,35 @@ enum shader_cap
     SHADER_CAP_COUNT,
 };
 
+enum shader_runner_tag
+{
+    SHADER_RUNNER_TAG_D3D11,
+    SHADER_RUNNER_TAG_D3D12,
+    SHADER_RUNNER_TAG_GLSL,
+    SHADER_RUNNER_TAG_LLVM,
+    SHADER_RUNNER_TAG_LLVMPIPE,
+    SHADER_RUNNER_TAG_MESA,
+    SHADER_RUNNER_TAG_MSL,
+    SHADER_RUNNER_TAG_MVK,
+    SHADER_RUNNER_TAG_NVIDIA,
+    SHADER_RUNNER_TAG_OPENGL,
+    SHADER_RUNNER_TAG_VULKAN,
+    SHADER_RUNNER_TAG_WARP,
+    SHADER_RUNNER_TAG_WINDOWS,
+    SHADER_RUNNER_TAG_COUNT,
+};
+
+struct shader_runner_tag_value
+{
+    bool present;
+    uint32_t major, minor, patch;
+};
+
 struct shader_runner_caps
 {
     const char *runner;
     const char *compiler;
-    const char *tags[6];
-    size_t tag_count;
+    struct shader_runner_tag_value tags[SHADER_RUNNER_TAG_COUNT];
     enum shader_model minimum_shader_model;
     enum shader_model maximum_shader_model;
     bool shader_caps[SHADER_CAP_COUNT];

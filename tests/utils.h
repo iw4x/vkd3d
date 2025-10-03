@@ -727,26 +727,4 @@ static inline bool find_version_string(const char *str, const char *tag,
     return 3 == sscanf(ptr, "%u.%u.%u", major, minor, patch);
 }
 
-static inline bool compare_version_string_lt(const char *str, const char *tag,
-        uint32_t major, uint32_t minor, uint32_t patch)
-{
-    uint32_t major2, minor2, patch2;
-
-    if (!find_version_string(str, tag, &major2, &minor2, &patch2))
-        return false;
-
-    return compare_versions(major, minor, patch, major2, minor2, patch2) > 0;
-}
-
-static inline bool compare_version_string_ge(const char *str, const char *tag,
-        uint32_t major, uint32_t minor, uint32_t patch)
-{
-    uint32_t major2, minor2, patch2;
-
-    if (!find_version_string(str, tag, &major2, &minor2, &patch2))
-        return false;
-
-    return compare_versions(major, minor, patch, major2, minor2, patch2) <= 0;
-}
-
 #endif

@@ -449,17 +449,6 @@ static inline void get_vulkan_driver_version(const VkPhysicalDeviceProperties *d
     *patch = VK_VERSION_PATCH(version);
 }
 
-static inline bool is_vulkan_driver_version_ge(const VkPhysicalDeviceProperties *device_properties,
-        const VkPhysicalDeviceDriverPropertiesKHR *driver_properties,
-        uint32_t major, uint32_t minor, uint32_t patch)
-{
-    uint32_t driver_major, driver_minor, driver_patch;
-
-    get_vulkan_driver_version(device_properties, driver_properties, &driver_major, &driver_minor, &driver_patch);
-
-    return compare_versions(driver_major, driver_minor, driver_patch, major, minor, patch) >= 0;
-}
-
 static inline bool is_mesa_vulkan_driver(const VkPhysicalDeviceDriverPropertiesKHR *properties)
 {
     switch (properties->driverID)

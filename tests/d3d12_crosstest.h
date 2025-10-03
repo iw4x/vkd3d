@@ -491,18 +491,17 @@ static inline bool is_mesa_device(ID3D12Device *device)
     return false;
 }
 
-static inline bool is_mesa_device_lt(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
+static inline bool get_mesa_device_version(ID3D12Device *device, uint32_t *major, uint32_t *minor, uint32_t *patch)
+{
+    return false;
+}
+
+static inline bool get_llvm_device_version(ID3D12Device *device, uint32_t *major, uint32_t *minor, uint32_t *patch)
 {
     return false;
 }
 
 static inline bool is_llvmpipe_device(ID3D12Device *device)
-{
-    return false;
-}
-
-static inline bool is_llvmpipe_device_gte(ID3D12Device *device,
-        uint32_t major, uint32_t minor, uint32_t patch)
 {
     return false;
 }
@@ -538,12 +537,12 @@ static inline bool is_mvk_paravirtualized_device(ID3D12Device *device)
     return false;
 }
 
-static inline bool is_mvk_device_lt(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
+static inline bool get_mvk_device_version(ID3D12Device *device, uint32_t *major, uint32_t *minor, uint32_t *patch)
 {
     return false;
 }
 
-static inline bool is_mesa_device_with_llvm_ge(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
+static inline bool is_mvk_device_lt(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
 {
     return false;
 }
@@ -796,18 +795,24 @@ static inline bool is_mesa_device(ID3D12Device *device)
     return is_mesa_vulkan_driver(&properties);
 }
 
-static inline bool is_mesa_device_lt(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
+static inline bool get_mesa_device_version(ID3D12Device *device, uint32_t *major, uint32_t *minor, uint32_t *patch)
 {
-    VkPhysicalDeviceDriverPropertiesKHR driver_properties;
-    uint32_t driver_major, driver_minor, driver_patch;
+    VkPhysicalDeviceDriverPropertiesKHR properties;
     VkPhysicalDeviceProperties device_properties;
 
-    get_driver_properties(device, &device_properties, &driver_properties);
+    get_driver_properties(device, &device_properties, &properties);
 
-    if (!get_mesa_driver_version(&device_properties, &driver_properties, &driver_major, &driver_minor, &driver_patch))
-        return false;
+    return get_mesa_driver_version(&device_properties, &properties, major, minor, patch);
+}
 
-    return compare_versions(driver_major, driver_minor, driver_patch, major, minor, patch) < 0;
+static inline bool get_llvm_device_version(ID3D12Device *device, uint32_t *major, uint32_t *minor, uint32_t *patch)
+{
+    VkPhysicalDeviceDriverPropertiesKHR properties;
+    VkPhysicalDeviceProperties device_properties;
+
+    get_driver_properties(device, &device_properties, &properties);
+
+    return get_llvm_driver_version(&device_properties, major, minor, patch);
 }
 
 static inline bool is_llvmpipe_device(ID3D12Device *device)
@@ -816,17 +821,6 @@ static inline bool is_llvmpipe_device(ID3D12Device *device)
 
     get_driver_properties(device, NULL, &properties);
     return properties.driverID == VK_DRIVER_ID_MESA_LLVMPIPE;
-}
-
-static inline bool is_llvmpipe_device_gte(ID3D12Device *device,
-        uint32_t major, uint32_t minor, uint32_t patch)
-{
-    VkPhysicalDeviceDriverPropertiesKHR driver_properties;
-    VkPhysicalDeviceProperties device_properties;
-
-    get_driver_properties(device, &device_properties, &driver_properties);
-    return driver_properties.driverID == VK_DRIVER_ID_MESA_LLVMPIPE
-            && is_vulkan_driver_version_ge(&device_properties, &driver_properties, major, minor, patch);
 }
 
 static inline bool is_nvidia_device(ID3D12Device *device)
@@ -886,33 +880,24 @@ static inline bool is_mvk_paravirtualized_device(ID3D12Device *device)
             && strcmp(device_properties.deviceName, "Apple Paravirtual device") == 0;
 }
 
-static inline bool is_mvk_device_lt(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
+static inline bool get_mvk_device_version(ID3D12Device *device, uint32_t *major, uint32_t *minor, uint32_t *patch)
 {
-    VkPhysicalDeviceDriverPropertiesKHR driver_properties;
-    uint32_t driver_major, driver_minor, driver_patch;
+    VkPhysicalDeviceDriverPropertiesKHR properties;
     VkPhysicalDeviceProperties device_properties;
 
-    get_driver_properties(device, &device_properties, &driver_properties);
+    get_driver_properties(device, &device_properties, &properties);
 
-    if (!get_mvk_driver_version(&device_properties, &driver_properties, &driver_major, &driver_minor, &driver_patch))
-        return false;
-
-    return compare_versions(driver_major, driver_minor, driver_patch, major, minor, patch) < 0;
+    return get_mvk_driver_version(&device_properties, &properties, major, minor, patch);
 }
 
-static inline bool is_mesa_device_with_llvm_ge(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
+static inline bool is_mvk_device_lt(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
 {
-    VkPhysicalDeviceDriverPropertiesKHR driver_properties;
-    VkPhysicalDeviceProperties device_properties;
-    uint32_t llvm_major, llvm_minor, llvm_patch;
+    uint32_t device_major, device_minor, device_patch;
 
-    get_driver_properties(device, &device_properties, &driver_properties);
-
-    if (!get_llvm_driver_version(&device_properties, &llvm_major, &llvm_minor, &llvm_patch))
+    if (!get_mvk_device_version(device, &device_major, &device_minor, &device_patch))
         return false;
 
-    return is_mesa_vulkan_driver(&driver_properties)
-            && compare_versions(llvm_major, llvm_minor, llvm_patch, major, minor, patch) >= 0;
+    return compare_versions(device_major, device_minor, device_patch, major, minor, patch) < 0;
 }
 
 #ifdef __APPLE__

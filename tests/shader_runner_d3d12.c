@@ -1121,32 +1121,31 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     runner->caps.shader_caps[SHADER_CAP_WAVE_OPS] = options1.WaveOps;
     runner->caps.shader_caps[SHADER_CAP_NATIVE_16_BIT] = options4.Native16BitShaderOpsSupported;
 
-    runner->caps.tag_count = 0;
-    runner->caps.tags[runner->caps.tag_count++] = "d3d12";
-    if (is_mvk_device(device))
-    {
-        runner->caps.tags[runner->caps.tag_count++] = "mvk";
-        if (is_mvk_device_lt(device, 1, 2, 11))
-            runner->caps.tags[runner->caps.tag_count++] = "mvk<1.2.11";
-    }
-    else
-    {
-        if (is_llvmpipe_device(device))
-            runner->caps.tags[runner->caps.tag_count++] = "llvmpipe";
-        if (is_mesa_device_lt(device, 23, 3, 0))
-            runner->caps.tags[runner->caps.tag_count++] = "mesa<23.3";
-        if (is_mesa_device_lt(device, 25, 1, 0))
-            runner->caps.tags[runner->caps.tag_count++] = "mesa<25.1";
-        if (is_mesa_device_with_llvm_ge(device, 16, 0, 0))
-            runner->caps.tags[runner->caps.tag_count++] = "llvm>=16";
-        if (test_options.use_warp_device)
-            runner->caps.tags[runner->caps.tag_count++] = "warp";
-        if (is_nvidia_windows_device(device) || is_nvidia_device(device))
-            runner->caps.tags[runner->caps.tag_count++] = "nvidia";
-    }
+    runner->caps.tags[SHADER_RUNNER_TAG_D3D12].present = true;
+
+    runner->caps.tags[SHADER_RUNNER_TAG_MVK].present = get_mvk_device_version(device,
+            &runner->caps.tags[SHADER_RUNNER_TAG_MVK].major, &runner->caps.tags[SHADER_RUNNER_TAG_MVK].minor,
+            &runner->caps.tags[SHADER_RUNNER_TAG_MVK].patch);
+
+    if (is_llvmpipe_device(device))
+        runner->caps.tags[SHADER_RUNNER_TAG_LLVMPIPE].present = true;
+
+    runner->caps.tags[SHADER_RUNNER_TAG_MESA].present = get_mesa_device_version(device,
+            &runner->caps.tags[SHADER_RUNNER_TAG_MESA].major, &runner->caps.tags[SHADER_RUNNER_TAG_MESA].minor,
+            &runner->caps.tags[SHADER_RUNNER_TAG_MESA].patch);
+
+    runner->caps.tags[SHADER_RUNNER_TAG_LLVM].present = get_llvm_device_version(device,
+            &runner->caps.tags[SHADER_RUNNER_TAG_LLVM].major, &runner->caps.tags[SHADER_RUNNER_TAG_LLVM].minor,
+            &runner->caps.tags[SHADER_RUNNER_TAG_LLVM].patch);
+
+    if (test_options.use_warp_device)
+        runner->caps.tags[SHADER_RUNNER_TAG_WARP].present = true;
+
+    if (is_nvidia_windows_device(device) || is_nvidia_device(device))
+        runner->caps.tags[SHADER_RUNNER_TAG_NVIDIA].present = true;
 
 #ifdef _WIN32
-    runner->caps.tags[runner->caps.tag_count++] = "windows";
+    runner->caps.tags[SHADER_RUNNER_TAG_WINDOWS].present = true;
 #endif
 
     for (unsigned int i = 0; i < ARRAY_SIZE(formats); ++i)

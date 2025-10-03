@@ -133,40 +133,113 @@ static enum shader_model match_shader_model_string(const char *string, const cha
     fatal_error("Unrecognized shader model '%s'.\n", string);
 }
 
-static bool match_tag(struct shader_runner *runner, const char *tag)
+static const char * const shader_runner_tag_names[SHADER_RUNNER_TAG_COUNT] =
 {
-    for (size_t i = 0; i < runner->caps->tag_count; ++i)
+    [SHADER_RUNNER_TAG_D3D11]    = "d3d11",
+    [SHADER_RUNNER_TAG_D3D12]    = "d3d12",
+    [SHADER_RUNNER_TAG_GLSL]     = "glsl",
+    [SHADER_RUNNER_TAG_LLVM]     = "llvm",
+    [SHADER_RUNNER_TAG_LLVMPIPE] = "llvmpipe",
+    [SHADER_RUNNER_TAG_MESA]     = "mesa",
+    [SHADER_RUNNER_TAG_MSL]      = "msl",
+    [SHADER_RUNNER_TAG_MVK]      = "mvk",
+    [SHADER_RUNNER_TAG_NVIDIA]   = "nvidia",
+    [SHADER_RUNNER_TAG_OPENGL]   = "opengl",
+    [SHADER_RUNNER_TAG_VULKAN]   = "vulkan",
+    [SHADER_RUNNER_TAG_WARP]     = "warp",
+    [SHADER_RUNNER_TAG_WINDOWS]  = "windows",
+};
+
+static bool match_tag(struct shader_runner *runner, enum shader_runner_tag tag, const char **line)
+{
+    int ret, advance_major, advance_minor, advance_patch, comparison_result;
+    const struct shader_runner_tag_value *value = &runner->caps->tags[tag];
+    uint32_t major, minor, patch;
+    char comparison[2];
+
+    comparison[0] = **line;
+    switch (comparison[0])
     {
-        if (!strcmp(tag, runner->caps->tags[i]))
-            return true;
+        case '<':
+        case '>':
+        case '=':
+        case '!':
+            ++*line;
+            break;
+
+        default:
+            return value->present;
     }
 
-    return false;
+    comparison[1] = **line;
+    switch (comparison[1])
+    {
+        case '=':
+            if (comparison[0] == '=')
+                fatal_error("Invalid comparison with '==': '%s'.\n", *line);
+            ++*line;
+            break;
+
+        default:
+            comparison[1] = '\0';
+            break;
+    }
+
+    if (comparison[0] == '!' && comparison[1] != '=')
+        fatal_error("Invalid comparison with '%c%c': '%s'.\n", comparison[0], comparison[1], *line);
+
+    ret = sscanf(*line, "%u%n.%u%n.%u%n", &major, &advance_major,
+            &minor, &advance_minor, &patch, &advance_patch);
+
+    switch (ret)
+    {
+        case 1:
+            /* Comparison with just major. */
+            *line += advance_major;
+            minor = 0;
+            patch = 0;
+            break;
+
+        case 2:
+            /* Comparison with major.minor. */
+            *line += advance_minor;
+            patch = 0;
+            break;
+
+        case 3:
+            /* Comparison with major.minor.patch. */
+            *line += advance_patch;
+            break;
+
+        default:
+            fatal_error("Invalid comparison version '%s'.\n", *line);
+            break;
+    }
+
+    comparison_result = compare_versions(value->major, value->minor, value->patch, major, minor, patch);
+
+    switch (comparison[0])
+    {
+        case '<':
+            return comparison[1] == '=' ? comparison_result <= 0 : comparison_result < 0;
+
+        case '>':
+            return comparison[1] == '=' ? comparison_result >= 0 : comparison_result > 0;
+
+        case '=':
+            return comparison_result == 0;
+
+        case '!':
+            return comparison_result != 0;
+
+        default:
+            fatal_error("Invalid tag comparison '%s'.\n", *line);
+    }
 }
 
 static bool check_qualifier_args_conjunction(struct shader_runner *runner,
         const char *line, const char **const rest, uint32_t *model_mask)
 {
-    /* Tags are tested in this order, so tag X must appear before Y if Y is a
-     * prefix of X. */
-    static const char *const valid_tags[] =
-    {
-        "d3d11",
-        "d3d12",
-        "glsl",
-        "llvm>=16",
-        "llvmpipe",
-        "mesa<23.3",
-        "mesa<25.1",
-        "msl",
-        "mvk<1.2.11",
-        "mvk",
-        "nvidia",
-        "opengl",
-        "vulkan",
-        "warp",
-        "windows",
-    };
     bool holds = true;
 
     *model_mask = ~0u;
@@ -207,18 +280,20 @@ static bool check_qualifier_args_conjunction(struct shader_runner *runner,
                 ++line;
             }
 
-            for (unsigned int i = 0; i < ARRAY_SIZE(valid_tags); ++i)
+            /* Iterate backwards to avoid matching prefixes of other tags
+             * (e.g., matching the "llvm" prefix of "llvmpipe"). */
+            for (unsigned int i = ARRAY_SIZE(shader_runner_tag_names) - 1; i != UINT_MAX; --i)
             {
-                const char *option_text = valid_tags[i];
-                size_t option_len = strlen(option_text);
+                const char *tag_name = shader_runner_tag_names[i];
+                size_t tag_len = strlen(tag_name);
                 bool tag_match;
 
-                if (strncmp(line, option_text, option_len))
+                if (strncmp(line, tag_name, tag_len))
                     continue;
 
                 match = true;
-                line += option_len;
-                tag_match = match_tag(runner, option_text);
+                line += tag_len;
+                tag_match = match_tag(runner, i, &line);
                 holds &= negate ? !tag_match : tag_match;
                 break;
             }
@@ -2047,9 +2122,17 @@ static bool check_capabilities(const struct shader_runner *runner, const struct 
 
 static void trace_tags(const struct shader_runner_caps *caps)
 {
+    size_t i, rem, count = 0;
     char tags[80], *p;
-    size_t rem;
     int rc;
+
+    for (i = 0; i < ARRAY_SIZE(caps->tags); ++i)
+    {
+        count += caps->tags[i].present;
+    }
+
+    if (!count)
+        return;
 
     p = tags;
     rem = ARRAY_SIZE(tags);
@@ -2057,9 +2140,17 @@ static void trace_tags(const struct shader_runner_caps *caps)
     p += rc;
     rem -= rc;
 
-    for (size_t i = 0; i < caps->tag_count; ++i)
+    for (i = 0; i < ARRAY_SIZE(caps->tags); ++i)
     {
-        rc = snprintf(p, rem, " \"%s\"%s", caps->tags[i], i == caps->tag_count - 1 ? "" : ",");
+        char version[64] = "";
+
+        if (!caps->tags[i].present)
+            continue;
+
+        if (caps->tags[i].major != 0 || caps->tags[i].minor != 0 || caps->tags[i].patch != 0)
+            sprintf(version, " (%u.%u.%u)", caps->tags[i].major, caps->tags[i].minor, caps->tags[i].patch);
+
+        rc = snprintf(p, rem, " \"%s\"%s%s", shader_runner_tag_names[i], version, count == 1 ? "" : ",");
         if (!(rc >= 0 && (size_t)rc < rem))
         {
             *p = 0;
@@ -2069,6 +2160,10 @@ static void trace_tags(const struct shader_runner_caps *caps)
             rem = ARRAY_SIZE(tags);
             rc = snprintf(p, rem, "%8s ", "");
             --i;
+        }
+        else
+        {
+            --count;
         }
         p += rc;
         rem -= rc;
@@ -2222,8 +2317,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
     trace("Compiling SM%s-SM%s shaders with %s and executing with %s.\n",
             model_strings[minimum_shader_model], model_strings[maximum_shader_model],
             caps->compiler, caps->runner);
-    if (caps->tag_count)
-        trace_tags(caps);
+    trace_tags(caps);
     trace_shader_caps(caps->shader_caps);
     trace_format_cap(caps, FORMAT_CAP_UAV_LOAD, "uav-load");
 
