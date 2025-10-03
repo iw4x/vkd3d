@@ -946,17 +946,21 @@ static void d3dbc_add_combined_sampler_descriptor(struct vkd3d_shader_sm1_parser
         unsigned int sampler_idx, enum vkd3d_shader_resource_type resource_type)
 {
     struct vkd3d_shader_register_range range = {.first = sampler_idx, .last = sampler_idx};
+    const struct vkd3d_shader_d3dbc_source_info *source_info = d3dbc->d3dbc_source_info;
     struct vsir_program *program = d3dbc->program;
+    struct vkd3d_shader_descriptor_info1 *d;
 
     if (!vsir_program_add_descriptor(program, VKD3D_SHADER_DESCRIPTOR_TYPE_SRV,
             sampler_idx, &range, resource_type, VSIR_DATA_F32))
         vkd3d_shader_parser_error(&d3dbc->p, VKD3D_SHADER_ERROR_D3DBC_OUT_OF_MEMORY,
                 "Failed to create SRV descriptor for combined sampler %u.", sampler_idx);
 
-    if (!vsir_program_add_descriptor(program, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER,
-            sampler_idx, &range, VKD3D_SHADER_RESOURCE_NONE, VSIR_DATA_UNUSED))
+    if (!(d = vsir_program_add_descriptor(program, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER,
+            sampler_idx, &range, VKD3D_SHADER_RESOURCE_NONE, VSIR_DATA_UNUSED)))
         vkd3d_shader_parser_error(&d3dbc->p, VKD3D_SHADER_ERROR_D3DBC_OUT_OF_MEMORY,
                 "Failed to create sampler descriptor for combined sampler %u.", sampler_idx);
+    else if (source_info && source_info->shadow_samplers & (1u << sampler_idx))
+        d->flags |= VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE;
 }
 
 /* Read a parameter token from the input stream, and possibly a relative

@@ -1680,6 +1680,7 @@ static enum vkd3d_result vsir_program_lower_texcrd(struct vsir_program *program,
 static enum vkd3d_result vsir_program_lower_texld_sm1(struct vsir_program *program,
         struct vkd3d_shader_instruction *ins, struct vkd3d_shader_message_context *message_context)
 {
+    const struct vkd3d_shader_descriptor_info1 *sampler;
     unsigned int idx = ins->src[0].reg.idx[0].offset;
     struct vkd3d_shader_src_param *srcs;
 
@@ -1692,7 +1693,7 @@ static enum vkd3d_result vsir_program_lower_texld_sm1(struct vsir_program *progr
         return VKD3D_ERROR_NOT_IMPLEMENTED;
     }
 
-    if (!(srcs = vsir_program_get_src_params(program, 3)))
+    if (!(srcs = vsir_program_get_src_params(program, 4)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     /* Note we run before I/O normalization. */
@@ -1700,9 +1701,26 @@ static enum vkd3d_result vsir_program_lower_texld_sm1(struct vsir_program *progr
     vsir_src_param_init_resource(&srcs[1], idx, idx);
     vsir_src_param_init_sampler(&srcs[2], idx, idx);
 
-    ins->opcode = VSIR_OP_SAMPLE;
-    ins->src = srcs;
-    ins->src_count = 3;
+    sampler = vkd3d_shader_find_descriptor(&program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, idx);
+    if (sampler->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE)
+    {
+        enum vkd3d_shader_swizzle_component ref = vsir_swizzle_get_component(srcs[0].swizzle, 2);
+
+        ins->opcode = VSIR_OP_SAMPLE_C;
+        ins->src = srcs;
+        ins->src_count = 4;
+
+        srcs[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+
+        srcs[3] = srcs[0];
+        srcs[3].swizzle = vkd3d_shader_create_swizzle(ref, ref, ref, ref);
+    }
+    else
+    {
+        ins->opcode = VSIR_OP_SAMPLE;
+        ins->src = srcs;
+        ins->src_count = 3;
+    }
 
     return VKD3D_OK;
 }
@@ -1762,6 +1780,7 @@ static enum vkd3d_result vsir_program_lower_texldp(struct vsir_program *program,
 static enum vkd3d_result vsir_program_lower_texld(struct vsir_program *program,
         struct vkd3d_shader_instruction *tex, struct vkd3d_shader_message_context *message_context)
 {
+    const struct vkd3d_shader_descriptor_info1 *sampler;
     unsigned int idx = tex->src[1].reg.idx[0].offset;
     struct vkd3d_shader_src_param *srcs;
 
@@ -1775,7 +1794,21 @@ static enum vkd3d_result vsir_program_lower_texld(struct vsir_program *program,
     vsir_src_param_init_resource(&srcs[1], idx, idx);
     vsir_src_param_init_sampler(&srcs[2], idx, idx);
 
-    if (!tex->flags)
+    sampler = vkd3d_shader_find_descriptor(&program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, idx);
+    if (sampler->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE)
+    {
+        enum vkd3d_shader_swizzle_component ref = vsir_swizzle_get_component(srcs[0].swizzle, 2);
+
+        tex->opcode = VSIR_OP_SAMPLE_C;
+        tex->src = srcs;
+        tex->src_count = 4;
+
+        srcs[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+
+        srcs[3] = srcs[0];
+        srcs[3].swizzle = vkd3d_shader_create_swizzle(ref, ref, ref, ref);
+    }
+    else if (!tex->flags)
     {
         tex->opcode = VSIR_OP_SAMPLE;
         tex->src = srcs;
@@ -1857,6 +1890,7 @@ static enum vkd3d_result vsir_program_lower_texldl(struct vsir_program *program,
 
 static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program, struct vkd3d_shader_instruction *ins)
 {
+    const struct vkd3d_shader_descriptor_info1 *sampler;
     unsigned int idx = ins->dst[0].reg.idx[0].offset;
     struct vkd3d_shader_src_param *srcs;
 
@@ -1866,7 +1900,7 @@ static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program, st
     /* We run before I/O normalization. */
     VKD3D_ASSERT(program->normalisation_level < VSIR_NORMALISED_SM6);
 
-    if (!(srcs = vsir_program_get_src_params(program, 3)))
+    if (!(srcs = vsir_program_get_src_params(program, 4)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     vsir_src_param_init(&srcs[0], VKD3DSPR_TEXTURE, VSIR_DATA_F32, 1);
@@ -1877,9 +1911,24 @@ static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program, st
     vsir_src_param_init_resource(&srcs[1], idx, idx);
     vsir_src_param_init_sampler(&srcs[2], idx, idx);
 
-    ins->opcode = VSIR_OP_SAMPLE;
-    ins->src = srcs;
-    ins->src_count = 3;
+    sampler = vkd3d_shader_find_descriptor(&program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, idx);
+    if (sampler->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE)
+    {
+        ins->opcode = VSIR_OP_SAMPLE_C;
+        ins->src = srcs;
+        ins->src_count = 4;
+
+        srcs[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+
+        srcs[3] = srcs[0];
+        srcs[3].swizzle = VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z);
+    }
+    else
+    {
+        ins->opcode = VSIR_OP_SAMPLE;
+        ins->src = srcs;
+        ins->src_count = 3;
+    }
 
     return VKD3D_OK;
 }
