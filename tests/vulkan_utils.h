@@ -491,4 +491,20 @@ static inline bool get_mesa_driver_version(const VkPhysicalDeviceProperties *dev
     return true;
 }
 
+static inline bool get_mvk_driver_version(const VkPhysicalDeviceProperties *device_properties,
+        const VkPhysicalDeviceDriverPropertiesKHR *driver_properties,
+        uint32_t *major, uint32_t *minor, uint32_t *patch)
+{
+    uint32_t version = device_properties->driverVersion;
+
+    if (driver_properties->driverID != VK_DRIVER_ID_MOLTENVK)
+        return false;
+
+    *major = version / 10000;
+    *minor = (version / 100) % 100;
+    *patch = version % 100;
+
+    return true;
+}
+
 #endif /* __VKD3D_VULKAN_UTILS_H */

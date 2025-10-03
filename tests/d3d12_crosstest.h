@@ -888,20 +888,18 @@ static inline bool is_mvk_paravirtualized_device(ID3D12Device *device)
             && strcmp(device_properties.deviceName, "Apple Paravirtual device") == 0;
 }
 
-/* MoltenVK uses a different pattern than standard Vulkan. */
-#define MVK_MAKE_API_VERSION(major, minor, patch) \
-    ((((uint32_t)(major)) * 10000) + (((uint32_t)(minor)) * 100) + (uint32_t)(patch))
-
 static inline bool is_mvk_device_lt(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
 {
     VkPhysicalDeviceDriverPropertiesKHR driver_properties;
+    uint32_t driver_major, driver_minor, driver_patch;
     VkPhysicalDeviceProperties device_properties;
 
     get_driver_properties(device, &device_properties, &driver_properties);
-    if (driver_properties.driverID != VK_DRIVER_ID_MOLTENVK)
+
+    if (!get_mvk_driver_version(&device_properties, &driver_properties, &driver_major, &driver_minor, &driver_patch))
         return false;
 
-    return device_properties.driverVersion < MVK_MAKE_API_VERSION(major, minor, patch);
+    return compare_versions(driver_major, driver_minor, driver_patch, major, minor, patch) < 0;
 }
 
 static inline bool is_mesa_device_with_llvm_ge(ID3D12Device *device, uint32_t major, uint32_t minor, uint32_t patch)
