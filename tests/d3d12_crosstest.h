@@ -496,11 +496,6 @@ static inline bool is_mesa_device_lt(ID3D12Device *device, uint32_t major, uint3
     return false;
 }
 
-static inline bool is_mesa_intel_device(ID3D12Device *device)
-{
-    return false;
-}
-
 static inline bool is_llvmpipe_device(ID3D12Device *device)
 {
     return false;
@@ -809,14 +804,6 @@ static inline bool is_mesa_device_lt(ID3D12Device *device, uint32_t major, uint3
     get_driver_properties(device, &device_properties, &driver_properties);
     return is_mesa_vulkan_driver(&driver_properties)
             && !is_vulkan_driver_version_ge(&device_properties, &driver_properties, major, minor, patch);
-}
-
-static inline bool is_mesa_intel_device(ID3D12Device *device)
-{
-    VkPhysicalDeviceDriverPropertiesKHR properties;
-
-    get_driver_properties(device, NULL, &properties);
-    return properties.driverID == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA_KHR;
 }
 
 static inline bool is_llvmpipe_device(ID3D12Device *device)
