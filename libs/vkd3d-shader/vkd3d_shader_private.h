@@ -1502,9 +1502,9 @@ static inline bool vsir_program_iterator_insert_after(struct vsir_program_iterat
 }
 
 /* When insertion takes place, argument `it' is updated to point to the same
- * instruction as before the insertion, and the optional argument `ins_it' is
- * initialized to point to the first inserted instruction.
- * A pointer to the first inserted instruction is returned. */
+ * instruction as before the insertion, and argument `ins_it' is initialized
+ * to point to the first inserted instruction. A pointer to the first inserted
+ * instruction is returned. */
 static inline struct vkd3d_shader_instruction *vsir_program_iterator_insert_before(
         struct vsir_program_iterator *it, struct vsir_program_iterator *ins_it, size_t count)
 {
