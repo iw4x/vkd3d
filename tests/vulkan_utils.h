@@ -523,4 +523,10 @@ static inline bool get_nvidia_driver_version(const VkPhysicalDeviceProperties *d
     return true;
 }
 
+static inline bool get_llvm_driver_version(const VkPhysicalDeviceProperties *device_properties,
+        uint32_t *major, uint32_t *minor, uint32_t *patch)
+{
+    return find_version_string(device_properties->deviceName, "LLVM ", major, minor, patch);
+}
+
 #endif /* __VKD3D_VULKAN_UTILS_H */

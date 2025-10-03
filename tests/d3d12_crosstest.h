@@ -904,10 +904,15 @@ static inline bool is_mesa_device_with_llvm_ge(ID3D12Device *device, uint32_t ma
 {
     VkPhysicalDeviceDriverPropertiesKHR driver_properties;
     VkPhysicalDeviceProperties device_properties;
+    uint32_t llvm_major, llvm_minor, llvm_patch;
 
     get_driver_properties(device, &device_properties, &driver_properties);
+
+    if (!get_llvm_driver_version(&device_properties, &llvm_major, &llvm_minor, &llvm_patch))
+        return false;
+
     return is_mesa_vulkan_driver(&driver_properties)
-            && compare_version_string_ge(device_properties.deviceName, "LLVM ", 16, 0 ,0);
+            && compare_versions(llvm_major, llvm_minor, llvm_patch, major, minor, patch) >= 0;
 }
 
 #ifdef __APPLE__
