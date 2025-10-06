@@ -6872,7 +6872,7 @@ static const struct vkd3d_spirv_resource_type *spirv_compiler_enable_resource_ty
     return resource_type_info;
 }
 
-static SpvImageFormat image_format_for_image_read(enum vkd3d_shader_component_type data_type)
+static SpvImageFormat image_format_for_image_read(enum vsir_data_type data_type)
 {
     /* The following formats are supported by Direct3D 11 hardware for UAV
      * typed loads. A newer hardware may support more formats for UAV typed
@@ -6880,11 +6880,11 @@ static SpvImageFormat image_format_for_image_read(enum vkd3d_shader_component_ty
      */
     switch (data_type)
     {
-        case VKD3D_SHADER_COMPONENT_FLOAT:
+        case VSIR_DATA_F32:
             return SpvImageFormatR32f;
-        case VKD3D_SHADER_COMPONENT_INT:
+        case VSIR_DATA_I32:
             return SpvImageFormatR32i;
-        case VKD3D_SHADER_COMPONENT_UINT:
+        case VSIR_DATA_U32:
             return SpvImageFormatR32ui;
         default:
             FIXME("Unhandled type %#x.\n", data_type);
@@ -6894,8 +6894,7 @@ static SpvImageFormat image_format_for_image_read(enum vkd3d_shader_component_ty
 
 static uint32_t spirv_compiler_get_image_type_id(struct spirv_compiler *compiler,
         const struct vkd3d_shader_register *reg, const struct vkd3d_shader_register_range *range,
-        const struct vkd3d_spirv_resource_type *resource_type_info, enum vkd3d_shader_component_type data_type,
-        bool raw_structured)
+        const struct vkd3d_spirv_resource_type *resource_type_info, enum vsir_data_type data_type, bool raw_structured)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     const struct vkd3d_shader_descriptor_info1 *d;
@@ -6916,15 +6915,15 @@ static uint32_t spirv_compiler_get_image_type_id(struct spirv_compiler *compiler
             vkd3d_spirv_enable_capability(builder, SpvCapabilityStorageImageReadWithoutFormat);
     }
 
-    sampled_type_id = spirv_get_type_id_for_component_type(builder, data_type, 1);
-    return vkd3d_spirv_get_op_type_image(builder, sampled_type_id, resource_type_info->dim,
-            2, resource_type_info->arrayed, resource_type_info->ms,
-            reg->type == VKD3DSPR_UAV ? 2 : 1, format);
+    sampled_type_id = spirv_get_type_id(builder, data_type, 1);
+
+    return vkd3d_spirv_get_op_type_image(builder, sampled_type_id, resource_type_info->dim, 2,
+            resource_type_info->arrayed, resource_type_info->ms, reg->type == VKD3DSPR_UAV ? 2 : 1, format);
 }
 
 static void spirv_compiler_emit_combined_sampler_declarations(struct spirv_compiler *compiler,
         const struct vkd3d_shader_register *resource, const struct vkd3d_shader_register_range *resource_range,
-        enum vkd3d_shader_resource_type resource_type, enum vkd3d_shader_component_type sampled_type,
+        enum vkd3d_shader_resource_type resource_type, enum vsir_data_type sampled_type,
         unsigned int structure_stride, bool raw, const struct vkd3d_spirv_resource_type *resource_type_info)
 {
     const struct vkd3d_shader_interface_info *shader_interface = &compiler->shader_interface;
@@ -6985,7 +6984,7 @@ static void spirv_compiler_emit_combined_sampler_declarations(struct spirv_compi
         symbol.id = var_id;
         symbol.descriptor_array = NULL;
         symbol.info.resource.range = *resource_range;
-        symbol.info.resource.sampled_type = vsir_data_type_from_component_type(sampled_type);
+        symbol.info.resource.sampled_type = sampled_type;
         symbol.info.resource.type_id = image_type_id;
         symbol.info.resource.resource_type_info = resource_type_info;
         symbol.info.resource.structure_stride = structure_stride;
@@ -7010,9 +7009,9 @@ static void spirv_compiler_emit_resource_declaration(struct spirv_compiler *comp
     uint32_t counter_type_id, type_id, var_id, counter_var_id = 0;
     const struct vkd3d_spirv_resource_type *resource_type_info;
     unsigned int sample_count = descriptor->sample_count;
-    enum vkd3d_shader_component_type sampled_type;
     struct vkd3d_symbol resource_symbol;
     struct vkd3d_shader_register reg;
+    enum vsir_data_type sampled_type;
 
     vsir_register_init(&reg, is_uav ? VKD3DSPR_UAV : VKD3DSPR_RESOURCE, VSIR_DATA_F32, 1);
     reg.idx[0].offset = descriptor->register_id;
@@ -7029,7 +7028,7 @@ static void spirv_compiler_emit_resource_declaration(struct spirv_compiler *comp
         return;
     }
 
-    sampled_type = vkd3d_component_type_from_data_type(descriptor->resource_data_type);
+    sampled_type = descriptor->resource_data_type;
 
     if (!is_uav && spirv_compiler_has_combined_sampler_for_resource(compiler, range))
     {
@@ -7042,7 +7041,7 @@ static void spirv_compiler_emit_resource_declaration(struct spirv_compiler *comp
     {
         uint32_t array_type_id, struct_id;
 
-        type_id = spirv_get_type_id(builder, descriptor->resource_data_type, 1);
+        type_id = spirv_get_type_id(builder, sampled_type, 1);
 
         array_type_id = vkd3d_spirv_get_op_type_runtime_array(builder, type_id);
         vkd3d_spirv_build_op_decorate1(builder, array_type_id, SpvDecorationArrayStride, 4);
@@ -7115,7 +7114,7 @@ static void spirv_compiler_emit_resource_declaration(struct spirv_compiler *comp
     resource_symbol.id = var_id;
     resource_symbol.descriptor_array = var_info.array_symbol;
     resource_symbol.info.resource.range = *range;
-    resource_symbol.info.resource.sampled_type = descriptor->resource_data_type;
+    resource_symbol.info.resource.sampled_type = sampled_type;
     resource_symbol.info.resource.type_id = type_id;
     resource_symbol.info.resource.resource_type_info = resource_type_info;
     resource_symbol.info.resource.structure_stride = structure_stride;
@@ -8909,8 +8908,7 @@ static void spirv_compiler_prepare_image(struct spirv_compiler *compiler,
     }
 
     image->image_type_id = spirv_compiler_get_image_type_id(compiler, resource_reg, &symbol->info.resource.range,
-            image->resource_type_info, vkd3d_component_type_from_data_type(image->sampled_type),
-            image->structure_stride || image->raw);
+            image->resource_type_info, image->sampled_type, image->structure_stride || image->raw);
 
     if (sampled)
     {
