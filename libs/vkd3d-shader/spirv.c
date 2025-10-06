@@ -5096,23 +5096,17 @@ static void spirv_compiler_emit_store_dst_swizzled(struct spirv_compiler *compil
 }
 
 static void spirv_compiler_emit_store_dst_components(struct spirv_compiler *compiler,
-        const struct vkd3d_shader_dst_param *dst, enum vkd3d_shader_component_type component_type,
-        uint32_t *component_ids)
+        const struct vkd3d_shader_dst_param *dst, enum vsir_data_type data_type, uint32_t *component_ids)
 {
     unsigned int component_count = vsir_write_mask_component_count(dst->write_mask);
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     uint32_t type_id, dst_type_id, val_id;
 
-    type_id = spirv_get_type_id_for_component_type(builder, component_type, component_count);
+    type_id = spirv_get_type_id(builder, data_type, component_count);
     if (component_count > 1)
-    {
-        val_id = vkd3d_spirv_build_op_composite_construct(builder,
-                type_id, component_ids, component_count);
-    }
+        val_id = vkd3d_spirv_build_op_composite_construct(builder, type_id, component_ids, component_count);
     else
-    {
         val_id = *component_ids;
-    }
 
     dst_type_id = spirv_get_type_id(builder, dst->reg.data_type, component_count);
     if (dst_type_id != type_id)
@@ -5122,8 +5116,7 @@ static void spirv_compiler_emit_store_dst_components(struct spirv_compiler *comp
 }
 
 static void spirv_compiler_emit_store_dst_scalar(struct spirv_compiler *compiler,
-        const struct vkd3d_shader_dst_param *dst, uint32_t val_id,
-        enum vkd3d_shader_component_type component_type, uint32_t swizzle)
+        const struct vkd3d_shader_dst_param *dst, uint32_t val_id, enum vsir_data_type data_type, uint32_t swizzle)
 {
     unsigned int component_count = vsir_write_mask_component_count(dst->write_mask);
     uint32_t component_ids[VKD3D_VEC4_SIZE];
@@ -5137,7 +5130,7 @@ static void spirv_compiler_emit_store_dst_scalar(struct spirv_compiler *compiler
 
         component_ids[i] = val_id;
     }
-    spirv_compiler_emit_store_dst_components(compiler, dst, component_type, component_ids);
+    spirv_compiler_emit_store_dst_components(compiler, dst, data_type, component_ids);
 }
 
 static void spirv_compiler_decorate_builtin(struct spirv_compiler *compiler,
@@ -8281,7 +8274,7 @@ static void spirv_compiler_emit_bitfield_instruction(struct spirv_compiler *comp
                 op, type_id, src_ids, src_count);
     }
 
-    spirv_compiler_emit_store_dst_components(compiler, dst, component_type, constituents);
+    spirv_compiler_emit_store_dst_components(compiler, dst, dst->reg.data_type, constituents);
 }
 
 static void spirv_compiler_emit_f16tof32(struct spirv_compiler *compiler,
@@ -8313,8 +8306,7 @@ static void spirv_compiler_emit_f16tof32(struct spirv_compiler *compiler,
                 scalar_type_id, result_id, 0);
     }
 
-    spirv_compiler_emit_store_dst_components(compiler,
-            dst, vkd3d_component_type_from_data_type(dst->reg.data_type), components);
+    spirv_compiler_emit_store_dst_components(compiler, dst, dst->reg.data_type, components);
 }
 
 static void spirv_compiler_emit_f32tof16(struct spirv_compiler *compiler,
@@ -8349,8 +8341,7 @@ static void spirv_compiler_emit_f32tof16(struct spirv_compiler *compiler,
                 instr_set_id, GLSLstd450PackHalf2x16, &src_id, 1);
     }
 
-    spirv_compiler_emit_store_dst_components(compiler,
-            dst, vkd3d_component_type_from_data_type(dst->reg.data_type), components);
+    spirv_compiler_emit_store_dst_components(compiler, dst, dst->reg.data_type, components);
 }
 
 static void spirv_compiler_emit_comparison_instruction(struct spirv_compiler *compiler,
@@ -9157,8 +9148,7 @@ static void spirv_compiler_emit_sample_c(struct spirv_compiler *compiler,
             image.sampled_image_id, coordinate_id, dref_id, operands_mask,
             image_operands, image_operand_count);
 
-    spirv_compiler_emit_store_dst_scalar(compiler, dst, val_id,
-            vkd3d_component_type_from_data_type(image.sampled_type), src[1].swizzle);
+    spirv_compiler_emit_store_dst_scalar(compiler, dst, val_id, image.sampled_type, src[1].swizzle);
 }
 
 static void spirv_compiler_emit_gather4(struct spirv_compiler *compiler,
@@ -9348,7 +9338,7 @@ static void spirv_compiler_emit_ld_raw_structured_srv_uav(struct spirv_compiler 
                     type_id, val_id, 0);
         }
     }
-    spirv_compiler_emit_store_dst_components(compiler, dst, VKD3D_SHADER_COMPONENT_UINT, constituents);
+    spirv_compiler_emit_store_dst_components(compiler, dst, VSIR_DATA_U32, constituents);
 }
 
 static void spirv_compiler_emit_ld_tgsm(struct spirv_compiler *compiler,
@@ -9388,7 +9378,7 @@ static void spirv_compiler_emit_ld_tgsm(struct spirv_compiler *compiler,
         ptr_id = vkd3d_spirv_build_op_access_chain1(builder, ptr_type_id, reg_info.id, coordinate_id);
         constituents[j++] = vkd3d_spirv_build_op_load(builder, type_id, ptr_id, SpvMemoryAccessMaskNone);
     }
-    spirv_compiler_emit_store_dst_components(compiler, dst, VKD3D_SHADER_COMPONENT_UINT, constituents);
+    spirv_compiler_emit_store_dst_components(compiler, dst, VSIR_DATA_U32, constituents);
 }
 
 static void spirv_compiler_emit_ld_raw_structured(struct spirv_compiler *compiler,
