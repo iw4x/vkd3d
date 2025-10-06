@@ -1237,25 +1237,33 @@ static void shader_glsl_mov(struct vkd3d_glsl_generator *gen, const struct vkd3d
 
 static void shader_glsl_movc(struct vkd3d_glsl_generator *gen, const struct vkd3d_shader_instruction *ins)
 {
+    struct vkd3d_string_buffer *src1, *src2;
     unsigned int component_count;
-    struct glsl_src src[3];
+    struct glsl_src src[1];
     struct glsl_dst dst;
     uint32_t mask;
 
+    /* Sadly, mix() in unextended GLSL 4.40 can only select between
+     * floating-point sources. The earliest version able to select between
+     * integer sources is version 4.50; the same functionality is also
+     * provided by the EXT_shader_integer_mix extension. */
+
     mask = glsl_dst_init(&dst, gen, ins, &ins->dst[0]);
     glsl_src_init(&src[0], gen, &ins->src[0], mask);
-    glsl_src_init(&src[1], gen, &ins->src[1], mask);
-    glsl_src_init(&src[2], gen, &ins->src[2], mask);
+    src1 = vkd3d_string_buffer_get(&gen->string_buffers);
+    src2 = vkd3d_string_buffer_get(&gen->string_buffers);
+    shader_glsl_print_src(src1, gen, &ins->src[1], mask, VSIR_DATA_F32);
+    shader_glsl_print_src(src2, gen, &ins->src[2], mask, VSIR_DATA_F32);
 
     if ((component_count = vsir_write_mask_component_count(mask)) > 1)
-        shader_glsl_print_assignment(gen, &dst, "mix(%s, %s, bvec%u(%s))",
-                src[2].str->buffer, src[1].str->buffer, component_count, src[0].str->buffer);
+        shader_glsl_print_assignment_ext(gen, &dst, VSIR_DATA_F32, "mix(%s, %s, bvec%u(%s))",
+                src2->buffer, src1->buffer, component_count, src[0].str->buffer);
     else
-        shader_glsl_print_assignment(gen, &dst, "mix(%s, %s, bool(%s))",
-                src[2].str->buffer, src[1].str->buffer, src[0].str->buffer);
+        shader_glsl_print_assignment_ext(gen, &dst, VSIR_DATA_F32, "mix(%s, %s, bool(%s))",
+                src2->buffer, src1->buffer, src[0].str->buffer);
 
-    glsl_src_cleanup(&src[2], &gen->string_buffers);
-    glsl_src_cleanup(&src[1], &gen->string_buffers);
+    vkd3d_string_buffer_release(&gen->string_buffers, src2);
+    vkd3d_string_buffer_release(&gen->string_buffers, src1);
     glsl_src_cleanup(&src[0], &gen->string_buffers);
     glsl_dst_cleanup(&dst, &gen->string_buffers);
 }
