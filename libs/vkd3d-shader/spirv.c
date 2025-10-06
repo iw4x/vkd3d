@@ -9281,7 +9281,7 @@ static void spirv_compiler_emit_ld_raw_structured_srv_uav(struct spirv_compiler 
         texel_type_id = spirv_get_type_id(builder, resource_symbol->info.resource.sampled_type, 1);
         ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassUniform, texel_type_id);
 
-        type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+        type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
         base_coordinate_id = spirv_compiler_emit_raw_structured_addressing(compiler,
                 type_id, resource_symbol->info.resource.structure_stride,
                 &src[0], VKD3DSP_WRITEMASK_0, &src[1], VKD3DSP_WRITEMASK_0);
@@ -9313,7 +9313,7 @@ static void spirv_compiler_emit_ld_raw_structured_srv_uav(struct spirv_compiler 
 
         spirv_compiler_prepare_image(compiler, &image, &resource->reg, NULL, VKD3D_IMAGE_FLAG_NONE);
 
-        type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+        type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
         base_coordinate_id = spirv_compiler_emit_raw_structured_addressing(compiler,
                 type_id, image.structure_stride, &src[0], VKD3DSP_WRITEMASK_0, &src[1], VKD3DSP_WRITEMASK_0);
 
