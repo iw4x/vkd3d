@@ -1441,7 +1441,7 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
                 check_readback_data_uint(rb, &box, v.x, 0);
             }
         }
-        else if (match_string(line, "f32", &line))
+        else if (match_string(line, "f32", &line) || match_string(line, "rgba", &line))
         {
             struct vec4 v;
 
@@ -1490,18 +1490,6 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
                 todo_if(runner->is_todo) bug_if(runner->is_bug)
                 check_readback_data_float(rb, &rect, v.x, ulps);
             }
-        }
-        else if (match_string(line, "rgba", &line))
-        {
-            struct vec4 v;
-
-            ret = sscanf(line, "( %f , %f , %f , %f ) %u", &v.x, &v.y, &v.z, &v.w, &ulps);
-            if (ret < 4)
-                fatal_error("Malformed probe arguments '%s'.\n", line);
-            if (ret < 5)
-                ulps = 0;
-            todo_if(runner->is_todo) bug_if(runner->is_bug)
-            check_readback_data_vec4(rb, &rect, &v, ulps);
         }
         else
         {
