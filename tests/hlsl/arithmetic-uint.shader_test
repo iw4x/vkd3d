@@ -69,7 +69,7 @@ void main(out uint4 dst : sv_target)
 uniform 0 uint4 0 0 1 0
 todo(msl) draw quad
 % Integer division by zero is undefined for shader model 6 targets.
-if(sm<6) todo(glsl & !llvmpipe) probe (0, 0) u32(0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff)
+if(sm<6) probe (0, 0) u32(0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff)
 uniform 0 uint4 1 1 7 1
 todo(msl) draw quad
 probe (0, 0) u32(1, 7, 0, 0)

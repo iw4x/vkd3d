@@ -1454,8 +1454,8 @@ static enum vkd3d_result vsir_program_lower_imul(struct vsir_program *program,
 static enum vkd3d_result vsir_program_lower_udiv(struct vsir_program *program,
         struct vsir_program_iterator *it, struct vsir_transformation_context *ctx)
 {
+    unsigned int count = 3, src0_id, src1_id, divisor_id;
     struct vkd3d_shader_instruction *udiv, *ins, *mov;
-    unsigned int count = 2;
 
     udiv = vsir_program_iterator_current(it);
 
@@ -1469,9 +1469,9 @@ static enum vkd3d_result vsir_program_lower_udiv(struct vsir_program *program,
     }
 
     if (udiv->dst[0].reg.type != VKD3DSPR_NULL)
-        ++count;
+        count += 2;
     if (udiv->dst[1].reg.type != VKD3DSPR_NULL)
-        ++count;
+        count += 2;
 
     if (!vsir_program_iterator_insert_after(it, count))
         return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -1483,14 +1483,33 @@ static enum vkd3d_result vsir_program_lower_udiv(struct vsir_program *program,
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     mov->src[0] = udiv->src[0];
-    dst_param_init_ssa(&mov->dst[0], program->ssa_count, udiv->src[0].reg.data_type, udiv->src[0].reg.dimension);
+    src0_id = program->ssa_count++;
+    dst_param_init_ssa(&mov->dst[0], src0_id, udiv->src[0].reg.data_type, udiv->src[0].reg.dimension);
 
     mov = vsir_program_iterator_next(it);
     if (!(vsir_instruction_init_with_params(program, mov, &udiv->location, VSIR_OP_MOV, 1, 1)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     mov->src[0] = udiv->src[1];
-    dst_param_init_ssa(&mov->dst[0], program->ssa_count + 1, udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+    src1_id = program->ssa_count++;
+    dst_param_init_ssa(&mov->dst[0], src1_id, udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+
+    mov = vsir_program_iterator_next(it);
+    if (!(vsir_instruction_init_with_params(program, mov, &udiv->location, VSIR_OP_MOVC, 1, 3)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    src_param_init_ssa(&mov->src[0], src1_id, udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+    src_param_init_ssa(&mov->src[1], src1_id, udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+    vsir_register_init(&mov->src[2].reg, VKD3DSPR_IMMCONST, VSIR_DATA_U32, 0);
+    mov->src[2].reg.dimension = udiv->src[1].reg.dimension;
+    mov->src[2].reg.u.immconst_u32[0] = 1;
+    mov->src[2].reg.u.immconst_u32[1] = 1;
+    mov->src[2].reg.u.immconst_u32[2] = 1;
+    mov->src[2].reg.u.immconst_u32[3] = 1;
+    if (mov->src[2].reg.dimension == VSIR_DIMENSION_VEC4)
+        mov->src[2].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+    divisor_id = program->ssa_count++;
+    dst_param_init_ssa(&mov->dst[0], divisor_id, mov->src[1].reg.data_type, mov->src[1].reg.dimension);
 
     if (udiv->dst[0].reg.type != VKD3DSPR_NULL)
     {
@@ -1501,11 +1520,30 @@ static enum vkd3d_result vsir_program_lower_udiv(struct vsir_program *program,
 
         ins->flags = udiv->flags;
 
-        src_param_init_ssa(&ins->src[0], program->ssa_count,
-                udiv->src[0].reg.data_type, udiv->src[0].reg.dimension);
-        src_param_init_ssa(&ins->src[1], program->ssa_count + 1,
-                udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+        src_param_init_ssa(&ins->src[0], src0_id, udiv->src[0].reg.data_type, udiv->src[0].reg.dimension);
+        src_param_init_ssa(&ins->src[1], divisor_id, udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+        dst_param_init_ssa(&ins->dst[0], program->ssa_count, udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+
+        /* Like its TPF equivalent, division by zero is well-defined for
+         * VSIR_OP_UDIV, and returns UINT_MAX. Division by zero is undefined
+         * for VSIR_OP_UDIV_SIMPLE and VSIR_OP_UREM, so handle it here. */
+        ins = vsir_program_iterator_next(it);
+        if (!(vsir_instruction_init_with_params(program, ins, &udiv->location, VSIR_OP_MOVC, 1, 3)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+
+        src_param_init_ssa(&ins->src[0], src1_id, udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+        src_param_init_ssa(&ins->src[1], program->ssa_count, udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+        vsir_register_init(&ins->src[2].reg, VKD3DSPR_IMMCONST, VSIR_DATA_U32, 0);
+        ins->src[2].reg.dimension = udiv->src[1].reg.dimension;
+        ins->src[2].reg.u.immconst_u32[0] = UINT_MAX;
+        ins->src[2].reg.u.immconst_u32[1] = UINT_MAX;
+        ins->src[2].reg.u.immconst_u32[2] = UINT_MAX;
+        ins->src[2].reg.u.immconst_u32[3] = UINT_MAX;
+        if (ins->src[2].reg.dimension == VSIR_DIMENSION_VEC4)
+            ins->src[2].swizzle = VKD3D_SHADER_NO_SWIZZLE;
         ins->dst[0] = udiv->dst[0];
+
+        ++program->ssa_count;
     }
 
     if (udiv->dst[1].reg.type != VKD3DSPR_NULL)
@@ -1517,15 +1555,30 @@ static enum vkd3d_result vsir_program_lower_udiv(struct vsir_program *program,
 
         ins->flags = udiv->flags;
 
-        src_param_init_ssa(&ins->src[0], program->ssa_count,
-                udiv->src[0].reg.data_type, udiv->src[0].reg.dimension);
-        src_param_init_ssa(&ins->src[1], program->ssa_count + 1,
-                udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+        src_param_init_ssa(&ins->src[0], src0_id, udiv->src[0].reg.data_type, udiv->src[0].reg.dimension);
+        src_param_init_ssa(&ins->src[1], divisor_id, udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+        dst_param_init_ssa(&ins->dst[0], program->ssa_count, udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+
+        ins = vsir_program_iterator_next(it);
+        if (!(vsir_instruction_init_with_params(program, ins, &udiv->location, VSIR_OP_MOVC, 1, 3)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+
+        src_param_init_ssa(&ins->src[0], src1_id, udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+        src_param_init_ssa(&ins->src[1], program->ssa_count, udiv->src[1].reg.data_type, udiv->src[1].reg.dimension);
+        vsir_register_init(&ins->src[2].reg, VKD3DSPR_IMMCONST, VSIR_DATA_U32, 0);
+        ins->src[2].reg.dimension = udiv->src[1].reg.dimension;
+        ins->src[2].reg.u.immconst_u32[0] = UINT_MAX;
+        ins->src[2].reg.u.immconst_u32[1] = UINT_MAX;
+        ins->src[2].reg.u.immconst_u32[2] = UINT_MAX;
+        ins->src[2].reg.u.immconst_u32[3] = UINT_MAX;
+        if (ins->src[2].reg.dimension == VSIR_DIMENSION_VEC4)
+            ins->src[2].swizzle = VKD3D_SHADER_NO_SWIZZLE;
         ins->dst[0] = udiv->dst[1];
+
+        ++program->ssa_count;
     }
 
     vkd3d_shader_instruction_make_nop(udiv);
-    program->ssa_count += 2;
 
     return VKD3D_OK;
 }
