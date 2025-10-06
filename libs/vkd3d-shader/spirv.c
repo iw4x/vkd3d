@@ -5646,11 +5646,9 @@ static void spirv_compiler_emit_input(struct spirv_compiler *compiler,
 
     array_sizes[0] = signature_element->register_count;
     array_sizes[1] = (reg_type == VKD3DSPR_PATCHCONST ? 0 : compiler->input_control_point_count);
-    if (array_sizes[0] == 1 && !vsir_sysval_semantic_is_tess_factor(signature_element->sysval_semantic)
+    if (!vsir_signature_element_is_array(signature_element)
             && (!vsir_sysval_semantic_is_clip_cull(signature_element->sysval_semantic) || array_sizes[1]))
-    {
         array_sizes[0] = 0;
-    }
 
     write_mask = signature_element->mask;
 
@@ -5919,7 +5917,7 @@ static void spirv_compiler_emit_output(struct spirv_compiler *compiler,
         sysval = VKD3D_SHADER_SV_NONE;
     array_sizes[0] = signature_element->register_count;
     array_sizes[1] = (reg_type == VKD3DSPR_PATCHCONST ? 0 : compiler->output_control_point_count);
-    if (array_sizes[0] == 1 && !vsir_sysval_semantic_is_tess_factor(signature_element->sysval_semantic))
+    if (!vsir_signature_element_is_array(signature_element))
         array_sizes[0] = 0;
 
     builtin = vkd3d_get_spirv_builtin(compiler, reg_type, sysval);

@@ -3952,7 +3952,7 @@ static bool shader_dst_param_io_normalise(struct vkd3d_shader_dst_param *dst_par
         vkd3d_unreachable();
     e = &signature->elements[element_idx];
 
-    if ((e->register_count > 1 || vsir_sysval_semantic_is_tess_factor(e->sysval_semantic)))
+    if (vsir_signature_element_is_array(e))
         id_idx = shader_register_normalise_arrayed_addressing(reg, id_idx, e->register_index);
 
     /* Replace the register index with the signature element index */
@@ -4034,7 +4034,7 @@ static void shader_src_param_io_normalise(struct vkd3d_shader_src_param *src_par
     }
 
     e = &signature->elements[element_idx];
-    if ((e->register_count > 1 || vsir_sysval_semantic_is_tess_factor(e->sysval_semantic)))
+    if (vsir_signature_element_is_array(e))
         id_idx = shader_register_normalise_arrayed_addressing(reg, id_idx, e->register_index);
     reg->idx[id_idx].offset = element_idx;
     reg->idx_count = id_idx + 1;
@@ -10529,8 +10529,7 @@ static void vsir_validate_io_register(struct validation_context *ctx, const stru
         }
 
         element = &signature->elements[signature_idx];
-        if (element->register_count > 1 || vsir_sysval_semantic_is_tess_factor(element->sysval_semantic))
-            is_array = true;
+        is_array = vsir_signature_element_is_array(element);
 
         expected_idx_count = 1 + !!has_control_point + !!is_array;
         control_point_index = !!is_array;

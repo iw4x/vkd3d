@@ -1166,6 +1166,17 @@ enum vkd3d_shader_input_sysval_semantic
 
 #define SIGNATURE_TARGET_LOCATION_UNUSED (~0u)
 
+static inline bool vsir_sysval_semantic_is_tess_factor(enum vkd3d_shader_sysval_semantic sysval_semantic)
+{
+    return sysval_semantic >= VKD3D_SHADER_SV_TESS_FACTOR_QUADEDGE
+        && sysval_semantic <= VKD3D_SHADER_SV_TESS_FACTOR_LINEDEN;
+}
+
+static inline bool vsir_sysval_semantic_is_clip_cull(enum vkd3d_shader_sysval_semantic sysval_semantic)
+{
+    return sysval_semantic == VKD3D_SHADER_SV_CLIP_DISTANCE || sysval_semantic == VKD3D_SHADER_SV_CULL_DISTANCE;
+}
+
 struct signature_element
 {
     /* sort_index is not a property of the signature element, it is just a
@@ -1189,23 +1200,23 @@ struct signature_element
     unsigned int target_location;
 };
 
+static inline bool vsir_signature_element_is_array(const struct signature_element *element)
+{
+    enum vkd3d_shader_sysval_semantic semantic = element->sysval_semantic;
+
+    if (element->register_count > 1)
+        return true;
+    if (vsir_sysval_semantic_is_tess_factor(semantic))
+        return true;
+    return false;
+}
+
 struct shader_signature
 {
     struct signature_element *elements;
     size_t elements_capacity;
     unsigned int element_count;
 };
-
-static inline bool vsir_sysval_semantic_is_tess_factor(enum vkd3d_shader_sysval_semantic sysval_semantic)
-{
-    return sysval_semantic >= VKD3D_SHADER_SV_TESS_FACTOR_QUADEDGE
-        && sysval_semantic <= VKD3D_SHADER_SV_TESS_FACTOR_LINEDEN;
-}
-
-static inline bool vsir_sysval_semantic_is_clip_cull(enum vkd3d_shader_sysval_semantic sysval_semantic)
-{
-    return sysval_semantic == VKD3D_SHADER_SV_CLIP_DISTANCE || sysval_semantic == VKD3D_SHADER_SV_CULL_DISTANCE;
-}
 
 struct signature_element *vsir_signature_find_element_for_reg(const struct shader_signature *signature,
         unsigned int reg_idx, unsigned int write_mask);
