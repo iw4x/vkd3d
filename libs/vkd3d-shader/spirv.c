@@ -989,7 +989,7 @@ struct vkd3d_spirv_builder
     uint32_t type_bool_id;
     uint32_t type_void_id;
     uint32_t scope_subgroup_id;
-    uint32_t numeric_type_ids[VKD3D_SHADER_COMPONENT_TYPE_COUNT][VKD3D_VEC4_SIZE];
+    uint32_t numeric_type_ids[VSIR_DATA_TYPE_COUNT][VKD3D_VEC4_SIZE];
 
     struct vkd3d_spirv_stream debug_stream; /* debug instructions */
     struct vkd3d_spirv_stream annotation_stream; /* decoration instructions */
@@ -2518,69 +2518,67 @@ static uint32_t vkd3d_spirv_build_op_glsl_std450_nclamp(struct vkd3d_spirv_build
             GLSLstd450NClamp, operands, ARRAY_SIZE(operands));
 }
 
-static uint32_t spirv_get_type_id_for_component_type(struct vkd3d_spirv_builder *builder,
-        enum vkd3d_shader_component_type component_type, unsigned int component_count)
+static uint32_t spirv_get_type_id(struct vkd3d_spirv_builder *builder,
+        enum vsir_data_type data_type, unsigned int component_count)
 {
     uint32_t scalar_id, type_id;
 
-    VKD3D_ASSERT(component_type < VKD3D_SHADER_COMPONENT_TYPE_COUNT);
+    VKD3D_ASSERT(data_type < VSIR_DATA_TYPE_COUNT);
     if (!component_count || component_count > VKD3D_VEC4_SIZE)
     {
         ERR("Invalid component count %u.\n", component_count);
         return 0;
     }
 
-    if ((type_id = builder->numeric_type_ids[component_type][component_count - 1]))
+    if ((type_id = builder->numeric_type_ids[data_type][component_count - 1]))
         return type_id;
 
     if (component_count == 1)
     {
-        switch (component_type)
+        switch (data_type)
         {
-            case VKD3D_SHADER_COMPONENT_VOID:
-                type_id = vkd3d_spirv_get_op_type_void(builder);
-                break;
-            case VKD3D_SHADER_COMPONENT_FLOAT:
-                type_id = vkd3d_spirv_get_op_type_float(builder, 32);
-                break;
-            case VKD3D_SHADER_COMPONENT_INT:
-            case VKD3D_SHADER_COMPONENT_UINT:
-                type_id = vkd3d_spirv_get_op_type_int(builder, 32, component_type == VKD3D_SHADER_COMPONENT_INT);
-                break;
-            case VKD3D_SHADER_COMPONENT_BOOL:
+            case VSIR_DATA_BOOL:
                 type_id = vkd3d_spirv_get_op_type_bool(builder);
                 break;
-            case VKD3D_SHADER_COMPONENT_DOUBLE:
+
+            case VSIR_DATA_F32:
+                type_id = vkd3d_spirv_get_op_type_float(builder, 32);
+                break;
+
+            case VSIR_DATA_F64:
                 type_id = vkd3d_spirv_get_op_type_float(builder, 64);
                 break;
-            case VKD3D_SHADER_COMPONENT_INT64:
-            case VKD3D_SHADER_COMPONENT_UINT64:
-                type_id = vkd3d_spirv_get_op_type_int(builder, 64, component_type == VKD3D_SHADER_COMPONENT_INT64);
+
+            case VSIR_DATA_I32:
+            case VSIR_DATA_U32:
+                type_id = vkd3d_spirv_get_op_type_int(builder, 32, data_type == VSIR_DATA_I32);
                 break;
+
+            case VSIR_DATA_I64:
+            case VSIR_DATA_U64:
+                type_id = vkd3d_spirv_get_op_type_int(builder, 64, data_type == VSIR_DATA_I64);
+                break;
+
+            case VSIR_DATA_UNUSED:
+                type_id = vkd3d_spirv_get_op_type_void(builder);
+                break;
+
             default:
-                FIXME("Unhandled component type %#x.\n", component_type);
+                FIXME("Unhandled data type \"%s\" (%#x).\n",
+                        vsir_data_type_get_name(data_type, "<unknown>"), data_type);
                 return 0;
         }
     }
     else
     {
-        VKD3D_ASSERT(component_type != VKD3D_SHADER_COMPONENT_VOID);
-        scalar_id = spirv_get_type_id_for_component_type(builder, component_type, 1);
+        VKD3D_ASSERT(data_type != VSIR_DATA_UNUSED);
+        scalar_id = spirv_get_type_id(builder, data_type, 1);
         type_id = vkd3d_spirv_get_op_type_vector(builder, scalar_id, component_count);
     }
 
-    builder->numeric_type_ids[component_type][component_count - 1] = type_id;
+    builder->numeric_type_ids[data_type][component_count - 1] = type_id;
 
     return type_id;
-}
-
-static uint32_t spirv_get_type_id(struct vkd3d_spirv_builder *builder,
-        enum vsir_data_type data_type, unsigned int component_count)
-{
-    enum vkd3d_shader_component_type component_type;
-
-    component_type = vkd3d_component_type_from_data_type(data_type);
-    return spirv_get_type_id_for_component_type(builder, component_type, component_count);
 }
 
 static void vkd3d_spirv_builder_init(struct vkd3d_spirv_builder *builder,
@@ -9799,7 +9797,7 @@ static void spirv_compiler_emit_atomic_instruction(struct spirv_compiler *compil
         }
     }
 
-    type_id = spirv_get_type_id_for_component_type(builder, VKD3D_SHADER_COMPONENT_UINT, 1);
+    type_id = spirv_get_type_id(builder, VSIR_DATA_U32, 1);
     if (structure_stride || raw)
     {
         VKD3D_ASSERT(!raw != !structure_stride);
