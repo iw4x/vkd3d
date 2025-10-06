@@ -7676,8 +7676,6 @@ static enum vkd3d_result spirv_compiler_emit_alu_instruction(struct spirv_compil
      * so we have an explicit check. */
     switch (instruction->opcode)
     {
-        case VSIR_OP_IDIV:
-        case VSIR_OP_IREM:
         case VSIR_OP_UDIV_SIMPLE:
         case VSIR_OP_UREM:
             check_zero = true;
