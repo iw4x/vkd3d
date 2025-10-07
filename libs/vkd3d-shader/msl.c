@@ -1585,6 +1585,7 @@ static void msl_handle_instruction(struct msl_generator *gen, const struct vkd3d
         case VSIR_OP_IF:
             msl_if(gen, ins);
             break;
+        case VSIR_OP_IREM:
         case VSIR_OP_UREM:
             msl_binop(gen, ins, "%");
             break;
