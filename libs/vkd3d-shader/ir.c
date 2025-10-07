@@ -2039,6 +2039,52 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
     return VKD3D_OK;
 }
 
+static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *program,
+        struct vsir_transformation_context *ctx)
+{
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions), new_it;
+    struct vkd3d_shader_instruction *ins, *new_ins;
+    unsigned int i;
+
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
+    {
+        for (i = 0; i < ins->src_count; ++i)
+        {
+            struct vkd3d_shader_src_param *src = &ins->src[i];
+
+            /* TODO: support other modifiers, including destination modifiers. */
+            if (src->modifiers == VKD3DSPSM_ABS)
+            {
+                if (!(new_ins = vsir_program_iterator_insert_before(&it, &new_it, 1)))
+                    return VKD3D_ERROR_OUT_OF_MEMORY;
+                ins = vsir_program_iterator_current(&it);
+
+                if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_ABS, 1, 1))
+                {
+                    vkd3d_shader_instruction_make_nop(new_ins);
+                    return VKD3D_ERROR_OUT_OF_MEMORY;
+                }
+
+                new_ins->src[0] = *src;
+                new_ins->src[0].modifiers = VKD3DSPSM_NONE;
+
+                dst_param_init_ssa(&new_ins->dst[0], program->ssa_count, src->reg.data_type, src->reg.dimension);
+                src_param_init_ssa(src, program->ssa_count, src->reg.data_type, src->reg.dimension);
+
+                if (data_type_is_64_bit(src->reg.data_type))
+                {
+                    new_ins->dst[0].write_mask = vsir_write_mask_64_from_32(new_ins->dst[0].write_mask);
+                    src->swizzle = vsir_swizzle_64_from_32(src->swizzle);
+                }
+
+                ++program->ssa_count;
+            }
+        }
+    }
+
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *program,
         struct vsir_transformation_context *ctx)
 {
@@ -11482,6 +11528,18 @@ static void vsir_validate_float_elementwise_operation(struct validation_context 
     vsir_validate_elementwise_operation(ctx, instruction, types);
 }
 
+static void vsir_validate_float_or_double_elementwise_operation(struct validation_context *ctx,
+        const struct vkd3d_shader_instruction *instruction)
+{
+    static const bool types[VSIR_DATA_TYPE_COUNT] =
+    {
+        [VSIR_DATA_F32] = true,
+        [VSIR_DATA_F64] = true,
+    };
+
+    vsir_validate_elementwise_operation(ctx, instruction, types);
+}
+
 static void vsir_validate_integer_elementwise_operation(struct validation_context *ctx,
         const struct vkd3d_shader_instruction *instruction)
 {
@@ -12534,7 +12592,7 @@ struct vsir_validator_instruction_desc
 
 static const struct vsir_validator_instruction_desc vsir_validator_instructions[] =
 {
-    [VSIR_OP_ABS] =                              {1,   1, vsir_validate_float_elementwise_operation},
+    [VSIR_OP_ABS] =                              {1,   1, vsir_validate_float_or_double_elementwise_operation},
     [VSIR_OP_ACOS] =                             {1,   1, vsir_validate_float_elementwise_operation},
     [VSIR_OP_ADD] =                              {1,   2, vsir_validate_float_elementwise_operation},
     [VSIR_OP_AND] =                              {1,   2, vsir_validate_logic_elementwise_operation},
@@ -13388,6 +13446,7 @@ enum vkd3d_result vsir_program_transform(struct vsir_program *program, uint64_t 
     struct vsir_transformation_context ctx;
 
     vsir_transformation_context_init(&ctx, program, config_flags, compile_info, message_context);
+    vsir_transform(&ctx, vsir_program_lower_modifiers);
     vsir_transform(&ctx, vsir_program_lower_instructions);
 
     if (program->shader_version.major >= 6)

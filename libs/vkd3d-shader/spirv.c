@@ -4884,8 +4884,6 @@ static uint32_t spirv_compiler_emit_src_modifier(struct spirv_compiler *compiler
             break;
         case VKD3DSPSM_NEG:
             return spirv_compiler_emit_neg(compiler, reg, write_mask, val_id);
-        case VKD3DSPSM_ABS:
-            return spirv_compiler_emit_abs(compiler, reg, write_mask, val_id);
         case VKD3DSPSM_ABSNEG:
             val_id = spirv_compiler_emit_abs(compiler, reg, write_mask, val_id);
             return spirv_compiler_emit_neg(compiler, reg, write_mask, val_id);

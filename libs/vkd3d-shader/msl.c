@@ -609,9 +609,6 @@ static void msl_print_src_with_type(struct vkd3d_string_buffer *buffer, struct m
         case VKD3DSPSM_NEG:
             vkd3d_string_buffer_printf(buffer, "-%s", str->buffer);
             break;
-        case VKD3DSPSM_ABS:
-            vkd3d_string_buffer_printf(buffer, "abs(%s)", str->buffer);
-            break;
         case VKD3DSPSM_ABSNEG:
             vkd3d_string_buffer_printf(buffer, "-abs(%s)", str->buffer);
             break;
@@ -1472,6 +1469,9 @@ static void msl_handle_instruction(struct msl_generator *gen, const struct vkd3d
 
     switch (ins->opcode)
     {
+        case VSIR_OP_ABS:
+            msl_intrinsic(gen, ins, "abs");
+            break;
         case VSIR_OP_ACOS:
             msl_intrinsic(gen, ins, "acos");
             break;

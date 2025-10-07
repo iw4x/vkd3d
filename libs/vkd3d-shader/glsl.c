@@ -426,9 +426,6 @@ static void shader_glsl_print_src(struct vkd3d_string_buffer *buffer, struct vkd
         case VKD3DSPSM_NEG:
             vkd3d_string_buffer_printf(buffer, "-%s", str->buffer);
             break;
-        case VKD3DSPSM_ABS:
-            vkd3d_string_buffer_printf(buffer, "abs(%s)", str->buffer);
-            break;
         case VKD3DSPSM_ABSNEG:
             vkd3d_string_buffer_printf(buffer, "-abs(%s)", str->buffer);
             break;
@@ -1485,6 +1482,9 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
 
     switch (ins->opcode)
     {
+        case VSIR_OP_ABS:
+            shader_glsl_intrinsic(gen, ins, "abs");
+            break;
         case VSIR_OP_ADD:
         case VSIR_OP_IADD:
             shader_glsl_binop(gen, ins, "+");
