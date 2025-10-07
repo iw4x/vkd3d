@@ -5217,7 +5217,7 @@ static void spirv_compiler_decorate_builtin(struct spirv_compiler *compiler,
 }
 
 static void spirv_compiler_emit_interpolation_decorations(struct spirv_compiler *compiler,
-        enum vkd3d_shader_component_type component_type, uint32_t id, enum vkd3d_shader_interpolation_mode mode)
+        enum vsir_data_type data_type, uint32_t id, enum vkd3d_shader_interpolation_mode mode)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
 
@@ -5226,7 +5226,7 @@ static void spirv_compiler_emit_interpolation_decorations(struct spirv_compiler 
         case VKD3DSIM_NONE:
             /* VUID-StandaloneSpirv-Flat-04744: integer or double types must be
              * decorated 'Flat' for fragment shaders. */
-            if (compiler->shader_type != VKD3D_SHADER_TYPE_PIXEL || component_type == VKD3D_SHADER_COMPONENT_FLOAT)
+            if (compiler->shader_type != VKD3D_SHADER_TYPE_PIXEL || data_type == VSIR_DATA_F32)
                 break;
             /* fall through */
         case VKD3DSIM_CONSTANT:
@@ -5712,7 +5712,6 @@ static void spirv_compiler_emit_input(struct spirv_compiler *compiler,
     unsigned int component_idx, input_component_count;
     const struct signature_element *signature_element;
     const struct shader_signature *shader_signature;
-    enum vkd3d_shader_component_type component_type;
     enum vkd3d_shader_register_type sysval_reg_type;
     const struct vkd3d_spirv_builtin *builtin;
     enum vkd3d_shader_sysval_semantic sysval;
@@ -5770,13 +5769,11 @@ static void spirv_compiler_emit_input(struct spirv_compiler *compiler,
     if (builtin)
     {
         data_type = builtin->data_type;
-        component_type = vkd3d_component_type_from_data_type(data_type);
         input_component_count = builtin->component_count;
     }
     else
     {
-        component_type = signature_element->component_type;
-        data_type = vsir_data_type_from_component_type(component_type);
+        data_type = vsir_data_type_from_component_type(signature_element->component_type);
         input_component_count = vsir_write_mask_component_count(signature_element->mask);
     }
 
@@ -5829,8 +5826,8 @@ static void spirv_compiler_emit_input(struct spirv_compiler *compiler,
         if (component_idx)
             vkd3d_spirv_build_op_decorate1(builder, input_id, SpvDecorationComponent, component_idx);
 
-        spirv_compiler_emit_interpolation_decorations(compiler, component_type, input_id,
-                signature_element->interpolation_mode);
+        spirv_compiler_emit_interpolation_decorations(compiler, data_type,
+                input_id, signature_element->interpolation_mode);
     }
 
     var_id = input_id;

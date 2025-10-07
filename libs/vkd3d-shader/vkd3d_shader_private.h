@@ -1883,42 +1883,6 @@ int hlsl_parse(const struct vkd3d_shader_compile_info *compile_info,
         struct vkd3d_shader_message_context *message_context,
         struct vsir_program *program, struct vkd3d_shader_code *reflection_data);
 
-static inline enum vkd3d_shader_component_type vkd3d_component_type_from_data_type( enum vsir_data_type data_type)
-{
-    switch (data_type)
-    {
-        case VSIR_DATA_BOOL:
-            return VKD3D_SHADER_COMPONENT_BOOL;
-        case VSIR_DATA_F16:
-            return VKD3D_SHADER_COMPONENT_FLOAT16;
-        case VSIR_DATA_F32:
-        case VSIR_DATA_SNORM:
-        case VSIR_DATA_UNORM:
-            return VKD3D_SHADER_COMPONENT_FLOAT;
-        case VSIR_DATA_F64:
-            return VKD3D_SHADER_COMPONENT_DOUBLE;
-        case VSIR_DATA_I16:
-            return VKD3D_SHADER_COMPONENT_INT16;
-        case VSIR_DATA_I32:
-            return VKD3D_SHADER_COMPONENT_INT;
-        case VSIR_DATA_I64:
-            return VKD3D_SHADER_COMPONENT_INT64;
-        case VSIR_DATA_U16:
-            return VKD3D_SHADER_COMPONENT_UINT16;
-        case VSIR_DATA_U32:
-            return VKD3D_SHADER_COMPONENT_UINT;
-        case VSIR_DATA_U64:
-            return VKD3D_SHADER_COMPONENT_UINT64;
-        case VSIR_DATA_UNUSED:
-            return VKD3D_SHADER_COMPONENT_VOID;
-        default:
-            FIXME("Unhandled data type %#x.\n", data_type);
-            /* fall-through */
-        case VSIR_DATA_MIXED:
-            return VKD3D_SHADER_COMPONENT_UINT;
-    }
-}
-
 static inline enum vsir_data_type vsir_data_type_from_component_type(enum vkd3d_shader_component_type component_type)
 {
     switch (component_type)
