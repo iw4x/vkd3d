@@ -5078,10 +5078,8 @@ static void spirv_compiler_emit_store_dst(struct spirv_compiler *compiler,
 }
 
 static void spirv_compiler_emit_store_dst_swizzled(struct spirv_compiler *compiler,
-        const struct vkd3d_shader_dst_param *dst, uint32_t val_id,
-        enum vkd3d_shader_component_type component_type, uint32_t swizzle)
+        const struct vkd3d_shader_dst_param *dst, uint32_t val_id, enum vsir_data_type data_type, uint32_t swizzle)
 {
-    enum vsir_data_type data_type = vsir_data_type_from_component_type(component_type);
     struct vkd3d_shader_dst_param typed_dst = *dst;
 
     val_id = spirv_compiler_emit_swizzle(compiler, val_id,
@@ -9000,8 +8998,7 @@ static void spirv_compiler_emit_ld(struct spirv_compiler *compiler,
     val_id = vkd3d_spirv_build_op_image_fetch(builder, type_id,
             image.image_id, coordinate_id, operands_mask, image_operands, image_operand_count);
 
-    spirv_compiler_emit_store_dst_swizzled(compiler, dst, val_id,
-            vkd3d_component_type_from_data_type(image.sampled_type), src[1].swizzle);
+    spirv_compiler_emit_store_dst_swizzled(compiler, dst, val_id, image.sampled_type, src[1].swizzle);
 }
 
 static void spirv_compiler_emit_lod(struct spirv_compiler *compiler,
@@ -9026,8 +9023,7 @@ static void spirv_compiler_emit_lod(struct spirv_compiler *compiler,
     val_id = vkd3d_spirv_build_op_image_query_lod(builder,
             type_id, image.sampled_image_id, coordinate_id);
 
-    spirv_compiler_emit_store_dst_swizzled(compiler, dst, val_id,
-            vkd3d_component_type_from_data_type(image.sampled_type), resource->swizzle);
+    spirv_compiler_emit_store_dst_swizzled(compiler, dst, val_id, image.sampled_type, resource->swizzle);
 }
 
 static void spirv_compiler_emit_sample(struct spirv_compiler *compiler,
@@ -9097,8 +9093,7 @@ static void spirv_compiler_emit_sample(struct spirv_compiler *compiler,
     val_id = vkd3d_spirv_build_op_image_sample(builder, op, sampled_type_id,
             image.sampled_image_id, coordinate_id, operands_mask, image_operands, image_operand_count);
 
-    spirv_compiler_emit_store_dst_swizzled(compiler, dst, val_id,
-            vkd3d_component_type_from_data_type(image.sampled_type), resource->swizzle);
+    spirv_compiler_emit_store_dst_swizzled(compiler, dst, val_id, image.sampled_type, resource->swizzle);
 }
 
 static void spirv_compiler_emit_sample_c(struct spirv_compiler *compiler,
@@ -9215,8 +9210,7 @@ static void spirv_compiler_emit_gather4(struct spirv_compiler *compiler,
                 operands_mask, image_operands, image_operand_count);
     }
 
-    spirv_compiler_emit_store_dst_swizzled(compiler, dst, val_id,
-            vkd3d_component_type_from_data_type(image.sampled_type), resource->swizzle);
+    spirv_compiler_emit_store_dst_swizzled(compiler, dst, val_id, image.sampled_type, resource->swizzle);
 }
 
 static uint32_t spirv_compiler_emit_raw_structured_addressing(
@@ -9554,7 +9548,7 @@ static void spirv_compiler_emit_ld_uav_typed(struct spirv_compiler *compiler,
         val_id = vkd3d_spirv_build_op_load(builder, type_id, ptr_id, SpvMemoryAccessMaskNone);
 
         spirv_compiler_emit_store_dst_swizzled(compiler, dst, val_id,
-                vkd3d_component_type_from_data_type(resource_symbol->info.resource.sampled_type), src[1].swizzle);
+                resource_symbol->info.resource.sampled_type, src[1].swizzle);
     }
     else
     {
@@ -9566,8 +9560,7 @@ static void spirv_compiler_emit_ld_uav_typed(struct spirv_compiler *compiler,
         val_id = vkd3d_spirv_build_op_image_read(builder, type_id,
                 image.image_id, coordinate_id, SpvImageOperandsMaskNone, NULL, 0);
 
-        spirv_compiler_emit_store_dst_swizzled(compiler, dst, val_id,
-                vkd3d_component_type_from_data_type(image.sampled_type), src[1].swizzle);
+        spirv_compiler_emit_store_dst_swizzled(compiler, dst, val_id, image.sampled_type, src[1].swizzle);
     }
 }
 
