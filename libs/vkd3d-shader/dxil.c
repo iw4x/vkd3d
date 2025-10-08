@@ -7126,7 +7126,7 @@ static void sm6_parser_emit_cast(struct sm6_parser *dxil, const struct dxil_reco
 
 struct sm6_cmp_info
 {
-    enum vkd3d_shader_opcode handler_idx;
+    enum vkd3d_shader_opcode opcode;
     bool src_swap;
     uint32_t type_flags;
 };
@@ -7228,7 +7228,7 @@ static void sm6_parser_emit_cmp2(struct sm6_parser *sm6, const struct dxil_recor
                 "Type mismatch in comparison operation arguments.");
     }
 
-    if (!(cmp = sm6_map_cmp2_op(code)) || !cmp->handler_idx || cmp->handler_idx == VSIR_OP_INVALID)
+    if (!(cmp = sm6_map_cmp2_op(code)) || !cmp->opcode || cmp->opcode == VSIR_OP_INVALID)
     {
         FIXME("Unhandled operation %"PRIu64".\n", code);
         vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
@@ -7236,7 +7236,7 @@ static void sm6_parser_emit_cmp2(struct sm6_parser *sm6, const struct dxil_recor
         return;
     }
 
-    vsir_instruction_init(ins, &sm6->p.location, cmp->handler_idx);
+    vsir_instruction_init(ins, &sm6->p.location, cmp->opcode);
 
     flags = (record->operand_count > i) ? record->operands[i] : 0;
     silence_warning = false;
