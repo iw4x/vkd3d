@@ -5225,16 +5225,16 @@ static void sm6_parser_emit_dx_cbuffer_load(struct sm6_parser *sm6, enum dx_intr
     instruction_dst_param_init_ssa_vector(ins, sm6_type_max_vector_size(type), sm6);
 }
 
-static void sm6_parser_dcl_register_builtin(struct sm6_parser *sm6, enum vkd3d_shader_opcode handler_idx,
+static void sm6_parser_dcl_register_builtin(struct sm6_parser *dxil, enum vkd3d_shader_opcode opcode,
         enum vkd3d_shader_register_type reg_type, enum vsir_data_type data_type, unsigned int component_count)
 {
     struct vkd3d_shader_dst_param *dst_param;
     struct vkd3d_shader_instruction *ins;
 
-    if (!bitmap_is_set(sm6->io_regs_declared, reg_type))
+    if (!bitmap_is_set(dxil->io_regs_declared, reg_type))
     {
-        bitmap_set(sm6->io_regs_declared, reg_type);
-        if (!(ins = sm6_parser_add_instruction(sm6, handler_idx)))
+        bitmap_set(dxil->io_regs_declared, reg_type);
+        if (!(ins = sm6_parser_add_instruction(dxil, opcode)))
             return;
         dst_param = &ins->declaration.dst;
         vsir_register_init(&dst_param->reg, reg_type, data_type, 0);
