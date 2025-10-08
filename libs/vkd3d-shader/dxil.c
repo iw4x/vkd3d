@@ -5396,21 +5396,21 @@ static void sm6_parser_emit_dx_dot(struct sm6_parser *sm6, enum dx_intrinsic_opc
     struct vkd3d_shader_src_param *src_params;
     struct vkd3d_shader_instruction *ins;
     struct vkd3d_shader_register regs[2];
-    enum vkd3d_shader_opcode handler_idx;
+    enum vkd3d_shader_opcode opcode;
     unsigned int component_count;
 
     switch (op)
     {
         case DX_DOT2:
-            handler_idx = VSIR_OP_DP2;
+            opcode = VSIR_OP_DP2;
             component_count = 2;
             break;
         case DX_DOT3:
-            handler_idx = VSIR_OP_DP3;
+            opcode = VSIR_OP_DP3;
             component_count = 3;
             break;
         case DX_DOT4:
-            handler_idx = VSIR_OP_DP4;
+            opcode = VSIR_OP_DP4;
             component_count = 4;
             break;
         default:
@@ -5423,7 +5423,7 @@ static void sm6_parser_emit_dx_dot(struct sm6_parser *sm6, enum dx_intrinsic_opc
         return;
 
     ins = state->ins;
-    vsir_instruction_init(ins, &sm6->p.location, handler_idx);
+    vsir_instruction_init(ins, &sm6->p.location, opcode);
     if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
         return;
     src_param_init_vector_from_reg(&src_params[0], &regs[0]);
