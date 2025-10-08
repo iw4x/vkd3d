@@ -2186,15 +2186,30 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
         for (i = 0; i < ins->src_count; ++i)
         {
             struct vkd3d_shader_src_param *src = &ins->src[i];
+            enum vkd3d_shader_opcode new_opcode = VSIR_OP_NOP;
 
             /* TODO: support other modifiers, including destination modifiers. */
-            if (src->modifiers == VKD3DSPSM_ABS)
+            switch (src->modifiers)
+            {
+                case VKD3DSPSM_ABS:
+                    new_opcode = VSIR_OP_ABS;
+                    break;
+
+                case VKD3DSPSM_NEG:
+                    new_opcode = data_type_is_integer(src->reg.data_type) ? VSIR_OP_INEG : VSIR_OP_NEG;
+                    break;
+
+                default:
+                    continue;
+            }
+
+            if (new_opcode != VSIR_OP_NOP)
             {
                 if (!(new_ins = vsir_program_iterator_insert_before(&it, &new_it, 1)))
                     return VKD3D_ERROR_OUT_OF_MEMORY;
                 ins = vsir_program_iterator_current(&it);
 
-                if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_ABS, 1, 1))
+                if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, new_opcode, 1, 1))
                 {
                     vkd3d_shader_instruction_make_nop(new_ins);
                     return VKD3D_ERROR_OUT_OF_MEMORY;

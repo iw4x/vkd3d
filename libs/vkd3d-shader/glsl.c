@@ -1605,6 +1605,7 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
             shader_glsl_relop(gen, ins, "!=", "notEqual");
             break;
         case VSIR_OP_INEG:
+        case VSIR_OP_NEG:
             shader_glsl_unary_op(gen, ins, "-");
             break;
         case VSIR_OP_ISHL:
