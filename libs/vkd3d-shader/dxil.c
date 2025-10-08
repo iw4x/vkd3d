@@ -10124,11 +10124,11 @@ static enum vkd3d_result sm6_parser_emit_thread_group(struct sm6_parser *sm6, co
     return VKD3D_OK;
 }
 
-static void sm6_parser_emit_dcl_count(struct sm6_parser *sm6, enum vkd3d_shader_opcode handler_idx, unsigned int count)
+static void sm6_parser_emit_dcl_count(struct sm6_parser *dxil, enum vkd3d_shader_opcode opcode, unsigned int count)
 {
     struct vkd3d_shader_instruction *ins;
 
-    if (!(ins = sm6_parser_add_instruction(sm6, handler_idx)))
+    if (!(ins = sm6_parser_add_instruction(dxil, opcode)))
         return;
     ins->declaration.count = count;
 }
