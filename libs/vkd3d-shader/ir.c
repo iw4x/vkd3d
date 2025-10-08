@@ -7023,12 +7023,10 @@ static enum vkd3d_result vsir_cfg_structure_list_emit_jump(struct vsir_cfg *cfg,
             vkd3d_unreachable();
     }
 
-    if (!shader_instruction_array_reserve(&target->instructions, target->instructions.count + 2))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-
     if (jump->needs_launcher)
     {
-        ins = shader_instruction_array_append(&target->instructions);
+        if (!(ins = shader_instruction_array_append(&target->instructions)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
         if (!vsir_instruction_init_with_params(cfg->program, ins, &no_loc, VSIR_OP_MOV, 1, 1))
         {
             vkd3d_shader_instruction_make_nop(ins);
@@ -7039,7 +7037,8 @@ static enum vkd3d_result vsir_cfg_structure_list_emit_jump(struct vsir_cfg *cfg,
         src_param_init_const_uint(&ins->src[0], jump_target);
     }
 
-    ins = shader_instruction_array_append(&target->instructions);
+    if (!(ins = shader_instruction_array_append(&target->instructions)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
     if (!vsir_instruction_init_with_params(cfg->program, ins, &no_loc, opcode, 0, !!jump->condition))
     {
         vkd3d_shader_instruction_make_nop(ins);
