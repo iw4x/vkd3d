@@ -6860,10 +6860,8 @@ static enum vkd3d_result vsir_cfg_structure_list_emit_loop(struct vsir_cfg *cfg,
     if ((ret = vsir_cfg_structure_list_emit(cfg, &loop->body, loop->idx)) < 0)
         return ret;
 
-    if (!shader_instruction_array_reserve(&target->instructions, target->instructions.count + 5))
+    if (!(ins = shader_instruction_array_append(&target->instructions)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
-
-    ins = shader_instruction_array_append(&target->instructions);
     vsir_instruction_init(ins, &no_loc, VSIR_OP_ENDLOOP);
 
     /* Add a trampoline to implement multilevel jumping depending on the stored
@@ -6878,7 +6876,8 @@ static enum vkd3d_result vsir_cfg_structure_list_emit_loop(struct vsir_cfg *cfg,
          * we have to reach an outer loop, so we keep breaking. */
         const unsigned int inner_break_target = loop->idx << 1;
 
-        ins = shader_instruction_array_append(&target->instructions);
+        if (!(ins = shader_instruction_array_append(&target->instructions)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
         if (!vsir_instruction_init_with_params(cfg->program, ins, &no_loc, VSIR_OP_IEQ, 1, 2))
         {
             vkd3d_shader_instruction_make_nop(ins);
@@ -6891,7 +6890,8 @@ static enum vkd3d_result vsir_cfg_structure_list_emit_loop(struct vsir_cfg *cfg,
         src_param_init_temp_uint(&ins->src[0], target->jump_target_temp_idx);
         src_param_init_const_uint(&ins->src[1], outer_continue_target);
 
-        ins = shader_instruction_array_append(&target->instructions);
+        if (!(ins = shader_instruction_array_append(&target->instructions)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
         if (!vsir_instruction_init_with_params(cfg->program, ins, &no_loc, VSIR_OP_CONTINUEP, 0, 1))
         {
             vkd3d_shader_instruction_make_nop(ins);
@@ -6913,7 +6913,8 @@ static enum vkd3d_result vsir_cfg_structure_list_emit_loop(struct vsir_cfg *cfg,
         src_param_init_temp_uint(&ins->src[0], target->jump_target_temp_idx);
         src_param_init_const_uint(&ins->src[1], inner_break_target);
 
-        ins = shader_instruction_array_append(&target->instructions);
+        if (!(ins = shader_instruction_array_append(&target->instructions)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
         if (!vsir_instruction_init_with_params(cfg->program, ins, &no_loc, VSIR_OP_BREAKP, 0, 1))
         {
             vkd3d_shader_instruction_make_nop(ins);
