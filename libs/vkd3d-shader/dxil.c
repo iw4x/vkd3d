@@ -5043,18 +5043,18 @@ static void sm6_parser_emit_dx_atomic_binop(struct sm6_parser *sm6, enum dx_intr
     unsigned int i, coord_idx, coord_count = 1;
     struct vkd3d_shader_dst_param *dst_params;
     struct vkd3d_shader_src_param *src_params;
-    enum vkd3d_shader_opcode handler_idx;
     struct vkd3d_shader_instruction *ins;
     const struct sm6_value *resource;
     struct vkd3d_shader_register reg;
+    enum vkd3d_shader_opcode opcode;
 
     resource = operands[0];
     if (!sm6_value_validate_is_handle(resource, sm6))
         return;
 
     if (is_cmp_xchg)
-        handler_idx = VSIR_OP_IMM_ATOMIC_CMP_EXCH;
-    else if ((handler_idx = map_dx_atomic_binop(operands[1], sm6)) == VSIR_OP_INVALID)
+        opcode = VSIR_OP_IMM_ATOMIC_CMP_EXCH;
+    else if ((opcode = map_dx_atomic_binop(operands[1], sm6)) == VSIR_OP_INVALID)
         return;
 
     coord_idx = 2 - is_cmp_xchg;
@@ -5076,13 +5076,13 @@ static void sm6_parser_emit_dx_atomic_binop(struct sm6_parser *sm6, enum dx_intr
         {
             WARN("Ignoring unexpected operand.\n");
             vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
-                    "Ignoring an unexpected defined operand value for atomic instruction %u.", handler_idx);
+                    "Ignoring an unexpected defined operand value for atomic instruction %u.", opcode);
             break;
         }
     }
 
     ins = state->ins;
-    vsir_instruction_init(ins, &sm6->p.location, handler_idx);
+    vsir_instruction_init(ins, &sm6->p.location, opcode);
 
     if (!(src_params = instruction_src_params_alloc(ins, 2 + is_cmp_xchg, sm6)))
         return;
