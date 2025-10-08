@@ -8329,12 +8329,14 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
             /* We generate the following code:
              *
              * mul sr0, FOG_SCALE, vFOG.x
-             * exp_sat srFACTOR, -sr0
+             * neg sr1, sr0
+             * exp_sat srFACTOR, sr1
              */
-            if (!(ins = vsir_program_iterator_insert_before_and_move(it, 4)))
+            if (!(ins = vsir_program_iterator_insert_before_and_move(it, 5)))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
 
             ssa_temp = program->ssa_count++;
+            ssa_temp2 = program->ssa_count++;
 
             vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MUL, 1, 2);
             dst_param_init_ssa_float(&ins->dst[0], ssa_temp);
@@ -8345,11 +8347,15 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
             ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
             ins = vsir_program_iterator_next(it);
 
+            vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_NEG, 1, 1);
+            dst_param_init_ssa_float(&ins->dst[0], ssa_temp2);
+            src_param_init_ssa_float(&ins->src[0], ssa_temp);
+            ins = vsir_program_iterator_next(it);
+
             vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_EXP, 1, 1);
             dst_param_init_ssa_float(&ins->dst[0], ssa_factor);
             ins->dst[0].modifiers = VKD3DSPDM_SATURATE;
-            src_param_init_ssa_float(&ins->src[0], ssa_temp);
-            ins->src[0].modifiers = VKD3DSPSM_NEG;
+            src_param_init_ssa_float(&ins->src[0], ssa_temp2);
             ins = vsir_program_iterator_next(it);
             break;
 
