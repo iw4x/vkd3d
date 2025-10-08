@@ -299,6 +299,7 @@ const char *vsir_opcode_get_name(enum vkd3d_shader_opcode op, const char *error)
         [VSIR_OP_MOVC                            ] = "movc",
         [VSIR_OP_MSAD                            ] = "msad",
         [VSIR_OP_MUL                             ] = "mul",
+        [VSIR_OP_NEG                             ] = "neg",
         [VSIR_OP_NEO                             ] = "ne_ord",
         [VSIR_OP_NEU                             ] = "ne",
         [VSIR_OP_NOP                             ] = "nop",
@@ -8732,6 +8733,7 @@ static bool vsir_src_is_masked(enum vkd3d_shader_opcode opcode, unsigned int src
         case VSIR_OP_MOVC:
         case VSIR_OP_MSAD: /* FIXME: Is this correct? */
         case VSIR_OP_MUL:
+        case VSIR_OP_NEG:
         case VSIR_OP_NEO:
         case VSIR_OP_NEU:
         case VSIR_OP_NOT:
@@ -12813,6 +12815,7 @@ static const struct vsir_validator_instruction_desc vsir_validator_instructions[
     [VSIR_OP_MAX] =                              {1,   2, vsir_validate_float_elementwise_operation},
     [VSIR_OP_MIN] =                              {1,   2, vsir_validate_float_elementwise_operation},
     [VSIR_OP_MUL] =                              {1,   2, vsir_validate_float_elementwise_operation},
+    [VSIR_OP_NEG] =                              {1,   1, vsir_validate_float_or_double_elementwise_operation},
     [VSIR_OP_NEO] =                              {1,   2, vsir_validate_float_comparison_operation},
     [VSIR_OP_NEU] =                              {1,   2, vsir_validate_float_comparison_operation},
     [VSIR_OP_NOP] =                              {0,   0, vsir_validate_nop},
@@ -13232,6 +13235,7 @@ static bool vsir_instruction_has_side_effects(const struct vkd3d_shader_instruct
         case VSIR_OP_MOVC:
         case VSIR_OP_MSAD:
         case VSIR_OP_MUL:
+        case VSIR_OP_NEG:
         case VSIR_OP_NEO:
         case VSIR_OP_NEU:
         case VSIR_OP_NOP:

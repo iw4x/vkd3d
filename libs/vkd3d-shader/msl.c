@@ -1624,6 +1624,7 @@ static void msl_handle_instruction(struct msl_generator *gen, const struct vkd3d
             msl_relop(gen, ins, "!=");
             break;
         case VSIR_OP_INEG:
+        case VSIR_OP_NEG:
             msl_unary_op(gen, ins, "-");
             break;
         case VSIR_OP_ITOF:

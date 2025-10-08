@@ -503,6 +503,7 @@ enum vkd3d_shader_opcode
     VSIR_OP_MOVC,
     VSIR_OP_MSAD,
     VSIR_OP_MUL,
+    VSIR_OP_NEG,
     VSIR_OP_NEO,
     VSIR_OP_NEU,
     VSIR_OP_NOP,

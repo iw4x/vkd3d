@@ -4511,7 +4511,7 @@ static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, const struct dxil_
 }
 
 static enum vkd3d_shader_opcode map_binary_op(uint64_t code, const struct sm6_type *type_a,
-        const struct sm6_type *type_b, struct sm6_parser *sm6)
+        const struct sm6_type *type_b, struct sm6_parser *sm6, enum vkd3d_shader_opcode *aux_opcode)
 {
     bool is_int = sm6_type_is_bool_i16_i32_i64(type_a);
     bool is_double = sm6_type_is_double(type_a);
@@ -4534,12 +4534,17 @@ static enum vkd3d_shader_opcode map_binary_op(uint64_t code, const struct sm6_ty
                 "Type mismatch in binary operation arguments.");
     }
 
+    *aux_opcode = VSIR_OP_NOP;
+
     switch (code)
     {
         case BINOP_ADD:
-        case BINOP_SUB:
-            /* NEG is applied later for subtraction. */
             op = is_int ? VSIR_OP_IADD : (is_double ? VSIR_OP_DADD : VSIR_OP_ADD);
+            is_valid = !is_bool;
+            break;
+        case BINOP_SUB:
+            op = is_int ? VSIR_OP_IADD : (is_double ? VSIR_OP_DADD : VSIR_OP_ADD);
+            *aux_opcode = is_int ? VSIR_OP_INEG : VSIR_OP_NEG;
             is_valid = !is_bool;
             break;
         case BINOP_AND:
@@ -4603,12 +4608,13 @@ static enum vkd3d_shader_opcode map_binary_op(uint64_t code, const struct sm6_ty
 }
 
 static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_record *record,
-        struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
+        struct sm6_block *code_block, struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
 {
+    enum vkd3d_shader_opcode opcode, aux_opcode;
     struct vkd3d_shader_src_param *src_params;
-    enum vkd3d_shader_opcode opcode;
+    struct vkd3d_shader_dst_param *dst_params;
+    uint32_t type_flags = 0, aux_id = 0;
     const struct sm6_value *a, *b;
-    uint32_t type_flags = 0;
     uint64_t code, flags;
     bool silence_warning;
     unsigned int i = 0;
@@ -4624,8 +4630,27 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_reco
         return;
 
     code = record->operands[i++];
-    if ((opcode = map_binary_op(code, a->type, b->type, sm6)) == VSIR_OP_INVALID)
+    if ((opcode = map_binary_op(code, a->type, b->type, sm6, &aux_opcode)) == VSIR_OP_INVALID)
         return;
+
+    if (aux_opcode != VSIR_OP_NOP)
+    {
+        vsir_instruction_init(ins, &sm6->p.location, aux_opcode);
+
+        if (!(dst_params = instruction_dst_params_alloc(ins, 1, sm6))
+                || !(src_params = instruction_src_params_alloc(ins, 1, sm6)))
+            return;
+
+        aux_id = sm6_parser_alloc_ssa_id(sm6);
+
+        src_param_init_from_value(&src_params[0], b, DXIL_TYPE_SIGNED, sm6);
+
+        dst_param_init(&dst_params[0]);
+        register_init_with_id(&dst_params[0].reg, VKD3DSPR_SSA, src_params[0].reg.data_type, aux_id);
+
+        ++ins;
+        ++code_block->instruction_count;
+    }
 
     vsir_instruction_init(ins, &sm6->p.location, opcode);
 
@@ -4676,10 +4701,18 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_reco
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
         return;
+
     src_param_init_from_value(&src_params[0], a, type_flags, sm6);
-    src_param_init_from_value(&src_params[1], b, type_flags, sm6);
-    if (code == BINOP_SUB)
-        src_params[1].modifiers = VKD3DSPSM_NEG;
+
+    if (aux_opcode == VSIR_OP_NOP)
+    {
+        src_param_init_from_value(&src_params[1], b, type_flags, sm6);
+    }
+    else
+    {
+        src_param_init(&src_params[1]);
+        register_init_with_id(&src_params[1].reg, VKD3DSPR_SSA, src_params[0].reg.data_type, aux_id);
+    }
 
     dst->type = a->type;
 
@@ -8345,7 +8378,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6, const 
                 break;
             }
             case FUNC_CODE_INST_BINOP:
-                sm6_parser_emit_binop(sm6, record, ins, dst);
+                sm6_parser_emit_binop(sm6, record, code_block, ins, dst);
                 break;
             case FUNC_CODE_INST_BR:
                 sm6_parser_emit_br(sm6, record, function, code_block, ins);
