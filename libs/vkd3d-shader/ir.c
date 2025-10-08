@@ -8292,28 +8292,34 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
         case VKD3D_SHADER_FOG_FRAGMENT_LINEAR:
             /* We generate the following code:
              *
-             * add sr0, FOG_END, -vFOG.x
-             * mul_sat srFACTOR, sr0, FOG_SCALE
+             * neg sr0, vFOG.x
+             * add sr1, FOG_END, sr0
+             * mul_sat srFACTOR, sr1, FOG_SCALE
              */
-            if (!(ins = vsir_program_iterator_insert_before_and_move(it, 4)))
+            if (!(ins = vsir_program_iterator_insert_before_and_move(it, 5)))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
 
             ssa_temp = program->ssa_count++;
+            ssa_temp2 = program->ssa_count++;
+
+            vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_NEG, 1, 1);
+            dst_param_init_ssa_float(&ins->dst[0], ssa_temp);
+            vsir_src_param_init(&ins->src[0], VKD3DSPR_INPUT, VSIR_DATA_F32, 1);
+            ins->src[0].reg.idx[0].offset = fog_signature_idx;
+            ins->src[0].reg.dimension = VSIR_DIMENSION_VEC4;
+            ins->src[0].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+            ins = vsir_program_iterator_next(it);
 
             vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_ADD, 1, 2);
-            dst_param_init_ssa_float(&ins->dst[0], ssa_temp);
+            dst_param_init_ssa_float(&ins->dst[0], ssa_temp2);
             src_param_init_parameter(&ins->src[0], VKD3D_SHADER_PARAMETER_NAME_FOG_END, VSIR_DATA_F32);
-            vsir_src_param_init(&ins->src[1], VKD3DSPR_INPUT, VSIR_DATA_F32, 1);
-            ins->src[1].reg.idx[0].offset = fog_signature_idx;
-            ins->src[1].reg.dimension = VSIR_DIMENSION_VEC4;
-            ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
-            ins->src[1].modifiers = VKD3DSPSM_NEG;
+            src_param_init_ssa_float(&ins->src[1], ssa_temp);
             ins = vsir_program_iterator_next(it);
 
             vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MUL, 1, 2);
             dst_param_init_ssa_float(&ins->dst[0], ssa_factor);
             ins->dst[0].modifiers = VKD3DSPDM_SATURATE;
-            src_param_init_ssa_float(&ins->src[0], ssa_temp);
+            src_param_init_ssa_float(&ins->src[0], ssa_temp2);
             src_param_init_parameter(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_FOG_SCALE, VSIR_DATA_F32);
             ins = vsir_program_iterator_next(it);
 
