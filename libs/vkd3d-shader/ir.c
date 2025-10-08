@@ -3982,6 +3982,19 @@ static void cf_flattener_set_error(struct cf_flattener *flattener, enum vkd3d_re
     flattener->status = error;
 }
 
+static struct vkd3d_shader_instruction *cf_flattener_instruction_append(struct cf_flattener *flattener)
+{
+    struct vkd3d_shader_instruction *ins;
+
+    if (!(ins = shader_instruction_array_append(&flattener->instructions)))
+    {
+        ERR("Failed to allocate instructions.\n");
+        cf_flattener_set_error(flattener, VKD3D_ERROR_OUT_OF_MEMORY);
+        return NULL;
+    }
+    return ins;
+}
+
 static bool cf_flattener_copy_instruction(struct cf_flattener *flattener,
         const struct vkd3d_shader_instruction *instruction)
 {
@@ -3990,7 +4003,7 @@ static bool cf_flattener_copy_instruction(struct cf_flattener *flattener,
     if (instruction->opcode == VSIR_OP_NOP)
         return true;
 
-    if (!(dst_ins = shader_instruction_array_append(&flattener->instructions)))
+    if (!(dst_ins = cf_flattener_instruction_append(flattener)))
         return false;
 
     *dst_ins = *instruction;
@@ -4021,7 +4034,7 @@ static void cf_flattener_emit_label(struct cf_flattener *flattener, unsigned int
 {
     struct vkd3d_shader_instruction *ins;
 
-    if (!(ins = shader_instruction_array_append(&flattener->instructions)))
+    if (!(ins = cf_flattener_instruction_append(flattener)))
         return;
     if (!vsir_instruction_init_label(ins, &flattener->location, label_id, flattener->program))
     {
@@ -4039,7 +4052,7 @@ static struct vkd3d_shader_src_param *cf_flattener_emit_branch(struct cf_flatten
     struct vkd3d_shader_src_param *src_params, *false_branch_param;
     struct vkd3d_shader_instruction *ins;
 
-    if (!(ins = shader_instruction_array_append(&flattener->instructions)))
+    if (!(ins = cf_flattener_instruction_append(flattener)))
         return NULL;
     vsir_instruction_init(ins, &flattener->location, VSIR_OP_BRANCH);
 
@@ -4189,13 +4202,6 @@ static enum vkd3d_result cf_flattener_iterate_instruction_array(struct cf_flatte
     instructions = &program->instructions;
     is_hull_shader = program->shader_version.type == VKD3D_SHADER_TYPE_HULL;
     after_declarations_section = is_hull_shader;
-
-    if (!shader_instruction_array_reserve(&flattener->instructions, instructions->count + 1))
-    {
-        ERR("Failed to allocate instructions.\n");
-        cf_flattener_set_error(flattener, VKD3D_ERROR_OUT_OF_MEMORY);
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-    }
 
     it = vsir_program_iterator(instructions);
     for (instruction = vsir_program_iterator_head(&it); instruction; instruction = vsir_program_iterator_next(&it))
