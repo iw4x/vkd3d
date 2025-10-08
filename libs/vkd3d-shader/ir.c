@@ -8296,7 +8296,7 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
              * add sr1, FOG_END, sr0
              * mul_sat srFACTOR, sr1, FOG_SCALE
              */
-            if (!(ins = vsir_program_iterator_insert_before_and_move(it, 5)))
+            if (!(ins = vsir_program_iterator_insert_before_and_move(it, 6)))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
 
             ssa_temp = program->ssa_count++;
@@ -8332,7 +8332,7 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
              * neg sr1, sr0
              * exp_sat srFACTOR, sr1
              */
-            if (!(ins = vsir_program_iterator_insert_before_and_move(it, 5)))
+            if (!(ins = vsir_program_iterator_insert_before_and_move(it, 6)))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
 
             ssa_temp = program->ssa_count++;
@@ -8367,7 +8367,7 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
              * neg sr2, sr1
              * exp_sat srFACTOR, sr2
              */
-            if (!(ins = vsir_program_iterator_insert_before_and_move(it, 6)))
+            if (!(ins = vsir_program_iterator_insert_before_and_move(it, 7)))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
 
             ssa_temp = program->ssa_count++;
@@ -8407,21 +8407,28 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
 
     /* We generate the following code:
      *
-     * add sr0, FRAG_COLOUR, -FOG_COLOUR
-     * mad oC0, sr0, srFACTOR, FOG_COLOUR
+     * neg sr0, FOG_COLOUR
+     * add sr1, FRAG_COLOUR, sr0
+     * mad oC0, sr1, srFACTOR, FOG_COLOUR
      */
+    ssa_temp = program->ssa_count++;
+    ssa_temp2 = program->ssa_count++;
+
+    vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_NEG, 1, 1);
+    dst_param_init_ssa_float4(&ins->dst[0], ssa_temp);
+    src_param_init_parameter_vec4(&ins->src[0], VKD3D_SHADER_PARAMETER_NAME_FOG_COLOUR, VSIR_DATA_F32);
+    ins = vsir_program_iterator_next(it);
 
     vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_ADD, 1, 2);
-    dst_param_init_ssa_float4(&ins->dst[0], program->ssa_count++);
+    dst_param_init_ssa_float4(&ins->dst[0], ssa_temp2);
     src_param_init_temp_float4(&ins->src[0], colour_temp);
-    src_param_init_parameter_vec4(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_FOG_COLOUR, VSIR_DATA_F32);
-    ins->src[1].modifiers = VKD3DSPSM_NEG;
+    src_param_init_ssa_float4(&ins->src[1], ssa_temp);
     ins = vsir_program_iterator_next(it);
 
     vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MAD, 1, 3);
     dst_param_init_output(&ins->dst[0], VSIR_DATA_F32, colour_signature_idx,
             program->output_signature.elements[colour_signature_idx].mask);
-    src_param_init_ssa_float4(&ins->src[0], program->ssa_count - 1);
+    src_param_init_ssa_float4(&ins->src[0], ssa_temp2);
     src_param_init_ssa_float(&ins->src[1], ssa_factor);
     src_param_init_parameter_vec4(&ins->src[2], VKD3D_SHADER_PARAMETER_NAME_FOG_COLOUR, VSIR_DATA_F32);
     ins = vsir_program_iterator_next(it);

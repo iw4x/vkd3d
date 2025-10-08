@@ -423,9 +423,6 @@ static void shader_glsl_print_src(struct vkd3d_string_buffer *buffer, struct vkd
     {
         case VKD3DSPSM_NONE:
             break;
-        case VKD3DSPSM_NEG:
-            vkd3d_string_buffer_printf(buffer, "-%s", str->buffer);
-            break;
         case VKD3DSPSM_ABSNEG:
             vkd3d_string_buffer_printf(buffer, "-abs(%s)", str->buffer);
             break;
