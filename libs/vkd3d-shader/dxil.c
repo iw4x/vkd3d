@@ -4606,7 +4606,7 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_reco
         struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
 {
     struct vkd3d_shader_src_param *src_params;
-    enum vkd3d_shader_opcode handler_idx;
+    enum vkd3d_shader_opcode opcode;
     const struct sm6_value *a, *b;
     uint32_t type_flags = 0;
     uint64_t code, flags;
@@ -4624,15 +4624,15 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_reco
         return;
 
     code = record->operands[i++];
-    if ((handler_idx = map_binary_op(code, a->type, b->type, sm6)) == VSIR_OP_INVALID)
+    if ((opcode = map_binary_op(code, a->type, b->type, sm6)) == VSIR_OP_INVALID)
         return;
 
-    vsir_instruction_init(ins, &sm6->p.location, handler_idx);
+    vsir_instruction_init(ins, &sm6->p.location, opcode);
 
     flags = (record->operand_count > i) ? record->operands[i] : 0;
     silence_warning = false;
 
-    switch (handler_idx)
+    switch (opcode)
     {
         case VSIR_OP_ADD:
         case VSIR_OP_MUL:
@@ -4683,7 +4683,7 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_reco
 
     dst->type = a->type;
 
-    if (handler_idx == VSIR_OP_ISHL || handler_idx == VSIR_OP_ISHR || handler_idx == VSIR_OP_USHR)
+    if (opcode == VSIR_OP_ISHL || opcode == VSIR_OP_ISHR || opcode == VSIR_OP_USHR)
     {
         /* DXC emits AND instructions where necessary to mask shift counts.
          * Shift binops do not imply masking the shift as the TPF equivalents
