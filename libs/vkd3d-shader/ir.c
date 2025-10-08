@@ -8285,7 +8285,7 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
     struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(it);
     struct vkd3d_shader_location loc = ins->location;
     uint32_t ssa_factor = program->ssa_count++;
-    uint32_t ssa_temp, ssa_temp2;
+    uint32_t ssa_temp, ssa_temp2, ssa_temp3;
 
     switch (mode)
     {
@@ -8364,13 +8364,15 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
              *
              * mul sr0, FOG_SCALE, vFOG.x
              * mul sr1, sr0, sr0
-             * exp_sat srFACTOR, -sr1
+             * neg sr2, sr1
+             * exp_sat srFACTOR, sr2
              */
-            if (!(ins = vsir_program_iterator_insert_before_and_move(it, 5)))
+            if (!(ins = vsir_program_iterator_insert_before_and_move(it, 6)))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
 
             ssa_temp = program->ssa_count++;
             ssa_temp2 = program->ssa_count++;
+            ssa_temp3 = program->ssa_count++;
 
             vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MUL, 1, 2);
             dst_param_init_ssa_float(&ins->dst[0], ssa_temp);
@@ -8387,11 +8389,15 @@ static enum vkd3d_result insert_fragment_fog_before_ret(struct vsir_program *pro
             src_param_init_ssa_float(&ins->src[1], ssa_temp);
             ins = vsir_program_iterator_next(it);
 
+            vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_NEG, 1, 1);
+            dst_param_init_ssa_float(&ins->dst[0], ssa_temp3);
+            src_param_init_ssa_float(&ins->src[0], ssa_temp2);
+            ins = vsir_program_iterator_next(it);
+
             vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_EXP, 1, 1);
             dst_param_init_ssa_float(&ins->dst[0], ssa_factor);
             ins->dst[0].modifiers = VKD3DSPDM_SATURATE;
-            src_param_init_ssa_float(&ins->src[0], ssa_temp2);
-            ins->src[0].modifiers = VKD3DSPSM_NEG;
+            src_param_init_ssa_float(&ins->src[0], ssa_temp3);
             ins = vsir_program_iterator_next(it);
             break;
 
