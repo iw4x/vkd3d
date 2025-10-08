@@ -2430,9 +2430,9 @@ static unsigned int sm6_parser_alloc_ssa_id(struct sm6_parser *sm6)
 }
 
 static void instruction_init_with_resource(struct vkd3d_shader_instruction *ins,
-        enum vkd3d_shader_opcode handler_idx, const struct sm6_value *resource, struct sm6_parser *sm6)
+        enum vkd3d_shader_opcode opcode, const struct sm6_value *resource, struct sm6_parser *dxil)
 {
-    vsir_instruction_init(ins, &sm6->p.location, handler_idx);
+    vsir_instruction_init(ins, &dxil->p.location, opcode);
     ins->resource_type = resource->u.handle.d->resource_type;
     ins->raw = resource->u.handle.d->kind == RESOURCE_KIND_RAWBUFFER;
     ins->structured = resource->u.handle.d->kind == RESOURCE_KIND_STRUCTUREDBUFFER;
