@@ -4467,6 +4467,8 @@ static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, const struct dxil_
     /* It's currently not possible to specify an atomic ordering in HLSL, and it defaults to seq_cst. */
     if ((code = record->operands[i++]) != ORDERING_SEQCST)
         FIXME("Unhandled atomic ordering %"PRIu64".\n", code);
+    else
+        WARN("Ignoring atomic ordering %"PRIu64".\n", code);
 
     if ((code = record->operands[i]) != 1)
         WARN("Ignoring synchronisation scope %"PRIu64".\n", code);
@@ -4484,7 +4486,7 @@ static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, const struct dxil_
 
     ins = state->ins;
     vsir_instruction_init(ins, &sm6->p.location, op);
-    ins->flags = is_volatile ? VKD3DARF_SEQ_CST | VKD3DARF_VOLATILE : VKD3DARF_SEQ_CST;
+    ins->flags = is_volatile ? VKD3DARF_VOLATILE : 0;
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
         return;
@@ -7326,6 +7328,8 @@ static void sm6_parser_emit_cmpxchg(struct sm6_parser *sm6, const struct dxil_re
     /* It's currently not possible to specify an atomic ordering in HLSL, and it defaults to seq_cst. */
     if (success_ordering != ORDERING_SEQCST)
         FIXME("Unhandled success ordering %"PRIu64".\n", success_ordering);
+    else
+        WARN("Ignoring success ordering %"PRIu64".\n", success_ordering);
     if (success_ordering != failure_ordering)
         FIXME("Unhandled failure ordering %"PRIu64".\n", failure_ordering);
 
@@ -7333,7 +7337,7 @@ static void sm6_parser_emit_cmpxchg(struct sm6_parser *sm6, const struct dxil_re
         FIXME("Ignoring weak cmpxchg.\n");
 
     vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_IMM_ATOMIC_CMP_EXCH);
-    ins->flags = is_volatile ? VKD3DARF_SEQ_CST | VKD3DARF_VOLATILE : VKD3DARF_SEQ_CST;
+    ins->flags = is_volatile ? VKD3DARF_VOLATILE : 0;
 
     if (!(src_params = instruction_src_params_alloc(ins, 3, sm6)))
         return;

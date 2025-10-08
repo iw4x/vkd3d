@@ -878,8 +878,7 @@ enum vkd3d_shader_uav_flags
 
 enum vkd3d_shader_atomic_rmw_flags
 {
-    VKD3DARF_SEQ_CST  = 0x1,
-    VKD3DARF_VOLATILE = 0x2,
+    VKD3DARF_VOLATILE = 0x1,
 };
 
 enum vkd3d_tessellator_domain
