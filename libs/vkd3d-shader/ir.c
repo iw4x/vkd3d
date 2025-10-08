@@ -4807,8 +4807,8 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps_in_function(
     struct vsir_program_iterator it_begin = *it;
     struct ssas_to_temps_alloc alloc = {0};
     struct vkd3d_shader_instruction *ins;
-    size_t phi_count, incoming_count;
     unsigned int current_label = 0;
+    size_t phi_count;
 
     VKD3D_ASSERT(program->cf_type == VSIR_CF_BLOCKS);
 
@@ -4822,7 +4822,6 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps_in_function(
         goto fail;
 
     phi_count = 0;
-    incoming_count = 0;
     for (ins = vsir_program_iterator_current(it); ins; ins = vsir_program_iterator_next(it))
     {
         unsigned int j, temp_idx;
@@ -4871,8 +4870,6 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps_in_function(
             incoming->dst = ins->dst;
 
             alloc.table[ins->dst->reg.idx[0].offset] = temp_idx;
-
-            ++incoming_count;
         }
 
         materialize_ssas_to_temps_process_reg(program, &alloc, &ins->dst->reg);
@@ -4880,9 +4877,6 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps_in_function(
 
     if (!phi_count)
         goto done;
-
-    if (!shader_instruction_array_reserve(&program->instructions, program->instructions.count + incoming_count))
-        goto fail;
 
     *it = it_begin;
 
@@ -4908,7 +4902,8 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps_in_function(
             case VSIR_OP_SWITCH_MONOLITHIC:
                 info = &block_info[current_label - 1];
 
-                mov_ins = vsir_program_iterator_insert_before_and_move(it, info->incoming_count);
+                if (!(mov_ins = vsir_program_iterator_insert_before_and_move(it, info->incoming_count)))
+                    goto fail;
                 VKD3D_ASSERT(mov_ins);
 
                 for (j = 0; j < info->incoming_count; ++j)
