@@ -602,19 +602,11 @@ static void msl_print_src_with_type(struct vkd3d_string_buffer *buffer, struct m
     if (reg->dimension == VSIR_DIMENSION_VEC4)
         msl_print_swizzle(str, vsir_src->swizzle, mask);
 
-    switch (vsir_src->modifiers)
+    if (vsir_src->modifiers)
     {
-        case VKD3DSPSM_NONE:
-            break;
-        case VKD3DSPSM_ABSNEG:
-            vkd3d_string_buffer_printf(buffer, "-abs(%s)", str->buffer);
-            break;
-        default:
-            vkd3d_string_buffer_printf(buffer, "<unhandled modifier %#x>(%s)",
-                    vsir_src->modifiers, str->buffer);
-            msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
-                    "Internal compiler error: Unhandled source modifier(s) %#x.", vsir_src->modifiers);
-            break;
+        vkd3d_string_buffer_printf(buffer, "<unhandled modifier %#x>(%s)", vsir_src->modifiers, str->buffer);
+        msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
+                "Internal compiler error: Unhandled source modifier(s) %#x.", vsir_src->modifiers);
     }
 
     if (str != buffer)

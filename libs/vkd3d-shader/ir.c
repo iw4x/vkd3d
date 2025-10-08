@@ -2179,37 +2179,42 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions), new_it;
     struct vkd3d_shader_instruction *ins, *new_ins;
-    unsigned int i;
+    unsigned int i, j;
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
         for (i = 0; i < ins->src_count; ++i)
         {
+            enum vkd3d_shader_opcode new_opcodes[2] = {VSIR_OP_NOP, VSIR_OP_NOP};
             struct vkd3d_shader_src_param *src = &ins->src[i];
-            enum vkd3d_shader_opcode new_opcode = VSIR_OP_NOP;
 
             /* TODO: support other modifiers, including destination modifiers. */
             switch (src->modifiers)
             {
                 case VKD3DSPSM_ABS:
-                    new_opcode = VSIR_OP_ABS;
+                    new_opcodes[0] = VSIR_OP_ABS;
                     break;
 
                 case VKD3DSPSM_NEG:
-                    new_opcode = data_type_is_integer(src->reg.data_type) ? VSIR_OP_INEG : VSIR_OP_NEG;
+                    new_opcodes[0] = data_type_is_integer(src->reg.data_type) ? VSIR_OP_INEG : VSIR_OP_NEG;
+                    break;
+
+                case VKD3DSPSM_ABSNEG:
+                    new_opcodes[0] = VSIR_OP_ABS;
+                    new_opcodes[1] = VSIR_OP_NEG;
                     break;
 
                 default:
                     continue;
             }
 
-            if (new_opcode != VSIR_OP_NOP)
+            for (j = 0; j < 2 && new_opcodes[j] != VSIR_OP_NOP; ++j)
             {
                 if (!(new_ins = vsir_program_iterator_insert_before(&it, &new_it, 1)))
                     return VKD3D_ERROR_OUT_OF_MEMORY;
                 ins = vsir_program_iterator_current(&it);
 
-                if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, new_opcode, 1, 1))
+                if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, new_opcodes[j], 1, 1))
                 {
                     vkd3d_shader_instruction_make_nop(new_ins);
                     return VKD3D_ERROR_OUT_OF_MEMORY;

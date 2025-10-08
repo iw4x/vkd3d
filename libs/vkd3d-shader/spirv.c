@@ -2116,20 +2116,6 @@ static uint32_t vkd3d_spirv_build_op_fdiv(struct vkd3d_spirv_builder *builder,
             SpvOpFDiv, result_type, operand0, operand1);
 }
 
-static uint32_t vkd3d_spirv_build_op_fnegate(struct vkd3d_spirv_builder *builder,
-        uint32_t result_type, uint32_t operand)
-{
-    return vkd3d_spirv_build_op_tr1(builder, &builder->function_stream,
-            SpvOpFNegate, result_type, operand);
-}
-
-static uint32_t vkd3d_spirv_build_op_snegate(struct vkd3d_spirv_builder *builder,
-        uint32_t result_type, uint32_t operand)
-{
-    return vkd3d_spirv_build_op_tr1(builder, &builder->function_stream,
-            SpvOpSNegate, result_type, operand);
-}
-
 static uint32_t vkd3d_spirv_build_op_and(struct vkd3d_spirv_builder *builder,
         uint32_t result_type, uint32_t operand0, uint32_t operand1)
 {
@@ -2476,19 +2462,6 @@ static uint32_t vkd3d_spirv_build_op_group_nonuniform_broadcast_first(struct vkd
     vkd3d_spirv_enable_capability(builder, SpvCapabilityGroupNonUniformBallot);
     return vkd3d_spirv_build_op_tr2(builder, &builder->function_stream, SpvOpGroupNonUniformBroadcastFirst,
             result_type, vkd3d_spirv_get_op_scope_subgroup(builder), val_id);
-}
-
-static uint32_t vkd3d_spirv_build_op_glsl_std450_tr1(struct vkd3d_spirv_builder *builder,
-        enum GLSLstd450 op, uint32_t result_type, uint32_t operand)
-{
-    uint32_t id = vkd3d_spirv_get_glsl_std450_instr_set(builder);
-    return vkd3d_spirv_build_op_ext_inst(builder, result_type, id, op, &operand, 1);
-}
-
-static uint32_t vkd3d_spirv_build_op_glsl_std450_fabs(struct vkd3d_spirv_builder *builder,
-        uint32_t result_type, uint32_t operand)
-{
-    return vkd3d_spirv_build_op_glsl_std450_tr1(builder, GLSLstd450FAbs, result_type, operand);
 }
 
 static uint32_t vkd3d_spirv_build_op_glsl_std450_max(struct vkd3d_spirv_builder *builder,
@@ -4844,62 +4817,14 @@ static void spirv_compiler_emit_execution_mode1(struct spirv_compiler *compiler,
     spirv_compiler_emit_execution_mode(compiler, mode, &literal, 1);
 }
 
-static uint32_t spirv_compiler_emit_abs(struct spirv_compiler *compiler,
-        const struct vkd3d_shader_register *reg, uint32_t write_mask, uint32_t val_id)
-{
-    struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
-    uint32_t type_id;
-
-    type_id = spirv_compiler_get_type_id_for_reg(compiler, reg, write_mask);
-    if (data_type_is_floating_point(reg->data_type))
-        return vkd3d_spirv_build_op_glsl_std450_fabs(builder, type_id, val_id);
-
-    FIXME("Unhandled data type %#x.\n", reg->data_type);
-    return val_id;
-}
-
-static uint32_t spirv_compiler_emit_neg(struct spirv_compiler *compiler,
-        const struct vkd3d_shader_register *reg, uint32_t write_mask, uint32_t val_id)
-{
-    struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
-    uint32_t type_id;
-
-    type_id = spirv_compiler_get_type_id_for_reg(compiler, reg, write_mask);
-    if (data_type_is_floating_point(reg->data_type))
-        return vkd3d_spirv_build_op_fnegate(builder, type_id, val_id);
-    else if (data_type_is_integer(reg->data_type))
-        return vkd3d_spirv_build_op_snegate(builder, type_id, val_id);
-
-    FIXME("Unhandled data type %#x.\n", reg->data_type);
-    return val_id;
-}
-
-static uint32_t spirv_compiler_emit_src_modifier(struct spirv_compiler *compiler,
-        const struct vkd3d_shader_register *reg, uint32_t write_mask,
-        enum vkd3d_shader_src_modifier modifier, uint32_t val_id)
-{
-    switch (modifier)
-    {
-        case VKD3DSPSM_NONE:
-            break;
-        case VKD3DSPSM_ABSNEG:
-            val_id = spirv_compiler_emit_abs(compiler, reg, write_mask, val_id);
-            return spirv_compiler_emit_neg(compiler, reg, write_mask, val_id);
-        default:
-            FIXME("Unhandled src modifier %#x.\n", modifier);
-            break;
-    }
-
-    return val_id;
-}
-
 static uint32_t spirv_compiler_emit_load_src(struct spirv_compiler *compiler,
         const struct vkd3d_shader_src_param *src, uint32_t write_mask)
 {
-    uint32_t val_id;
+    if (src->modifiers)
+        spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_NOT_IMPLEMENTED,
+                "Unhandled source modifier(s) %#x.", src->modifiers);
 
-    val_id = spirv_compiler_emit_load_reg(compiler, &src->reg, src->swizzle, write_mask);
-    return spirv_compiler_emit_src_modifier(compiler, &src->reg, write_mask, src->modifiers, val_id);
+    return spirv_compiler_emit_load_reg(compiler, &src->reg, src->swizzle, write_mask);
 }
 
 static uint32_t spirv_compiler_emit_load_src_with_type(struct spirv_compiler *compiler,
