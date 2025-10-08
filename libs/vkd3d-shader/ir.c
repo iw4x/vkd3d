@@ -6829,23 +6829,14 @@ static enum vkd3d_result vsir_cfg_structure_list_emit_block(struct vsir_cfg *cfg
     struct vsir_cfg_emit_target *target = cfg->target;
     struct vkd3d_shader_instruction *ins, *end, *dst;
     struct vsir_program_iterator it;
-    size_t ins_count = 0;
 
     it = block->begin;
     end = vsir_program_iterator_current(&block->end);
 
     for (ins = vsir_program_iterator_current(&it); ins != end; ins = vsir_program_iterator_next(&it))
     {
-        ++ins_count;
-    }
-
-    if (!shader_instruction_array_reserve(&target->instructions, target->instructions.count + ins_count))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-
-    it = block->begin;
-    for (ins = vsir_program_iterator_current(&it); ins != end; ins = vsir_program_iterator_next(&it))
-    {
-        dst = shader_instruction_array_append(&target->instructions);
+        if (!(dst = shader_instruction_array_append(&target->instructions)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
         VKD3D_ASSERT(dst);
         *dst = *ins;
     }
