@@ -4661,16 +4661,14 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
             vsir_src_param_init_label(&dst_ins->src[0], default_label);
         }
 
-        if (!shader_instruction_array_reserve(&instructions, instructions.count + 3 * case_count - 1))
-            goto fail;
-
         if_label = current_label;
 
         for (j = 0; j < case_count; ++j)
         {
             unsigned int fallthrough_label, case_label = label_from_src_param(&ins->src[3 + 2 * j + 1]);
 
-            dst_ins = shader_instruction_array_append(&instructions);
+            if (!(dst_ins = shader_instruction_array_append(&instructions)))
+                goto fail;
             if (!vsir_instruction_init_with_params(program, dst_ins, &ins->location, VSIR_OP_IEQ, 1, 2))
             {
                 vkd3d_shader_instruction_make_nop(dst_ins);
@@ -4688,7 +4686,8 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
             else
                 fallthrough_label = block_count + 1;
 
-            dst_ins = shader_instruction_array_append(&instructions);
+            if (!(dst_ins = shader_instruction_array_append(&instructions)))
+                goto fail;
             if (!vsir_instruction_init_with_params(program, dst_ins, &ins->location, VSIR_OP_BRANCH, 0, 3))
             {
                 vkd3d_shader_instruction_make_nop(dst_ins);
@@ -4712,7 +4711,8 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
             }
             else
             {
-                dst_ins = shader_instruction_array_append(&instructions);
+                if (!(dst_ins = shader_instruction_array_append(&instructions)))
+                    goto fail;
                 if (!vsir_instruction_init_with_params(program, dst_ins, &ins->location, VSIR_OP_LABEL, 0, 1))
                 {
                     vkd3d_shader_instruction_make_nop(dst_ins);
