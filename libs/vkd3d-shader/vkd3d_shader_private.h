@@ -1918,12 +1918,6 @@ static inline enum vsir_data_type vsir_data_type_from_component_type(enum vkd3d_
     return VSIR_DATA_UNUSED;
 }
 
-static inline bool component_type_is_64_bit(enum vkd3d_shader_component_type component_type)
-{
-    return component_type == VKD3D_SHADER_COMPONENT_DOUBLE || component_type == VKD3D_SHADER_COMPONENT_INT64
-            || component_type == VKD3D_SHADER_COMPONENT_UINT64;
-}
-
 static inline unsigned int vsir_write_mask_get_component_idx(uint32_t write_mask)
 {
     unsigned int i;
