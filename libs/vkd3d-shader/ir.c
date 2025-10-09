@@ -747,6 +747,38 @@ bool vsir_signature_find_sysval(const struct shader_signature *signature,
     return false;
 }
 
+struct vkd3d_shader_descriptor_info1 *vsir_program_add_descriptor(struct vsir_program *program,
+        enum vkd3d_shader_descriptor_type type, unsigned int register_id,
+        const struct vkd3d_shader_register_range *range,
+        enum vkd3d_shader_resource_type resource_type, enum vsir_data_type resource_data_type)
+{
+    struct vkd3d_shader_scan_descriptor_info1 *info = &program->descriptors;
+    struct vkd3d_shader_descriptor_info1 *d;
+
+    if (!info)
+        return NULL;
+
+    if (!vkd3d_array_reserve((void **)&info->descriptors, &program->descriptors_size,
+            info->descriptor_count + 1, sizeof(*info->descriptors)))
+    {
+        ERR("Failed to allocate descriptor info.\n");
+        return NULL;
+    }
+
+    d = &info->descriptors[info->descriptor_count];
+    memset(d, 0, sizeof(*d));
+    d->type = type;
+    d->register_id = register_id;
+    d->register_space = range->space;
+    d->register_index = range->first;
+    d->resource_type = resource_type;
+    d->resource_data_type = resource_data_type;
+    d->count = (range->last == ~0u) ? ~0u : range->last - range->first + 1;
+    ++info->descriptor_count;
+
+    return d;
+}
+
 const char *debug_vsir_writemask(unsigned int writemask)
 {
     static const char components[] = {'x', 'y', 'z', 'w'};

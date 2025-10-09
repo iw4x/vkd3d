@@ -248,6 +248,8 @@ struct vkd3d_shader_sm1_parser
     struct vkd3d_shader_parser p;
     struct vsir_program *program;
 
+    uint16_t texture_descriptors;
+
     struct
     {
 #define MAX_CONSTANT_COUNT 8192
@@ -938,6 +940,23 @@ static void shader_sm1_scan_register(struct vkd3d_shader_sm1_parser *sm1,
     add_signature_element_from_register(sm1, reg, false, mask, 0);
 }
 
+static void d3dbc_add_combined_sampler_descriptor(struct vkd3d_shader_sm1_parser *d3dbc,
+        unsigned int sampler_idx, enum vkd3d_shader_resource_type resource_type)
+{
+    struct vkd3d_shader_register_range range = {.first = sampler_idx, .last = sampler_idx};
+    struct vsir_program *program = d3dbc->program;
+
+    if (!vsir_program_add_descriptor(program, VKD3D_SHADER_DESCRIPTOR_TYPE_SRV,
+            sampler_idx, &range, resource_type, VSIR_DATA_F32))
+        vkd3d_shader_parser_error(&d3dbc->p, VKD3D_SHADER_ERROR_D3DBC_OUT_OF_MEMORY,
+                "Failed to create SRV descriptor for combined sampler %u.", sampler_idx);
+
+    if (!vsir_program_add_descriptor(program, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER,
+            sampler_idx, &range, VKD3D_SHADER_RESOURCE_NONE, VSIR_DATA_UNUSED))
+        vkd3d_shader_parser_error(&d3dbc->p, VKD3D_SHADER_ERROR_D3DBC_OUT_OF_MEMORY,
+                "Failed to create sampler descriptor for combined sampler %u.", sampler_idx);
+}
+
 /* Read a parameter token from the input stream, and possibly a relative
  * addressing token. */
 static void shader_sm1_read_param(struct vkd3d_shader_sm1_parser *sm1,
@@ -1102,6 +1121,11 @@ static void shader_sm1_read_semantic(struct vkd3d_shader_sm1_parser *sm1,
     range->first = range->last = semantic->resource.reg.reg.idx[0].offset;
 
     add_signature_element_from_semantic(sm1, semantic);
+    if (semantic->resource_type)
+    {
+        d3dbc_add_combined_sampler_descriptor(sm1, range->first, semantic->resource_type);
+        sm1->texture_descriptors |= (1u << range->first);
+    }
 }
 
 static void shader_sm1_read_immconst(struct vkd3d_shader_sm1_parser *sm1, const uint32_t **ptr,
@@ -1193,6 +1217,38 @@ static void shader_sm1_read_comment(struct vkd3d_shader_sm1_parser *sm1)
         if (!remaining)
             break;
         token = **ptr;
+    }
+}
+
+static void d3dbc_update_descriptors(struct vkd3d_shader_sm1_parser *d3dbc,
+        const struct vkd3d_shader_instruction *ins)
+{
+    unsigned int sampler_idx;
+
+    switch (ins->opcode)
+    {
+        case VSIR_OP_TEX:
+        case VSIR_OP_TEXBEM:
+        case VSIR_OP_TEXBEML:
+        case VSIR_OP_TEXDP3TEX:
+        case VSIR_OP_TEXLD:
+        case VSIR_OP_TEXM3x2TEX:
+        case VSIR_OP_TEXM3x3SPEC:
+        case VSIR_OP_TEXM3x3TEX:
+        case VSIR_OP_TEXM3x3VSPEC:
+        case VSIR_OP_TEXREG2AR:
+        case VSIR_OP_TEXREG2GB:
+        case VSIR_OP_TEXREG2RGB:
+            sampler_idx = ins->dst[0].reg.idx[0].offset;
+            if ((d3dbc->texture_descriptors & (1u << sampler_idx)))
+                break;
+
+            d3dbc_add_combined_sampler_descriptor(d3dbc, sampler_idx, VKD3D_SHADER_RESOURCE_TEXTURE_2D);
+            d3dbc->texture_descriptors |= (1u << sampler_idx);
+            break;
+
+        default:
+            break;
     }
 }
 
@@ -1360,6 +1416,9 @@ static void shader_sm1_read_instruction(struct vkd3d_shader_sm1_parser *sm1, str
         goto fail;
     }
 
+    if (program->shader_version.major == 1)
+        d3dbc_update_descriptors(sm1, ins);
+
     shader_sm1_validate_instruction(sm1, ins);
     return;
 
@@ -1478,6 +1537,7 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
         struct vkd3d_shader_message_context *message_context, struct vsir_program *program)
 {
     struct vkd3d_shader_sm1_parser sm1 = {0};
+    struct vkd3d_shader_descriptor_info1 *d;
     struct vkd3d_shader_instruction *ins;
     unsigned int i;
     int ret;
@@ -1507,7 +1567,22 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
     }
 
     for (i = 0; i < ARRAY_SIZE(program->flat_constant_count); ++i)
-        program->flat_constant_count[i] = get_external_constant_count(&sm1, i);
+    {
+        struct vkd3d_shader_register_range range = {.space = 0, .first = i, .last = i};
+        unsigned int size = get_external_constant_count(&sm1, i);
+
+        if ((program->flat_constant_count[i] = size))
+        {
+            if (!(d = vsir_program_add_descriptor(program, VKD3D_SHADER_DESCRIPTOR_TYPE_CBV,
+                    i, &range, VKD3D_SHADER_RESOURCE_BUFFER, VSIR_DATA_U32)))
+                vkd3d_shader_parser_error(&sm1.p, VKD3D_SHADER_ERROR_D3DBC_OUT_OF_MEMORY,
+                        "Failed to create CBV descriptor.");
+            else
+                d->buffer_size = size * 16;
+        }
+    }
+
+    program->has_descriptor_info = true;
 
     if (ret >= 0 && sm1.p.status < 0)
         ret = sm1.p.status;

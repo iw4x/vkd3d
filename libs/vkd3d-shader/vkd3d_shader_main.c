@@ -1729,6 +1729,9 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
         add_descriptor_info = true;
     }
 
+    if (program->has_descriptor_info)
+        add_descriptor_info = false;
+
     tessellation_info = vkd3d_find_struct(compile_info->next, SCAN_HULL_SHADER_TESSELLATION_INFO);
     thread_group_size_info = vkd3d_find_struct(compile_info->next, SCAN_THREAD_GROUP_SIZE_INFO);
 
@@ -1747,18 +1750,21 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
             break;
     }
 
-    for (i = 0; i < ARRAY_SIZE(program->flat_constant_count); ++i)
+    if (add_descriptor_info)
     {
-        struct vkd3d_shader_register_range range = {.space = 0, .first = i, .last = i};
-        struct vkd3d_shader_register reg = {.idx[0].offset = i, .idx_count = 1};
-        unsigned int size = program->flat_constant_count[i];
-        struct vkd3d_shader_descriptor_info1 *d;
-
-        if (size)
+        for (i = 0; i < ARRAY_SIZE(program->flat_constant_count); ++i)
         {
-            if ((d = vkd3d_shader_scan_add_descriptor(&context, VKD3D_SHADER_DESCRIPTOR_TYPE_CBV,
-                    &reg, &range, VKD3D_SHADER_RESOURCE_BUFFER, VSIR_DATA_U32)))
-                d->buffer_size = size * 16;
+            struct vkd3d_shader_register_range range = {.space = 0, .first = i, .last = i};
+            struct vkd3d_shader_register reg = {.idx[0].offset = i, .idx_count = 1};
+            unsigned int size = program->flat_constant_count[i];
+            struct vkd3d_shader_descriptor_info1 *d;
+
+            if (size)
+            {
+                if ((d = vkd3d_shader_scan_add_descriptor(&context, VKD3D_SHADER_DESCRIPTOR_TYPE_CBV,
+                        &reg, &range, VKD3D_SHADER_RESOURCE_BUFFER, VSIR_DATA_U32)))
+                    d->buffer_size = size * 16;
+            }
         }
     }
 
