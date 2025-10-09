@@ -1218,15 +1218,6 @@ static void vkd3d_shader_scan_sampler_declaration(struct vkd3d_shader_scan_conte
         d->flags |= VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE;
 }
 
-static void vkd3d_shader_scan_combined_sampler_declaration(
-        struct vkd3d_shader_scan_context *context, const struct vkd3d_shader_semantic *semantic)
-{
-    vkd3d_shader_scan_add_descriptor(context, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, &semantic->resource.reg.reg,
-            &semantic->resource.range, VKD3D_SHADER_RESOURCE_NONE, VSIR_DATA_UNUSED);
-    vkd3d_shader_scan_add_descriptor(context, VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, &semantic->resource.reg.reg,
-            &semantic->resource.range, semantic->resource_type, VSIR_DATA_F32);
-}
-
 const struct vkd3d_shader_descriptor_info1 *vkd3d_shader_find_descriptor(
         const struct vkd3d_shader_scan_descriptor_info1 *info,
         enum vkd3d_shader_descriptor_type type, unsigned int register_id)
@@ -1312,40 +1303,6 @@ static void vkd3d_shader_scan_combined_sampler_usage(struct vkd3d_shader_scan_co
     s->sampler_index = sampler_idx;
 }
 
-static void vkd3d_shader_scan_sample_instruction(struct vkd3d_shader_scan_context *context,
-        const struct vkd3d_shader_register *resource, const struct vkd3d_shader_register *sampler)
-{
-    unsigned int resource_idx = resource->idx[0].offset;
-    unsigned int sampler_idx = sampler->idx[0].offset;
-
-    vkd3d_shader_scan_combined_sampler_usage(context, resource, sampler);
-
-    if (!context->scan_descriptor_info)
-        return;
-
-    /* Sample instructions lowered from 1.x texture instructions have no
-     * DCL, so we need to add the resource if it didn't already exist.
-     * Such descriptors have a fixed count, type, etc. */
-
-    if (!vkd3d_shader_find_descriptor(context->scan_descriptor_info,
-            VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, resource_idx))
-    {
-        struct vkd3d_shader_register_range range = {.first = resource_idx, .last = resource_idx};
-
-        vkd3d_shader_scan_add_descriptor(context, VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, resource,
-                &range, VKD3D_SHADER_RESOURCE_TEXTURE_2D, VSIR_DATA_F32);
-    }
-
-    if (!vkd3d_shader_find_descriptor(context->scan_descriptor_info,
-            VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, sampler_idx))
-    {
-        struct vkd3d_shader_register_range range = {.first = sampler_idx, .last = sampler_idx};
-
-        vkd3d_shader_scan_add_descriptor(context, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, resource,
-                &range, VKD3D_SHADER_RESOURCE_NONE, VSIR_DATA_UNUSED);
-    }
-}
-
 static void vkd3d_shader_scan_resource_declaration(struct vkd3d_shader_scan_context *context,
         const struct vkd3d_shader_resource *resource, enum vkd3d_shader_resource_type resource_type,
         enum vsir_data_type resource_data_type, unsigned int sample_count,
@@ -1403,14 +1360,9 @@ static int vkd3d_shader_scan_instruction(struct vkd3d_shader_scan_context *conte
             vkd3d_shader_scan_sampler_declaration(context, instruction);
             break;
         case VSIR_OP_DCL:
-            if (instruction->declaration.semantic.resource_type == VKD3D_SHADER_RESOURCE_NONE)
+            if (instruction->declaration.semantic.resource_type == VKD3D_SHADER_RESOURCE_NONE
+                    || instruction->declaration.semantic.resource.reg.reg.type == VKD3DSPR_COMBINED_SAMPLER)
                 break;
-
-            if (instruction->declaration.semantic.resource.reg.reg.type == VKD3DSPR_COMBINED_SAMPLER)
-            {
-                vkd3d_shader_scan_combined_sampler_declaration(context, &instruction->declaration.semantic);
-                break;
-            }
             /* fall through */
         case VSIR_OP_DCL_UAV_TYPED:
             vkd3d_shader_scan_typed_resource_declaration(context, instruction);
@@ -1564,15 +1516,13 @@ static int vkd3d_shader_scan_instruction(struct vkd3d_shader_scan_context *conte
             break;
         case VSIR_OP_GATHER4:
         case VSIR_OP_GATHER4_C:
+        case VSIR_OP_SAMPLE:
         case VSIR_OP_SAMPLE_B:
         case VSIR_OP_SAMPLE_C:
         case VSIR_OP_SAMPLE_C_LZ:
         case VSIR_OP_SAMPLE_GRAD:
         case VSIR_OP_SAMPLE_LOD:
             vkd3d_shader_scan_combined_sampler_usage(context, &instruction->src[1].reg, &instruction->src[2].reg);
-            break;
-        case VSIR_OP_SAMPLE:
-            vkd3d_shader_scan_sample_instruction(context, &instruction->src[1].reg, &instruction->src[2].reg);
             break;
         case VSIR_OP_GATHER4_PO:
         case VSIR_OP_GATHER4_PO_C:
@@ -1714,7 +1664,6 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
     struct vkd3d_shader_scan_context context;
     struct vkd3d_shader_instruction *ins;
     int ret = VKD3D_OK;
-    unsigned int i;
 
     descriptor_info = vkd3d_find_struct(compile_info->next, SCAN_DESCRIPTOR_INFO);
     if (descriptor_info)
@@ -1748,24 +1697,6 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
     {
         if ((ret = vkd3d_shader_scan_instruction(&context, ins)) < 0)
             break;
-    }
-
-    if (add_descriptor_info)
-    {
-        for (i = 0; i < ARRAY_SIZE(program->flat_constant_count); ++i)
-        {
-            struct vkd3d_shader_register_range range = {.space = 0, .first = i, .last = i};
-            struct vkd3d_shader_register reg = {.idx[0].offset = i, .idx_count = 1};
-            unsigned int size = program->flat_constant_count[i];
-            struct vkd3d_shader_descriptor_info1 *d;
-
-            if (size)
-            {
-                if ((d = vkd3d_shader_scan_add_descriptor(&context, VKD3D_SHADER_DESCRIPTOR_TYPE_CBV,
-                        &reg, &range, VKD3D_SHADER_RESOURCE_BUFFER, VSIR_DATA_U32)))
-                    d->buffer_size = size * 16;
-            }
-        }
     }
 
     if (!ret && signature_info)
