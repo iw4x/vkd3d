@@ -1426,9 +1426,12 @@ static enum vkd3d_result vsir_program_lower_precise_mad(struct vsir_program *pro
     vsir_register_init(&mul_dst->reg, VKD3DSPR_TEMP, mul_ins->src[0].reg.data_type, 1);
     mul_dst->reg.dimension = add_ins->dst->reg.dimension;
     mul_dst->reg.idx[0].offset = *tmp_idx;
+    mul_dst->write_mask = mul_dst->reg.dimension == VSIR_DIMENSION_VEC4
+            ? VKD3DSP_WRITEMASK_ALL : VKD3DSP_WRITEMASK_0;
 
     add_ins->src[0].reg = mul_dst->reg;
-    add_ins->src[0].swizzle = vsir_swizzle_from_writemask(mul_dst->write_mask);
+    add_ins->src[0].swizzle = mul_dst->reg.dimension == VSIR_DIMENSION_VEC4
+            ? VKD3D_SHADER_NO_SWIZZLE : VKD3D_SHADER_SWIZZLE(X, X, X, X);
     add_ins->src[0].modifiers = 0;
     add_ins->src[1] = mul_ins->src[2];
 
