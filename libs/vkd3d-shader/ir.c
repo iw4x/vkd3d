@@ -1392,7 +1392,7 @@ static enum vkd3d_result vsir_program_lower_texkill(struct vsir_program *program
  * not fused for "precise" operations."
  * Windows drivers seem to conform with the latter, for SM 4-5 and SM 6. */
 static enum vkd3d_result vsir_program_lower_precise_mad(struct vsir_program *program,
-        struct vsir_program_iterator *it, unsigned int *tmp_idx)
+        struct vsir_program_iterator *it)
 {
     struct vkd3d_shader_instruction *mad, *mul_ins, *add_ins;
     struct vkd3d_shader_dst_param *mul_dst;
@@ -1404,9 +1404,6 @@ static enum vkd3d_result vsir_program_lower_precise_mad(struct vsir_program *pro
 
     if (!vsir_program_iterator_insert_after(it, 1))
         return VKD3D_ERROR_OUT_OF_MEMORY;
-
-    if (*tmp_idx == ~0u)
-        *tmp_idx = program->temp_count++;
 
     mul_ins = vsir_program_iterator_current(it);
     add_ins = vsir_program_iterator_next(it);
@@ -1422,17 +1419,9 @@ static enum vkd3d_result vsir_program_lower_precise_mad(struct vsir_program *pro
     mul_dst = mul_ins->dst;
     *add_ins->dst = *mul_dst;
 
-    mul_dst->modifiers = 0;
-    vsir_register_init(&mul_dst->reg, VKD3DSPR_TEMP, mul_ins->src[0].reg.data_type, 1);
-    mul_dst->reg.dimension = add_ins->dst->reg.dimension;
-    mul_dst->reg.idx[0].offset = *tmp_idx;
-    mul_dst->write_mask = mul_dst->reg.dimension == VSIR_DIMENSION_VEC4
-            ? VKD3DSP_WRITEMASK_ALL : VKD3DSP_WRITEMASK_0;
+    dst_param_init_ssa(mul_dst, program->ssa_count, mul_ins->src[0].reg.data_type, VSIR_DIMENSION_VEC4);
+    src_param_init_ssa(&add_ins->src[0], program->ssa_count++, mul_ins->src[0].reg.data_type, VSIR_DIMENSION_VEC4);
 
-    add_ins->src[0].reg = mul_dst->reg;
-    add_ins->src[0].swizzle = mul_dst->reg.dimension == VSIR_DIMENSION_VEC4
-            ? VKD3D_SHADER_NO_SWIZZLE : VKD3D_SHADER_SWIZZLE(X, X, X, X);
-    add_ins->src[0].modifiers = 0;
     add_ins->src[1] = mul_ins->src[2];
 
     return VKD3D_OK;
@@ -2282,7 +2271,6 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
     struct vkd3d_shader_instruction *ins;
-    unsigned int tmp_idx = ~0u;
     enum vkd3d_result ret;
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
@@ -2290,7 +2278,7 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
         switch (ins->opcode)
         {
             case VSIR_OP_MAD:
-                if ((ret = vsir_program_lower_precise_mad(program, &it, &tmp_idx)) < 0)
+                if ((ret = vsir_program_lower_precise_mad(program, &it)) < 0)
                     return ret;
                 break;
 
