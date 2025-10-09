@@ -3432,6 +3432,8 @@ static uint32_t spirv_get_type_id(struct spirv_compiler *compiler,
                 break;
 
             case VSIR_DATA_F32:
+            case VSIR_DATA_SNORM:
+            case VSIR_DATA_UNORM:
                 type_id = vkd3d_spirv_get_op_type_float(builder, 32);
                 break;
 
