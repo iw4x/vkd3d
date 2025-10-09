@@ -1566,12 +1566,12 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
         }
     }
 
-    for (i = 0; i < ARRAY_SIZE(program->flat_constant_count); ++i)
+    for (i = 0; i < 3; ++i)
     {
         struct vkd3d_shader_register_range range = {.space = 0, .first = i, .last = i};
         unsigned int size = get_external_constant_count(&sm1, i);
 
-        if ((program->flat_constant_count[i] = size))
+        if (size)
         {
             if (!(d = vsir_program_add_descriptor(program, VKD3D_SHADER_DESCRIPTOR_TYPE_CBV,
                     i, &range, VKD3D_SHADER_RESOURCE_BUFFER, VSIR_DATA_U32)))

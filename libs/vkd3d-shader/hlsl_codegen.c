@@ -10185,10 +10185,7 @@ static void sm1_generate_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_co
         struct hlsl_ir_function_decl *func, struct list *semantic_vars,
         struct hlsl_block *body, uint64_t config_flags, struct vsir_program *program)
 {
-    struct hlsl_ir_var *var;
     struct hlsl_block block;
-    struct hlsl_reg *reg;
-    unsigned int *count;
 
     program->ssa_count = 0;
     program->temp_count = 0;
@@ -10203,17 +10200,6 @@ static void sm1_generate_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_co
 
     sm1_generate_vsir_block(ctx, body, program);
 
-    count = &program->flat_constant_count[VKD3D_SHADER_D3DBC_FLOAT_CONSTANT_REGISTER];
-    LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
-    {
-        if (!var->is_uniform)
-            continue;
-
-        if (!(reg = &var->regs[HLSL_REGSET_NUMERIC])->allocation_size)
-            continue;
-
-        *count = max(*count, reg->id + reg->allocation_size);
-    }
     program->ssa_count = ctx->ssa_count;
     program->temp_count = ctx->temp_count;
 
