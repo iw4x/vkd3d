@@ -534,6 +534,8 @@ struct hlsl_ir_var
     struct
     {
         bool used;
+        bool uav_read;
+        bool uav_atomics;
         enum hlsl_sampler_dim sampler_dim;
         struct vkd3d_shader_location first_sampler_dim_loc;
     } *objects_usage[HLSL_REGSET_LAST_OBJECT + 1];

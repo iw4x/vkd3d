@@ -6138,7 +6138,7 @@ static bool track_object_components_sampler_dim(struct hlsl_ctx *ctx, struct hls
     return false;
 }
 
-static void register_deref_usage(struct hlsl_ctx *ctx, struct hlsl_deref *deref)
+static void register_deref_usage(struct hlsl_ctx *ctx, const struct hlsl_deref *deref)
 {
     struct hlsl_ir_var *var = deref->var;
     enum hlsl_regset regset = hlsl_deref_get_regset(ctx, deref);
@@ -6186,18 +6186,43 @@ static bool track_components_usage(struct hlsl_ctx *ctx, struct hlsl_ir_node *in
         }
 
         case HLSL_IR_RESOURCE_LOAD:
-            register_deref_usage(ctx, &hlsl_ir_resource_load(instr)->resource);
-            if (hlsl_ir_resource_load(instr)->sampler.var)
-                register_deref_usage(ctx, &hlsl_ir_resource_load(instr)->sampler);
+        {
+            const struct hlsl_ir_resource_load *load = hlsl_ir_resource_load(instr);
+
+            register_deref_usage(ctx, &load->resource);
+            if (load->sampler.var)
+                register_deref_usage(ctx, &load->sampler);
+
+            if (hlsl_deref_get_regset(ctx, &load->resource) == HLSL_REGSET_UAVS)
+            {
+                unsigned int index;
+
+                hlsl_regset_index_from_deref(ctx, &load->resource, HLSL_REGSET_UAVS, &index);
+                load->resource.var->objects_usage[HLSL_REGSET_UAVS][index].uav_read = true;
+            }
             break;
+        }
 
         case HLSL_IR_RESOURCE_STORE:
             register_deref_usage(ctx, &hlsl_ir_resource_store(instr)->resource);
             break;
 
         case HLSL_IR_INTERLOCKED:
-            register_deref_usage(ctx, &hlsl_ir_interlocked(instr)->dst);
+        {
+            const struct hlsl_ir_interlocked *interlocked = hlsl_ir_interlocked(instr);
+
+            register_deref_usage(ctx, &interlocked->dst);
+
+            if (hlsl_deref_get_regset(ctx, &interlocked->dst) == HLSL_REGSET_UAVS)
+            {
+                unsigned int index;
+
+                hlsl_regset_index_from_deref(ctx, &interlocked->dst, HLSL_REGSET_UAVS, &index);
+                interlocked->dst.var->objects_usage[HLSL_REGSET_UAVS][index].uav_read = true;
+                interlocked->dst.var->objects_usage[HLSL_REGSET_UAVS][index].uav_atomics = true;
+            }
             break;
+        }
 
         default:
             break;
@@ -12756,9 +12781,9 @@ static void sm4_generate_vsir_add_dcl_sampler(struct hlsl_ctx *ctx,
     }
 }
 
-static enum vkd3d_shader_resource_type sm4_generate_vsir_get_resource_type(const struct hlsl_type *type)
+static enum vkd3d_shader_resource_type get_vsir_resource_type(enum hlsl_sampler_dim sampler_dim)
 {
-    switch (type->sampler_dim)
+    switch (sampler_dim)
     {
         case HLSL_SAMPLER_DIM_1D:
             return VKD3D_SHADER_RESOURCE_TEXTURE_1D;
@@ -12787,7 +12812,7 @@ static enum vkd3d_shader_resource_type sm4_generate_vsir_get_resource_type(const
     }
 }
 
-static enum vsir_data_type sm4_generate_vsir_get_format_type(const struct hlsl_type *type)
+static enum vsir_data_type get_vsir_resource_data_type(const struct hlsl_type *type)
 {
     const struct hlsl_type *format = type->e.resource.format;
 
@@ -12924,10 +12949,10 @@ static void sm4_generate_vsir_add_dcl_texture(struct hlsl_ctx *ctx,
         }
         else
         {
-            ins->declaration.semantic.resource_type = sm4_generate_vsir_get_resource_type(resource->component_type);
+            ins->declaration.semantic.resource_type = get_vsir_resource_type(resource->component_type->sampler_dim);
 
             for (unsigned int j = 0; j < 4; ++j)
-                ins->declaration.semantic.resource_data_type[j] = sm4_generate_vsir_get_format_type(component_type);
+                ins->declaration.semantic.resource_data_type[j] = get_vsir_resource_data_type(component_type);
 
             if (multisampled)
                 ins->declaration.semantic.sample_count = component_type->sample_count;
@@ -13077,6 +13102,140 @@ static void sm4_generate_vsir(struct hlsl_ctx *ctx,
 
     program->ssa_count = ctx->ssa_count;
     program->temp_count = ctx->temp_count;
+}
+
+static void generate_vsir_descriptors_for_var(struct hlsl_ctx *ctx, struct vsir_program *program,
+        const struct hlsl_ir_var *var, enum hlsl_regset r, enum vkd3d_shader_descriptor_type type)
+{
+    unsigned int component_count = hlsl_type_component_count(var->data_type);
+
+    for (unsigned int k = 0; k < component_count; ++k)
+    {
+        const struct hlsl_type *component_type = hlsl_type_get_component_type(ctx, var->data_type, k);
+        struct vkd3d_shader_register_range range;
+        struct vkd3d_shader_descriptor_info1 *d;
+        unsigned int regset_offset;
+        enum hlsl_regset regset;
+        uint32_t id;
+
+        if (!hlsl_type_is_resource(component_type))
+            continue;
+        regset_offset = hlsl_type_get_component_offset(ctx, var->data_type, k, &regset);
+        if (regset != r)
+            continue;
+        if (regset_offset > var->regs[r].allocation_size)
+            continue;
+
+        if (!var->objects_usage[r][regset_offset].used)
+            continue;
+
+        id = var->regs[r].id + regset_offset;
+        range.space = var->regs[r].space;
+        range.first = var->regs[r].index + regset_offset;
+        /* FIXME: 5.1 arrays. */
+        range.last = var->regs[r].index + regset_offset;
+
+        if (type == VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER)
+        {
+            if (!(d = vsir_program_add_descriptor(program, type, id,
+                    &range, VKD3D_SHADER_RESOURCE_NONE, VSIR_DATA_UNUSED)))
+                return;
+            if (component_type->sampler_dim == HLSL_SAMPLER_DIM_COMPARISON)
+                d->flags |= VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE;
+        }
+        else
+        {
+            if (component_type->class == HLSL_CLASS_SAMPLER)
+                d = vsir_program_add_descriptor(program, type, id, &range,
+                        get_vsir_resource_type(var->objects_usage[r][regset_offset].sampler_dim), VSIR_DATA_F32);
+            else
+                d = vsir_program_add_descriptor(program, type, id, &range,
+                        get_vsir_resource_type(component_type->sampler_dim),
+                        get_vsir_resource_data_type(component_type));
+            if (!d)
+                return;
+
+            if (component_type->sampler_dim == HLSL_SAMPLER_DIM_RAW_BUFFER)
+                d->flags |= VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_RAW_BUFFER;
+            else if (component_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
+                d->structure_stride = hlsl_type_get_packed_size(component_type->e.resource.format);
+            else if (component_type->sampler_dim == HLSL_SAMPLER_DIM_2DMS
+                    || component_type->sampler_dim == HLSL_SAMPLER_DIM_2DMSARRAY)
+                d->sample_count = component_type->sample_count;
+
+            if (type == VKD3D_SHADER_DESCRIPTOR_TYPE_UAV && component_type->e.resource.rasteriser_ordered)
+                d->uav_flags |= VKD3DSUF_RASTERISER_ORDERED_VIEW;
+
+            if (var->objects_usage[r][regset_offset].uav_read)
+                d->flags |= VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_UAV_READ;
+            if (var->objects_usage[r][regset_offset].uav_atomics)
+                d->flags |= VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_UAV_ATOMICS;
+        }
+    }
+}
+
+static void generate_vsir_descriptors(struct hlsl_ctx *ctx, struct vsir_program *program)
+{
+    struct vkd3d_shader_register_range range;
+    struct vkd3d_shader_descriptor_info1 *d;
+    const struct hlsl_ir_var *var;
+
+    if (program->shader_version.major < 4)
+    {
+        uint32_t flat_constant_count = 0;
+
+        LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
+        {
+            const struct hlsl_reg *reg = &var->regs[HLSL_REGSET_NUMERIC];
+
+            if (var->is_uniform && reg->allocation_size)
+                flat_constant_count = max(flat_constant_count, reg->id + reg->allocation_size);
+
+            generate_vsir_descriptors_for_var(ctx, program, var,
+                    HLSL_REGSET_SAMPLERS, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER);
+            generate_vsir_descriptors_for_var(ctx, program, var,
+                    HLSL_REGSET_SAMPLERS, VKD3D_SHADER_DESCRIPTOR_TYPE_SRV);
+        }
+
+        if (flat_constant_count)
+        {
+            range.space = 0;
+            range.first = range.last = VKD3D_SHADER_D3DBC_FLOAT_CONSTANT_REGISTER;
+            if ((d = vsir_program_add_descriptor(program, VKD3D_SHADER_DESCRIPTOR_TYPE_CBV,
+                    range.first, &range, VKD3D_SHADER_RESOURCE_BUFFER, VSIR_DATA_U32)))
+                d->buffer_size = flat_constant_count * 16;
+        }
+    }
+    else
+    {
+        struct hlsl_buffer *buffer;
+
+        LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
+        {
+            generate_vsir_descriptors_for_var(ctx, program, var,
+                    HLSL_REGSET_SAMPLERS, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER);
+            generate_vsir_descriptors_for_var(ctx, program, var,
+                    HLSL_REGSET_TEXTURES, VKD3D_SHADER_DESCRIPTOR_TYPE_SRV);
+            generate_vsir_descriptors_for_var(ctx, program, var,
+                    HLSL_REGSET_UAVS, VKD3D_SHADER_DESCRIPTOR_TYPE_UAV);
+        }
+
+        LIST_FOR_EACH_ENTRY(buffer, &ctx->buffers, struct hlsl_buffer, entry)
+        {
+            if (!buffer->reg.allocated)
+                continue;
+
+            range.space = buffer->reg.space;
+            range.first = buffer->reg.index;
+            /* FIXME: 5.1 arrays. */
+            range.last = buffer->reg.index;
+            if ((d = vsir_program_add_descriptor(program, VKD3D_SHADER_DESCRIPTOR_TYPE_CBV,
+                    buffer->reg.id, &range, VKD3D_SHADER_RESOURCE_BUFFER, VSIR_DATA_U32)))
+                d->buffer_size = align(buffer->size, 4) * sizeof(float);
+        }
+    }
+
+    program->has_descriptor_info = true;
 }
 
 /* For some reason, for matrices, values from default value initializers end
@@ -14891,6 +15050,8 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
     generate_vsir_signature(ctx, program, entry_func, &semantic_vars);
     if (program->shader_version.type == VKD3D_SHADER_TYPE_HULL)
         generate_vsir_signature(ctx, program, ctx->patch_constant_func, &patch_semantic_vars);
+
+    generate_vsir_descriptors(ctx, program);
 
     if (program->shader_version.major < 4)
         sm1_generate_ctab(ctx, reflection_data);
