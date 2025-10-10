@@ -6799,6 +6799,8 @@ static SpvImageFormat image_format_for_image_read(enum vsir_data_type data_type)
     switch (data_type)
     {
         case VSIR_DATA_F32:
+        case VSIR_DATA_SNORM:
+        case VSIR_DATA_UNORM:
             return SpvImageFormatR32f;
         case VSIR_DATA_I32:
             return SpvImageFormatR32i;
