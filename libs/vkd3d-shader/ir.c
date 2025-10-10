@@ -1223,11 +1223,12 @@ static enum vkd3d_result vsir_program_normalize_addr(struct vsir_program *progra
             ins2->dst[0].reg.idx[0].offset = tmp_idx;
             ins2->dst[0].reg.dimension = VSIR_DIMENSION_VEC4;
             ins2->dst[0].write_mask = ins->dst[0].write_mask;
+            ins->dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
 
             vsir_register_init(&ins2->src[0].reg, VKD3DSPR_TEMP, VSIR_DATA_F32, 1);
             ins2->src[0].reg.idx[0].offset = tmp_idx;
             ins2->src[0].reg.dimension = VSIR_DIMENSION_VEC4;
-            ins2->src[0].swizzle = vsir_swizzle_from_writemask(ins2->dst[0].write_mask);
+            ins2->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
         }
 
         for (k = 0; k < ins->src_count; ++k)
