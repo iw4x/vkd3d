@@ -36,24 +36,23 @@ float4 main() : SV_TARGET
 
 [test]
 uniform 0 float 0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (11.0, 11.0, 11.0, 11.0)
+draw quad
+probe (0, 0) f32(11.0, 11.0, 11.0, 11.0)
 uniform 0 float 1
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (12.0, 12.0, 12.0, 12.0)
+draw quad
+probe (0, 0) f32(12.0, 12.0, 12.0, 12.0)
 uniform 0 float 1.6
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (12.0, 12.0, 12.0, 12.0)
+draw quad
+probe (0, 0) f32(12.0, 12.0, 12.0, 12.0)
 uniform 0 float 2
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (13.0, 13.0, 13.0, 13.0)
+draw quad
+probe (0, 0) f32(13.0, 13.0, 13.0, 13.0)
 uniform 0 float 2.6
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (13.0, 13.0, 13.0, 13.0)
+draw quad
+probe (0, 0) f32(13.0, 13.0, 13.0, 13.0)
 uniform 0 float 3
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (14.0, 14.0, 14.0, 14.0)
-
+draw quad
+probe (0, 0) f32(14.0, 14.0, 14.0, 14.0)
 
 [pixel shader]
 float i;
@@ -67,9 +66,8 @@ float4 main() : sv_target
 
 [test]
 uniform 0 float 2.3
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (3, 3, 3, 3)
-
+draw quad
+probe (0, 0) f32(3, 3, 3, 3)
 
 [pixel shader]
 uniform float i;
@@ -83,18 +81,17 @@ float4 main() : SV_TARGET
 
 [test]
 uniform 0 float 0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (21.0, 1.0, 24.0, 0.0)
+draw quad
+probe (0, 0) f32(21.0, 1.0, 24.0, 0.0)
 uniform 0 float 1
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (22.0, 0.0, 23.0, 1.0)
+draw quad
+probe (0, 0) f32(22.0, 0.0, 23.0, 1.0)
 uniform 0 float 2
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (23.0, 1.0, 22.0, 0.0)
+draw quad
+probe (0, 0) f32(23.0, 1.0, 22.0, 0.0)
 uniform 0 float 3
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (24.0, 0.0, 21.0, 1.0)
-
+draw quad
+probe (0, 0) f32(24.0, 0.0, 21.0, 1.0)
 
 [pixel shader]
 uniform float2 i;
@@ -108,18 +105,17 @@ float4 main() : sv_target
 
 [test]
 uniform 0 float4 0 0 0 0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (1.0, 2.0, 3.0, 4.0)
+draw quad
+probe (0, 0) f32(1.0, 2.0, 3.0, 4.0)
 uniform 0 float4 1 0 0 0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (5.0, 6.0, 7.0, 8.0)
+draw quad
+probe (0, 0) f32(5.0, 6.0, 7.0, 8.0)
 uniform 0 float4 0 1 0 0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (5.0, 6.0, 7.0, 8.0)
+draw quad
+probe (0, 0) f32(5.0, 6.0, 7.0, 8.0)
 uniform 0 float4 1 1 0 0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (9.0, 10.0, 11.0, 12.0)
-
+draw quad
+probe (0, 0) f32(9.0, 10.0, 11.0, 12.0)
 
 [pixel shader]
 float4 a;
@@ -136,9 +132,8 @@ float4 main() : sv_target
 
 [test]
 uniform 0 float4 0 0 2.4 0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (1.0, 120.0, 90.0, 4.0)
-
+draw quad
+probe (0, 0) f32(1.0, 120.0, 90.0, 4.0)
 
 [pixel shader]
 float i, j;

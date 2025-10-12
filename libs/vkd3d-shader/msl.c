@@ -424,6 +424,11 @@ static enum msl_data_type msl_print_register_name(struct vkd3d_string_buffer *bu
             msl_print_subscript(buffer, gen, reg->idx[2].rel_addr, reg->idx[2].offset);
             return MSL_DATA_UNION;
 
+        case VKD3DSPR_IMMCONSTBUFFER:
+            vkd3d_string_buffer_printf(buffer, "icb%u", reg->idx[0].offset);
+            msl_print_subscript(buffer, gen, reg->idx[1].rel_addr, reg->idx[1].offset);
+            return MSL_DATA_UINT;
+
         case VKD3DSPR_IDXTEMP:
             vkd3d_string_buffer_printf(buffer, "x%u", reg->idx[0].offset);
             msl_print_subscript(buffer, gen, reg->idx[1].rel_addr, reg->idx[1].offset);
@@ -1926,6 +1931,59 @@ static void msl_generate_output_struct_declarations(struct msl_generator *gen)
     vkd3d_string_buffer_printf(buffer, "};\n\n");
 }
 
+static void msl_generate_immediate_constant_buffers(struct msl_generator *gen)
+{
+    const struct vkd3d_shader_immediate_constant_buffer *icb;
+    size_t i, j;
+
+    for (i = 0; i < gen->program->icb_count; ++i)
+    {
+        icb = gen->program->icbs[i];
+
+        if (data_type_is_64_bit(icb->data_type))
+            msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
+                    "Internal compiler error: Immediate constant buffer %zu has unhandled data type \"%s\" (%#x).",
+                    i, vsir_data_type_get_name(icb->data_type, "<unknown>"), icb->data_type);
+
+        msl_print_indent(gen->buffer, gen->indent);
+        vkd3d_string_buffer_printf(gen->buffer, "constant %s icb%u[%u] =",
+                icb->component_count == 4 ? "uint4" : "uint", icb->register_idx, icb->element_count);
+
+        if (icb->is_null || data_type_is_64_bit(icb->data_type))
+        {
+            vkd3d_string_buffer_printf(gen->buffer, " {};\n\n");
+            continue;
+        }
+
+        vkd3d_string_buffer_printf(gen->buffer, "\n");
+        msl_print_indent(gen->buffer, gen->indent);
+        vkd3d_string_buffer_printf(gen->buffer, "{\n");
+
+        if (icb->component_count == 4)
+        {
+            for (j = 0; j < icb->element_count; ++j)
+            {
+                msl_print_indent(gen->buffer, gen->indent + 1);
+                vkd3d_string_buffer_printf(gen->buffer, "{0x%08x, 0x%08x, 0x%08x, 0x%08x},\n",
+                        icb->data[4 * j + 0], icb->data[4 * j + 1], icb->data[4 * j + 2], icb->data[4 * j + 3]);
+            }
+        }
+        else
+        {
+            for (j = 0; j < icb->element_count; ++j)
+            {
+                if (!(j & 3))
+                    msl_print_indent(gen->buffer, gen->indent + 1);
+                vkd3d_string_buffer_printf(gen->buffer, "0x%08x,%s", icb->data[j],
+                        j == icb->element_count - 1 || (j & 3) == 3 ? "\n" : " ");
+            }
+        }
+
+        msl_print_indent(gen->buffer, gen->indent);
+        vkd3d_string_buffer_printf(gen->buffer, "};\n\n");
+    }
+}
+
 static void msl_generate_entrypoint_prologue(struct msl_generator *gen)
 {
     const struct shader_signature *signature = &gen->program->input_signature;
@@ -2212,6 +2270,7 @@ static int msl_generator_generate(struct msl_generator *gen, struct vkd3d_shader
 
     msl_generate_input_struct_declarations(gen);
     msl_generate_output_struct_declarations(gen);
+    msl_generate_immediate_constant_buffers(gen);
 
     vkd3d_string_buffer_printf(gen->buffer,
             "static void %s_main(thread vkd3d_vec4 *v, "
