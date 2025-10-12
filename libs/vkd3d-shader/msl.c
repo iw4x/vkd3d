@@ -1362,6 +1362,46 @@ static void msl_dcl_indexable_temp(struct msl_generator *gen, const struct vkd3d
             ins->declaration.indexable_temp.register_size);
 }
 
+static void msl_barrier(struct msl_generator *gen, const struct vkd3d_shader_instruction *ins)
+{
+    uint32_t flags = ins->flags;
+
+    if (flags & (VKD3DSSF_GLOBAL_UAV | VKD3DSSF_THREAD_GROUP_UAV))
+    {
+        const char *scope = flags & VKD3DSSF_GLOBAL_UAV ? "thread_scope_device" : "thread_scope_threadgroup";
+        const char *mem_flags = "mem_flags::mem_device | mem_flags::mem_texture";
+
+        if (flags & VKD3DSSF_GROUP_SHARED_MEMORY)
+        {
+            mem_flags = "mem_flags::mem_device | mem_flags::mem_texture | mem_flags::mem_threadgroup";
+            flags &= ~VKD3DSSF_GROUP_SHARED_MEMORY;
+        }
+
+        msl_print_indent(gen->buffer, gen->indent);
+        vkd3d_string_buffer_printf(gen->buffer,
+                "atomic_thread_fence(%s, memory_order_seq_cst, %s);\n", mem_flags, scope);
+        flags &= ~(VKD3DSSF_GLOBAL_UAV | VKD3DSSF_THREAD_GROUP_UAV);
+    }
+    else if (flags & VKD3DSSF_GROUP_SHARED_MEMORY)
+    {
+        msl_print_indent(gen->buffer, gen->indent);
+        vkd3d_string_buffer_printf(gen->buffer,
+                "atomic_thread_fence(mem_flags::mem_threadgroup, memory_order_seq_cst, thread_scope_threadgroup);\n");
+        flags &= ~VKD3DSSF_GROUP_SHARED_MEMORY;
+    }
+
+    if (flags & VKD3DSSF_THREAD_GROUP)
+    {
+        msl_print_indent(gen->buffer, gen->indent);
+        vkd3d_string_buffer_printf(gen->buffer, "threadgroup_barrier(mem_flags::mem_none);\n");
+        flags &= ~VKD3DSSF_THREAD_GROUP;
+    }
+
+    if (flags)
+        msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
+                "Internal compiler error: Unhandled synchronisation flags %#x.", flags);
+}
+
 static void msl_handle_instruction(struct msl_generator *gen, const struct vkd3d_shader_instruction *ins)
 {
     gen->location = ins->location;
@@ -1595,6 +1635,9 @@ static void msl_handle_instruction(struct msl_generator *gen, const struct vkd3d
             break;
         case VSIR_OP_SWITCH:
             msl_switch(gen, ins);
+            break;
+        case VSIR_OP_SYNC:
+            msl_barrier(gen, ins);
             break;
         case VSIR_OP_TAN:
             msl_intrinsic(gen, ins, "tan");
