@@ -2236,6 +2236,39 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
                 ++program->ssa_count;
             }
         }
+
+        for (i = 0; i < ins->dst_count; ++i)
+        {
+            struct vkd3d_shader_dst_param *dst = &ins->dst[i];
+
+            if (dst->modifiers & VKD3DSPDM_SATURATE)
+            {
+                if (!vsir_program_iterator_insert_after(&it, 1))
+                    return VKD3D_ERROR_OUT_OF_MEMORY;
+                ins = vsir_program_iterator_current(&it);
+                new_ins = vsir_program_iterator_next(&it);
+
+                if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_SATURATE, 1, 1))
+                {
+                    vkd3d_shader_instruction_make_nop(new_ins);
+                    return VKD3D_ERROR_OUT_OF_MEMORY;
+                }
+
+                new_ins->dst[0] = *dst;
+                new_ins->dst[0].modifiers &= ~VKD3DSPDM_NONE;
+
+                dst_param_init_ssa(dst, program->ssa_count, dst->reg.data_type, dst->reg.dimension);
+                src_param_init_ssa(&new_ins->src[0], program->ssa_count, dst->reg.data_type, dst->reg.dimension);
+
+                if (data_type_is_64_bit(dst->reg.data_type))
+                {
+                    dst->write_mask = vsir_write_mask_64_from_32(dst->write_mask);
+                    new_ins->src[0].swizzle = vsir_swizzle_64_from_32(new_ins->src[0].swizzle);
+                }
+
+                ++program->ssa_count;
+            }
+        }
     }
 
     return VKD3D_OK;
