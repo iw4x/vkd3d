@@ -2524,6 +2524,7 @@ static uint32_t spirv_get_type_id(struct vkd3d_spirv_builder *builder,
 
             case VSIR_DATA_I32:
             case VSIR_DATA_U32:
+            case VSIR_DATA_MIXED:
                 type_id = vkd3d_spirv_get_op_type_int(builder, 32, data_type == VSIR_DATA_I32);
                 break;
 
