@@ -7628,6 +7628,18 @@ static enum vkd3d_result spirv_compiler_emit_alu_instruction(struct spirv_compil
     return VKD3D_OK;
 }
 
+static void spirv_compiler_emit_saturate(struct spirv_compiler *compiler,
+        const struct vkd3d_shader_instruction *instruction)
+{
+    const struct vkd3d_shader_dst_param *dst = instruction->dst;
+    const struct vkd3d_shader_src_param *src = instruction->src;
+    uint32_t val_id;
+
+    val_id = spirv_compiler_emit_load_src(compiler, src, dst->write_mask);
+    val_id = spirv_compiler_emit_sat(compiler, &dst->reg, dst->write_mask, val_id);
+    spirv_compiler_emit_store_dst(compiler, dst, val_id);
+}
+
 static void spirv_compiler_emit_isfinite(struct spirv_compiler *compiler,
         const struct vkd3d_shader_instruction *instruction)
 {
@@ -10520,6 +10532,9 @@ static int spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
             break;
         case VSIR_OP_ISFINITE:
             spirv_compiler_emit_isfinite(compiler, instruction);
+            break;
+        case VSIR_OP_SATURATE:
+            spirv_compiler_emit_saturate(compiler, instruction);
             break;
         case VSIR_OP_ABS:
         case VSIR_OP_ACOS:

@@ -338,6 +338,7 @@ const char *vsir_opcode_get_name(enum vkd3d_shader_opcode op, const char *error)
         [VSIR_OP_SAMPLE_LOD                      ] = "sample_l",
         [VSIR_OP_SAMPLE_LOD_S                    ] = "sample_l_s",
         [VSIR_OP_SAMPLE_POS                      ] = "sample_pos",
+        [VSIR_OP_SATURATE                        ] = "saturate",
         [VSIR_OP_SETP                            ] = "setp",
         [VSIR_OP_SGE                             ] = "sge",
         [VSIR_OP_SGN                             ] = "sgn",
@@ -8795,6 +8796,7 @@ static bool vsir_src_is_masked(enum vkd3d_shader_opcode opcode, unsigned int src
         case VSIR_OP_ROUND_PI:
         case VSIR_OP_ROUND_Z:
         case VSIR_OP_RSQ:
+        case VSIR_OP_SATURATE:
         case VSIR_OP_SETP:
         case VSIR_OP_SGE:
         case VSIR_OP_SGN:
@@ -12876,6 +12878,7 @@ static const struct vsir_validator_instruction_desc vsir_validator_instructions[
     [VSIR_OP_ROUND_NE] =                         {1,   1, vsir_validate_float_elementwise_operation},
     [VSIR_OP_ROUND_NI] =                         {1,   1, vsir_validate_float_elementwise_operation},
     [VSIR_OP_SAMPLE_INFO] =                      {1,   1, vsir_validate_sample_info},
+    [VSIR_OP_SATURATE] =                         {1,   1, vsir_validate_float_or_double_elementwise_operation},
     [VSIR_OP_SWITCH] =                           {0,   1, vsir_validate_switch},
     [VSIR_OP_SWITCH_MONOLITHIC] =                {0, ~0u, vsir_validate_switch_monolithic},
     [VSIR_OP_USHR] =                             {1,   2, vsir_validate_ushr},
@@ -13316,6 +13319,7 @@ static bool vsir_instruction_has_side_effects(const struct vkd3d_shader_instruct
         case VSIR_OP_SAMPLE_LOD:
         case VSIR_OP_SAMPLE_LOD_S:
         case VSIR_OP_SAMPLE_POS:
+        case VSIR_OP_SATURATE:
         case VSIR_OP_SETP:
         case VSIR_OP_SGE:
         case VSIR_OP_SGN:

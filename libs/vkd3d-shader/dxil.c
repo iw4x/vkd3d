@@ -6252,13 +6252,12 @@ static void sm6_parser_emit_dx_saturate(struct sm6_parser *sm6, enum dx_intrinsi
     struct vkd3d_shader_instruction *ins = state->ins;
     struct vkd3d_shader_src_param *src_param;
 
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
+    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_SATURATE);
     if (!(src_param = instruction_src_params_alloc(ins, 1, sm6)))
         return;
     src_param_init_from_value(src_param, operands[0], 0, sm6);
 
-    if (instruction_dst_param_init_ssa_scalar(ins, 0, sm6))
-        ins->dst->modifiers = VKD3DSPDM_SATURATE;
+    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
 }
 
 static void sm6_parser_emit_dx_split_double(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,

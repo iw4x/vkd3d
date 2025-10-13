@@ -542,6 +542,7 @@ enum vkd3d_shader_opcode
     VSIR_OP_SAMPLE_LOD,
     VSIR_OP_SAMPLE_LOD_S,
     VSIR_OP_SAMPLE_POS,
+    VSIR_OP_SATURATE,
     VSIR_OP_SETP,
     VSIR_OP_SGE,
     VSIR_OP_SGN,
