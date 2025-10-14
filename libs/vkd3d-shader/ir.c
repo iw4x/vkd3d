@@ -1729,7 +1729,7 @@ static enum vkd3d_result vsir_program_lower_texld_sm1(struct vsir_program *progr
         struct vkd3d_shader_instruction *ins, struct vkd3d_shader_message_context *message_context)
 {
     const struct vkd3d_shader_descriptor_info1 *sampler;
-    unsigned int idx = ins->src[0].reg.idx[0].offset;
+    unsigned int idx = ins->dst[0].reg.idx[0].offset;
     struct vkd3d_shader_src_param *srcs;
 
     /* texld DST, t# -> sample DST, t#, resource#, sampler# */

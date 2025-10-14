@@ -49,10 +49,10 @@ ffff0104                                                % ps_1_4
 
 [test]
 draw quad
-todo probe (320, 240) f32(0.75, 1, 1, 0)
-todo probe (480, 240) f32(0.75, 0, 1, 0)
-todo probe (320, 360) f32(0.75, 1, 0, 0)
-todo probe (480, 360) f32(0.75, 0, 0, 0)
+probe (320, 240) f32(0.75, 1, 1, 0)
+probe (480, 240) f32(0.75, 0, 1, 0)
+probe (320, 360) f32(0.75, 1, 0, 0)
+probe (480, 360) f32(0.75, 0, 0, 0)
 
 [srv 0]
 size (3d, 2, 2, 2)
@@ -64,10 +64,10 @@ size (3d, 2, 2, 2)
 
 [test]
 draw quad
-todo probe (320, 240) f32(0.75, 1, 1, 1)
-todo probe (480, 240) f32(0.75, 0, 1, 1)
-todo probe (320, 360) f32(0.75, 1, 0, 1)
-todo probe (480, 360) f32(0.75, 0, 0, 1)
+probe (320, 240) f32(0.75, 1, 1, 1)
+probe (480, 240) f32(0.75, 0, 1, 1)
+probe (320, 360) f32(0.75, 1, 0, 1)
+probe (480, 360) f32(0.75, 0, 0, 1)
 
 [srv 0]
 size (cube, 1)
@@ -89,22 +89,22 @@ void main(inout float4 pos : position, out float4 tex : texcoord)
 [test]
 uniform 0 float4  1 0 0 0
 draw quad
-todo probe (0, 0) f32(0.75, 0.0, 0.0, 0)
+probe (0, 0) f32(0.75, 0.0, 0.0, 0)
 uniform 0 float4 -1 0 0 0
 draw quad
-todo probe (0, 0) f32(0.75, 0.0, 0.1, 0)
+probe (0, 0) f32(0.75, 0.0, 0.1, 0)
 uniform 0 float4 0  1 0 0
 draw quad
-todo probe (0, 0) f32(0.75, 0.0, 0.2, 0)
+probe (0, 0) f32(0.75, 0.0, 0.2, 0)
 uniform 0 float4 0 -1 0 0
 draw quad
-todo probe (0, 0) f32(0.75, 0.0, 0.3, 0)
+probe (0, 0) f32(0.75, 0.0, 0.3, 0)
 uniform 0 float4 0 0  1 0
 draw quad
-todo probe (0, 0) f32(0.75, 0.0, 0.4, 0)
+probe (0, 0) f32(0.75, 0.0, 0.4, 0)
 uniform 0 float4 0 0 -1 0
 draw quad
-todo probe (0, 0) f32(0.75, 0.0, 0.5, 0)
+probe (0, 0) f32(0.75, 0.0, 0.5, 0)
 
 [vertex shader]
 void main(inout float4 pos : position, out float4 tex : texcoord)
