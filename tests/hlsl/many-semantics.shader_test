@@ -33,5 +33,5 @@ float4 main(float color[2] : color, float texcoord[8] : texcoord) : sv_target
 }
 
 [test]
-todo(sm<4 | msl & sm>=6) draw triangle strip 4
+todo(msl & sm>=6) draw triangle strip 4
 probe (0,0) f32(.65, .86, .37, .48) 1
