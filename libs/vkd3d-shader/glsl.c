@@ -514,6 +514,8 @@ static void VKD3D_PRINTF_FUNC(4, 0) shader_glsl_vprint_assignment(struct vkd3d_g
                     "Internal compiler error: Unhandled destination register data type %#x.", data_type);
             /* fall through */
         case VSIR_DATA_F32:
+        case VSIR_DATA_SNORM:
+        case VSIR_DATA_UNORM:
             close = false;
             break;
         case VSIR_DATA_I32:
