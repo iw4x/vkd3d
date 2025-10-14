@@ -190,6 +190,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/majority-pragma.shader_test \
 	tests/hlsl/majority-syntax.shader_test \
 	tests/hlsl/majority-typedef.shader_test \
+	tests/hlsl/many-semantics.shader_test \
 	tests/hlsl/math.shader_test \
 	tests/hlsl/matrix-indexing.shader_test \
 	tests/hlsl/matrix-semantics.shader_test \
