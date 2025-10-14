@@ -75,27 +75,6 @@ static HRESULT set_viewport(IDirect3DDevice9 *device, unsigned int x, unsigned i
     return IDirect3DDevice9_SetViewport(device, &vp);
 }
 
-static void init_adapter_info(void)
-{
-    D3DADAPTER_IDENTIFIER9 identifier;
-    IDirect3D9 *d3d;
-    HRESULT hr;
-
-    d3d = pDirect3DCreate9(D3D_SDK_VERSION);
-    ok(!!d3d, "Failed to create a D3D object.\n");
-
-    hr = IDirect3D9_GetAdapterIdentifier(d3d, test_options.adapter_idx, 0, &identifier);
-    ok(hr == S_OK, "Failed to get adapter identifier, hr %#lx.\n", hr);
-
-    trace("Driver string: %s.\n", identifier.Driver);
-    trace("Device: %s, %04lx:%04lx.\n", identifier.Description, identifier.VendorId, identifier.DeviceId);
-
-    if (identifier.VendorId == 0x1414 && identifier.DeviceId == 0x008c)
-        trace("Using WARP device.\n");
-
-    IDirect3D9_Release(d3d);
-}
-
 static const BOOL windowed = TRUE;
 
 static bool init_test_context(struct d3d9_shader_runner *runner)
@@ -109,6 +88,7 @@ static bool init_test_context(struct d3d9_shader_runner *runner)
         .BackBufferFormat = D3DFMT_A8R8G8B8,
     };
     RECT rect = {0, 0, RENDER_TARGET_WIDTH, RENDER_TARGET_HEIGHT};
+    D3DADAPTER_IDENTIFIER9 identifier;
     IDirect3D9 *d3d;
     D3DCAPS9 caps;
     HRESULT hr;
@@ -122,6 +102,12 @@ static bool init_test_context(struct d3d9_shader_runner *runner)
 
     d3d = pDirect3DCreate9(D3D_SDK_VERSION);
     ok(!!d3d, "Failed to create a D3D object.\n");
+
+    hr = IDirect3D9_GetAdapterIdentifier(d3d, test_options.adapter_idx, 0, &identifier);
+    ok(hr == S_OK, "Failed to get adapter identifier, hr %#lx.\n", hr);
+
+    trace("Driver string: %s.\n", identifier.Driver);
+    trace("Device: %s, %04lx:%04lx.\n", identifier.Description, identifier.VendorId, identifier.DeviceId);
 
     present_parameters.hDeviceWindow = runner->window;
 
@@ -152,6 +138,18 @@ static bool init_test_context(struct d3d9_shader_runner *runner)
     runner->caps.shader_caps[SHADER_CAP_CLIP_PLANES] = true;
     runner->caps.shader_caps[SHADER_CAP_FOG] = true;
     runner->caps.shader_caps[SHADER_CAP_POINT_SIZE] = true;
+
+    runner->caps.tags[SHADER_RUNNER_TAG_WINDOWS].present = true;
+
+    if (identifier.VendorId == 0x1414 && identifier.DeviceId == 0x008c)
+    {
+        trace("Using WARP device.\n");
+        runner->caps.tags[SHADER_RUNNER_TAG_WARP].present = true;
+    }
+    else if (identifier.VendorId == 0x10de)
+    {
+        runner->caps.tags[SHADER_RUNNER_TAG_NVIDIA].present = true;
+    }
 
     return true;
 }
@@ -804,7 +802,6 @@ void run_shader_tests_d3d9(void)
 
     pDirect3DCreate9 = (void *)GetProcAddress(d3d9_module, "Direct3DCreate9");
 
-    init_adapter_info();
     if (init_test_context(&runner))
     {
         run_shader_tests(&runner.r, &runner.caps, &d3d9_runner_ops, NULL);
