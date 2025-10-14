@@ -5,10 +5,19 @@ shader model < 3.0
 filter point point point
 address wrap wrap wrap
 
+[sampler 1]
+filter point point point
+address wrap wrap wrap
+
 [srv 0]
 size (2d, 2, 2)
 1.0 0.0 0.0 0.0     1.0 1.0 0.0 0.0
 1.0 0.0 1.0 0.0     1.0 1.0 1.0 0.0
+
+[srv 1]
+size (2d, 2, 2)
+0.25 0.5 0.75 1.0   0.25 0.5 0.75 1.0
+0.25 0.5 0.75 1.0   0.25 0.5 0.75 1.0
 
 [vertex shader]
 void main(inout float4 pos : position, out float4 tex : texcoord)
@@ -34,14 +43,16 @@ probe (480, 360) f32(1, 0, 0, 0)
 % TODO: Convert to assembly or HLSL.
 ffff0104                                                % ps_1_4
 00000042 800f0000 b0e40000                              % texld r0, t0
+00000042 800f0001 b0e40000                              % texld r1, t0
+00000001 80010000 80aa0001                              % mov r0.x, r1.z
 0000ffff                                                % end
 
 [test]
 draw quad
-probe (320, 240) f32(1, 1, 1, 0)
-probe (480, 240) f32(1, 0, 1, 0)
-probe (320, 360) f32(1, 1, 0, 0)
-probe (480, 360) f32(1, 0, 0, 0)
+todo probe (320, 240) f32(0.75, 1, 1, 0)
+todo probe (480, 240) f32(0.75, 0, 1, 0)
+todo probe (320, 360) f32(0.75, 1, 0, 0)
+todo probe (480, 360) f32(0.75, 0, 0, 0)
 
 [srv 0]
 size (3d, 2, 2, 2)
@@ -53,10 +64,10 @@ size (3d, 2, 2, 2)
 
 [test]
 draw quad
-probe (320, 240) f32(1, 1, 1, 1)
-probe (480, 240) f32(1, 0, 1, 1)
-probe (320, 360) f32(1, 1, 0, 1)
-probe (480, 360) f32(1, 0, 0, 1)
+todo probe (320, 240) f32(0.75, 1, 1, 1)
+todo probe (480, 240) f32(0.75, 0, 1, 1)
+todo probe (320, 360) f32(0.75, 1, 0, 1)
+todo probe (480, 360) f32(0.75, 0, 0, 1)
 
 [srv 0]
 size (cube, 1)
@@ -78,22 +89,22 @@ void main(inout float4 pos : position, out float4 tex : texcoord)
 [test]
 uniform 0 float4  1 0 0 0
 draw quad
-probe (0, 0) f32(1.0, 0.0, 0.0, 0)
+todo probe (0, 0) f32(0.75, 0.0, 0.0, 0)
 uniform 0 float4 -1 0 0 0
 draw quad
-probe (0, 0) f32(1.0, 0.0, 0.1, 0)
+todo probe (0, 0) f32(0.75, 0.0, 0.1, 0)
 uniform 0 float4 0  1 0 0
 draw quad
-probe (0, 0) f32(1.0, 0.0, 0.2, 0)
+todo probe (0, 0) f32(0.75, 0.0, 0.2, 0)
 uniform 0 float4 0 -1 0 0
 draw quad
-probe (0, 0) f32(1.0, 0.0, 0.3, 0)
+todo probe (0, 0) f32(0.75, 0.0, 0.3, 0)
 uniform 0 float4 0 0  1 0
 draw quad
-probe (0, 0) f32(1.0, 0.0, 0.4, 0)
+todo probe (0, 0) f32(0.75, 0.0, 0.4, 0)
 uniform 0 float4 0 0 -1 0
 draw quad
-probe (0, 0) f32(1.0, 0.0, 0.5, 0)
+todo probe (0, 0) f32(0.75, 0.0, 0.5, 0)
 
 [vertex shader]
 void main(inout float4 pos : position, out float4 tex : texcoord)
