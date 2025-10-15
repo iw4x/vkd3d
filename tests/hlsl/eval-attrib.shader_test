@@ -292,32 +292,23 @@ if(sm<6) probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
 if(sm<6) todo(llvmpipe) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 [pixel shader]
-static const float2 positions[4] =
-{
-    {-0.125f, -0.375f},
-    { 0.375f, -0.125f},
-    {-0.375f,  0.125f},
-    { 0.125f,  0.375f},
-};
-
 float4 main(float4 pos : SV_Position, float2 attr : ATTR, float2 attr2 : ATTR_centroid0,
         uint sample_idx : SV_SampleIndex) : SV_Target
 {
-    bool first_col = floor(pos.x) == 0.0f;
     float2 ref = floor(pos.xy) + float2(0.5f, 0.5f);
-    float2 diff = attr.xy - ref;
-    float2 expected = first_col ? positions[0] : 0.0f;
-    float2 err = abs(diff - expected) * (sample_idx + 1);
-    return floor(1000.0f * float4(err, attr2.x, attr2.y));
+    float4 diff = float4(attr.xy - ref, attr2);
+    float4 expected = float4(0.0f, 0.0f, 1.0f, 2.0f);
+    float4 err = abs(diff - expected) * (sample_idx + 1);
+    return floor(1000.0f * err);
 }
 
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
 todo(msl & sm>=6) draw triangle list 3
-todo probe (0, 0) f32(219.0, 656.5, 750.25, 1500.25)
-probe (638, 0) f32(0.0, 0.0, 1000.0, 2000.0)
-todo probe (0, 478) f32(219.0, 656.5, 750.25, 1500.25)
-probe (639, 479) f32(0.0, 0.0, 1000.0, 2000.0)
+probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
+probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
+probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
+probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 [pixel shader]
 float4 main(float4 pos : SV_Position, float2 attr : ATTR, float2 attr2 : ATTR_centroid_centroid,
@@ -439,29 +430,20 @@ shader model >= 6.0
 % That is not going to work for <SM6, so it's tested separately.
 
 [pixel shader]
-static const float2 positions[4] =
-{
-    {-0.125f, -0.375f},
-    { 0.375f, -0.125f},
-    {-0.375f,  0.125f},
-    { 0.125f,  0.375f},
-};
-
 float4 main(float4 pos : SV_Position, float2 attr : ATTR,
         float2 attr2 : ATTR_centroid, uint sample_idx : SV_SampleIndex) : SV_Target
 {
-    bool first_col = floor(pos.x) == 0.0f;
     float2 ref = floor(pos.xy) + float2(0.5f, 0.5f);
-    float2 diff = attr.xy - ref;
-    float2 expected = first_col ? positions[0] : 0.0f;
-    float2 err = abs(diff - expected) * (sample_idx + 1);
-    return floor(1000.0f * float4(err, attr2.x, attr2.y));
+    float4 diff = float4(attr.xy - ref, attr2);
+    float4 expected = float4(0.0f, 0.0f, 1.0f, 2.0f);
+    float4 err = abs(diff - expected) * (sample_idx + 1);
+    return floor(1000.0f * err);
 }
 
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
 todo(glsl | msl) draw triangle list 3
-todo probe (0, 0) f32(219.0, 656.5, 750.25, 1500.25)
-probe (638, 0) f32(0.0, 0.0, 1000.0, 2000.0)
-todo probe (0, 478) f32(219.0, 656.5, 750.25, 1500.25)
-probe (639, 479) f32(0.0, 0.0, 1000.0, 2000.0)
+probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
+probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
+probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
+probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
