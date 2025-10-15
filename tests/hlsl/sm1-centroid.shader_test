@@ -45,9 +45,8 @@ probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % Centroid interpolation.
-% The WARP driver doesn't seem to support centroid interpolation for SM < 4.
 [pixel shader]
-static const float2 sample_pos = {-0.001f, 0.000f};
+static const float2 sample_pos = {0.375f, -0.125f};
 
 float4 main(centroid float2 t : TEXCOORD0) : SV_Target
 {
@@ -56,20 +55,19 @@ float4 main(centroid float2 t : TEXCOORD0) : SV_Target
     float2 diff = t.xy - ref;
     float2 expected = first_col ? sample_pos : 0.0f;
     float2 err = abs(diff - expected);
-    return floor(1000.0f * float4(err, 0.0f, 0.0f));
+    return floor(500.0f * float4(err, 0.0f, 0.0f));
 }
 
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
 draw triangle list 3
-todo probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
+probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)
-todo probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
+probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 479) f32(0.0, 0.0, 0.0, 0.0)
 
-% The WARP driver doesn't seem to support centroid interpolation for SM < 4.
 [pixel shader]
-static const float2 sample_pos = {-0.001f, 0.000f};
+static const float2 sample_pos = {0.375f, -0.125f};
 
 float4 main(float2 t : TEXCOORD0_centRoid) : SV_Target
 {
@@ -78,20 +76,19 @@ float4 main(float2 t : TEXCOORD0_centRoid) : SV_Target
     float2 diff = t.xy - ref;
     float2 expected = first_col ? sample_pos : 0.0f;
     float2 err = abs(diff - expected);
-    return floor(1000.0f * float4(err, 0.0f, 0.0f));
+    return floor(500.0f * float4(err, 0.0f, 0.0f));
 }
 
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
 draw triangle list 3
-todo probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
+probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)
-todo probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
+probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 479) f32(0.0, 0.0, 0.0, 0.0)
 
-% The WARP driver doesn't seem to support centroid interpolation for SM < 4.
 [pixel shader]
-static const float2 sample_pos = {-0.001f, 0.000f};
+static const float2 sample_pos = {0.375f, -0.125f};
 
 struct ps_in
 {
@@ -105,21 +102,20 @@ float4 main(ps_in data) : SV_Target
     float2 diff = data.t.xy - ref;
     float2 expected = first_col ? sample_pos : 0.0f;
     float2 err = abs(diff - expected);
-    return floor(1000.0f * float4(err, 0.0f, 0.0f));
+    return floor(500.0f * float4(err, 0.0f, 0.0f));
 }
 
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
 draw triangle list 3
-todo probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
+probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)
-todo probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
+probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % The "_centroid" semantic modifier can be specified together with the "centroid" prefix attribute.
-% The WARP driver doesn't seem to support centroid interpolation for SM < 4.
 [pixel shader]
-static const float2 sample_pos = {-0.001f, 0.000f};
+static const float2 sample_pos = {0.375f, -0.125f};
 
 float4 main(centroid float2 t : TEXCOORD0_centroid) : SV_Target
 {
@@ -128,15 +124,15 @@ float4 main(centroid float2 t : TEXCOORD0_centroid) : SV_Target
     float2 diff = t.xy - ref;
     float2 expected = first_col ? sample_pos : 0.0f;
     float2 err = abs(diff - expected);
-    return floor(1000.0f * float4(err, 0.0f, 0.0f));
+    return floor(500.0f * float4(err, 0.0f, 0.0f));
 }
 
 [test]
 clear rtv 0 1.0 1.0 1.0 1.0
 draw triangle list 3
-todo probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
+probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)
-todo probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
+probe (1, 478) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % The semantic name is this case is "TEXCOORD_centroid", which is not valid for SM < 4.

@@ -133,7 +133,7 @@ out:
 
 static bool run_tests_for_directory(const char *commit_dir)
 {
-    char cmdline[1024], log_filename[1024], list_filename[1024], line[1024];
+    char cmdline[1024], log_filename[1024], list_filename[1024], line[1024], dest_filename[1024];
     unsigned int success_count = 0, test_count = 0, timeout_count = 0;
     const char *test_arch = getenv("TEST_ARCH");
     enum program_result result;
@@ -145,6 +145,25 @@ static bool run_tests_for_directory(const char *commit_dir)
 
     printf("\e[0Ksection_start:%I64d:commit_%s\r\e[0KBuilding commit %s\n",
             (uint64_t)time(NULL), commit_dir, commit_dir);
+
+    if (strcmp(test_arch, "64") == 0)
+    {
+        sprintf(dest_filename, "artifacts\\%s\\tests\\d3d10warp.dll", commit_dir);
+        if (!CopyFileA(".\\warp\\build\\native\\bin\\x64\\d3d10warp.dll", dest_filename, FALSE))
+        {
+            fprintf(stderr, "Cannot copy d3d10warp.dll, last error %ld.\n", GetLastError());
+            ret = false;
+        }
+    }
+    else
+    {
+        sprintf(dest_filename, "artifacts\\%s\\tests\\d3d10warp.dll", commit_dir);
+        if (!CopyFileA(".\\warp\\build\\native\\bin\\win32\\d3d10warp.dll", dest_filename, FALSE))
+        {
+            fprintf(stderr, "Cannot copy d3d10warp.dll, last error %ld.\n", GetLastError());
+            ret = false;
+        }
+    }
 
     sprintf(list_filename, "artifacts/%s/tests/shader_tests.txt", commit_dir);
     list_file = fopen(list_filename, "r");
