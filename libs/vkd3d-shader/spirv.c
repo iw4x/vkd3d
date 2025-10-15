@@ -11052,7 +11052,11 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
     }
 
     if (compiler->failed)
+    {
+        vkd3d_shader_free_shader_code(spirv);
+
         return VKD3D_ERROR_INVALID_SHADER;
+    }
 
     if (compile_info->target_type == VKD3D_SHADER_TARGET_SPIRV_TEXT)
     {
