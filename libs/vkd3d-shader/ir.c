@@ -5064,6 +5064,7 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps_in_function(
     for (ins = vsir_program_iterator_current(it); ins; ins = vsir_program_iterator_next(it))
     {
         struct vkd3d_shader_instruction *mov_ins;
+        struct vkd3d_shader_location loc;
         bool finish = false;
         size_t j;
 
@@ -5083,6 +5084,7 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps_in_function(
             case VSIR_OP_SWITCH_MONOLITHIC:
                 info = &block_info[current_label - 1];
 
+                loc = ins->location;
                 if (!(mov_ins = vsir_program_iterator_insert_before_and_move(it, info->incoming_count)))
                     goto fail;
                 VKD3D_ASSERT(mov_ins);
@@ -5091,7 +5093,7 @@ static enum vkd3d_result vsir_program_materialise_phi_ssas_to_temps_in_function(
                 {
                     struct phi_incoming_to_temp *incoming = &info->incomings[j];
 
-                    if (!vsir_instruction_init_with_params(program, mov_ins, &ins->location, VSIR_OP_MOV, 1, 0))
+                    if (!vsir_instruction_init_with_params(program, mov_ins, &loc, VSIR_OP_MOV, 1, 0))
                     {
                         vkd3d_shader_instruction_make_nop(mov_ins);
                         goto fail;
