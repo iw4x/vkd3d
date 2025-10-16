@@ -4986,12 +4986,6 @@ static void spirv_compiler_emit_store_dst(struct spirv_compiler *compiler,
     /* It is always legitimate to ignore _pp. */
     modifiers &= ~VKD3DSPDM_PARTIALPRECISION;
 
-    if (modifiers & VKD3DSPDM_SATURATE)
-    {
-        val_id = spirv_compiler_emit_sat(compiler, &dst->reg, dst->write_mask, val_id);
-        modifiers &= ~VKD3DSPDM_SATURATE;
-    }
-
     if (dst->modifiers & VKD3DSPDM_MSAMPCENTROID)
     {
         FIXME("Ignoring _centroid modifier.\n");

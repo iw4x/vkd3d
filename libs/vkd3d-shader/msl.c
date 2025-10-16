@@ -683,22 +683,16 @@ static void VKD3D_PRINTF_FUNC(3, 4) msl_print_assignment(
     if (dst->vsir->shift)
         msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
                 "Internal compiler error: Unhandled destination shift %#x.", dst->vsir->shift);
-    if (modifiers & ~VKD3DSPDM_SATURATE)
+    if (modifiers)
         msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
                 "Internal compiler error: Unhandled destination modifier(s) %#x.", modifiers);
 
     msl_print_indent(gen->buffer, gen->indent);
     vkd3d_string_buffer_printf(gen->buffer, "%s%s = ", dst->register_name->buffer, dst->mask->buffer);
 
-    if (modifiers & VKD3DSPDM_SATURATE)
-        vkd3d_string_buffer_printf(gen->buffer, "saturate(");
-
     va_start(args, format);
     vkd3d_string_buffer_vprintf(gen->buffer, format, args);
     va_end(args);
-
-    if (modifiers & VKD3DSPDM_SATURATE)
-        vkd3d_string_buffer_printf(gen->buffer, ")");
 
     vkd3d_string_buffer_printf(gen->buffer, ";\n");
 }

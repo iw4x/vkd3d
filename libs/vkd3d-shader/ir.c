@@ -2248,7 +2248,7 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
                 }
 
                 new_ins->dst[0] = *dst;
-                new_ins->dst[0].modifiers &= ~VKD3DSPDM_NONE;
+                new_ins->dst[0].modifiers &= ~VKD3DSPDM_SATURATE;
 
                 dst_param_init_ssa(dst, program->ssa_count, dst->reg.data_type, dst->reg.dimension);
                 src_param_init_ssa(&new_ins->src[0], program->ssa_count, dst->reg.data_type, dst->reg.dimension);
