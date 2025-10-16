@@ -4981,16 +4981,6 @@ static uint32_t spirv_compiler_emit_sat(struct spirv_compiler *compiler,
 static void spirv_compiler_emit_store_dst(struct spirv_compiler *compiler,
         const struct vkd3d_shader_dst_param *dst, uint32_t val_id)
 {
-    uint32_t modifiers = dst->modifiers;
-
-    if (modifiers & VKD3DSPDM_MSAMPCENTROID)
-    {
-        FIXME("Ignoring _centroid modifier.\n");
-        modifiers &= ~VKD3DSPDM_MSAMPCENTROID;
-    }
-
-    VKD3D_ASSERT(!modifiers);
-
     spirv_compiler_emit_store_reg(compiler, &dst->reg, dst->write_mask, val_id);
 }
 

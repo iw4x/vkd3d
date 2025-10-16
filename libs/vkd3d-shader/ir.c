@@ -2173,6 +2173,7 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions), new_it;
     struct vkd3d_shader_instruction *ins, *new_ins;
+    enum vkd3d_result ret = VKD3D_OK;
     unsigned int i, j;
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
@@ -2237,6 +2238,14 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
             /* It is always legitimate to ignore _pp. */
             dst->modifiers &= ~VKD3DSPDM_PARTIALPRECISION;
 
+            if (dst->modifiers & ~VKD3DSPDM_SATURATE)
+            {
+                vkd3d_shader_error(ctx->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+                        "Aborting due to unimplemented feature: Destination modifier %#x.", dst->modifiers);
+                ret = VKD3D_ERROR_NOT_IMPLEMENTED;
+                continue;
+            }
+
             if (dst->modifiers & VKD3DSPDM_SATURATE)
             {
                 if (!vsir_program_iterator_insert_after(&it, 1))
@@ -2267,7 +2276,7 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
         }
     }
 
-    return VKD3D_OK;
+    return ret;
 }
 
 static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *program,
