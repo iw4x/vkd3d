@@ -2617,6 +2617,9 @@ static enum vkd3d_result vsir_program_normalise_ps1_output(struct vsir_program *
     struct vkd3d_shader_instruction *ins;
     struct vkd3d_shader_location loc;
 
+    /* Note we run before I/O normalization. */
+    VKD3D_ASSERT(program->normalisation_level == VSIR_NORMALISED_SM4);
+
     if (!(ins = vsir_program_iterator_tail(&it)))
         return VKD3D_OK;
     loc = ins->location;
@@ -2631,7 +2634,6 @@ static enum vkd3d_result vsir_program_normalise_ps1_output(struct vsir_program *
 
     src_param_init_temp_float4(&ins->src[0], 0);
     ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
-    /* Note we run before I/O normalization. */
     vsir_dst_param_init(&ins->dst[0], VKD3DSPR_COLOROUT, VSIR_DATA_F32, 1);
     ins->dst[0].reg.idx[0].offset = 0;
     ins->dst[0].reg.dimension = VSIR_DIMENSION_VEC4;
