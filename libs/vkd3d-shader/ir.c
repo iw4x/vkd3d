@@ -2234,6 +2234,9 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
         {
             struct vkd3d_shader_dst_param *dst = &ins->dst[i];
 
+            /* It is always legitimate to ignore _pp. */
+            dst->modifiers &= ~VKD3DSPDM_PARTIALPRECISION;
+
             if (dst->modifiers & VKD3DSPDM_SATURATE)
             {
                 if (!vsir_program_iterator_insert_after(&it, 1))
