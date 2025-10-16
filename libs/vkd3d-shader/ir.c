@@ -2238,8 +2238,8 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
             {
                 if (!vsir_program_iterator_insert_after(&it, 1))
                     return VKD3D_ERROR_OUT_OF_MEMORY;
-                ins = vsir_program_iterator_current(&it);
                 new_ins = vsir_program_iterator_next(&it);
+                ins = vsir_program_iterator_prev(&it);
 
                 if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_SATURATE, 1, 1))
                 {
