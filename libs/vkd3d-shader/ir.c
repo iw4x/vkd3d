@@ -1987,7 +1987,7 @@ static enum vkd3d_result vsir_program_lower_texcoord(struct vsir_program *progra
     unsigned int idx = ins->dst[0].reg.idx[0].offset;
     struct vkd3d_shader_src_param *srcs;
 
-    /* texcoord t# -> mov_sat t#, t#
+    /* texcoord t# -> saturate t#, t#
      * Note that the t# destination will subsequently be turned into a temp. */
 
     /* We run before I/O normalization. */
@@ -2001,9 +2001,7 @@ static enum vkd3d_result vsir_program_lower_texcoord(struct vsir_program *progra
     srcs[0].reg.dimension = VSIR_DIMENSION_VEC4;
     srcs[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
 
-    ins->dst[0].modifiers |= VKD3DSPDM_SATURATE;
-
-    ins->opcode = VSIR_OP_MOV;
+    ins->opcode = VSIR_OP_SATURATE;
     ins->src = srcs;
     ins->src_count = 1;
 
