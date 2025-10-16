@@ -583,7 +583,7 @@ static void msl_print_src_with_type(struct vkd3d_string_buffer *buffer, struct m
     const struct vkd3d_shader_src_param *vsir_src, uint32_t mask, enum vsir_data_type data_type)
 {
     const struct vkd3d_shader_register *reg = &vsir_src->reg;
-    struct vkd3d_string_buffer *register_name, *str;
+    struct vkd3d_string_buffer *register_name;
     enum msl_data_type src_data_type;
 
     register_name = vkd3d_string_buffer_get(&gen->string_buffers);
@@ -592,25 +592,10 @@ static void msl_print_src_with_type(struct vkd3d_string_buffer *buffer, struct m
         msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
                 "Internal compiler error: Unhandled 'non-uniform' modifier.");
 
-    if (!vsir_src->modifiers)
-        str = buffer;
-    else
-        str = vkd3d_string_buffer_get(&gen->string_buffers);
-
     src_data_type = msl_print_register_name(register_name, gen, reg);
-    msl_print_bitcast(str, gen, register_name->buffer, data_type, src_data_type, reg->dimension);
+    msl_print_bitcast(buffer, gen, register_name->buffer, data_type, src_data_type, reg->dimension);
     if (reg->dimension == VSIR_DIMENSION_VEC4)
-        msl_print_swizzle(str, vsir_src->swizzle, mask);
-
-    if (vsir_src->modifiers)
-    {
-        vkd3d_string_buffer_printf(buffer, "<unhandled modifier %#x>(%s)", vsir_src->modifiers, str->buffer);
-        msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
-                "Internal compiler error: Unhandled source modifier(s) %#x.", vsir_src->modifiers);
-    }
-
-    if (str != buffer)
-        vkd3d_string_buffer_release(&gen->string_buffers, str);
+        msl_print_swizzle(buffer, vsir_src->swizzle, mask);
 }
 
 static void msl_src_init(struct msl_src *msl_src, struct msl_generator *gen,

@@ -392,7 +392,7 @@ static void shader_glsl_print_src(struct vkd3d_string_buffer *buffer, struct vkd
         const struct vkd3d_shader_src_param *vsir_src, uint32_t mask, enum vsir_data_type data_type)
 {
     const struct vkd3d_shader_register *reg = &vsir_src->reg;
-    struct vkd3d_string_buffer *register_name, *str;
+    struct vkd3d_string_buffer *register_name;
     enum vsir_data_type src_data_type;
     unsigned int size;
 
@@ -409,25 +409,11 @@ static void shader_glsl_print_src(struct vkd3d_string_buffer *buffer, struct vkd
 
     shader_glsl_print_register_name(register_name, gen, reg);
 
-    if (!vsir_src->modifiers)
-        str = buffer;
-    else
-        str = vkd3d_string_buffer_get(&gen->string_buffers);
-
     size = reg->dimension == VSIR_DIMENSION_VEC4 ? 4 : 1;
-    shader_glsl_print_bitcast(str, gen, register_name->buffer, data_type, src_data_type, size);
+    shader_glsl_print_bitcast(buffer, gen, register_name->buffer, data_type, src_data_type, size);
     if (reg->dimension == VSIR_DIMENSION_VEC4)
-        shader_glsl_print_swizzle(str, vsir_src->swizzle, mask);
+        shader_glsl_print_swizzle(buffer, vsir_src->swizzle, mask);
 
-    if (vsir_src->modifiers)
-    {
-        vkd3d_string_buffer_printf(buffer, "<unhandled modifier %#x>(%s)", vsir_src->modifiers, str->buffer);
-        vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                "Internal compiler error: Unhandled source modifier(s) %#x.", vsir_src->modifiers);
-    }
-
-    if (str != buffer)
-        vkd3d_string_buffer_release(&gen->string_buffers, str);
     vkd3d_string_buffer_release(&gen->string_buffers, register_name);
 }
 

@@ -2183,9 +2183,11 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
             enum vkd3d_shader_opcode new_opcodes[2] = {VSIR_OP_NOP, VSIR_OP_NOP};
             struct vkd3d_shader_src_param *src = &ins->src[i];
 
-            /* TODO: support other modifiers, including destination modifiers. */
             switch (src->modifiers)
             {
+                case VKD3DSPSM_NONE:
+                    continue;
+
                 case VKD3DSPSM_ABS:
                     new_opcodes[0] = VSIR_OP_ABS;
                     break;
@@ -2200,6 +2202,9 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
                     break;
 
                 default:
+                    vkd3d_shader_error(ctx->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+                            "Aborting due to unimplemented feature: Source modifier %#x.", src->modifiers);
+                    ret = VKD3D_ERROR_NOT_IMPLEMENTED;
                     continue;
             }
 

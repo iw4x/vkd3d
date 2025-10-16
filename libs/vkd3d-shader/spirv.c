@@ -4823,10 +4823,6 @@ static void spirv_compiler_emit_execution_mode1(struct spirv_compiler *compiler,
 static uint32_t spirv_compiler_emit_load_src(struct spirv_compiler *compiler,
         const struct vkd3d_shader_src_param *src, uint32_t write_mask)
 {
-    if (src->modifiers)
-        spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_NOT_IMPLEMENTED,
-                "Unhandled source modifier(s) %#x.", src->modifiers);
-
     return spirv_compiler_emit_load_reg(compiler, &src->reg, src->swizzle, write_mask);
 }
 
