@@ -2626,7 +2626,7 @@ static enum vkd3d_result vsir_program_normalise_ps1_output(struct vsir_program *
 
     if (!(ins = vsir_program_append(program)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
-    if (!vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MOV, 1, 1))
+    if (!vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_SATURATE, 1, 1))
     {
         vsir_instruction_init(ins, &loc, VSIR_OP_NOP);
         return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -2638,7 +2638,6 @@ static enum vkd3d_result vsir_program_normalise_ps1_output(struct vsir_program *
     ins->dst[0].reg.idx[0].offset = 0;
     ins->dst[0].reg.dimension = VSIR_DIMENSION_VEC4;
     ins->dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
-    ins->dst[0].modifiers = VKD3DSPDM_SATURATE;
 
     return VKD3D_OK;
 }
