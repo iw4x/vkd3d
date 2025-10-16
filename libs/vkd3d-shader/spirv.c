@@ -4752,8 +4752,14 @@ static uint32_t spirv_compiler_emit_load_reg(struct spirv_compiler *compiler,
     else if (reg->type == VKD3DSPR_UNDEF)
         return spirv_compiler_emit_load_undef(compiler, reg, write_mask);
     else if (reg->type == VKD3DSPR_PARAMETER)
-        return spirv_compiler_emit_shader_parameter(compiler, reg->idx[0].offset,
+    {
+        val_id = spirv_compiler_emit_shader_parameter(compiler, reg->idx[0].offset,
                 reg->data_type, reg->dimension == VSIR_DIMENSION_VEC4 ? 4 : 1);
+        if (reg->dimension != VSIR_DIMENSION_VEC4)
+            return val_id;
+        return spirv_compiler_emit_swizzle(compiler, val_id,
+                VKD3DSP_WRITEMASK_ALL, reg->data_type, swizzle, write_mask);
+    }
 
     component_count = vsir_write_mask_component_count(write_mask);
 
