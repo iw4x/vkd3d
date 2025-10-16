@@ -11066,6 +11066,7 @@ int spirv_compile(struct vsir_program *program, uint64_t config_flags,
 
     VKD3D_ASSERT(program->normalisation_level == VSIR_NORMALISED_SM6);
     VKD3D_ASSERT(program->has_descriptor_info);
+    VKD3D_ASSERT(program->has_no_modifiers);
 
     if (!(spirv_compiler = spirv_compiler_create(program, compile_info,
             message_context, config_flags)))

@@ -2453,6 +2453,8 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
         }
     }
 
+    program->has_no_modifiers = true;
+
     return ret;
 }
 
@@ -11046,7 +11048,7 @@ static void vsir_validate_dst_param(struct validation_context *ctx,
             break;
     }
 
-    if (dst->modifiers & ~VKD3DSPDM_MASK)
+    if (dst->modifiers & ~VKD3DSPDM_MASK || (ctx->program->has_no_modifiers && dst->modifiers))
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_MODIFIERS, "Destination has invalid modifiers %#x.",
                 dst->modifiers);
 
@@ -11227,7 +11229,7 @@ static void vsir_validate_src_param(struct validation_context *ctx,
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_SWIZZLE,
                 "Immediate constant source has invalid swizzle %#x.", src->swizzle);
 
-    if (src->modifiers >= VKD3DSPSM_COUNT)
+    if (src->modifiers >= VKD3DSPSM_COUNT || (ctx->program->has_no_modifiers && src->modifiers))
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_MODIFIERS, "Source has invalid modifiers %#x.",
                 src->modifiers);
 
