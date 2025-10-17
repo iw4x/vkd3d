@@ -1,5 +1,146 @@
 [require]
 shader model >= 4.0
+cull-distance
+
+[input layout]
+0 r32g32-float POSITION
+
+% 9 triangles, on a 3x3 arrangement.
+[vb 0]
+-0.52  -0.52
+-0.46  -0.50
+-0.50  -0.46
+
+-0.52  -0.02
+-0.46   0.00
+-0.50   0.04
+
+-0.52  0.48
+-0.46  0.50
+-0.50  0.54
+
+-0.02 -0.52
+ 0.04 -0.50
+ 0.00 -0.46
+
+-0.02 -0.02
+ 0.04 0.00
+ 0.00 0.04
+
+-0.02 0.48
+ 0.04 0.50
+ 0.00 0.54
+
+ 0.48 -0.52
+ 0.54 -0.50
+ 0.50 -0.46
+
+ 0.48 -0.02
+ 0.54 0.00
+ 0.50 0.04
+
+ 0.48 0.48
+ 0.54 0.50
+ 0.50 0.54
+
+[rtv 0]
+format r32g32b32a32-float
+size (2d, 640, 480)
+
+[vertex shader todo]
+struct input
+{
+    float4 position : POSITION;
+};
+
+struct vertex
+{
+    float4 position : SV_POSITION;
+    float cull : SV_CULLDISTANCE;
+    float clip : SV_CLIPDISTANCE;
+};
+
+void main(float4 position : POSITION, out vertex vertex)
+{
+    vertex.position = position;
+    // All 3 triangles on the left column are removed by culling.
+    // All 3 triangles on the bottom row are removed by clipping.
+    // The triangles on the middle row will be partially removed by clipping.
+    vertex.cull = position.x;
+    vertex.clip = position.y;
+}
+
+[pixel shader]
+float4 main(const in float4 position : SV_Position) : SV_Target
+{
+    return float4(1.0f, 1.0f, 1.0f, 1.0f);
+}
+
+[test]
+clear rtv 0 0.0 0.0 0.0 1.0
+todo(sm<6) draw triangle list 27
+probe rtv 0 (160, 120) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (160, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (160, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (320, 120) f32(1.0, 1.0, 1.0, 1.0)
+probe rtv 0 (320, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (320, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (480, 120) f32(1.0, 1.0, 1.0, 1.0)
+probe rtv 0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (320, 239) f32(1.0, 1.0, 1.0, 1.0)
+
+[require]
+shader model >= 4.0
+shader model < 4.1
+cull-distance
+
+% Same as previous vertex shader, but already compiled with FXC.
+[vertex shader dxbc-tpf-hex]
+43425844 0ec8a95b 7857d61f 02c08472 6edf4bf9 00000001 00000170  % DXBC header
+00000003 0000002c 00000060 000000e4                             %
+4e475349 0000002c 00000001 00000008                             % .input
+00000020 00000000 00000000 00000003 00000000 00000f0f           % .param POSITION.xyzw, v0.xyzw, float
+49534f50 4e4f4954 ababab00                                      %     "POSITION"
+4e47534f 0000007c 00000003 00000008                             % .output
+00000050 00000000 00000001 00000003 00000000 0000000f           % .param SV_POSITION.xyzw, o0.xyzw, float, POS
+0000005c 00000000 00000003 00000003 00000001 00000e01           % .param SV_CULLDISTANCE.x, o1.x, float, CULLDST
+0000006c 00000000 00000002 00000003 00000001 00000d02           % .param SV_CLIPDISTANCE.y, o1.y, float, CLIPDST
+505f5653 5449534f 004e4f49                                      %     "SV_POSITION"
+435f5653 444c4c55 41545349 0045434e                             %     "SV_CULLDISTANCE"
+435f5653 4450494c 41545349 0045434e                             %     "SV_CLIPDISTANCE"
+52444853 00000084 00010040 00000021                             % .text vs_4_0
+0300005f 001010f2 00000000                                      % dcl_input v0.xyzw
+04000067 001020f2 00000000 00000001                             % dcl_output_siv o0.xyzw, position
+04000067 00102012 00000001 00000003                             % dcl_output_siv o1.x, cull_distance
+04000067 00102022 00000001 00000002                             % dcl_output_siv o1.y, clip_distance
+05000036 001020f2 00000000 00101e46 00000000                    % mov o0.xyzw, v0.xyzw
+05000036 00102012 00000001 0010100a 00000000                    % mov o1.x, v0.x
+05000036 00102022 00000001 0010101a 00000000                    % mov o1.y, v0.y
+0100003e                                                        % ret
+
+[pixel shader]
+float4 main(const in float4 position : SV_Position) : SV_Target
+{
+    return float4(1.0f, 1.0f, 1.0f, 1.0f);
+}
+
+[test]
+clear rtv 0 0.0 0.0 0.0 1.0
+todo(glsl) draw triangle list 27
+probe rtv 0 (160, 120) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (160, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (160, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (320, 120) f32(1.0, 1.0, 1.0, 1.0)
+todo(sm<6) probe rtv 0 (320, 240) f32(0.0, 0.0, 0.0, 1.0)
+todo(sm<6) probe rtv 0 (320, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (480, 120) f32(1.0, 1.0, 1.0, 1.0)
+todo(sm<6) probe rtv 0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
+todo(sm<6) probe rtv 0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (320, 239) f32(1.0, 1.0, 1.0, 1.0)
+
+[require]
+shader model >= 4.0
 
 [input layout]
 0 r32g32-float POSITION
