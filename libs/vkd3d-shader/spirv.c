@@ -5813,7 +5813,7 @@ static void calculate_clip_or_cull_distance_mask(const struct signature_element 
         return;
     }
 
-    write_mask = e->mask >> vsir_write_mask_get_component_idx(e->mask);
+    write_mask = e->mask;
     *mask |= (write_mask & VKD3DSP_WRITEMASK_ALL) << (VKD3D_VEC4_SIZE * e->semantic_index);
 }
 
@@ -6060,7 +6060,7 @@ static void spirv_compiler_emit_output(struct spirv_compiler *compiler,
     if (use_private_variable)
     {
         compiler->private_output_variable[element_idx] = var_id;
-        compiler->private_output_variable_write_mask[element_idx] |= write_mask >> component_idx;
+        compiler->private_output_variable_write_mask[element_idx] |= write_mask;
         if (!compiler->epilogue_function_id)
             compiler->epilogue_function_id = vkd3d_spirv_alloc_id(builder);
     }
@@ -6112,9 +6112,6 @@ static void spirv_compiler_emit_store_shader_output(struct spirv_compiler *compi
             use_mask |= element->used_mask;
         }
     }
-    index = vsir_write_mask_get_component_idx(output->mask);
-    dst_write_mask >>= index;
-    use_mask >>= index;
     write_mask &= dst_write_mask;
 
     if (!write_mask)
