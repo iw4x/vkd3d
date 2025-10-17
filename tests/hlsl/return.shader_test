@@ -25,7 +25,7 @@ void main(out float4 ret : sv_target)
 draw quad
 probe (0, 0) rgba (0.1, 0.2, 0.3, 0.4)
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 uniform float f;
 
 float4 main() : sv_target
@@ -37,13 +37,13 @@ float4 main() : sv_target
 
 [test]
 uniform 0 float 0.2
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.1, 0.2, 0.3, 0.4)
+draw quad
+probe (0, 0) f32(0.1, 0.2, 0.3, 0.4)
 uniform 0 float 0.8
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.5, 0.6, 0.7, 0.8)
+draw quad
+probe (0, 0) f32(0.5, 0.6, 0.7, 0.8)
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 uniform float f;
 
 void main(out float4 ret : sv_target)
@@ -63,13 +63,13 @@ void main(out float4 ret : sv_target)
 
 [test]
 uniform 0 float 0.2
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.3, 0.4, 0.5, 0.6)
+draw quad
+probe (0, 0) f32(0.3, 0.4, 0.5, 0.6)
 uniform 0 float 0.8
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.1, 0.2, 0.3, 0.4)
+draw quad
+probe (0, 0) f32(0.1, 0.2, 0.3, 0.4)
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 uniform float f;
 
 void main(out float4 ret : sv_target)
@@ -89,16 +89,16 @@ void main(out float4 ret : sv_target)
 
 [test]
 uniform 0 float 0.1
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.1, 0.2, 0.3, 0.4) 1
+draw quad
+probe (0, 0) f32(0.1, 0.2, 0.3, 0.4) 1
 uniform 0 float 0.5
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.2, 0.3, 0.4, 0.5) 1
+draw quad
+probe (0, 0) f32(0.2, 0.3, 0.4, 0.5) 1
 uniform 0 float 0.9
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.5, 0.6, 0.7, 0.8) 1
+draw quad
+probe (0, 0) f32(0.5, 0.6, 0.7, 0.8) 1
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 uniform float f;
 
 void main(out float4 ret : sv_target)
@@ -115,14 +115,14 @@ void main(out float4 ret : sv_target)
 
 [test]
 uniform 0 float 0.1
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.1, 0.2, 0.3, 0.4) 1
+draw quad
+probe (0, 0) f32(0.1, 0.2, 0.3, 0.4) 1
 uniform 0 float 0.5
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.5, 0.6, 0.7, 0.8) 1
+draw quad
+probe (0, 0) f32(0.5, 0.6, 0.7, 0.8) 1
 uniform 0 float 0.9
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.4, 0.5, 0.6, 0.7) 1
+draw quad
+probe (0, 0) f32(0.4, 0.5, 0.6, 0.7) 1
 
 [pixel shader]
 void main(out float4 ret : sv_target)
@@ -141,7 +141,7 @@ void main(out float4 ret : sv_target)
 draw quad
 probe (0, 0) rgba (0.2, 0.4, 0.6, 0.8)
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 uniform float f;
 
 void main(out float4 ret : sv_target)
@@ -160,26 +160,26 @@ void main(out float4 ret : sv_target)
 
 [test]
 uniform 0 float 0.0
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.1, 0.1, 0.1, 0.1) 1
+draw quad
+probe (0, 0) f32(0.1, 0.1, 0.1, 0.1) 1
 
 uniform 0 float 0.1
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.2, 0.2, 0.2, 0.2) 1
+draw quad
+probe (0, 0) f32(0.2, 0.2, 0.2, 0.2) 1
 
 uniform 0 float 0.3
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.4, 0.4, 0.4, 0.4) 1
+draw quad
+probe (0, 0) f32(0.4, 0.4, 0.4, 0.4) 1
 
 uniform 0 float 0.7
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.8, 0.8, 0.8, 0.8) 1
+draw quad
+probe (0, 0) f32(0.8, 0.8, 0.8, 0.8) 1
 
 uniform 0 float 0.9
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.9, 0.9, 0.9, 0.9) 1
+draw quad
+probe (0, 0) f32(0.9, 0.9, 0.9, 0.9) 1
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 uniform float f;
 
 void main(out float4 ret : sv_target)
@@ -204,13 +204,13 @@ void main(out float4 ret : sv_target)
 
 [test]
 uniform 0 float 0.2
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.2, 0.2, 0.2, 0.2)
+draw quad
+probe (0, 0) f32(0.2, 0.2, 0.2, 0.2)
 uniform 0 float 0.8
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.5, 0.5, 0.5, 0.5)
+draw quad
+probe (0, 0) f32(0.5, 0.5, 0.5, 0.5)
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 
 uniform float4 f[3];
 
@@ -236,23 +236,23 @@ void main(out float4 ret : sv_target)
 uniform 0 float4 0.3 0.0 0.0 0.0
 uniform 4 float4 0.0 0.0 0.0 0.0
 uniform 8 float4 0.1 0.0 0.0 0.0
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.1, 0.1, 0.1, 0.1) 1
+draw quad
+probe (0, 0) f32(0.1, 0.1, 0.1, 0.1) 1
 
 uniform 4 float4 0.35 0.0 0.0 0.0
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.2, 0.2, 0.2, 0.2) 1
+draw quad
+probe (0, 0) f32(0.2, 0.2, 0.2, 0.2) 1
 
 uniform 8 float4 0.5 0.0 0.0 0.0
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.4, 0.4, 0.4, 0.4) 1
+draw quad
+probe (0, 0) f32(0.4, 0.4, 0.4, 0.4) 1
 
 uniform 0 float4 1.0 0.0 0.0 0.0
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.4, 0.4, 0.4, 0.4) 1
+draw quad
+probe (0, 0) f32(0.4, 0.4, 0.4, 0.4) 1
 
 uniform 4 float4 2.0 0.0 0.0 0.0
-todo(sm<4) draw quad
+draw quad
 % Apparently fixed by Mesa commit 9785fa460c41b9498c24a82b98069655a91224c5,
 % which only adds optimization; so it might just be hiding the bug rather than
 % solving it; see also https://gitlab.freedesktop.org/mesa/mesa/-/issues/13092

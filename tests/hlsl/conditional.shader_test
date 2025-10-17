@@ -1,4 +1,4 @@
-[pixel shader todo(sm<4)]
+[pixel shader]
 uniform float4 u;
 
 float4 main() : sv_target
@@ -11,13 +11,13 @@ float4 main() : sv_target
 
 [test]
 uniform 0 float4 0.0 0.0 0.0 0.0
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.9, 0.8, 0.7, 0.6)
+draw quad
+probe (0, 0) f32(0.9, 0.8, 0.7, 0.6)
 uniform 0 float4 0.1 0.0 0.0 0.0
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.1, 0.2, 0.3, 0.4)
+draw quad
+probe (0, 0) f32(0.1, 0.2, 0.3, 0.4)
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 uniform float4 u;
 
 float4 main() : sv_target
@@ -29,7 +29,7 @@ float4 main() : sv_target
         return float4(0.9, 0.8, 0.7, 0.6);
 }
 
-[pixel shader todo(sm<4)]
+[pixel shader]
 uniform float4 u;
 
 float4 main() : sv_target
@@ -43,8 +43,8 @@ float4 main() : sv_target
 
 [test]
 uniform 0 float4 0.0 0.0 0.0 0.0
-todo(sm<4) draw quad
-probe (0, 0) rgba (0.9, 0.8, 0.7, 0.6)
+draw quad
+probe (0, 0) f32(0.9, 0.8, 0.7, 0.6)
 
 [pixel shader fail(sm<6)]
 float4 u;
@@ -370,7 +370,7 @@ todo(msl & sm>=6) draw quad
 probe (0, 0) rgba (1.0, 1.0, 0.0, 4.0)
 
 % Branches with resource stores can't be flattened.
-[pixel shader fail(sm<6) todo]
+[pixel shader fail(sm<6)]
 uniform float a;
 RWBuffer<float> u;
 
