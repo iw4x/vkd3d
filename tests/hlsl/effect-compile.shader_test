@@ -284,3 +284,62 @@ technique10 T0
         PixelShader = compile ps_4_0 fun(4);
     }
 }
+
+[effect todo]
+float4 vs( float4 Pos : POSITION ) : SV_POSITION { return Pos; }
+float4 ps( float4 Pos : SV_POSITION ) : SV_Target { return float4( 1.0f, 1.0f, 0.0f, 1.0f ); }
+
+PixelShader p = CompileShader( ps_4_0, ps() );
+VertexShader v = CompileShader( vs_4_0, vs() ) ;
+
+VertexShader v0 = NULL;
+
+technique10 t0
+{
+    pass p0
+    {
+        PixelShader = p;
+        VertexShader = v;
+    }
+
+    pass p1
+    {
+        PixelShader = p;
+        VertexShader = v0;
+    }
+
+    pass p2
+    {
+        PixelShader = CompileShader( ps_4_0, ps() );
+        VertexShader = CompileShader( vs_4_0, vs() ) ;
+    }
+
+    pass p3
+    {
+        PixelShader = NULL;
+        VertexShader = NULL;
+    }
+}
+
+[effect todo]
+float4 vs( float4 pos : POSITION ) : SV_POSITION { return pos; }
+float4 vs2( float4 pos : POSITION ) : SV_POSITION { return pos + pos; }
+float4 ps( float4 pos : SV_POSITION ) : SV_Target { return float4( 1.0f, 1.0f, 0.0f, 1.0f ); }
+
+VertexShader v[2] = { CompileShader( vs_4_0, vs() ), CompileShader( vs_4_0, vs2() ) };
+PixelShader p = CompileShader( ps_4_0, ps() );
+
+technique10 t0
+{
+    pass p0
+    {
+        SetPixelShader(p);
+        SetVertexShader(v[0]);
+    }
+
+    pass p1
+    {
+        SetPixelShader(p);
+        SetVertexShader(v[1]);
+    }
+}
