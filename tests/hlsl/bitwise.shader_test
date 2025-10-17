@@ -8,7 +8,7 @@ float4 main() : sv_target
 
 [test]
 uniform 0 uint4 0 0xffffffff 0xcccccccc 0x31415926
-todo(sm<4 | msl & sm>=6) draw quad
+todo(sm<4) draw quad
 if(sm>=4) probe (0, 0) f32(0, 32, 16, 12)
 if(sm<4)  probe (0, 0) f32(0, 0, 0, 0)
 

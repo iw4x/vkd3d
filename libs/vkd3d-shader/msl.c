@@ -1444,6 +1444,9 @@ static void msl_handle_instruction(struct msl_generator *gen, const struct vkd3d
         case VSIR_OP_COS:
             msl_intrinsic(gen, ins, "cos");
             break;
+        case VSIR_OP_COUNTBITS:
+            msl_intrinsic(gen, ins, "popcount");
+            break;
         case VSIR_OP_DCL_INDEXABLE_TEMP:
             msl_dcl_indexable_temp(gen, ins);
             break;
