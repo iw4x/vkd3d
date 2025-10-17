@@ -16,6 +16,68 @@ uniform 0 float4 9 8 7 6
 todo(sm<4 | glsl | msl & sm>=6) draw quad
 probe (0, 0) f32(1, 2, 3, 4)
 
+[pixel shader todo(sm<4)]
+uniform float4 x;
+
+float4 main() : sv_target
+{
+    [flatten]
+    if (x.x == 9.0f)
+        discard;
+    return x;
+}
+
+[test]
+uniform 0 float4 1 2 3 4
+todo(sm<4 | glsl | msl & sm>=6) draw quad
+probe (0, 0) f32(1, 2, 3, 4)
+uniform 0 float4 9 8 7 6
+todo(sm<4 | glsl | msl & sm>=6) draw quad
+probe (0, 0) f32(1, 2, 3, 4)
+
+[pixel shader todo(sm<4)]
+uniform float4 x;
+
+float4 main() : sv_target
+{
+    float4 ret = x;
+    if (x.x != 9.0f)
+        ret.w = 4.0f;
+    else
+        discard;
+    return ret;
+}
+
+[test]
+uniform 0 float4 1 2 3 4
+todo(sm<4 | glsl | msl & sm>=6) draw quad
+probe (0, 0) f32(1, 2, 3, 4)
+uniform 0 float4 9 8 7 6
+todo(sm<4 | glsl | msl & sm>=6) draw quad
+probe (0, 0) f32(1, 2, 3, 4)
+
+[pixel shader todo(sm<4)]
+uniform float4 x;
+
+float4 main() : sv_target
+{
+    float4 ret = x;
+    [flatten]
+    if (x.x != 9.0f)
+        ret.w = 4.0f;
+    else
+        discard;
+    return ret;
+}
+
+[test]
+uniform 0 float4 1 2 3 4
+todo(sm<4 | glsl | msl & sm>=6) draw quad
+probe (0, 0) f32(1, 2, 3, 4)
+uniform 0 float4 9 8 7 6
+todo(sm<4 | glsl | msl & sm>=6) draw quad
+probe (0, 0) f32(1, 2, 3, 4)
+
 [require]
 shader model >= 3.0
 

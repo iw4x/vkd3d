@@ -111,6 +111,35 @@ draw quad
 probe (0, 0) rgba (0.9, 0.8, 0.7, 0.6)
 
 [pixel shader]
+uniform float4 u;
+
+float4 main() : sv_target
+{
+    [flatten]
+    if (u.x > 0.0)
+    {
+        [branch]
+        if (u.y > 0.0)
+            return float4(1.0, 2.0, 3.0, 4.0);
+        else
+            return float4(5.0, 6.0, 7.0, 8.0);
+    }
+    else
+        return float4(9.0, 10.0, 11.0, 12.0);
+}
+
+[test]
+uniform 0 float4 1.0 0.0 0.0 0.0
+draw quad
+probe (0, 0) f32(5.0, 6.0, 7.0, 8.0)
+uniform 0 float4 1.0 1.0 0.0 0.0
+draw quad
+probe (0, 0) f32(1.0, 2.0, 3.0, 4.0)
+uniform 0 float4 0.0 1.0 0.0 0.0
+draw quad
+probe (0, 0) f32(9.0, 10.0, 11.0, 12.0)
+
+[pixel shader]
 float4 main() : sv_target
 {
     bool c = false;
@@ -215,6 +244,54 @@ if(sm>=4) uniform 1 int 4
 draw quad
 probe (0, 0) rgba (1.0, 1.0, 1.0, 1.0)
 
+[pixel shader]
+uniform float4 u;
+
+float4 main() : sv_target
+{
+    float res = 0;
+
+    [flatten]
+    if (u.x > 0.0)
+        res = 1.0;
+    else
+        res = 2.0;
+
+    return res;
+}
+
+[test]
+uniform 0 float4 0.0 0.0 0.0 0.0
+draw quad
+probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
+uniform 0 float4 1.0 0.0 0.0 0.0
+draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+
+[pixel shader]
+uniform float4 u;
+
+float4 main() : sv_target
+{
+    float4 res = float4(0.0, -1.0, -2.0, -3.0);
+
+    [flatten]
+    if (u.x > 0.0)
+        res.xy = float2(4.0, 5.0);
+    else
+        res.xz = float2(6.0, 7.0);
+
+    return res;
+}
+
+[test]
+uniform 0 float4 0.0 0.0 0.0 0.0
+draw quad
+probe (0, 0) f32(6.0, -1.0, 7.0, -3.0)
+uniform 0 float4 1.0 0.0 0.0 0.0
+draw quad
+probe (0, 0) f32(4.0, 5.0, -2.0, -3.0)
+
 % Test "if" conditionals, using resource loads to ensure we aren't removing these instruction with optimizations.
 [srv 0]
 size (2d, 2, 2)
@@ -252,6 +329,27 @@ float a;
 
 float4 main() : sv_target
 {
+    [flatten] if (a < 4)
+        return tex.Sample(sam, float2(0, 0));
+    else
+        return float4(1, 2, 3, 4);
+}
+
+[test]
+uniform 0 float -2
+draw quad
+probe (0, 0) f32(0.0, 0.0, 0.0, 4.0)
+uniform 0 float 4
+draw quad
+probe (0, 0) f32(1.0, 2.0, 3.0, 4.0)
+
+[pixel shader]
+Texture2D tex;
+sampler sam;
+float a;
+
+float4 main() : sv_target
+{
     if (a >= 2)
         return tex.Sample(sam, float2(0, 0));
     else if (a >= 1)
@@ -270,6 +368,38 @@ probe (0, 0) rgba (1.0, 0.0, 0.0, 4.0)
 uniform 0 float 0
 todo(msl & sm>=6) draw quad
 probe (0, 0) rgba (1.0, 1.0, 0.0, 4.0)
+
+% Branches with resource stores can't be flattened.
+[pixel shader fail(sm<6) todo]
+uniform float a;
+RWBuffer<float> u;
+
+float4 main() : sv_target
+{
+    [flatten]
+    if (a > 0)
+       u[0] = a;
+    return a;
+}
+
+[pixel shader fail(sm<6) todo]
+uniform float a;
+uniform uint b;
+RWBuffer<float> u;
+
+float4 main() : sv_target
+{
+    [flatten]
+    if (a > 0)
+    {
+       for (uint i = 0; i < b; ++i)
+       {
+           if (i > 3)
+               u[i] = a + i;
+       }
+    }
+    return a;
+}
 
 % Test 16-bit phi instructions.
 [require]
