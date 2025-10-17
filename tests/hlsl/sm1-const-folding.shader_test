@@ -97,7 +97,8 @@ float4 main() : SV_TARGET
 
 [test]
 draw quad
-todo probe (0,0) rgba (2.14748365e+009, 0.0, 0.0, 0.0)
+if(sm<6) todo probe (0,0) f32(2.14748365e+009, 0.0, 0.0, 0.0)
+if(sm>=6) probe (0,0) f32(1705032700.0, 0.0, 0.0, 0.0)
 
 % Again, no idea of what's happening here
 [pixel shader]
@@ -109,7 +110,8 @@ float4 main() : SV_TARGET
 
 [test]
 draw quad
-todo probe (0,0) rgba (-2.14748365e+009, 0.0, 0.0, 0.0)
+if(sm<6) todo probe (0,0) f32(-2.14748365e+009, 0.0, 0.0, 0.0)
+if(sm>=6) probe (0,0) f32(1705032700.0, 0.0, 0.0, 0.0)
 
 % This makes sense
 [pixel shader]
@@ -131,7 +133,8 @@ float4 main() : SV_TARGET
 
 [test]
 draw quad
-todo probe (0,0) rgba (-2.14748365e+009, 0.0, 0.0, 0.0)
+if(sm<6) todo probe (0,0) f32(-2.14748365e+009, 0.0, 0.0, 0.0)
+if(sm>=6) probe (0,0) f32(6e9, 0.0, 0.0, 0.0)
 
 % Explicit float literals use float semantics, at least
 [pixel shader]
