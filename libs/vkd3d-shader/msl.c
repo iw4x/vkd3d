@@ -261,11 +261,11 @@ static bool msl_get_srv_binding(const struct msl_generator *gen,
             ? VKD3D_SHADER_BINDING_FLAG_BUFFER : VKD3D_SHADER_BINDING_FLAG_IMAGE, idx);
 }
 
-static bool msl_get_uav_binding(const struct msl_generator *gen, unsigned int register_space,
-        unsigned int register_idx, enum vkd3d_shader_resource_type resource_type, unsigned int *idx)
+static bool msl_get_uav_binding(const struct msl_generator *gen,
+        const struct vkd3d_shader_descriptor_info1 *descriptor, unsigned int register_idx, unsigned int *idx)
 {
-    return msl_get_binding(gen, register_space, register_idx,
-            VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, resource_type == VKD3D_SHADER_RESOURCE_BUFFER
+    return msl_get_binding(gen, descriptor->register_space, register_idx,
+            VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, descriptor->resource_type == VKD3D_SHADER_RESOURCE_BUFFER
             ? VKD3D_SHADER_BINDING_FLAG_BUFFER : VKD3D_SHADER_BINDING_FLAG_IMAGE, idx);
 }
 
@@ -1182,7 +1182,7 @@ static void msl_store_uav_typed(struct msl_generator *gen, const struct vkd3d_sh
     unsigned int uav_id, uav_idx, uav_space;
     struct vkd3d_string_buffer *image_data;
     enum vsir_data_type data_type;
-    unsigned int uav_binding;
+    unsigned int uav_binding = 0;
     uint32_t coord_mask;
 
     if (ins->dst[0].reg.idx[0].rel_addr || ins->dst[0].reg.idx[1].rel_addr)
@@ -1220,13 +1220,10 @@ static void msl_store_uav_typed(struct msl_generator *gen, const struct vkd3d_sh
     }
     coord_mask = vkd3d_write_mask_from_component_count(resource_type_info->coord_size);
 
-    if (!msl_get_uav_binding(gen, uav_space, uav_idx, resource_type, &uav_binding))
-    {
+    if (d && !msl_get_uav_binding(gen, d, uav_idx, &uav_binding))
         msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_BINDING_NOT_FOUND,
                 "No descriptor binding specified for UAV %u (index %u, space %u).",
                 uav_id, uav_idx, uav_space);
-        uav_binding = 0;
-    }
 
     image_data = vkd3d_string_buffer_get(&gen->string_buffers);
 
