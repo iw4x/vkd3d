@@ -209,8 +209,9 @@ static bool msl_check_shader_visibility(const struct msl_generator *gen,
     }
 }
 
-static const struct vkd3d_shader_descriptor_binding *msl_get_cbv_binding(const struct msl_generator *gen,
-        unsigned int register_space, unsigned int register_idx)
+static const struct vkd3d_shader_descriptor_binding *msl_get_binding(const struct msl_generator *gen,
+        unsigned int register_space, unsigned int register_idx, enum vkd3d_shader_descriptor_type type,
+        enum vkd3d_shader_binding_flag flags)
 {
     const struct vkd3d_shader_interface_info *interface_info = gen->interface_info;
     unsigned int i;
@@ -222,7 +223,7 @@ static const struct vkd3d_shader_descriptor_binding *msl_get_cbv_binding(const s
     {
         const struct vkd3d_shader_resource_binding *binding = &interface_info->bindings[i];
 
-        if (binding->type != VKD3D_SHADER_DESCRIPTOR_TYPE_CBV)
+        if (binding->type != type)
             continue;
         if (binding->register_space != register_space)
             continue;
@@ -230,111 +231,42 @@ static const struct vkd3d_shader_descriptor_binding *msl_get_cbv_binding(const s
             continue;
         if (!msl_check_shader_visibility(gen, binding->shader_visibility))
             continue;
-        if (!(binding->flags & VKD3D_SHADER_BINDING_FLAG_BUFFER))
+        if ((binding->flags & flags) != flags)
             continue;
 
         return &binding->binding;
     }
 
     return NULL;
+}
+
+static const struct vkd3d_shader_descriptor_binding *msl_get_cbv_binding(const struct msl_generator *gen,
+        unsigned int register_space, unsigned int register_idx)
+{
+    return msl_get_binding(gen, register_space, register_idx,
+            VKD3D_SHADER_DESCRIPTOR_TYPE_CBV, VKD3D_SHADER_BINDING_FLAG_BUFFER);
 }
 
 static const struct vkd3d_shader_descriptor_binding *msl_get_sampler_binding(const struct msl_generator *gen,
         unsigned int register_space, unsigned int register_idx)
 {
-    const struct vkd3d_shader_interface_info *interface_info = gen->interface_info;
-    const struct vkd3d_shader_resource_binding *binding;
-    unsigned int i;
-
-    if (!interface_info)
-        return NULL;
-
-    for (i = 0; i < interface_info->binding_count; ++i)
-    {
-        binding = &interface_info->bindings[i];
-
-        if (binding->type != VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER)
-            continue;
-        if (binding->register_space != register_space)
-            continue;
-        if (binding->register_index != register_idx)
-            continue;
-        if (!msl_check_shader_visibility(gen, binding->shader_visibility))
-            continue;
-
-        return &binding->binding;
-    }
-
-    return NULL;
+    return msl_get_binding(gen, register_space, register_idx, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, 0);
 }
 
 static const struct vkd3d_shader_descriptor_binding *msl_get_srv_binding(const struct msl_generator *gen,
         unsigned int register_space, unsigned int register_idx, enum vkd3d_shader_resource_type resource_type)
 {
-    const struct vkd3d_shader_interface_info *interface_info = gen->interface_info;
-    enum vkd3d_shader_binding_flag resource_type_flag;
-    unsigned int i;
-
-    if (!interface_info)
-        return NULL;
-
-    resource_type_flag = resource_type == VKD3D_SHADER_RESOURCE_BUFFER
-            ? VKD3D_SHADER_BINDING_FLAG_BUFFER : VKD3D_SHADER_BINDING_FLAG_IMAGE;
-
-    for (i = 0; i < interface_info->binding_count; ++i)
-    {
-        const struct vkd3d_shader_resource_binding *binding = &interface_info->bindings[i];
-
-        if (binding->type != VKD3D_SHADER_DESCRIPTOR_TYPE_SRV)
-            continue;
-        if (binding->register_space != register_space)
-            continue;
-        if (binding->register_index != register_idx)
-            continue;
-        if (!msl_check_shader_visibility(gen, binding->shader_visibility))
-            continue;
-        if (!(binding->flags & resource_type_flag))
-            continue;
-
-        return &binding->binding;
-    }
-
-    return NULL;
+    return msl_get_binding(gen, register_space, register_idx,
+            VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, resource_type == VKD3D_SHADER_RESOURCE_BUFFER
+            ? VKD3D_SHADER_BINDING_FLAG_BUFFER : VKD3D_SHADER_BINDING_FLAG_IMAGE);
 }
 
 static const struct vkd3d_shader_descriptor_binding *msl_get_uav_binding(const struct msl_generator *gen,
         unsigned int register_space, unsigned int register_idx, enum vkd3d_shader_resource_type resource_type)
 {
-    const struct vkd3d_shader_interface_info *interface_info = gen->interface_info;
-    const struct vkd3d_shader_resource_binding *binding;
-    enum vkd3d_shader_binding_flag resource_type_flag;
-    unsigned int i;
-
-    if (!interface_info)
-        return NULL;
-
-    resource_type_flag = resource_type == VKD3D_SHADER_RESOURCE_BUFFER
-            ? VKD3D_SHADER_BINDING_FLAG_BUFFER : VKD3D_SHADER_BINDING_FLAG_IMAGE;
-
-    for (i = 0; i < interface_info->binding_count; ++i)
-    {
-        binding = &interface_info->bindings[i];
-
-        if (binding->type != VKD3D_SHADER_DESCRIPTOR_TYPE_UAV)
-            continue;
-        if (binding->register_space != register_space)
-            continue;
-        if (binding->register_index != register_idx)
-            continue;
-        if (!msl_check_shader_visibility(gen, binding->shader_visibility))
-            continue;
-        if (!(binding->flags & resource_type_flag))
-            continue;
-
-        return &binding->binding;
-    }
-
-    return NULL;
+    return msl_get_binding(gen, register_space, register_idx,
+            VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, resource_type == VKD3D_SHADER_RESOURCE_BUFFER
+            ? VKD3D_SHADER_BINDING_FLAG_BUFFER : VKD3D_SHADER_BINDING_FLAG_IMAGE);
 }
 
 static void msl_print_cbv_name(struct vkd3d_string_buffer *buffer, unsigned int binding)
