@@ -453,6 +453,24 @@ static enum msl_data_type msl_print_register_name(struct vkd3d_string_buffer *bu
             vkd3d_string_buffer_printf(buffer, "v_local_thread_index");
             return MSL_DATA_UNION;
 
+        case VKD3DSPR_UNDEF:
+            switch (reg->dimension)
+            {
+                case VSIR_DIMENSION_SCALAR:
+                    vkd3d_string_buffer_printf(buffer, "0u");
+                    return MSL_DATA_UINT;
+
+                case VSIR_DIMENSION_VEC4:
+                    vkd3d_string_buffer_printf(buffer, "uint4(0u, 0u, 0u, 0u)");
+                    return MSL_DATA_UINT;
+
+                default:
+                    vkd3d_string_buffer_printf(buffer, "<unhandled_dimension %#x>", reg->dimension);
+                    msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
+                            "Internal compiler error: Unhandled dimension %#x.", reg->dimension);
+                    return MSL_DATA_UINT;
+            }
+
         default:
             msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
                     "Internal compiler error: Unhandled register type %#x.", reg->type);

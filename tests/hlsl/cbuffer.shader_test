@@ -619,9 +619,8 @@ float4 main() : sv_target
 }
 
 [test]
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (1.0, 1.0, 1.0, 1.0)
-
+draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 
 % Samplers cannot have packoffset(), unless register() is also specified, or they are not used.
 % Note: In SM1 the rules are different: packoffset() is allowed for samplers, but they cannot be
@@ -850,8 +849,8 @@ uniform 4 float4 4.0 5.0 6.0 7.0
 uniform 8 float4 8.0 9.0 10.0 11.0
 uniform 12 float4 12.0 13.0 14.0 15.0
 uniform 16 float4 16.0 17.0 18.0 19.0
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (124.0, 135.0, 146.0, 150.5)
+draw quad
+probe (0, 0) f32(124.0, 135.0, 146.0, 150.5)
 
 [require]
 shader model >= 5.1

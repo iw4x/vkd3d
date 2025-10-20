@@ -26,8 +26,8 @@ float4 main() : sv_target
 }
 
 [test]
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (1, 1, 1, 99)
+draw quad
+probe (0, 0) f32(1, 1, 1, 99)
 
 % Bracket syntax for registers. Ignored in SM>=6.
 [pixel shader]
@@ -39,9 +39,9 @@ float4 main() : sv_target
 }
 
 [test]
-todo(msl & sm>=6) draw quad
-if(sm>=6) probe (0, 0) rgba (0, 0, 0, 99)
-if(sm<6) probe (0, 0) rgba (1, 1, 1, 99)
+draw quad
+if(sm>=6) probe (0, 0) f32(0, 0, 0, 99)
+if(sm<6) probe (0, 0) f32(1, 1, 1, 99)
 
 [pixel shader fail(sm>=6)]
 Texture2D tex1 : register(t1, sPaCe0);
@@ -74,9 +74,8 @@ float4 main() : sv_target
 }
 
 [test]
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (0, 0, 0, 99)
-
+draw quad
+probe (0, 0) f32(0, 0, 0, 99)
 
 [pixel shader fail(sm<6)]
 Texture2D tex1 : register(space0);
@@ -87,9 +86,8 @@ float4 main() : sv_target
 }
 
 [test]
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (0, 0, 0, 99)
-
+draw quad
+probe (0, 0) f32(0, 0, 0, 99)
 
 % Specifying a profile is just broken. The first reservation (or, with sm6, the
 % last) is taken regardless of whether it actually matches the current profile.
@@ -103,9 +101,9 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6 | msl) draw quad
-if(sm>=6) probe (0,0) rgba (2, 2, 2, 99)
-if(sm<6)  probe (0,0) rgba (1, 1, 1, 99)
+todo(sm<6) draw quad
+if(sm>=6) probe (0,0) f32(2, 2, 2, 99)
+if(sm<6)  probe (0,0) f32(1, 1, 1, 99)
 
 % Same as above, but with bracket exprs, which are ignored in SM>=6.
 
@@ -118,9 +116,9 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6 | msl) draw quad
-if(sm>=6) probe (0, 0) rgba (0, 0, 0, 99)
-if(sm<6) probe (0, 0) rgba (1, 1, 1, 99)
+todo(sm<6) draw quad
+if(sm>=6) probe (0, 0) f32(0, 0, 0, 99)
+if(sm<6) probe (0, 0) f32(1, 1, 1, 99)
 
 % This actually inheres to 5.1+; it doesn't matter whether "space" is specified.
 
@@ -133,10 +131,9 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6 | msl) draw quad
-if(sm>=6) probe (0,0) rgba (2, 2, 2, 99)
-if(sm<6)  probe (0,0) rgba (1, 1, 1, 99)
-
+todo(sm<6) draw quad
+if(sm>=6) probe (0,0) f32(2, 2, 2, 99)
+if(sm<6)  probe (0,0) f32(1, 1, 1, 99)
 
 % It's still illegal to specify multiple contradictory reservations with the
 % same profile...
@@ -161,10 +158,9 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6 | msl) draw quad
-if(sm>=6) probe (0,0) rgba (2, 2, 2, 99)
-if(sm<6)  probe (0,0) rgba (1, 1, 1, 99)
-
+todo(sm<6) draw quad
+if(sm>=6) probe (0,0) f32(2, 2, 2, 99)
+if(sm<6)  probe (0,0) f32(1, 1, 1, 99)
 
 % Test conflicts.
 

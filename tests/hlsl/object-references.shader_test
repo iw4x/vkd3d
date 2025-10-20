@@ -73,12 +73,11 @@ float4 main(float4 pos : sv_position) : sv_target
 }
 
 [test]
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (0.1, 0.2, 0.3, 0.4)
-probe (1, 0) rgba (0.5, 0.7, 0.6, 0.8)
-probe (0, 1) rgba (0.6, 0.5, 0.2, 0.1)
-probe (1, 1) rgba (0.8, 0.0, 0.7, 1.0)
-
+draw quad
+probe (0, 0) f32(0.1, 0.2, 0.3, 0.4)
+probe (1, 0) f32(0.5, 0.7, 0.6, 0.8)
+probe (0, 1) f32(0.6, 0.5, 0.2, 0.1)
+probe (1, 1) f32(0.8, 0.0, 0.7, 1.0)
 
 [srv 0]
 size (2d, 1, 1)
@@ -111,9 +110,8 @@ float4 main() : sv_target
 }
 
 [test]
-todo(mvk & sm>=6 | msl & sm>=6) draw quad
-probe (0, 0) rgba (312, 312, 312, 111)
-
+todo(mvk & sm>=6) draw quad
+probe (0, 0) f32(312, 312, 312, 111)
 
 [pixel shader]
 Texture2D tex1;
@@ -134,9 +132,8 @@ float4 main() : sv_target
 }
 
 [test]
-todo(msl & sm>=6) draw quad
-probe (0, 0) rgba (2132, 2132, 2132, 1111)
-
+draw quad
+probe (0, 0) f32(2132, 2132, 2132, 1111)
 
 [pixel shader fail(sm<6) todo(sm>=5.1)]
 Texture2D tex[3];
