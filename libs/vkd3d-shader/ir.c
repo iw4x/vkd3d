@@ -11011,10 +11011,34 @@ static void vsir_validate_io_dst_param(struct validation_context *ctx,
         const struct vkd3d_shader_dst_param *dst)
 {
     struct vsir_io_register_data io_reg_data;
+    const struct signature_element *e;
+    unsigned int idx;
 
     if (!vsir_get_io_register_data(ctx, dst->reg.type, &io_reg_data) || !(io_reg_data.flags & OUTPUT_BIT))
+    {
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
                 "Invalid register type %#x used as destination parameter.", dst->reg.type);
+        return;
+    }
+
+    if (ctx->program->normalisation_level >= VSIR_NORMALISED_SM6)
+    {
+        if (!dst->reg.idx_count)
+        {
+            validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
+                    "Invalid index count %u for a register of type %#x.",
+                    dst->reg.idx_count, dst->reg.type);
+            return;
+        }
+
+        idx = dst->reg.idx[dst->reg.idx_count - 1].offset;
+        e = &io_reg_data.signature->elements[idx];
+
+        if (dst->write_mask & ~e->mask)
+            validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
+                    "Invalid destination write mask %#x for signature element with mask %#x.",
+                    dst->write_mask, e->mask);
+    }
 }
 
 static void vsir_validate_dst_param(struct validation_context *ctx,
