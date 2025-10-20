@@ -241,9 +241,9 @@ static bool msl_get_binding(const struct msl_generator *gen, unsigned int regist
 }
 
 static bool msl_get_cbv_binding(const struct msl_generator *gen,
-        unsigned int register_space, unsigned int register_idx, unsigned int *idx)
+        const struct vkd3d_shader_descriptor_info1 *descriptor, unsigned int register_idx, unsigned int *idx)
 {
-    return msl_get_binding(gen, register_space, register_idx,
+    return msl_get_binding(gen, descriptor->register_space, register_idx,
             VKD3D_SHADER_DESCRIPTOR_TYPE_CBV, VKD3D_SHADER_BINDING_FLAG_BUFFER, idx);
 }
 
@@ -405,7 +405,7 @@ static enum msl_data_type msl_print_register_name(struct vkd3d_string_buffer *bu
                 return MSL_DATA_UNION;
             }
 
-            if (!msl_get_cbv_binding(gen, descriptor->register_space, cbv_idx, &binding))
+            if (!msl_get_cbv_binding(gen, descriptor, cbv_idx, &binding))
             {
                 msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_BINDING_NOT_FOUND,
                         "No descriptor binding specified for CBV %u.", cbv_id);
