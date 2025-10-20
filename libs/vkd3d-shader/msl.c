@@ -253,11 +253,11 @@ static bool msl_get_sampler_binding(const struct msl_generator *gen,
     return msl_get_binding(gen, register_space, register_idx, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, 0, idx);
 }
 
-static bool msl_get_srv_binding(const struct msl_generator *gen, unsigned int register_space,
-        unsigned int register_idx, enum vkd3d_shader_resource_type resource_type, unsigned int *idx)
+static bool msl_get_srv_binding(const struct msl_generator *gen,
+        const struct vkd3d_shader_descriptor_info1 *descriptor, unsigned int register_idx, unsigned int *idx)
 {
-    return msl_get_binding(gen, register_space, register_idx,
-            VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, resource_type == VKD3D_SHADER_RESOURCE_BUFFER
+    return msl_get_binding(gen, descriptor->register_space, register_idx,
+            VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, descriptor->resource_type == VKD3D_SHADER_RESOURCE_BUFFER
             ? VKD3D_SHADER_BINDING_FLAG_BUFFER : VKD3D_SHADER_BINDING_FLAG_IMAGE, idx);
 }
 
@@ -871,7 +871,7 @@ static void msl_ld(struct msl_generator *gen, const struct vkd3d_shader_instruct
     uint32_t coord_mask, write_mask_size;
     struct vkd3d_string_buffer *read;
     enum vsir_data_type data_type;
-    unsigned int srv_binding;
+    unsigned int srv_binding = 0;
     struct msl_dst dst;
 
     if (vkd3d_shader_instruction_has_texel_offset(ins))
@@ -928,13 +928,10 @@ static void msl_ld(struct msl_generator *gen, const struct vkd3d_shader_instruct
     }
     coord_mask = vkd3d_write_mask_from_component_count(resource_type_info->coord_size);
 
-    if (!msl_get_srv_binding(gen, resource_space, resource_idx, resource_type, &srv_binding))
-    {
+    if (descriptor && !msl_get_srv_binding(gen, descriptor, resource_idx, &srv_binding))
         msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_BINDING_NOT_FOUND,
                 "No descriptor binding specified for SRV %u (index %u, space %u).",
                 resource_id, resource_idx, resource_space);
-        srv_binding = 0;
-    }
 
     msl_dst_init(&dst, gen, ins, &ins->dst[0]);
     read = vkd3d_string_buffer_get(&gen->string_buffers);
@@ -984,7 +981,7 @@ static void msl_sample(struct msl_generator *gen, const struct vkd3d_shader_inst
     unsigned int sampler_id, sampler_idx, sampler_space;
     const struct vkd3d_shader_descriptor_info1 *d;
     enum vkd3d_shader_resource_type resource_type;
-    unsigned int srv_binding, sampler_binding;
+    unsigned int srv_binding = 0, sampler_binding;
     uint32_t coord_mask, write_mask_size;
     struct vkd3d_string_buffer *sample;
     enum vsir_data_type data_type;
@@ -1052,13 +1049,10 @@ static void msl_sample(struct msl_generator *gen, const struct vkd3d_shader_inst
     }
     coord_mask = vkd3d_write_mask_from_component_count(resource_type_info->coord_size);
 
-    if (!msl_get_srv_binding(gen, resource_space, resource_idx, resource_type, &srv_binding))
-    {
+    if (d && !msl_get_srv_binding(gen, d, resource_idx, &srv_binding))
         msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_BINDING_NOT_FOUND,
                 "No descriptor binding specified for SRV %u (index %u, space %u).",
                 resource_id, resource_idx, resource_space);
-        srv_binding = 0;
-    }
 
     sampler_id = sampler->reg.idx[0].offset;
     sampler_idx = sampler->reg.idx[1].offset;
