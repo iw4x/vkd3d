@@ -104,6 +104,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/default-values.shader_test \
 	tests/hlsl/depth-bounds.shader_test \
 	tests/hlsl/depth-out.shader_test \
+	tests/hlsl/descriptors.shader_test \
 	tests/hlsl/determinant.shader_test \
 	tests/hlsl/discard.shader_test \
 	tests/hlsl/distance.shader_test \

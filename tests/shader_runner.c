@@ -102,6 +102,7 @@ void fatal_error(const char *format, ...)
 enum parse_state
 {
     STATE_NONE,
+    STATE_DESCRIPTORS,
     STATE_INPUT_LAYOUT,
     STATE_PREPROC,
     STATE_PREPROC_INVALID,
@@ -463,6 +464,7 @@ static const char *const shader_cap_strings[] =
     [SHADER_CAP_CLIP_PLANES]         = "clip-planes",
     [SHADER_CAP_CULL_DISTANCE]       = "cull-distance",
     [SHADER_CAP_DEPTH_BOUNDS]        = "depth-bounds",
+    [SHADER_CAP_DESCRIPTORS]         = "descriptors",
     [SHADER_CAP_FLOAT64]             = "float64",
     [SHADER_CAP_FOG]                 = "fog",
     [SHADER_CAP_GEOMETRY_SHADER]     = "geometry-shader",
@@ -1756,6 +1758,48 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
     }
 }
 
+static void parse_descriptors_directive(struct shader_runner *runner, const char *line)
+{
+    struct descriptor_mapping *descriptor;
+    const char *target_template;
+    unsigned int register_to;
+    char type_chr;
+    int pos;
+
+    if (runner->descriptor_count == ARRAY_SIZE(runner->descriptors))
+        fatal_error("Too many descriptors (%u).\n", runner->descriptor_count);
+
+    descriptor = &runner->descriptors[runner->descriptor_count++];
+
+    if (sscanf(line, " %c [ %u : %u ] , space %u ,%n", &type_chr, &descriptor->register_idx,
+            &register_to, &descriptor->register_space, &pos) < 4)
+        fatal_error("Malformed descriptors directive '%s'.\n", line);
+
+    descriptor->count = register_to - descriptor->register_idx + 1;
+
+    switch (type_chr)
+    {
+        case 't':
+            descriptor->type = VKD3D_SHADER_DESCRIPTOR_TYPE_SRV;
+            target_template = " srv %u";
+            break;
+
+        case 'u':
+            descriptor->type = VKD3D_SHADER_DESCRIPTOR_TYPE_UAV;
+            target_template = " uav %u";
+            break;
+
+        /* Samplers and CBVs are not supported yet. */
+
+        default:
+            fatal_error("Malformed descriptors directive '%s'.\n", line);
+            break;
+    }
+
+    if (sscanf(&line[pos], target_template, &descriptor->target_idx) < 1)
+        fatal_error("Malformed descriptors directive '%s'.\n", line);
+}
+
 struct sampler *shader_runner_get_sampler(struct shader_runner *runner, unsigned int slot)
 {
     struct sampler *sampler;
@@ -2427,6 +2471,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                 case STATE_INPUT_LAYOUT:
                 case STATE_NONE:
                 case STATE_SAMPLER:
+                case STATE_DESCRIPTORS:
                     break;
 
                 case STATE_TEST:
@@ -2722,6 +2767,11 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                     free(runner->input_elements[i].name);
                 runner->input_element_count = 0;
             }
+            else if (!strcmp(line, "[descriptors]\n"))
+            {
+                state = STATE_DESCRIPTORS;
+                runner->descriptor_count = 0;
+            }
             else
             {
                 fatal_error("Unknown directive '%s'.\n", line);
@@ -2774,6 +2824,10 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                     if (!runner->failed_resource_count && test_action == TEST_ACTION_RUN
                             && SUCCEEDED(runner->hlsl_hrs[runner->minimum_shader_model]))
                         parse_test_directive(runner, line);
+                    break;
+
+                case STATE_DESCRIPTORS:
+                    parse_descriptors_directive(runner, line);
                     break;
             }
         }

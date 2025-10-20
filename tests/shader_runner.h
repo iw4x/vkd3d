@@ -138,6 +138,7 @@ struct viewport
     float height;
 };
 
+#define MAX_DESCRIPTORS 32
 #define MAX_RESOURCES 32
 #define MAX_SAMPLERS 32
 #define DXGI_FORMAT_COUNT (DXGI_FORMAT_B4G4R4A4_UNORM + 1)
@@ -152,6 +153,7 @@ enum shader_cap
     SHADER_CAP_CLIP_PLANES,
     SHADER_CAP_CULL_DISTANCE,
     SHADER_CAP_DEPTH_BOUNDS,
+    SHADER_CAP_DESCRIPTORS,
     SHADER_CAP_FLOAT64,
     SHADER_CAP_FOG,
     SHADER_CAP_GEOMETRY_SHADER,
@@ -230,6 +232,15 @@ enum source_format
     SOURCE_FORMAT_DXBC_DXIL_HEX,
 };
 
+struct descriptor_mapping
+{
+    enum vkd3d_shader_descriptor_type type;
+    unsigned int register_idx;
+    unsigned int register_space;
+    unsigned int count;
+    unsigned int target_idx;
+};
+
 struct shader_runner
 {
     const struct shader_runner_ops *ops;
@@ -295,6 +306,9 @@ struct shader_runner
 
     struct viewport viewports[4];
     unsigned int viewport_count;
+
+    struct descriptor_mapping descriptors[MAX_DESCRIPTORS];
+    unsigned int descriptor_count;
 };
 
 struct shader_runner_ops

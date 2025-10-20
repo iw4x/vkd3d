@@ -304,11 +304,20 @@ static void d3d12_runner_destroy_resource(struct shader_runner *r, struct resour
     free(resource);
 }
 
+static const D3D12_DESCRIPTOR_RANGE_TYPE range_types[] =
+{
+    [VKD3D_SHADER_DESCRIPTOR_TYPE_SRV]     = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+    [VKD3D_SHADER_DESCRIPTOR_TYPE_UAV]     = D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+    [VKD3D_SHADER_DESCRIPTOR_TYPE_CBV]     = D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+    [VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER] = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER,
+};
+
 static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shader_runner *runner,
         ID3D12CommandQueue *queue, ID3D12CommandAllocator *allocator,
         ID3D12GraphicsCommandList *command_list, unsigned int *uniform_index)
 {
     D3D12_ROOT_SIGNATURE_DESC root_signature_desc = {0};
+    D3D12_DESCRIPTOR_RANGE root_ranges[MAX_DESCRIPTORS];
     D3D12_ROOT_PARAMETER root_params[17], *root_param;
     D3D12_STATIC_SAMPLER_DESC static_samplers[7];
     struct d3d12_resource *base_resource = NULL;
@@ -323,49 +332,77 @@ static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shad
     root_signature_desc.pStaticSamplers = static_samplers;
     root_signature_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-    for (i = 0; i < runner->r.resource_count; ++i)
+    if (runner->r.descriptor_count)
     {
-        struct d3d12_resource *resource = d3d12_resource(runner->r.resources[i]);
-        D3D12_DESCRIPTOR_RANGE *range;
+        root_param = &root_params[root_signature_desc.NumParameters++];
 
-        switch (resource->r.desc.type)
+        root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+        root_param->ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+        root_param->DescriptorTable.NumDescriptorRanges = 0;
+        root_param->DescriptorTable.pDescriptorRanges = root_ranges;
+
+        for (i = 0; i < runner->r.descriptor_count; ++i)
         {
-            case RESOURCE_TYPE_TEXTURE:
-            case RESOURCE_TYPE_UAV:
-                range = &resource->descriptor_range;
+            D3D12_DESCRIPTOR_RANGE *range = &root_ranges[root_param->DescriptorTable.NumDescriptorRanges++];
+            struct descriptor_mapping *descriptor = &runner->r.descriptors[i];
 
-                if (base_resource && resource->r.desc.type == base_resource->r.desc.type && resource->r.desc.slot == slot + 1)
-                {
-                    ++base_resource->descriptor_range.NumDescriptors;
-                    resource->descriptor_range.NumDescriptors = 0;
-                    ++slot;
-                    continue;
-                }
+            range->RangeType = range_types[descriptor->type];
+            range->BaseShaderRegister = descriptor->register_idx;
+            range->RegisterSpace = descriptor->register_space;
+            range->NumDescriptors = descriptor->count;
 
-                resource->root_index = root_signature_desc.NumParameters++;
-                root_param = &root_params[resource->root_index];
-                root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-                root_param->DescriptorTable.NumDescriptorRanges = 1;
-                root_param->DescriptorTable.pDescriptorRanges = range;
-                root_param->ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+            range->OffsetInDescriptorsFromTableStart = descriptor->target_idx;
+            if (descriptor->type == VKD3D_SHADER_DESCRIPTOR_TYPE_UAV)
+                range->OffsetInDescriptorsFromTableStart += MAX_RESOURCES;
+        }
+    }
+    else
+    {
+        for (i = 0; i < runner->r.resource_count; ++i)
+        {
+            struct d3d12_resource *resource = d3d12_resource(runner->r.resources[i]);
+            D3D12_DESCRIPTOR_RANGE *range;
 
-                if (resource->r.desc.type == RESOURCE_TYPE_UAV)
-                    range->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-                else
-                    range->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-                range->NumDescriptors = 1;
-                range->BaseShaderRegister = resource->r.desc.slot;
-                range->RegisterSpace = 0;
-                range->OffsetInDescriptorsFromTableStart = 0;
+            switch (resource->r.desc.type)
+            {
+                case RESOURCE_TYPE_TEXTURE:
+                case RESOURCE_TYPE_UAV:
+                    range = &resource->descriptor_range;
 
-                base_resource = resource;
-                slot = resource->r.desc.slot;
-                break;
+                    if (base_resource && resource->r.desc.type == base_resource->r.desc.type
+                            && resource->r.desc.slot == slot + 1)
+                    {
+                        ++base_resource->descriptor_range.NumDescriptors;
+                        resource->descriptor_range.NumDescriptors = 0;
+                        ++slot;
+                        continue;
+                    }
 
-            case RESOURCE_TYPE_RENDER_TARGET:
-            case RESOURCE_TYPE_DEPTH_STENCIL:
-            case RESOURCE_TYPE_VERTEX_BUFFER:
-                break;
+                    resource->root_index = root_signature_desc.NumParameters++;
+                    root_param = &root_params[resource->root_index];
+                    root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+                    root_param->DescriptorTable.NumDescriptorRanges = 1;
+                    root_param->DescriptorTable.pDescriptorRanges = range;
+                    root_param->ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+                    if (resource->r.desc.type == RESOURCE_TYPE_UAV)
+                        range->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+                    else
+                        range->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+                    range->NumDescriptors = 1;
+                    range->BaseShaderRegister = resource->r.desc.slot;
+                    range->RegisterSpace = 0;
+                    range->OffsetInDescriptorsFromTableStart = 0;
+
+                    base_resource = resource;
+                    slot = resource->r.desc.slot;
+                    break;
+
+                case RESOURCE_TYPE_RENDER_TARGET:
+                case RESOURCE_TYPE_DEPTH_STENCIL:
+                case RESOURCE_TYPE_VERTEX_BUFFER:
+                    break;
+            }
         }
     }
 
@@ -461,13 +498,13 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
         switch (resource->r.desc.type)
         {
             case RESOURCE_TYPE_TEXTURE:
-                if (resource->descriptor_range.NumDescriptors)
+                if (resource->descriptor_range.NumDescriptors && !r->descriptor_count)
                     ID3D12GraphicsCommandList_SetComputeRootDescriptorTable(command_list, resource->root_index,
                             get_gpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot));
                 break;
 
             case RESOURCE_TYPE_UAV:
-                if (resource->descriptor_range.NumDescriptors)
+                if (resource->descriptor_range.NumDescriptors && !r->descriptor_count)
                     ID3D12GraphicsCommandList_SetComputeRootDescriptorTable(command_list, resource->root_index,
                             get_gpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot + MAX_RESOURCES));
                 break;
@@ -478,6 +515,10 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
                 break;
         }
     }
+
+    if (r->descriptor_count)
+        ID3D12GraphicsCommandList_SetGraphicsRootDescriptorTable(command_list, 0,
+                get_gpu_descriptor_handle(test_context, runner->heap, 0));
 
     ID3D12GraphicsCommandList_SetPipelineState(command_list, pso);
     ID3D12GraphicsCommandList_Dispatch(command_list, x, y, z);
@@ -806,8 +847,8 @@ static ID3D12PipelineState *create_pipeline_device2(struct d3d12_shader_runner *
     return pso;
 }
 
-static bool d3d12_runner_draw(struct shader_runner *r,
-        D3D_PRIMITIVE_TOPOLOGY primitive_topology, unsigned int vertex_count, unsigned int instance_count)
+static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY primitive_topology,
+        unsigned int vertex_count, unsigned int instance_count)
 {
     struct d3d12_shader_runner *runner = d3d12_shader_runner(r);
     struct test_context *test_context = &runner->test_context;
@@ -921,13 +962,13 @@ static bool d3d12_runner_draw(struct shader_runner *r,
                 break;
 
             case RESOURCE_TYPE_TEXTURE:
-                if (resource->descriptor_range.NumDescriptors)
+                if (resource->descriptor_range.NumDescriptors && !r->descriptor_count)
                     ID3D12GraphicsCommandList_SetGraphicsRootDescriptorTable(command_list, resource->root_index,
                             get_gpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot));
                 break;
 
             case RESOURCE_TYPE_UAV:
-                if (resource->descriptor_range.NumDescriptors)
+                if (resource->descriptor_range.NumDescriptors && !r->descriptor_count)
                     ID3D12GraphicsCommandList_SetGraphicsRootDescriptorTable(command_list, resource->root_index,
                             get_gpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot + MAX_RESOURCES));
                 break;
@@ -941,6 +982,10 @@ static bool d3d12_runner_draw(struct shader_runner *r,
                 break;
         }
     }
+
+    if (r->descriptor_count)
+        ID3D12GraphicsCommandList_SetGraphicsRootDescriptorTable(command_list, 0,
+                get_gpu_descriptor_handle(test_context, runner->heap, 0));
 
     set_rect(&test_context->scissor_rect, 0, 0, fb_width, fb_height);
     set_viewport(&test_context->viewport, 0.0f, 0.0f, fb_width, fb_height, 0.0f, 1.0f);
@@ -1112,6 +1157,7 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     if (is_cull_distance_supported(device))
         runner->caps.shader_caps[SHADER_CAP_CULL_DISTANCE] = true;
     runner->caps.shader_caps[SHADER_CAP_DEPTH_BOUNDS] = options2.DepthBoundsTestSupported;
+    runner->caps.shader_caps[SHADER_CAP_DESCRIPTORS] = true;
     runner->caps.shader_caps[SHADER_CAP_FLOAT64] = options.DoublePrecisionFloatShaderOps;
     if (is_geometry_shader_supported(device))
         runner->caps.shader_caps[SHADER_CAP_GEOMETRY_SHADER] = true;
