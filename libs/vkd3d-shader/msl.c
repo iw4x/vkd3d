@@ -248,9 +248,9 @@ static bool msl_get_cbv_binding(const struct msl_generator *gen,
 }
 
 static bool msl_get_sampler_binding(const struct msl_generator *gen,
-        unsigned int register_space, unsigned int register_idx, unsigned int *idx)
+        const struct vkd3d_shader_descriptor_info1 *descriptor, unsigned int register_idx, unsigned int *idx)
 {
-    return msl_get_binding(gen, register_space, register_idx, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, 0, idx);
+    return msl_get_binding(gen, descriptor->register_space, register_idx, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, 0, idx);
 }
 
 static bool msl_get_srv_binding(const struct msl_generator *gen,
@@ -979,9 +979,9 @@ static void msl_sample(struct msl_generator *gen, const struct vkd3d_shader_inst
     const struct vkd3d_shader_src_param *resource, *sampler;
     unsigned int resource_id, resource_idx, resource_space;
     unsigned int sampler_id, sampler_idx, sampler_space;
+    unsigned int srv_binding = 0, sampler_binding = 0;
     const struct vkd3d_shader_descriptor_info1 *d;
     enum vkd3d_shader_resource_type resource_type;
-    unsigned int srv_binding = 0, sampler_binding;
     uint32_t coord_mask, write_mask_size;
     struct vkd3d_string_buffer *sample;
     enum vsir_data_type data_type;
@@ -1082,13 +1082,10 @@ static void msl_sample(struct msl_generator *gen, const struct vkd3d_shader_inst
         sampler_space = 0;
     }
 
-    if (!msl_get_sampler_binding(gen, sampler_space, sampler_idx, &sampler_binding))
-    {
+    if (d && !msl_get_sampler_binding(gen, d, sampler_idx, &sampler_binding))
         msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_BINDING_NOT_FOUND,
                 "No descriptor binding specified for sampler %u (index %u, space %u).",
                 sampler_id, sampler_idx, sampler_space);
-        sampler_binding = 0;
-    }
 
     msl_dst_init(&dst, gen, ins, &ins->dst[0]);
     sample = vkd3d_string_buffer_get(&gen->string_buffers);
