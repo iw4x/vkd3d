@@ -434,24 +434,12 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
         switch (resource->r.desc.type)
         {
             case RESOURCE_TYPE_TEXTURE:
-                binding = &bindings[interface_info.binding_count];
-                binding->type = VKD3D_SHADER_DESCRIPTOR_TYPE_SRV;
-                binding->register_space = 0;
-                binding->register_index = resource->r.desc.slot;
-                binding->shader_visibility = VKD3D_SHADER_VISIBILITY_ALL;
-                if (resource->r.desc.dimension == RESOURCE_DIMENSION_BUFFER)
-                    binding->flags = VKD3D_SHADER_BINDING_FLAG_BUFFER;
-                else
-                    binding->flags = VKD3D_SHADER_BINDING_FLAG_IMAGE;
-                binding->binding.set = 0;
-                binding->binding.binding = interface_info.binding_count;
-                binding->binding.count = 1;
-                ++interface_info.binding_count;
-                break;
-
             case RESOURCE_TYPE_UAV:
                 binding = &bindings[interface_info.binding_count];
-                binding->type = VKD3D_SHADER_DESCRIPTOR_TYPE_UAV;
+                if (resource->r.desc.type == RESOURCE_TYPE_UAV)
+                    binding->type = VKD3D_SHADER_DESCRIPTOR_TYPE_UAV;
+                else
+                    binding->type = VKD3D_SHADER_DESCRIPTOR_TYPE_SRV;
                 binding->register_space = 0;
                 binding->register_index = resource->r.desc.slot;
                 binding->shader_visibility = VKD3D_SHADER_VISIBILITY_ALL;
