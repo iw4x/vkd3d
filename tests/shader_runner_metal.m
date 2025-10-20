@@ -387,8 +387,8 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
     struct vkd3d_shader_interface_info interface_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_INTERFACE_INFO};
     struct vkd3d_shader_compile_info info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO};
     struct vkd3d_shader_resource_binding bindings[MAX_RESOURCES + MAX_SAMPLERS + 1 /* CBV */];
-    struct vkd3d_shader_resource_binding *binding;
-    unsigned int i;
+    struct vkd3d_shader_resource_binding *binding, *base_binding = NULL;
+    unsigned int i, binding_idx = 0;
     char *messages;
     int ret;
 
@@ -422,9 +422,10 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
         binding->shader_visibility = VKD3D_SHADER_VISIBILITY_ALL;
         binding->flags = VKD3D_SHADER_BINDING_FLAG_BUFFER;
         binding->binding.set = 0;
-        binding->binding.binding = interface_info.binding_count;
+        binding->binding.binding = binding_idx;
         binding->binding.count = 1;
         ++interface_info.binding_count;
+        ++binding_idx;
     }
 
     for (i = 0; i < runner->r.resource_count; ++i)
@@ -448,9 +449,20 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
                 else
                     binding->flags = VKD3D_SHADER_BINDING_FLAG_IMAGE;
                 binding->binding.set = 0;
-                binding->binding.binding = interface_info.binding_count;
+                binding->binding.binding = binding_idx;
                 binding->binding.count = 1;
+
+                if (base_binding && base_binding->type == binding->type && base_binding->flags == binding->flags
+                        && base_binding->register_index + base_binding->binding.count == resource->r.desc.slot)
+                {
+                    ++base_binding->binding.count;
+                    ++binding_idx;
+                    break;
+                }
+
+                base_binding = binding;
                 ++interface_info.binding_count;
+                ++binding_idx;
                 break;
 
             case RESOURCE_TYPE_RENDER_TARGET:
@@ -470,9 +482,10 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
         binding->shader_visibility = VKD3D_SHADER_VISIBILITY_ALL;
         binding->flags = 0;
         binding->binding.set = 0;
-        binding->binding.binding = interface_info.binding_count;
+        binding->binding.binding = binding_idx;
         binding->binding.count = 1;
         ++interface_info.binding_count;
+        ++binding_idx;
     }
 
     interface_info.bindings = bindings;

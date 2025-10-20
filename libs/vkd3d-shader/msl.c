@@ -226,14 +226,22 @@ static bool msl_get_binding(const struct msl_generator *gen, const struct vkd3d_
             continue;
         if (binding->register_space != descriptor->register_space)
             continue;
-        if (binding->register_index != register_idx)
+        if (binding->register_index > descriptor->register_index)
+            continue;
+        if (descriptor->count != ~0u && binding->binding.count < descriptor->count)
+            continue;
+        if (descriptor->count != ~0u
+                && binding->binding.count - descriptor->count < descriptor->register_index - binding->register_index)
+            continue;
+        if (descriptor->count == ~0u
+                && binding->binding.count <= descriptor->register_index - binding->register_index)
             continue;
         if (!msl_check_shader_visibility(gen, binding->shader_visibility))
             continue;
         if ((binding->flags & flags) != flags)
             continue;
 
-        *idx = binding->binding.binding;
+        *idx = register_idx + binding->binding.binding - binding->register_index;
         return true;
     }
 
