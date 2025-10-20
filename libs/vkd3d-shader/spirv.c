@@ -6698,30 +6698,6 @@ static void spirv_compiler_emit_cbv_declaration(struct spirv_compiler *compiler,
     spirv_compiler_put_symbol(compiler, &reg_symbol);
 }
 
-static void spirv_compiler_emit_dcl_immediate_constant_buffer(struct spirv_compiler *compiler,
-        const struct vkd3d_shader_instruction *instruction)
-{
-    const struct vkd3d_shader_immediate_constant_buffer *icb = instruction->declaration.icb;
-    struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
-    uint32_t type_id, const_id, ptr_type_id, icb_id;
-    struct vkd3d_shader_register reg;
-    struct vkd3d_symbol reg_symbol;
-
-    const_id = spirv_compiler_emit_constant_array(compiler, icb, &type_id);
-    ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassPrivate, type_id);
-    icb_id = vkd3d_spirv_build_op_variable(builder, &builder->global_stream,
-            ptr_type_id, SpvStorageClassPrivate, const_id);
-    vkd3d_spirv_build_op_name(builder, icb_id, "icb");
-
-    /* Set an index count of 2 so vkd3d_symbol_make_register() uses idx[0] as a buffer id. */
-    vsir_register_init(&reg, VKD3DSPR_IMMCONSTBUFFER, VSIR_DATA_F32, 2);
-    reg.idx[0].offset = icb->register_idx;
-    vkd3d_symbol_make_register(&reg_symbol, &reg);
-    vkd3d_symbol_set_register_info(&reg_symbol, icb_id, SpvStorageClassPrivate,
-            icb->data_type, vkd3d_write_mask_from_component_count(icb->component_count));
-    spirv_compiler_put_symbol(compiler, &reg_symbol);
-}
-
 static void spirv_compiler_emit_sampler_declaration(struct spirv_compiler *compiler,
         const struct vkd3d_shader_register_range *range, const struct vkd3d_shader_descriptor_info1 *descriptor)
 {
@@ -10433,9 +10409,6 @@ static int spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
         case VSIR_OP_DCL_INDEXABLE_TEMP:
             spirv_compiler_emit_dcl_indexable_temp(compiler, instruction);
             break;
-        case VSIR_OP_DCL_IMMEDIATE_CONSTANT_BUFFER:
-            spirv_compiler_emit_dcl_immediate_constant_buffer(compiler, instruction);
-            break;
         case VSIR_OP_DCL_TGSM_RAW:
             spirv_compiler_emit_dcl_tgsm_raw(compiler, instruction);
             break;
@@ -10882,6 +10855,36 @@ static void spirv_compiler_emit_descriptor_declarations(struct spirv_compiler *c
     }
 }
 
+static void spirv_compiler_emit_immediate_constant_buffers(struct spirv_compiler *compiler)
+{
+    struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
+    const struct vkd3d_shader_immediate_constant_buffer *icb;
+    const struct vsir_program *program = compiler->program;
+    uint32_t type_id, const_id, ptr_type_id, icb_id;
+    struct vkd3d_shader_register reg;
+    struct vkd3d_symbol reg_symbol;
+    size_t i;
+
+    for (i = 0; i < program->icb_count; ++i)
+    {
+        icb = program->icbs[i];
+
+        const_id = spirv_compiler_emit_constant_array(compiler, icb, &type_id);
+        ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassPrivate, type_id);
+        icb_id = vkd3d_spirv_build_op_variable(builder, &builder->global_stream,
+                ptr_type_id, SpvStorageClassPrivate, const_id);
+        vkd3d_spirv_build_op_name(builder, icb_id, "icb%zu", icb->register_idx);
+
+        /* Set an index count of 2 so vkd3d_symbol_make_register() uses idx[0] as a buffer id. */
+        vsir_register_init(&reg, VKD3DSPR_IMMCONSTBUFFER, VSIR_DATA_F32, 2);
+        reg.idx[0].offset = icb->register_idx;
+        vkd3d_symbol_make_register(&reg_symbol, &reg);
+        vkd3d_symbol_set_register_info(&reg_symbol, icb_id, SpvStorageClassPrivate,
+                icb->data_type, vkd3d_write_mask_from_component_count(icb->component_count));
+        spirv_compiler_put_symbol(compiler, &reg_symbol);
+    }
+}
+
 static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
         const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_code *spirv)
 {
@@ -10915,6 +10918,7 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
     spirv_compiler_emit_global_flags(compiler, program->global_flags);
 
     spirv_compiler_emit_descriptor_declarations(compiler);
+    spirv_compiler_emit_immediate_constant_buffers(compiler);
 
     compiler->spirv_parameter_info = vkd3d_calloc(program->parameter_count, sizeof(*compiler->spirv_parameter_info));
     for (i = 0; i < program->parameter_count; ++i)
