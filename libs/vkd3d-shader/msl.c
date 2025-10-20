@@ -302,7 +302,8 @@ static void msl_print_uav_name(struct vkd3d_string_buffer *buffer, struct msl_ge
 static enum msl_data_type msl_print_register_name(struct vkd3d_string_buffer *buffer,
         struct msl_generator *gen, const struct vkd3d_shader_register *reg)
 {
-    unsigned int binding;
+    const struct vkd3d_shader_descriptor_info1 *descriptor;
+    unsigned int binding, cbv_id, cbv_idx;
 
     switch (reg->type)
     {
@@ -392,12 +393,22 @@ static enum msl_data_type msl_print_register_name(struct vkd3d_string_buffer *bu
                 return MSL_DATA_UNION;
             }
 
-            /* FIXME: This should use vkd3d_shader_find_descriptor() to find
-             * the resource index/space from the resource ID. */
-            if (!msl_get_cbv_binding(gen, 0, reg->idx[1].offset, &binding))
+            cbv_id = reg->idx[0].offset;
+            cbv_idx = reg->idx[1].offset;
+
+            if (!(descriptor = vkd3d_shader_find_descriptor(&gen->program->descriptors,
+                    VKD3D_SHADER_DESCRIPTOR_TYPE_CBV, cbv_id)))
+            {
+                msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
+                        "Internal compiler error: Undeclared CBV descriptor %u.", cbv_id);
+                vkd3d_string_buffer_printf(buffer, "<unhandled register %#x>", reg->type);
+                return MSL_DATA_UNION;
+            }
+
+            if (!msl_get_cbv_binding(gen, descriptor->register_space, cbv_idx, &binding))
             {
                 msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_BINDING_NOT_FOUND,
-                        "No descriptor binding specified for CBV %u.", reg->idx[0].offset);
+                        "No descriptor binding specified for CBV %u.", cbv_id);
                 vkd3d_string_buffer_printf(buffer, "<unhandled register %#x>", reg->type);
                 return MSL_DATA_UNION;
             }
