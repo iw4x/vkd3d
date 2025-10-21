@@ -323,17 +323,6 @@ static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shad
     root_signature_desc.pStaticSamplers = static_samplers;
     root_signature_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-    if (runner->r.uniform_count)
-    {
-        *uniform_index = root_signature_desc.NumParameters++;
-        root_param = &root_params[*uniform_index];
-        root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-        root_param->Constants.ShaderRegister = 0;
-        root_param->Constants.RegisterSpace = 0;
-        root_param->Constants.Num32BitValues = runner->r.uniform_count;
-        root_param->ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-    }
-
     for (i = 0; i < runner->r.resource_count; ++i)
     {
         struct d3d12_resource *resource = d3d12_resource(runner->r.resources[i]);
@@ -378,6 +367,17 @@ static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shad
             case RESOURCE_TYPE_VERTEX_BUFFER:
                 break;
         }
+    }
+
+    if (runner->r.uniform_count)
+    {
+        *uniform_index = root_signature_desc.NumParameters++;
+        root_param = &root_params[*uniform_index];
+        root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+        root_param->Constants.ShaderRegister = 0;
+        root_param->Constants.RegisterSpace = 0;
+        root_param->Constants.Num32BitValues = runner->r.uniform_count;
+        root_param->ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     }
 
     assert(root_signature_desc.NumParameters <= ARRAY_SIZE(root_params));
