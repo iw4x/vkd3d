@@ -700,6 +700,7 @@ static void msl_dot(struct msl_generator *gen, const struct vkd3d_shader_instruc
 
 static void msl_firstbit(struct msl_generator *gen, const struct vkd3d_shader_instruction *ins)
 {
+    const char *op = ins->opcode == VSIR_OP_FIRSTBIT_LO ? "ctz" : "clz";
     unsigned int mask_size;
     struct msl_src src;
     struct msl_dst dst;
@@ -709,11 +710,11 @@ static void msl_firstbit(struct msl_generator *gen, const struct vkd3d_shader_in
     msl_src_init(&src, gen, &ins->src[0], mask);
 
     if ((mask_size = vsir_write_mask_component_count(mask)) > 1)
-        msl_print_assignment(gen, &dst, "select(uint%u(0xffffffffu), ctz(%s), bool%u(%s))",
-                mask_size, src.str->buffer, mask_size, src.str->buffer);
+        msl_print_assignment(gen, &dst, "select(uint%u(0xffffffffu), %s(%s), bool%u(%s))",
+                mask_size, op, src.str->buffer, mask_size, src.str->buffer);
     else
-        msl_print_assignment(gen, &dst, "%s ? ctz(%s) : 0xffffffffu",
-                src.str->buffer, src.str->buffer);
+        msl_print_assignment(gen, &dst, "%s ? %s(%s) : 0xffffffffu",
+                src.str->buffer, op, src.str->buffer);
 
     msl_src_cleanup(&src, &gen->string_buffers);
     msl_dst_cleanup(&dst, &gen->string_buffers);
@@ -1520,6 +1521,7 @@ static void msl_handle_instruction(struct msl_generator *gen, const struct vkd3d
         case VSIR_OP_EXP:
             msl_intrinsic(gen, ins, "exp2");
             break;
+        case VSIR_OP_FIRSTBIT_HI:
         case VSIR_OP_FIRSTBIT_LO:
             msl_firstbit(gen, ins);
             break;
