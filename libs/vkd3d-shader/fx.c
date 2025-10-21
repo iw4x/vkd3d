@@ -2515,6 +2515,8 @@ static inline enum hlsl_type_class hlsl_type_class_from_fx_type(enum state_prope
             return HLSL_CLASS_VERTEX_SHADER;
         case FX_PIXELSHADER:
             return HLSL_CLASS_PIXEL_SHADER;
+        case FX_GEOMETRYSHADER:
+            return HLSL_CLASS_GEOMETRY_SHADER;
         default:
             vkd3d_unreachable();
     }
@@ -3402,6 +3404,7 @@ static bool is_supported_object_variable(const struct hlsl_ctx *ctx, const struc
         case HLSL_CLASS_TEXTURE:
         case HLSL_CLASS_BLEND_STATE:
         case HLSL_CLASS_VERTEX_SHADER:
+        case HLSL_CLASS_GEOMETRY_SHADER:
         case HLSL_CLASS_STRING:
             return true;
         case HLSL_CLASS_COMPUTE_SHADER:
