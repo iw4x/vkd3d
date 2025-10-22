@@ -3756,6 +3756,8 @@ static enum vkd3d_result vsir_program_remap_output_signature(struct vsir_program
                 map->input_register_index, map->input_mask);
         e = &signature->elements[signature->element_count++];
         memset(e, 0, sizeof(*e));
+        if (!(e->semantic_name = vkd3d_strdup("$unused")))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
         e->sysval_semantic = VKD3D_SHADER_SV_NONE;
         e->component_type = VKD3D_SHADER_COMPONENT_FLOAT;
         e->register_count = 1;
