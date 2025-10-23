@@ -107,5 +107,6 @@ float4 main(data input) : sv_target
 
 [test]
 % llvmpipe currently segfaults due to a bug during shader compilation in the driver.
-if(!llvmpipe) todo(glsl | mvk & vulkan) draw 3 control point patch list 3
-if(!llvmpipe) todo(mvk) probe (0, 0, 640, 480) rgba (-1.0, -2.0, 0.5, 1.0)
+% WARP with SM>=6 misreads the output control point value in the patch constant phase.
+if(!llvmpipe & !warp | !llvmpipe & sm<6) todo(glsl | mvk & vulkan) draw 3 control point patch list 3
+if(!llvmpipe & !warp | !llvmpipe & sm<6) todo(mvk) probe (0, 0, 640, 480) f32(-1.0, -2.0, 0.5, 1.0)
