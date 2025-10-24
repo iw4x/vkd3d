@@ -7839,6 +7839,8 @@ static void test_draw_uav_only(void)
     ID3D12GraphicsCommandList_ClearUnorderedAccessViewFloat(command_list,
             gpu_handle, cpu_handle, resource, zero, 0, NULL);
 
+    uav_barrier(command_list, resource);
+
     set_rect(&context.scissor_rect, 0, 0, 1000, 1000);
     set_viewport(&context.viewport, 0.0f, 0.0f, 1.0f, 100.0f, 0.0f, 0.0f);
 
@@ -22807,6 +22809,9 @@ static void test_tgsm(void)
             get_cpu_descriptor_handle(&context, cpu_descriptor_heap, 1),
             buffer2, zero, 0, NULL);
 
+    uav_barrier(command_list, buffer);
+    uav_barrier(command_list, buffer2);
+
     gpu_descriptor_handle = ID3D12DescriptorHeap_GetGPUDescriptorHandleForHeapStart(descriptor_heap);
     ID3D12GraphicsCommandList_SetPipelineState(command_list, context.pipeline_state);
     ID3D12GraphicsCommandList_SetComputeRootSignature(command_list, context.root_signature);
@@ -35280,6 +35285,8 @@ static void test_early_depth_stencil_tests(void)
     ID3D12GraphicsCommandList_ClearUnorderedAccessViewUint(command_list,
             get_gpu_descriptor_handle(&context, gpu_heap, 0),
             get_cpu_descriptor_handle(&context, cpu_heap, 0), texture, values, 0, NULL);
+
+    uav_barrier(command_list, texture);
 
     ID3D12GraphicsCommandList_ClearDepthStencilView(command_list, ds.dsv_handle,
             D3D12_CLEAR_FLAG_DEPTH, 0.6f, 0, 0, NULL);
