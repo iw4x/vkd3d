@@ -1247,7 +1247,7 @@ void run_shader_tests_d3d12(void *dxc_compiler)
 #endif
 
     bool skip_sm4 = test_skipping_execution(executor, HLSL_COMPILER, SHADER_MODEL_4_0, SHADER_MODEL_5_1);
-    bool skip_sm6 = test_skipping_execution(executor, "dxcompiler", SHADER_MODEL_6_0, SHADER_MODEL_6_2);
+    bool skip_sm6 = test_skipping_execution(executor, "dxcompiler", SHADER_MODEL_6_0, SHADER_MODEL_MAX);
 
     if (skip_sm4 && skip_sm6)
         return;
@@ -1259,5 +1259,5 @@ void run_shader_tests_d3d12(void *dxc_compiler)
         run_shader_tests_for_model_range(NULL, SHADER_MODEL_4_0, SHADER_MODEL_5_1);
 
     if (dxc_compiler && !skip_sm6)
-        run_shader_tests_for_model_range(dxc_compiler, SHADER_MODEL_6_0, SHADER_MODEL_6_2);
+        run_shader_tests_for_model_range(dxc_compiler, SHADER_MODEL_6_0, SHADER_MODEL_MAX);
 }

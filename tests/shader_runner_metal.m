@@ -1221,7 +1221,7 @@ static void metal_runner_cleanup(struct metal_runner *runner)
 void run_shader_tests_metal(void *dxc_compiler)
 {
     bool skip_sm4 = test_skipping_execution("Metal", HLSL_COMPILER, SHADER_MODEL_4_0, SHADER_MODEL_5_1);
-    bool skip_sm6 = test_skipping_execution("Metal", "dxcompiler", SHADER_MODEL_6_0, SHADER_MODEL_6_2);
+    bool skip_sm6 = test_skipping_execution("Metal", "dxcompiler", SHADER_MODEL_6_0, SHADER_MODEL_MAX);
     struct metal_runner runner;
 
     if (skip_sm4 && skip_sm6)
@@ -1242,7 +1242,7 @@ void run_shader_tests_metal(void *dxc_compiler)
     {
         runner.caps.compiler = "dxcompiler";
         runner.caps.minimum_shader_model = SHADER_MODEL_6_0;
-        runner.caps.maximum_shader_model = SHADER_MODEL_6_2;
+        runner.caps.maximum_shader_model = SHADER_MODEL_MAX;
         run_shader_tests(&runner.r, &runner.caps, &metal_runner_ops, dxc_compiler);
     }
 
