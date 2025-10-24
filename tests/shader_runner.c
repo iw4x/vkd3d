@@ -73,7 +73,7 @@ static struct shader_test_options
     const char *compiler_filter;
 } shader_test_options = {0};
 
-static const char *const model_strings[] =
+static const char *const sm_strings_dot[] =
 {
     [SHADER_MODEL_2_0] = "2.0",
     [SHADER_MODEL_3_0] = "3.0",
@@ -83,6 +83,18 @@ static const char *const model_strings[] =
     [SHADER_MODEL_5_1] = "5.1",
     [SHADER_MODEL_6_0] = "6.0",
     [SHADER_MODEL_6_2] = "6.2",
+};
+
+static const char *const sm_strings_underscore[] =
+{
+    [SHADER_MODEL_2_0] = "2_0",
+    [SHADER_MODEL_3_0] = "3_0",
+    [SHADER_MODEL_4_0] = "4_0",
+    [SHADER_MODEL_4_1] = "4_1",
+    [SHADER_MODEL_5_0] = "5_0",
+    [SHADER_MODEL_5_1] = "5_1",
+    [SHADER_MODEL_6_0] = "6_0",
+    [SHADER_MODEL_6_2] = "6_2",
 };
 
 void fatal_error(const char *format, ...)
@@ -115,15 +127,15 @@ enum parse_state
 
 static enum shader_model match_shader_model_string(const char *string, const char **rest)
 {
-    for (enum shader_model i = 0; i < ARRAY_SIZE(model_strings); ++i)
+    for (enum shader_model i = 0; i < ARRAY_SIZE(sm_strings_dot); ++i)
     {
-        if (!strncmp(string, model_strings[i], strlen(model_strings[i])))
+        if (!strncmp(string, sm_strings_dot[i], strlen(sm_strings_dot[i])))
         {
-            *rest = string + strlen(model_strings[i]);
+            *rest = string + strlen(sm_strings_dot[i]);
             return i;
         }
         /* Allow e.g. "4" as a shorthand for "4.0". */
-        if (string[0] == model_strings[i][0] && !strcmp(&model_strings[i][1], ".0")
+        if (string[0] == sm_strings_dot[i][0] && !strcmp(&sm_strings_dot[i][1], ".0")
                 && string[1] != '.' && !isdigit(string[1]))
         {
             *rest = string + 1;
@@ -500,9 +512,9 @@ static void parse_require_directive(struct shader_runner *runner, const char *li
     if (match_string(line, "shader model >=", &line)
             || (less_than = match_string(line, "shader model <", &line)))
     {
-        for (i = 0; i < ARRAY_SIZE(model_strings); ++i)
+        for (i = 0; i < ARRAY_SIZE(sm_strings_dot); ++i)
         {
-            if (match_string(line, model_strings[i], &line))
+            if (match_string(line, sm_strings_dot[i], &line))
             {
                 if (less_than)
                 {
@@ -522,9 +534,9 @@ static void parse_require_directive(struct shader_runner *runner, const char *li
     }
     else if (match_string(line, "compile shader model", &line))
     {
-        for (i = 0; i < ARRAY_SIZE(model_strings); ++i)
+        for (i = 0; i < ARRAY_SIZE(sm_strings_dot); ++i)
         {
-            if (match_string(line, model_strings[i], &line))
+            if (match_string(line, sm_strings_dot[i], &line))
             {
                 bitmap_set(&runner->compile_model_mask, i);
                 return;
@@ -2003,18 +2015,6 @@ ID3D10Blob *compile_hlsl(const struct shader_runner *runner, enum shader_type ty
     HRESULT hr = S_OK;
     char profile[7];
 
-    static const char *const shader_models[] =
-    {
-        [SHADER_MODEL_2_0] = "2_0",
-        [SHADER_MODEL_3_0] = "3_0",
-        [SHADER_MODEL_4_0] = "4_0",
-        [SHADER_MODEL_4_1] = "4_1",
-        [SHADER_MODEL_5_0] = "5_0",
-        [SHADER_MODEL_5_1] = "5_1",
-        [SHADER_MODEL_6_0] = "6_0",
-        [SHADER_MODEL_6_2] = "6_2",
-    };
-
     /* Behaviour is inconsistent between different versions of
      * d3dcompiler_47.dll. Version 10.0.17134.12 seems to reject
      * D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY for 5.1 profiles, while
@@ -2022,7 +2022,7 @@ ID3D10Blob *compile_hlsl(const struct shader_runner *runner, enum shader_type ty
     if (runner->minimum_shader_model >= SHADER_MODEL_5_1)
         options &= ~D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
 
-    sprintf(profile, "%s_%s", shader_type_string(type), shader_models[runner->minimum_shader_model]);
+    sprintf(profile, "%s_%s", shader_type_string(type), sm_strings_underscore[runner->minimum_shader_model]);
 
     switch (runner->shader_format[type])
     {
@@ -2086,26 +2086,6 @@ static void compile_shader(struct shader_runner *runner, const char *source,
     char profile[7];
     HRESULT hr;
 
-    static const char *const shader_models[] =
-    {
-        [SHADER_MODEL_2_0] = "2_0",
-        [SHADER_MODEL_3_0] = "3_0",
-        [SHADER_MODEL_4_0] = "4_0",
-        [SHADER_MODEL_4_1] = "4_1",
-        [SHADER_MODEL_5_0] = "5_0",
-        [SHADER_MODEL_5_1] = "5_1",
-        [SHADER_MODEL_6_0] = "6_0",
-        [SHADER_MODEL_6_2] = "6_2",
-    };
-
-    static const char *const effect_models[] =
-    {
-        [SHADER_MODEL_2_0] = "2_0",
-        [SHADER_MODEL_4_0] = "4_0",
-        [SHADER_MODEL_4_1] = "4_1",
-        [SHADER_MODEL_5_0] = "5_0",
-    };
-
     switch (runner->shader_format[type])
     {
         case SOURCE_FORMAT_HLSL:
@@ -2131,10 +2111,7 @@ static void compile_shader(struct shader_runner *runner, const char *source,
     if (model >= SHADER_MODEL_5_1)
         options &= ~D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
 
-    if (type == SHADER_TYPE_FX)
-        sprintf(profile, "%s_%s", shader_type_string(type), effect_models[model]);
-    else
-        sprintf(profile, "%s_%s", shader_type_string(type), shader_models[model]);
+    sprintf(profile, "%s_%s", shader_type_string(type), sm_strings_underscore[model]);
 
     if (use_dxcompiler)
     {
@@ -2510,7 +2487,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
     maximum_shader_model = min(caps->maximum_shader_model, shader_test_options.maximum_shader_model);
 
     trace("Compiling SM%s-SM%s shaders with %s and executing with %s.\n",
-            model_strings[minimum_shader_model], model_strings[maximum_shader_model],
+            sm_strings_dot[minimum_shader_model], sm_strings_dot[maximum_shader_model],
             caps->compiler, caps->runner);
     trace_tags(caps);
     trace_shader_caps(caps->shader_caps);
@@ -2638,7 +2615,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                         {
                             if (!bitmap_is_set(&model_mask, model))
                                 continue;
-                            vkd3d_test_push_context("Model %s", model_strings[model]);
+                            vkd3d_test_push_context("Model %s", sm_strings_dot[model]);
                             compile_shader(runner, shader_source, shader_source_len, shader_type, model);
                             vkd3d_test_pop_context();
                         }
@@ -3030,7 +3007,7 @@ static bool parse_shader_model(const char *str, enum shader_model *sm)
 {
     for (enum shader_model model = SHADER_MODEL_MIN; model <= SHADER_MODEL_MAX; ++model)
     {
-        if (!strcmp(str, model_strings[model]))
+        if (!strcmp(str, sm_strings_dot[model]))
         {
             *sm = model;
             return true;
@@ -3073,8 +3050,8 @@ START_TEST(shader_runner)
             || shader_test_options.maximum_shader_model != SHADER_MODEL_MAX)
     {
         trace("Running shader models where %s <= SM <= %s\n",
-                model_strings[shader_test_options.minimum_shader_model],
-                model_strings[shader_test_options.maximum_shader_model]);
+                sm_strings_dot[shader_test_options.minimum_shader_model],
+                sm_strings_dot[shader_test_options.maximum_shader_model]);
     }
 
     if (shader_test_options.executor_filter)
