@@ -1752,6 +1752,17 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         read_f32(&line, &c->luminance_scale);
         read_f32(&line, &c->luminance_offset);
     }
+    else if (match_string(line, "denorm", &line))
+    {
+        if (match_string(line, "preserve", &line))
+            runner->denorm_mode = DENORM_PRESERVE;
+        else if (match_string(line, "ftz", &line))
+            runner->denorm_mode = DENORM_FTZ;
+        else if (match_string(line, "any", &line))
+            runner->denorm_mode = DENORM_ANY;
+        else
+            fatal_error("Invalid denorm mode '%s'.\n", line);
+    }
     else
     {
         fatal_error("Unknown test directive '%s'.\n", line);
@@ -1882,8 +1893,8 @@ static HRESULT d3d10_blob_from_vkd3d_shader_code(const struct vkd3d_shader_code 
     return S_OK;
 }
 
-static HRESULT dxc_compiler_compile_shader(void *dxc_compiler, const char *profile,
-        unsigned int compile_options, bool enable_16bit_types, const char *hlsl, ID3D10Blob **blob_out)
+static HRESULT dxc_compiler_compile_shader(void *dxc_compiler, const char *profile, unsigned int compile_options,
+        bool enable_16bit_types, enum denorm_mode denorm_mode, const char *hlsl, ID3D10Blob **blob_out)
 {
     struct vkd3d_shader_code blob;
     WCHAR wprofile[7];
@@ -1892,7 +1903,8 @@ static HRESULT dxc_compiler_compile_shader(void *dxc_compiler, const char *profi
     *blob_out = NULL;
 
     swprintf(wprofile, ARRAY_SIZE(wprofile), L"%hs", profile);
-    if (FAILED(hr = dxc_compile(dxc_compiler, wprofile, compile_options, enable_16bit_types, hlsl, &blob)))
+    if (FAILED(hr = dxc_compile(dxc_compiler, wprofile, compile_options,
+            enable_16bit_types, denorm_mode, hlsl, &blob)))
         return hr;
 
     hr = d3d10_blob_from_vkd3d_shader_code(&blob, blob_out);
@@ -1997,7 +2009,7 @@ ID3D10Blob *compile_hlsl(const struct shader_runner *runner, enum shader_type ty
             {
                 assert(runner->dxc_compiler);
                 hr = dxc_compiler_compile_shader(runner->dxc_compiler, profile, options,
-                        runner->require_shader_caps[SHADER_CAP_NATIVE_16_BIT], source, &blob);
+                        runner->require_shader_caps[SHADER_CAP_NATIVE_16_BIT], runner->denorm_mode, source, &blob);
             }
             else
             {
@@ -2106,7 +2118,7 @@ static void compile_shader(struct shader_runner *runner, const char *source,
     {
         assert(runner->dxc_compiler);
         hr = dxc_compiler_compile_shader(runner->dxc_compiler, profile, options,
-                runner->require_shader_caps[SHADER_CAP_NATIVE_16_BIT], source, &blob);
+                runner->require_shader_caps[SHADER_CAP_NATIVE_16_BIT], runner->denorm_mode, source, &blob);
     }
     else
     {

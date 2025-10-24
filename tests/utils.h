@@ -591,8 +591,16 @@ static inline HRESULT vkd3d_shader_code_from_dxc_blob(IDxcBlob *blob, struct vkd
     return S_OK;
 }
 
-static inline HRESULT dxc_compile(void *dxc_compiler, const WCHAR *profile,
-        unsigned int compile_options, bool enable_16bit_types, const char *hlsl, struct vkd3d_shader_code *blob_out)
+enum denorm_mode
+{
+    DENORM_NOT_SPECIFIED = 0,
+    DENORM_PRESERVE,
+    DENORM_FTZ,
+    DENORM_ANY,
+};
+
+static inline HRESULT dxc_compile(void *dxc_compiler, const WCHAR *profile, unsigned int compile_options,
+        bool enable_16bit_types, enum denorm_mode denorm_mode, const char *hlsl, struct vkd3d_shader_code *blob_out)
 {
     DxcBuffer src_buf = {hlsl, strlen(hlsl), 65001};
     IDxcCompiler3 *compiler = dxc_compiler;
@@ -615,11 +623,12 @@ static inline HRESULT dxc_compile(void *dxc_compiler, const WCHAR *profile,
         NULL,
         NULL,
         NULL,
+        NULL,
     };
 
     memset(blob_out, 0, sizeof(*blob_out));
 
-    arg_count = ARRAY_SIZE(args) - 4;
+    arg_count = ARRAY_SIZE(args) - 5;
     if (compile_options & D3DCOMPILE_PACK_MATRIX_ROW_MAJOR)
         args[arg_count++] = L"/Zpr";
     if (compile_options & D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR)
@@ -628,6 +637,24 @@ static inline HRESULT dxc_compile(void *dxc_compiler, const WCHAR *profile,
         args[arg_count++] = L"/Gec";
     if (enable_16bit_types)
         args[arg_count++] = L"/enable-16bit-types";
+
+    switch (denorm_mode)
+    {
+        case DENORM_NOT_SPECIFIED:
+            break;
+
+        case DENORM_PRESERVE:
+            args[arg_count++] = L"/denorm preserve";
+            break;
+
+        case DENORM_FTZ:
+            args[arg_count++] = L"/denorm ftz";
+            break;
+
+        case DENORM_ANY:
+            args[arg_count++] = L"/denorm any";
+            break;
+    }
 
     if (FAILED(hr = IDxcCompiler3_Compile(compiler, &src_buf, args,
             arg_count, NULL, &IID_IDxcResult, (void **)&result)))

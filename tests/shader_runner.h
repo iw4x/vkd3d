@@ -304,6 +304,8 @@ struct shader_runner
         float luminance_scale, luminance_offset;
     } bump[8];
 
+    enum denorm_mode denorm_mode;
+
     struct viewport viewports[4];
     unsigned int viewport_count;
 

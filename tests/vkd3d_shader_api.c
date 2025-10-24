@@ -944,7 +944,8 @@ static void test_scan_signatures(void)
     {
         vkd3d_test_push_context("test %u", i);
 
-        rc = dxc_compile(compiler, dxil_tests[i].profile, 0, dxil_tests[i].enable_16bit, dxil_tests[i].source, &dxbc);
+        rc = dxc_compile(compiler, dxil_tests[i].profile, 0, dxil_tests[i].enable_16bit,
+                DENORM_NOT_SPECIFIED, dxil_tests[i].source, &dxbc);
         ok(rc == S_OK, "Got rc %#x.\n", rc);
 
         compile_info.next = &signature_info;
