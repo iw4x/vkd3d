@@ -853,6 +853,7 @@ enum dxil_attribute_kind
     ATTRIBUTE_WELL_KNOWN = 0,
     ATTRIBUTE_WELL_KNOWN_WITH_INTEGER_VALUE = 1,
     ATTRIBUTE_STRING = 3,
+    ATTRIBUTE_STRING_WITH_STRING_VALUE = 4,
 };
 
 struct dxil_attribute
@@ -866,6 +867,7 @@ struct dxil_attribute
     union
     {
         uint64_t numeric;
+        const char *string;
     } value;
 };
 
@@ -8589,11 +8591,15 @@ static void sm6_parser_init_attribute_groups(struct sm6_parser *dxil, const stru
                         failed = true;
                     break;
 
-                /* TODO Other attribute kinds. */
+                case ATTRIBUTE_STRING_WITH_STRING_VALUE:
+                    if (!(attribute->key.string = dxil_record_to_zero_terminated_string(record, &k, dxil))
+                            || !(attribute->value.string = dxil_record_to_zero_terminated_string(record, &k, dxil)))
+                        failed = true;
+                    break;
 
                 default:
-                    /* Do not emit an error to avoid rejecting valid shaders,
-                     * given that so far we don't use attributes but don't support all the kinds. */
+                    vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_ATTRIBUTE_KIND,
+                            "Unrecognised PARAMATTR_GROUP attribute kind %"PRIu64".", kind);
                     failed = true;
                     break;
             }
@@ -10692,6 +10698,11 @@ static void sm6_parser_cleanup_attribute_groups(struct sm6_parser *dxil)
 
                 case ATTRIBUTE_STRING:
                     vkd3d_free((void *)attribute->key.string);
+                    break;
+
+                case ATTRIBUTE_STRING_WITH_STRING_VALUE:
+                    vkd3d_free((void *)attribute->key.string);
+                    vkd3d_free((void *)attribute->value.string);
                     break;
             }
         }
