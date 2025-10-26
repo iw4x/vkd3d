@@ -852,6 +852,7 @@ enum dxil_attribute_kind
 {
     ATTRIBUTE_WELL_KNOWN = 0,
     ATTRIBUTE_WELL_KNOWN_WITH_INTEGER_VALUE = 1,
+    ATTRIBUTE_STRING = 3,
 };
 
 struct dxil_attribute
@@ -860,6 +861,7 @@ struct dxil_attribute
     union
     {
         uint64_t well_known;
+        const char *string;
     } key;
     union
     {
@@ -1610,6 +1612,50 @@ static char *dxil_record_to_string(const struct dxil_record *record, unsigned in
 
     for (i = offset; i < record->operand_count; ++i)
         str[i - offset] = record->operands[i];
+
+    return str;
+}
+
+static char *dxil_record_to_zero_terminated_string(const struct dxil_record *record,
+        unsigned int *offset, struct sm6_parser *dxil)
+{
+    size_t str_len = 0, str_capacity = 0;
+    char *str = NULL;
+    unsigned int i;
+
+    VKD3D_ASSERT(*offset < record->operand_count);
+
+    for (i = *offset; i < record->operand_count; ++i)
+    {
+        if (record->operands[i] > UCHAR_MAX)
+        {
+            vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_STRING,
+                    "Operand value %"PRIu64" is not a valid string character.", record->operands[i]);
+            vkd3d_free(str);
+            return NULL;
+        }
+
+        if (!vkd3d_array_reserve((void **)&str, &str_capacity, str_len + 1, sizeof(*str)))
+        {
+            vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
+                    "Out of memory allocating a string of length %zu.", str_len + 1);
+            vkd3d_free(str);
+            return NULL;
+        }
+
+        if (!(str[str_len++] = record->operands[i]))
+            break;
+    }
+
+    if (i == record->operand_count)
+    {
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_STRING,
+                "String is not zero-terminated.");
+        vkd3d_free(str);
+        return NULL;
+    }
+
+    *offset = i + 1;
 
     return str;
 }
@@ -8538,6 +8584,11 @@ static void sm6_parser_init_attribute_groups(struct sm6_parser *dxil, const stru
                     attribute->value.numeric = record->operands[k++];
                     break;
 
+                case ATTRIBUTE_STRING:
+                    if (!(attribute->key.string = dxil_record_to_zero_terminated_string(record, &k, dxil)))
+                        failed = true;
+                    break;
+
                 /* TODO Other attribute kinds. */
 
                 default:
@@ -10623,6 +10674,29 @@ static void sm6_functions_cleanup(struct sm6_function *functions, size_t count)
 
 static void sm6_parser_cleanup_attribute_groups(struct sm6_parser *dxil)
 {
+    struct dxil_attribute_group *group;
+    struct dxil_attribute *attribute;
+    size_t i, j;
+
+    for (i = 0; i < dxil->attribute_group_count; ++i)
+    {
+        group = &dxil->attribute_groups[i];
+        for (j = 0; j < group->attribute_count; ++j)
+        {
+            attribute = &group->attributes[j];
+            switch (attribute->kind)
+            {
+                case ATTRIBUTE_WELL_KNOWN:
+                case ATTRIBUTE_WELL_KNOWN_WITH_INTEGER_VALUE:
+                    break;
+
+                case ATTRIBUTE_STRING:
+                    vkd3d_free((void *)attribute->key.string);
+                    break;
+            }
+        }
+    }
+
     vkd3d_free(dxil->attribute_groups);
 }
 
