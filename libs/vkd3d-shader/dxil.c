@@ -176,6 +176,11 @@ enum bitcode_value_symtab_code
     VST_CODE_BBENTRY = 2,
 };
 
+enum bitcode_paramattr_group_code
+{
+    PARAMATTR_GRP_CODE_ENTRY = 3,
+};
+
 enum bitcode_linkage
 {
     LINKAGE_EXTERNAL  = 0,
@@ -843,6 +848,12 @@ struct sm6_descriptor_info
     enum vsir_data_type reg_data_type;
 };
 
+struct dxil_attribute_group
+{
+    unsigned int group_id;
+    unsigned int parameter_idx;
+};
+
 struct sm6_parser
 {
     const uint32_t *ptr, *start, *end;
@@ -895,6 +906,9 @@ struct sm6_parser
     size_t value_capacity;
     size_t cur_max_value;
     unsigned int ssa_next_id;
+
+    struct dxil_attribute_group *attribute_groups;
+    size_t attribute_group_count;
 
     struct vkd3d_shader_parser p;
 };
@@ -8414,6 +8428,58 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
     return VKD3D_OK;
 }
 
+static void sm6_parser_init_attribute_groups(struct sm6_parser *dxil, const struct dxil_block *block)
+{
+    size_t i, j;
+
+    if (dxil->attribute_groups)
+    {
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_DUPLICATED_BLOCK,
+                "Duplicated PARAMATTR_GROUP block.");
+        return;
+    }
+
+    dxil->attribute_group_count = block->record_count;
+
+    if (!(dxil->attribute_groups = vkd3d_calloc(block->record_count, sizeof(*dxil->attribute_groups))))
+    {
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
+                "Out of memory while allocating the parameter attribute groups array.");
+        return;
+    }
+
+    for (i = 0, j = 0; i < block->record_count; ++i)
+    {
+        struct dxil_attribute_group *group = &dxil->attribute_groups[j];
+        struct dxil_record *record = block->records[i];
+
+        if (record->code != PARAMATTR_GRP_CODE_ENTRY)
+        {
+            vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_RECORD,
+                    "Ignoring PARAMATTR_GROUP record code %u.", record->code);
+            continue;
+        }
+
+        if (!dxil_record_validate_operand_min_count(record, 2, dxil))
+            continue;
+
+        if (record->operands[0] > UINT_MAX || record->operands[0] == 0)
+            vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_CONSTANT,
+                    "PARAMATTR_GROUP group id %"PRIu64" is invalid.", record->operands[0]);
+
+        if (record->operands[1] > UINT_MAX)
+            vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_CONSTANT,
+                    "PARAMATTR_GROUP parameter index %"PRIu64" is invalid.", record->operands[1]);
+
+        group->group_id = record->operands[0];
+        group->parameter_idx = record->operands[1];
+
+        /* TODO Parse the attributes. */
+
+        ++j;
+    }
+}
+
 static enum vkd3d_result sm6_parser_module_init(struct sm6_parser *sm6, const struct dxil_block *block,
         unsigned int level)
 {
@@ -8434,6 +8500,10 @@ static enum vkd3d_result sm6_parser_module_init(struct sm6_parser *sm6, const st
 
     switch (block->id)
     {
+        case PARAMATTR_GROUP_BLOCK:
+            sm6_parser_init_attribute_groups(sm6, block);
+            break;
+
         case CONSTANTS_BLOCK:
             /* Level 1 (global) constants are already done in sm6_parser_globals_init(). */
             if (level < 2)
@@ -8456,7 +8526,6 @@ static enum vkd3d_result sm6_parser_module_init(struct sm6_parser *sm6, const st
         case BLOCKINFO_BLOCK:
         case MODULE_BLOCK:
         case PARAMATTR_BLOCK:
-        case PARAMATTR_GROUP_BLOCK:
         case VALUE_SYMTAB_BLOCK:
         case METADATA_BLOCK:
         case METADATA_ATTACHMENT_BLOCK:
@@ -8468,7 +8537,7 @@ static enum vkd3d_result sm6_parser_module_init(struct sm6_parser *sm6, const st
             break;
     }
 
-    return VKD3D_OK;
+    return sm6->p.status;
 }
 
 static enum vkd3d_result sm6_function_emit_instructions(const struct sm6_function *function, struct sm6_parser *dxil)
@@ -10480,6 +10549,11 @@ static void sm6_functions_cleanup(struct sm6_function *functions, size_t count)
     vkd3d_free(functions);
 }
 
+static void sm6_parser_cleanup_attribute_groups(struct sm6_parser *dxil)
+{
+    vkd3d_free(dxil->attribute_groups);
+}
+
 static void sm6_parser_cleanup(struct sm6_parser *sm6)
 {
     dxil_block_destroy(&sm6->root_block);
@@ -10487,6 +10561,7 @@ static void sm6_parser_cleanup(struct sm6_parser *sm6)
     sm6_type_table_cleanup(sm6->types, sm6->type_count);
     sm6_symtab_cleanup(sm6->global_symbols, sm6->global_symbol_count);
     sm6_functions_cleanup(sm6->functions, sm6->function_count);
+    sm6_parser_cleanup_attribute_groups(sm6);
     sm6_parser_metadata_cleanup(sm6);
     vkd3d_free(sm6->descriptors);
     vkd3d_free(sm6->values);
