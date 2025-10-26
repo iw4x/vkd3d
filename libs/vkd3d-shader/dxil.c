@@ -848,10 +848,27 @@ struct sm6_descriptor_info
     enum vsir_data_type reg_data_type;
 };
 
+enum dxil_attribute_kind
+{
+    ATTRIBUTE_WELL_KNOWN = 0,
+};
+
+struct dxil_attribute
+{
+    enum dxil_attribute_kind kind;
+    union
+    {
+        uint64_t well_known;
+    } key;
+};
+
 struct dxil_attribute_group
 {
     unsigned int group_id;
     unsigned int parameter_idx;
+    struct dxil_attribute *attributes;
+    size_t attribute_count;
+    size_t attribute_capacity;
 };
 
 struct sm6_parser
@@ -8452,6 +8469,8 @@ static void sm6_parser_init_attribute_groups(struct sm6_parser *dxil, const stru
     {
         struct dxil_attribute_group *group = &dxil->attribute_groups[j];
         struct dxil_record *record = block->records[i];
+        bool failed = false;
+        unsigned int k;
 
         if (record->code != PARAMATTR_GRP_CODE_ENTRY)
         {
@@ -8474,7 +8493,44 @@ static void sm6_parser_init_attribute_groups(struct sm6_parser *dxil, const stru
         group->group_id = record->operands[0];
         group->parameter_idx = record->operands[1];
 
-        /* TODO Parse the attributes. */
+        for (k = 2; k < record->operand_count && !failed;)
+        {
+            uint64_t kind = record->operands[k++];
+            struct dxil_attribute *attribute;
+
+            if (!vkd3d_array_reserve((void **)&group->attributes, &group->attribute_capacity,
+                    group->attribute_count + 1, sizeof(*group->attributes)))
+            {
+                vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
+                        "Out of memory allocating the attribute array.");
+                break;
+            }
+
+            attribute = &group->attributes[group->attribute_count++];
+            memset(attribute, 0, sizeof(*attribute));
+            attribute->kind = kind;
+
+            switch (kind)
+            {
+                case ATTRIBUTE_WELL_KNOWN:
+                    if (!dxil_record_validate_operand_min_count(record, k + 1, dxil))
+                    {
+                        failed = true;
+                        break;
+                    }
+
+                    attribute->key.well_known = record->operands[k++];
+                    break;
+
+                /* TODO Other attribute kinds. */
+
+                default:
+                    /* Do not emit an error to avoid rejecting valid shaders,
+                     * given that so far we don't use attributes but don't support all the kinds. */
+                    failed = true;
+                    break;
+            }
+        }
 
         ++j;
     }
