@@ -851,6 +851,7 @@ struct sm6_descriptor_info
 enum dxil_attribute_kind
 {
     ATTRIBUTE_WELL_KNOWN = 0,
+    ATTRIBUTE_WELL_KNOWN_WITH_INTEGER_VALUE = 1,
 };
 
 struct dxil_attribute
@@ -860,6 +861,10 @@ struct dxil_attribute
     {
         uint64_t well_known;
     } key;
+    union
+    {
+        uint64_t numeric;
+    } value;
 };
 
 struct dxil_attribute_group
@@ -8520,6 +8525,17 @@ static void sm6_parser_init_attribute_groups(struct sm6_parser *dxil, const stru
                     }
 
                     attribute->key.well_known = record->operands[k++];
+                    break;
+
+                case ATTRIBUTE_WELL_KNOWN_WITH_INTEGER_VALUE:
+                    if (!dxil_record_validate_operand_min_count(record, k + 2, dxil))
+                    {
+                        failed = true;
+                        break;
+                    }
+
+                    attribute->key.well_known = record->operands[k++];
+                    attribute->value.numeric = record->operands[k++];
                     break;
 
                 /* TODO Other attribute kinds. */
