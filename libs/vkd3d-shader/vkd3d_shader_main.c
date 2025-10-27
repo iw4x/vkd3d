@@ -729,6 +729,7 @@ void vkd3d_shader_parser_init(struct vkd3d_shader_parser *parser,
     parser->location.source_name = source_name;
     parser->location.line = 1;
     parser->location.column = 0;
+    parser->status = VKD3D_OK;
 }
 
 void VKD3D_PRINTF_FUNC(3, 4) vkd3d_shader_parser_error(struct vkd3d_shader_parser *parser,
