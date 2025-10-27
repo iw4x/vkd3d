@@ -2811,6 +2811,9 @@ static bool shader_sm4_init(struct vkd3d_shader_sm4_parser *sm4, struct vsir_pro
     if (!vsir_program_init(program, compile_info,
             &version, token_count / 7u + 20, VSIR_CF_STRUCTURED, VSIR_NORMALISED_SM4))
         return false;
+
+    program->f32_denorm_mode = VSIR_DENORM_FLUSH_TO_ZERO;
+
     vkd3d_shader_parser_init(&sm4->p, message_context, compile_info->source_name);
     sm4->ptr = sm4->start;
     sm4->program = program;

@@ -3360,8 +3360,7 @@ static bool sm6_parser_declare_function(struct sm6_parser *sm6, const struct dxi
     if (record->operands[4] > UINT_MAX)
         WARN("Invalid attributes id %#"PRIx64".\n", record->operands[4]);
     /* 1-based index. */
-    if ((fn->u.function.attribs_id = record->operands[4]))
-        TRACE("Ignoring function attributes.\n");
+    fn->u.function.attribs_id = record->operands[4];
 
     /* These always seem to be zero. */
     for (i = 5, j = 0; i < min(record->operand_count, max_count); ++i)
@@ -10929,6 +10928,62 @@ static void sm6_parser_cleanup(struct sm6_parser *sm6)
     vkd3d_free(sm6->values);
 }
 
+static enum vsir_denorm_mode sm6_function_get_denorm_mode(const struct sm6_function *function,
+        struct sm6_parser *dxil)
+{
+    unsigned int attribs_id = function->declaration->u.function.attribs_id;
+    const struct dxil_parameter_attribute *parameter_attribute;
+    size_t i, j, k;
+
+    if (!attribs_id)
+        return VSIR_DENORM_FLUSH_TO_ZERO;
+
+    if (attribs_id > dxil->parameter_attribute_count)
+    {
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_ATTRIBUTE,
+                "Invalid attribute id %u.", attribs_id);
+        return VSIR_DENORM_FLUSH_TO_ZERO;
+    }
+
+    parameter_attribute = &dxil->parameter_attributes[attribs_id - 1];
+
+    for (i = 0; i < parameter_attribute->group_count; ++i)
+    {
+        for (j = 0; j < dxil->attribute_group_count; ++j)
+        {
+            struct dxil_attribute_group *attribute_group = &dxil->attribute_groups[j];
+
+            if (attribute_group->group_id != parameter_attribute->groups[i]
+                    || attribute_group->parameter_idx != ~0u)
+                continue;
+
+            for (k = 0; k < attribute_group->attribute_count; ++k)
+            {
+                struct dxil_attribute *attribute = &attribute_group->attributes[k];
+
+                if (attribute->kind != ATTRIBUTE_STRING_WITH_STRING_VALUE
+                        || strcmp(attribute->key.string, "fp32-denorm-mode"))
+                    continue;
+
+                if (!strcmp(attribute->value.string, "preserve"))
+                    return VSIR_DENORM_PRESERVE;
+
+                if (!strcmp(attribute->value.string, "ftz"))
+                    return VSIR_DENORM_FLUSH_TO_ZERO;
+
+                if (!strcmp(attribute->value.string, "any"))
+                    return VSIR_DENORM_ANY;
+
+                vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_ATTRIBUTE,
+                        "Invalid value for attribute `fp32-denorm-mode'.");
+                return VSIR_DENORM_FLUSH_TO_ZERO;
+            }
+        }
+    }
+
+    return VSIR_DENORM_FLUSH_TO_ZERO;
+}
+
 static struct sm6_function *sm6_parser_get_function(const struct sm6_parser *sm6, const char *name)
 {
     size_t i;
@@ -11209,8 +11264,12 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
         goto fail;
     }
 
+    program->f32_denorm_mode = sm6_function_get_denorm_mode(fn, sm6);
+
     if (version.type == VKD3D_SHADER_TYPE_HULL)
     {
+        enum vsir_denorm_mode cp_denorm_mode;
+
         sm6_parser_add_instruction(sm6, VSIR_OP_HS_CONTROL_POINT_PHASE);
 
         if ((ret = sm6_function_emit_instructions(fn, sm6)) < 0)
@@ -11224,6 +11283,15 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
                     sm6->patch_constant_function);
             ret = VKD3D_ERROR_INVALID_SHADER;
             goto fail;
+        }
+
+        cp_denorm_mode = sm6_function_get_denorm_mode(fn, sm6);
+
+        if (sm6->p.status >= 0 && program->f32_denorm_mode != cp_denorm_mode)
+        {
+            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_ATTRIBUTE,
+                    "Patch constant denorm mode %u doesn't match control point denorm mode %u.",
+                    program->f32_denorm_mode, cp_denorm_mode);
         }
 
         sm6_parser_add_instruction(sm6, VSIR_OP_HS_FORK_PHASE);

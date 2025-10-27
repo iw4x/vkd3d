@@ -232,6 +232,7 @@ enum vkd3d_shader_error
     VKD3D_SHADER_ERROR_DXIL_DUPLICATED_BLOCK            = 8022,
     VKD3D_SHADER_ERROR_DXIL_INVALID_STRING              = 8023,
     VKD3D_SHADER_ERROR_DXIL_INVALID_ATTRIBUTE_KIND      = 8024,
+    VKD3D_SHADER_ERROR_DXIL_INVALID_ATTRIBUTE           = 8025,
 
     VKD3D_SHADER_WARNING_DXIL_UNKNOWN_MAGIC_NUMBER      = 8300,
     VKD3D_SHADER_WARNING_DXIL_UNKNOWN_SHADER_TYPE       = 8301,
@@ -1609,6 +1610,13 @@ enum vsir_normalisation_level
     VSIR_NORMALISED_SM6,
 };
 
+enum vsir_denorm_mode
+{
+    VSIR_DENORM_ANY = 0,
+    VSIR_DENORM_PRESERVE,
+    VSIR_DENORM_FLUSH_TO_ZERO,
+};
+
 struct vkd3d_shader_descriptor_info1
 {
     enum vkd3d_shader_descriptor_type type;
@@ -1687,6 +1695,8 @@ struct vsir_program
 
     struct vkd3d_shader_param_allocator src_params;
     struct vkd3d_shader_param_allocator dst_params;
+
+    enum vsir_denorm_mode f32_denorm_mode;
 };
 
 enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
