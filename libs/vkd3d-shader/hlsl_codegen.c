@@ -3936,7 +3936,14 @@ static bool is_conditional_block_simple(const struct hlsl_block *cond_block)
                 break;
 
             case HLSL_IR_JUMP:
-                return false;
+            {
+                struct hlsl_ir_jump *jump = hlsl_ir_jump(instr);
+
+                if (jump->type != HLSL_IR_JUMP_DISCARD_NZ)
+                    return false;
+                ++cost;
+                break;
+            }
 
             case HLSL_IR_STORE:
                 if (hlsl_ir_store(instr)->lhs.var->is_tgsm)
@@ -3984,8 +3991,13 @@ static bool can_flatten_conditional_block(struct hlsl_ctx *ctx, const struct hls
                     return false;
                 }
 
-                hlsl_fixme(ctx, &instr->loc, "Flattening conditional blocks with discard instructions.");
-                return false;
+                if (jump->type == HLSL_IR_JUMP_DISCARD_NEG)
+                {
+                    hlsl_fixme(ctx, &jump->node.loc, "Flattening conditional blocks with discard_neg instructions.");
+                    return false;
+                }
+
+                break;
             }
 
             case HLSL_IR_STORE:
@@ -4087,6 +4099,45 @@ static bool lower_conditional_block_stores(struct hlsl_ctx *ctx, struct hlsl_ir_
     return true;
 }
 
+static bool lower_conditional_block_discard_nz(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr,
+        struct hlsl_ir_node *cond, bool is_then)
+{
+    struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS] = {0};
+    struct hlsl_ir_node *discard_cond, *new_cond = NULL;
+    struct hlsl_ir_jump *jump;
+    struct hlsl_block block;
+
+    if (instr->type != HLSL_IR_JUMP)
+        return false;
+    jump = hlsl_ir_jump(instr);
+    discard_cond = jump->condition.node;
+
+    if (jump->type != HLSL_IR_JUMP_DISCARD_NZ)
+        return false;
+
+    VKD3D_ASSERT(ctx->profile->major_version >= 4);
+    VKD3D_ASSERT(cond->data_type->e.numeric.type == HLSL_TYPE_BOOL && cond->data_type->e.numeric.dimx == 1);
+    VKD3D_ASSERT(discard_cond->data_type->e.numeric.dimx == 1);
+
+    hlsl_block_init(&block);
+
+    if (!is_then)
+        cond = hlsl_block_add_unary_expr(ctx, &block, HLSL_OP1_LOGIC_NOT, cond, &instr->loc);
+    discard_cond = hlsl_block_add_cast(ctx, &block, discard_cond, cond->data_type, &instr->loc);
+
+    operands[0] = cond;
+    operands[1] = discard_cond;
+
+    /* discard_nz (cond && discard_cond) */
+    new_cond = hlsl_block_add_expr(ctx, &block, HLSL_OP2_LOGIC_AND, operands,
+            hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT), &jump->node.loc);
+
+    list_move_before(&jump->node.entry, &block.instrs);
+    hlsl_src_remove(&jump->condition);
+    hlsl_src_from_node(&jump->condition, new_cond);
+    return true;
+}
+
 struct flatten_conditional_block_ctx
 {
     struct hlsl_ir_node *cond;
@@ -4097,7 +4148,8 @@ static bool lower_conditional_block_instrs(struct hlsl_ctx *ctx, struct hlsl_ir_
 {
     struct flatten_conditional_block_ctx *flatten_ctx = context;
 
-    return lower_conditional_block_stores(ctx, instr, flatten_ctx->cond, flatten_ctx->is_then);
+    return lower_conditional_block_stores(ctx, instr, flatten_ctx->cond, flatten_ctx->is_then)
+            || lower_conditional_block_discard_nz(ctx, instr, flatten_ctx->cond, flatten_ctx->is_then);
 }
 
 static bool flatten_conditional_branches(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
