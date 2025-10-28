@@ -83,6 +83,8 @@ struct gl_runner
     struct vkd3d_shader_combined_resource_sampler *combined_samplers;
     unsigned int combined_sampler_count;
     enum shading_language language;
+
+    uint32_t clip_distance_mask[SHADER_TYPE_COUNT];
 };
 
 static struct gl_runner *gl_runner(struct shader_runner *r)
@@ -646,6 +648,25 @@ static void gl_runner_destroy_resource(struct shader_runner *r, struct resource 
     free(resource);
 }
 
+static uint32_t get_clip_distance_mask(const struct vkd3d_shader_signature *output)
+{
+    const struct vkd3d_shader_signature_element *e;
+    uint32_t mask = 0;
+    unsigned int i;
+
+    for (i = 0; i < output->element_count; ++i)
+    {
+        e = &output->elements[i];
+        if (e->sysval_semantic != VKD3D_SHADER_SV_CLIP_DISTANCE)
+            continue;
+
+        assert(e->semantic_index < 32u);
+        mask |= 1u << e->semantic_index;
+    }
+
+    return mask;
+}
+
 static bool compile_shader(struct gl_runner *runner, enum shader_type shader_type,
         ID3DBlob *blob, struct vkd3d_shader_code *out)
 {
@@ -657,6 +678,7 @@ static bool compile_shader(struct gl_runner *runner, enum shader_type shader_typ
     struct vkd3d_shader_scan_hull_shader_tessellation_info tessellation_info;
     struct vkd3d_shader_spirv_domain_shader_target_info domain_info;
     struct vkd3d_shader_combined_resource_sampler *sampler;
+    struct vkd3d_shader_scan_signature_info signature_info;
     enum vkd3d_shader_spirv_extension spirv_extensions[1];
     struct vkd3d_shader_resource_binding *binding;
     struct vkd3d_shader_parameter parameters[1];
@@ -682,7 +704,10 @@ static bool compile_shader(struct gl_runner *runner, enum shader_type shader_typ
     info.log_level = VKD3D_SHADER_LOG_WARNING;
 
     combined_sampler_info.type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_COMBINED_RESOURCE_SAMPLER_INFO;
-    combined_sampler_info.next = &tessellation_info;
+    combined_sampler_info.next = &signature_info;
+
+    signature_info.type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_SIGNATURE_INFO;
+    signature_info.next = &tessellation_info;
 
     tessellation_info.type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_HULL_SHADER_TESSELLATION_INFO;
     tessellation_info.next = NULL;
@@ -723,6 +748,9 @@ static bool compile_shader(struct gl_runner *runner, enum shader_type shader_typ
         sampler->binding.count = 1;
     }
     vkd3d_shader_free_scan_combined_resource_sampler_info(&combined_sampler_info);
+
+    runner->clip_distance_mask[shader_type] = get_clip_distance_mask(&signature_info.output);
+    vkd3d_shader_free_scan_signature_info(&signature_info);
 
     if (runner->language == SPIR_V)
     {
@@ -1227,15 +1255,16 @@ static bool gl_runner_draw(struct shader_runner *r,
     struct vkd3d_shader_signature vs_input_signature;
     struct gl_runner *runner = gl_runner(r);
     struct vkd3d_shader_code vs_dxbc;
+    uint32_t clip_distance_mask, map;
     uint8_t *attribute_offsets[32];
     struct
     {
         GLuint id;
         GLsizei stride;
     } vbo_info[MAX_RESOURCES];
+    GLint max_clip_distance_count;
     GLuint program_id, ubo_id = 0;
     ID3D10Blob *vs_blob;
-    uint32_t map;
     int ret;
     struct
     {
@@ -1422,6 +1451,35 @@ static bool gl_runner_draw(struct shader_runner *r,
         runner->attribute_map |= attribute_idx;
     }
     vkd3d_shader_free_shader_signature(&vs_input_signature);
+
+    for (i = 0, clip_distance_mask = 0; i < SHADER_TYPE_COUNT; ++i)
+    {
+        clip_distance_mask |= runner->clip_distance_mask[i];
+    }
+
+    glGetIntegerv(GL_MAX_CLIP_DISTANCES, &max_clip_distance_count);
+    if (clip_distance_mask & ~((1u << max_clip_distance_count) - 1))
+        trace("Warning: Not enough clip distances supported (maximum is %d).\n", max_clip_distance_count);
+
+    /* OpenGL expects all declared gl_ClipDistance[] arrays to be the same
+     * size across shaders. */
+    for (i = 0; i < SHADER_TYPE_COUNT; ++i)
+    {
+        if (!runner->clip_distance_mask[i])
+            continue;
+        if (runner->clip_distance_mask[i] != clip_distance_mask)
+            trace("Warning: Shader type %#x has clip distance mask %#x (subset of the combined %#x).\n",
+                    i, runner->clip_distance_mask[i], clip_distance_mask);
+    }
+
+    for (i = 0; i < max_clip_distance_count; ++i)
+    {
+        if (clip_distance_mask & (1u << i))
+            glEnable(GL_CLIP_DISTANCE0 + i);
+        else
+            glDisable(GL_CLIP_DISTANCE0 + i);
+    }
+
     map &= ~runner->attribute_map;
     for (attribute_idx = 0; map; ++attribute_idx, map >>= 1)
     {
