@@ -48,11 +48,6 @@ format r32g32b32a32-float
 size (2d, 640, 480)
 
 [vertex shader todo]
-struct input
-{
-    float4 position : POSITION;
-};
-
 struct vertex
 {
     float4 position : SV_POSITION;
@@ -138,6 +133,57 @@ probe rtv 0 (480, 120) f32(1.0, 1.0, 1.0, 1.0)
 probe rtv 0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
 probe rtv 0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
 probe rtv 0 (320, 239) f32(1.0, 1.0, 1.0, 1.0)
+
+[require]
+shader model >= 4.0
+cull-distance
+
+% Test clip/cull distance inputs.
+[vertex shader todo]
+struct vertex_data
+{
+    float4 position : SV_POSITION;
+    float3 cullA : SV_CULLDISTANCE;
+    float2 clip : SV_CLIPDISTANCE;
+    float cullB : SV_CULLDISTANCE1;
+};
+
+void main(float4 position : POSITION, out vertex_data vertex)
+{
+    vertex.position = position;
+    vertex.cullA = float3(10, 20, 30);
+    vertex.clip = float2(40, 50);
+    vertex.cullB = -position.x; // Removes all 3 triangles on the right column.
+}
+
+[pixel shader todo]
+struct vertex_data
+{
+    float4 position : SV_POSITION;
+    float3 cullA : SV_CULLDISTANCE;
+    float2 clip : SV_CLIPDISTANCE;
+    float cullB : SV_CULLDISTANCE1;
+};
+
+float4 main(struct vertex_data vertex) : SV_Target
+{
+    // Interpolated cull distance is quantized since there is a variation of
+    // many ULPs across drivers.
+    return float4(vertex.cullA.xz, vertex.clip.y, round(10000 * vertex.cullB));
+}
+
+[test]
+clear rtv 0 0.0 0.0 0.0 1.0
+todo draw triangle list 27
+probe rtv 0 (160, 120) f32(10.0, 30.0, 50.0, 4984)
+probe rtv 0 (160, 240) f32(10.0, 30.0, 50.0, 4984)
+probe rtv 0 (160, 360) f32(10.0, 30.0, 50.0, 4984)
+probe rtv 0 (320, 120) f32(10.0, 30.0, 50.0, -16)
+probe rtv 0 (320, 240) f32(10.0, 30.0, 50.0, -16)
+probe rtv 0 (320, 360) f32(10.0, 30.0, 50.0, -16)
+probe rtv 0 (480, 120) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv 0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
 
 [require]
 shader model >= 4.0
