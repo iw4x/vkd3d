@@ -5462,6 +5462,35 @@ static bool lower_discard_nz(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, v
     return true;
 }
 
+static bool cast_discard_neg_conditions_to_vec4(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+{
+    struct hlsl_ir_node *swizzle;
+    struct hlsl_ir_jump *jump;
+    struct hlsl_block block;
+    unsigned int dimx;
+
+    if (instr->type != HLSL_IR_JUMP)
+        return false;
+    jump = hlsl_ir_jump(instr);
+    if (jump->type != HLSL_IR_JUMP_DISCARD_NEG)
+        return false;
+
+    dimx = jump->condition.node->data_type->e.numeric.dimx;
+    if (dimx == 4)
+        return false;
+
+    hlsl_block_init(&block);
+
+    swizzle = hlsl_block_add_swizzle(ctx, &block, hlsl_swizzle_from_writemask((1 << dimx) - 1), 4,
+            jump->condition.node, &instr->loc);
+
+    list_move_before(&instr->entry, &block.instrs);
+    hlsl_src_remove(&jump->condition);
+    hlsl_src_from_node(&jump->condition, swizzle);
+
+    return true;
+}
+
 static bool dce(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
 {
     switch (instr->type)
@@ -9996,6 +10025,8 @@ static void sm1_generate_vsir_instr_jump(struct hlsl_ctx *ctx,
 
     if (jump->type == HLSL_IR_JUMP_DISCARD_NEG)
     {
+        VKD3D_ASSERT(condition->data_type->e.numeric.dimx == 4);
+
         if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_TEXKILL, 0, 1)))
             return;
 
@@ -14814,6 +14845,8 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
     if (profile->major_version < 4)
     {
         while (replace_ir(ctx, lower_nonconstant_array_loads, body));
+
+        hlsl_transform_ir(ctx, cast_discard_neg_conditions_to_vec4, body, NULL);
 
         replace_ir(ctx, lower_ternary, body);
         replace_ir(ctx, lower_int_modulus_sm1, body);
