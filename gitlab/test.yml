@@ -38,7 +38,6 @@ test-win-64-dxc:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   interruptible: true
-  allow_failure: true
   needs:
     - job: build-crosstest
   tags:
