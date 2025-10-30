@@ -16,6 +16,8 @@
     when: always
     paths:
       - artifacts
+    exclude:
+      - artifacts/**/d3d10warp.dll
 
 test-win-64:
   extends: .test-win
