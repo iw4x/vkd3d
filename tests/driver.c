@@ -154,6 +154,12 @@ static bool run_tests_for_directory(const char *commit_dir)
             fprintf(stderr, "Cannot copy d3d10warp.dll, last error %ld.\n", GetLastError());
             ret = false;
         }
+        sprintf(dest_filename, "artifacts\\%s\\tests\\dxcompiler.dll", commit_dir);
+        if (!CopyFileA(".\\dxc\\bin\\x64\\dxcompiler.dll", dest_filename, FALSE))
+        {
+            fprintf(stderr, "Cannot copy dxcompiler.dll, last error %ld.\n", GetLastError());
+            ret = false;
+        }
     }
     else
     {
@@ -161,6 +167,12 @@ static bool run_tests_for_directory(const char *commit_dir)
         if (!CopyFileA(".\\warp\\build\\native\\bin\\win32\\d3d10warp.dll", dest_filename, FALSE))
         {
             fprintf(stderr, "Cannot copy d3d10warp.dll, last error %ld.\n", GetLastError());
+            ret = false;
+        }
+        sprintf(dest_filename, "artifacts\\%s\\tests\\dxcompiler.dll", commit_dir);
+        if (!CopyFileA(".\\dxc\\bin\\x86\\dxcompiler.dll", dest_filename, FALSE))
+        {
+            fprintf(stderr, "Cannot copy dxcompiler.dll, last error %ld.\n", GetLastError());
             ret = false;
         }
     }
