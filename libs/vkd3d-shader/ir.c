@@ -749,6 +749,21 @@ bool vsir_signature_find_sysval(const struct shader_signature *signature,
     return false;
 }
 
+unsigned int vsir_signature_next_location(const struct shader_signature *signature)
+{
+    unsigned int i, max_row;
+
+    if (!signature)
+        return 0;
+
+    for (i = 0, max_row = 0; i < signature->element_count; ++i)
+    {
+        max_row = max(max_row, signature->elements[i].register_index + signature->elements[i].register_count);
+    }
+
+    return max_row;
+}
+
 struct vkd3d_shader_descriptor_info1 *vsir_program_add_descriptor(struct vsir_program *program,
         enum vkd3d_shader_descriptor_type type, unsigned int register_id,
         const struct vkd3d_shader_register_range *range,
@@ -8076,9 +8091,9 @@ static enum vkd3d_result vsir_program_insert_clip_planes(struct vsir_program *pr
     unsigned int low_signature_idx = ~0u, high_signature_idx = ~0u;
     const struct vkd3d_shader_parameter1 *mask_parameter = NULL;
     uint32_t position_signature_idx, position_temp, mask;
+    unsigned int plane_count, next_register_index;
     struct signature_element *clip_element;
     struct vkd3d_shader_instruction *ins;
-    unsigned int plane_count;
     int ret;
 
     if (program->shader_version.type != VKD3D_SHADER_TYPE_VERTEX)
@@ -8134,16 +8149,18 @@ static enum vkd3d_result vsir_program_insert_clip_planes(struct vsir_program *pr
     plane_count = vkd3d_popcount(mask);
 
     /* Register mask is ignored since we operate after I/O normalisation. */
+    next_register_index = vsir_signature_next_location(signature);
     if (!(clip_element = add_signature_element(signature, "SV_ClipDistance", 0,
-            vkd3d_write_mask_from_component_count(min(plane_count, 4)), 0, VKD3DSIM_NONE)))
+            vkd3d_write_mask_from_component_count(min(plane_count, 4)), next_register_index, VKD3DSIM_NONE)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
     low_signature_idx = clip_element - signature->elements;
     clip_element->sysval_semantic = VKD3D_SHADER_SV_CLIP_DISTANCE;
 
     if (plane_count > 4)
     {
+        next_register_index = vsir_signature_next_location(signature);
         if (!(clip_element = add_signature_element(signature, "SV_ClipDistance", 1,
-                vkd3d_write_mask_from_component_count(plane_count - 4), 0, VKD3DSIM_NONE)))
+                vkd3d_write_mask_from_component_count(plane_count - 4), next_register_index, VKD3DSIM_NONE)))
             return VKD3D_ERROR_OUT_OF_MEMORY;
         high_signature_idx = clip_element - signature->elements;
         clip_element->sysval_semantic = VKD3D_SHADER_SV_CLIP_DISTANCE;

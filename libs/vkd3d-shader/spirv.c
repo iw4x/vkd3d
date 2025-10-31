@@ -5552,18 +5552,6 @@ static bool needs_private_io_variable(const struct vkd3d_spirv_builtin *builtin)
     return builtin && builtin->fixup_pfn;
 }
 
-static unsigned int shader_signature_next_location(const struct shader_signature *signature)
-{
-    unsigned int i, max_row;
-
-    if (!signature)
-        return 0;
-
-    for (i = 0, max_row = 0; i < signature->element_count; ++i)
-        max_row = max(max_row, signature->elements[i].register_index + signature->elements[i].register_count);
-    return max_row;
-}
-
 static const struct vkd3d_symbol *spirv_compiler_emit_io_register(struct spirv_compiler *compiler,
         const struct vkd3d_shader_dst_param *dst)
 {
@@ -5720,7 +5708,7 @@ static void spirv_compiler_emit_input(struct spirv_compiler *compiler,
         if (reg_type == VKD3DSPR_PATCHCONST)
         {
             vkd3d_spirv_build_op_decorate(builder, input_id, SpvDecorationPatch, NULL, 0);
-            location += shader_signature_next_location(&compiler->program->input_signature);
+            location += vsir_signature_next_location(&compiler->program->input_signature);
         }
         vkd3d_spirv_build_op_decorate1(builder, input_id, SpvDecorationLocation, location);
         if (component_idx)
@@ -5996,7 +5984,7 @@ static void spirv_compiler_emit_output(struct spirv_compiler *compiler,
         unsigned int location = signature_element->target_location;
 
         if (is_patch_constant)
-            location += shader_signature_next_location(&compiler->program->output_signature);
+            location += vsir_signature_next_location(&compiler->program->output_signature);
         else if (compiler->shader_type == VKD3D_SHADER_TYPE_PIXEL
                 && signature_element->sysval_semantic == VKD3D_SHADER_SV_TARGET)
             location = signature_element->semantic_index;

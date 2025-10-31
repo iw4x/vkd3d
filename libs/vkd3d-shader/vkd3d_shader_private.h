@@ -1211,6 +1211,7 @@ struct signature_element *vsir_signature_find_element_for_reg(const struct shade
         unsigned int reg_idx, unsigned int write_mask);
 bool vsir_signature_find_sysval(const struct shader_signature *signature,
         enum vkd3d_shader_sysval_semantic sysval, unsigned int semantic_index, unsigned int *element_index);
+unsigned int vsir_signature_next_location(const struct shader_signature *signature);
 void shader_signature_cleanup(struct shader_signature *signature);
 
 struct vsir_features
