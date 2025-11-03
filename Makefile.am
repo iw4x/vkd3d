@@ -89,7 +89,8 @@ vkd3d_shader_tests = \
 	tests/hlsl/ceil.shader_test \
 	tests/hlsl/cf-cond-types.shader_test \
 	tests/hlsl/clamp.shader_test \
-	tests/hlsl/clip-cull-distance.shader_test \
+	tests/hlsl/clip-cull-distance-1.shader_test \
+	tests/hlsl/clip-cull-distance-2.shader_test \
 	tests/hlsl/clip-planes.shader_test \
 	tests/hlsl/clip.shader_test \
 	tests/hlsl/combined-samplers.shader_test \
