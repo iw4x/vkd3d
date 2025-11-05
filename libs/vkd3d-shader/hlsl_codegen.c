@@ -10013,7 +10013,7 @@ static void sm1_generate_vsir_init_dst_param_from_deref(struct hlsl_ctx *ctx,
         else
             writemask = (1u << deref->var->data_type->e.numeric.dimx) - 1;
 
-        if (version.type == VKD3D_SHADER_TYPE_PIXEL && (!ascii_strcasecmp(semantic_name, "PSIZE")
+        if (version.type == VKD3D_SHADER_TYPE_VERTEX && (!ascii_strcasecmp(semantic_name, "PSIZE")
                 || (!ascii_strcasecmp(semantic_name, "FOG") && version.major < 3)))
         {
             /* These are always 1-component, but for some reason are written
