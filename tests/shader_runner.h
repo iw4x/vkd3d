@@ -311,6 +311,7 @@ struct shader_runner
 
     struct descriptor_mapping descriptors[MAX_DESCRIPTORS];
     unsigned int descriptor_count;
+    bool default_descriptors;
 };
 
 struct shader_runner_ops

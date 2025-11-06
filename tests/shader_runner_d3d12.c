@@ -312,9 +312,7 @@ static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shad
     D3D12_DESCRIPTOR_RANGE root_ranges[MAX_DESCRIPTORS];
     D3D12_ROOT_PARAMETER root_params[17], *root_param;
     D3D12_STATIC_SAMPLER_DESC static_samplers[7];
-    struct d3d12_resource *base_resource = NULL;
     ID3D12RootSignature *root_signature;
-    unsigned int slot;
     HRESULT hr;
     size_t i;
 
@@ -324,6 +322,7 @@ static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shad
     root_signature_desc.pStaticSamplers = static_samplers;
     root_signature_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
+    /* Native d3d12 doesn't like an empty root descriptor table. */
     if (runner->r.descriptor_count)
     {
         root_param = &root_params[root_signature_desc.NumParameters++];
@@ -346,55 +345,6 @@ static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shad
             range->OffsetInDescriptorsFromTableStart = descriptor->target_idx;
             if (descriptor->type == VKD3D_SHADER_DESCRIPTOR_TYPE_UAV)
                 range->OffsetInDescriptorsFromTableStart += MAX_RESOURCES;
-        }
-    }
-    else
-    {
-        for (i = 0; i < runner->r.resource_count; ++i)
-        {
-            struct d3d12_resource *resource = d3d12_resource(runner->r.resources[i]);
-            D3D12_DESCRIPTOR_RANGE *range;
-
-            switch (resource->r.desc.type)
-            {
-                case RESOURCE_TYPE_TEXTURE:
-                case RESOURCE_TYPE_UAV:
-                    range = &resource->descriptor_range;
-
-                    if (base_resource && resource->r.desc.type == base_resource->r.desc.type
-                            && resource->r.desc.slot == slot + 1)
-                    {
-                        ++base_resource->descriptor_range.NumDescriptors;
-                        resource->descriptor_range.NumDescriptors = 0;
-                        ++slot;
-                        continue;
-                    }
-
-                    resource->root_index = root_signature_desc.NumParameters++;
-                    root_param = &root_params[resource->root_index];
-                    root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-                    root_param->DescriptorTable.NumDescriptorRanges = 1;
-                    root_param->DescriptorTable.pDescriptorRanges = range;
-                    root_param->ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-                    if (resource->r.desc.type == RESOURCE_TYPE_UAV)
-                        range->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-                    else
-                        range->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-                    range->NumDescriptors = 1;
-                    range->BaseShaderRegister = resource->r.desc.slot;
-                    range->RegisterSpace = 0;
-                    range->OffsetInDescriptorsFromTableStart = 0;
-
-                    base_resource = resource;
-                    slot = resource->r.desc.slot;
-                    break;
-
-                case RESOURCE_TYPE_RENDER_TARGET:
-                case RESOURCE_TYPE_DEPTH_STENCIL:
-                case RESOURCE_TYPE_VERTEX_BUFFER:
-                    break;
-            }
         }
     }
 
@@ -455,7 +405,6 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
     D3D12_SHADER_BYTECODE cs;
     ID3D10Blob *cs_code;
     HRESULT hr;
-    size_t i;
 
     cs_code = compile_hlsl(&runner->r, SHADER_TYPE_CS);
     todo_if(runner->r.is_todo && runner->r.minimum_shader_model < SHADER_MODEL_6_0) ok(cs_code, "Failed to compile shader.\n");
@@ -483,30 +432,6 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
     if (runner->r.uniform_count)
         ID3D12GraphicsCommandList_SetComputeRoot32BitConstants(command_list, uniform_index,
                 runner->r.uniform_count, runner->r.uniforms, 0);
-    for (i = 0; i < runner->r.resource_count; ++i)
-    {
-        struct d3d12_resource *resource = d3d12_resource(runner->r.resources[i]);
-
-        switch (resource->r.desc.type)
-        {
-            case RESOURCE_TYPE_TEXTURE:
-                if (resource->descriptor_range.NumDescriptors && !r->descriptor_count)
-                    ID3D12GraphicsCommandList_SetComputeRootDescriptorTable(command_list, resource->root_index,
-                            get_gpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot));
-                break;
-
-            case RESOURCE_TYPE_UAV:
-                if (resource->descriptor_range.NumDescriptors && !r->descriptor_count)
-                    ID3D12GraphicsCommandList_SetComputeRootDescriptorTable(command_list, resource->root_index,
-                            get_gpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot + MAX_RESOURCES));
-                break;
-
-            case RESOURCE_TYPE_RENDER_TARGET:
-            case RESOURCE_TYPE_DEPTH_STENCIL:
-            case RESOURCE_TYPE_VERTEX_BUFFER:
-                break;
-        }
-    }
 
     if (r->descriptor_count)
         ID3D12GraphicsCommandList_SetComputeRootDescriptorTable(command_list, 0,
@@ -952,24 +877,16 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
                     fb_height = resource->r.desc.height;
                 break;
 
-            case RESOURCE_TYPE_TEXTURE:
-                if (resource->descriptor_range.NumDescriptors && !r->descriptor_count)
-                    ID3D12GraphicsCommandList_SetGraphicsRootDescriptorTable(command_list, resource->root_index,
-                            get_gpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot));
-                break;
-
-            case RESOURCE_TYPE_UAV:
-                if (resource->descriptor_range.NumDescriptors && !r->descriptor_count)
-                    ID3D12GraphicsCommandList_SetGraphicsRootDescriptorTable(command_list, resource->root_index,
-                            get_gpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot + MAX_RESOURCES));
-                break;
-
             case RESOURCE_TYPE_VERTEX_BUFFER:
                 vbv.BufferLocation = ID3D12Resource_GetGPUVirtualAddress(resource->resource);
                 vbv.StrideInBytes = get_vb_stride(&runner->r, resource->r.desc.slot);
                 vbv.SizeInBytes = resource->r.desc.width;
 
                 ID3D12GraphicsCommandList_IASetVertexBuffers(command_list, resource->r.desc.slot, 1, &vbv);
+                break;
+
+            case RESOURCE_TYPE_TEXTURE:
+            case RESOURCE_TYPE_UAV:
                 break;
         }
     }

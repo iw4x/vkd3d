@@ -1777,6 +1777,8 @@ static void parse_descriptors_directive(struct shader_runner *runner, const char
     char type_chr;
     int pos;
 
+    runner->default_descriptors = false;
+
     if (runner->descriptor_count == ARRAY_SIZE(runner->descriptors))
         fatal_error("Too many descriptors (%u).\n", runner->descriptor_count);
 
@@ -2407,6 +2409,67 @@ bool test_skipping_execution(const char *executor, const char *compiler,
     return false;
 }
 
+static int compare_resources(const void *ptr1, const void *ptr2)
+{
+    const struct resource *resource1 = *(const struct resource **)ptr1;
+    const struct resource *resource2 = *(const struct resource **)ptr2;
+    int ret;
+
+    if ((ret = vkd3d_u32_compare(resource1->desc.type, resource2->desc.type)))
+        return ret;
+
+    return vkd3d_u32_compare(resource1->desc.slot, resource2->desc.slot);
+}
+
+static void set_default_descriptor_mapping(struct shader_runner *runner)
+{
+    struct descriptor_mapping *mapping, *base_mapping = NULL;
+    bool is_buffer = false;
+    size_t i;
+
+    qsort(runner->resources, runner->resource_count, sizeof(*runner->resources), compare_resources);
+
+    runner->descriptor_count = 0;
+
+    for (i = 0; i < runner->resource_count; ++i)
+    {
+        const struct resource *resource = runner->resources[i];
+
+        switch (resource->desc.type)
+        {
+            case RESOURCE_TYPE_TEXTURE:
+            case RESOURCE_TYPE_UAV:
+                mapping = &runner->descriptors[runner->descriptor_count];
+                if (resource->desc.type == RESOURCE_TYPE_UAV)
+                    mapping->type = VKD3D_SHADER_DESCRIPTOR_TYPE_UAV;
+                else
+                    mapping->type = VKD3D_SHADER_DESCRIPTOR_TYPE_SRV;
+                mapping->register_idx = resource->desc.slot;
+                mapping->register_space = 0;
+                mapping->count = 1;
+                mapping->target_idx = resource->desc.slot;
+
+                if (base_mapping && base_mapping->type == mapping->type
+                        && is_buffer == (resource->desc.dimension == RESOURCE_DIMENSION_BUFFER)
+                        && base_mapping->register_idx + base_mapping->count == resource->desc.slot)
+                {
+                    ++base_mapping->count;
+                    break;
+                }
+
+                base_mapping = mapping;
+                is_buffer = resource->desc.dimension == RESOURCE_DIMENSION_BUFFER;
+                ++runner->descriptor_count;
+                break;
+
+            case RESOURCE_TYPE_RENDER_TARGET:
+            case RESOURCE_TYPE_DEPTH_STENCIL:
+            case RESOURCE_TYPE_VERTEX_BUFFER:
+                break;
+        }
+    }
+}
+
 void run_shader_tests(struct shader_runner *runner, const struct shader_runner_caps *caps,
         const struct shader_runner_ops *ops, void *dxc_compiler)
 {
@@ -2446,6 +2509,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
     runner->dxc_compiler = dxc_compiler;
     runner->minimum_shader_model = minimum_shader_model;
     runner->maximum_shader_model = maximum_shader_model;
+    runner->default_descriptors = true;
     runner->alpha_test_func = VKD3D_SHADER_COMPARISON_FUNC_ALWAYS;
     runner->point_size = 1.0f;
     runner->point_size_min = 1.0f;
@@ -2737,6 +2801,8 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
             else if (!strcmp(line, "[test]\n"))
             {
                 state = STATE_TEST;
+                if (runner->default_descriptors)
+                    set_default_descriptor_mapping(runner);
             }
             else if (!strcmp(line, "[preproc]\n"))
             {
@@ -2783,6 +2849,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
             {
                 state = STATE_DESCRIPTORS;
                 runner->descriptor_count = 0;
+                runner->default_descriptors = true;
             }
             else
             {
