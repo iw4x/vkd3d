@@ -4099,7 +4099,6 @@ static bool lower_conditional_block_stores(struct hlsl_ctx *ctx, struct hlsl_ir_
 static bool lower_conditional_block_discard_nz(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr,
         struct hlsl_ir_node *cond, bool is_then)
 {
-    struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS] = {0};
     struct hlsl_ir_node *discard_cond, *new_cond = NULL;
     struct hlsl_ir_jump *jump;
     struct hlsl_block block;
@@ -4122,12 +4121,8 @@ static bool lower_conditional_block_discard_nz(struct hlsl_ctx *ctx, struct hlsl
         cond = hlsl_block_add_unary_expr(ctx, &block, HLSL_OP1_LOGIC_NOT, cond, &instr->loc);
     discard_cond = hlsl_block_add_cast(ctx, &block, discard_cond, cond->data_type, &instr->loc);
 
-    operands[0] = cond;
-    operands[1] = discard_cond;
-
     /* discard_nz (cond && discard_cond) */
-    new_cond = hlsl_block_add_expr(ctx, &block, HLSL_OP2_LOGIC_AND, operands,
-            hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT), &jump->node.loc);
+    new_cond = hlsl_block_add_binary_expr(ctx, &block, HLSL_OP2_LOGIC_AND, cond, discard_cond);
 
     list_move_before(&jump->node.entry, &block.instrs);
     hlsl_src_remove(&jump->condition);
