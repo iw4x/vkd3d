@@ -143,10 +143,6 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
             break;
 
         case RESOURCE_TYPE_TEXTURE:
-            if (!runner->heap)
-                runner->heap = create_gpu_descriptor_heap(device,
-                        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, MAX_RESOURCE_DESCRIPTORS);
-
             if (params->desc.dimension == RESOURCE_DIMENSION_BUFFER)
             {
                 D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = { 0 };
@@ -227,10 +223,6 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
             break;
 
         case RESOURCE_TYPE_UAV:
-            if (!runner->heap)
-                runner->heap = create_gpu_descriptor_heap(device,
-                        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, MAX_RESOURCE_DESCRIPTORS);
-
             if (params->desc.dimension == RESOURCE_DIMENSION_BUFFER)
             {
                 D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = { 0 };
@@ -935,8 +927,7 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
     if (runner->r.uniform_count)
         ID3D12GraphicsCommandList_SetGraphicsRoot32BitConstants(command_list, uniform_index,
                 runner->r.uniform_count, runner->r.uniforms, 0);
-    if (runner->heap)
-        ID3D12GraphicsCommandList_SetDescriptorHeaps(command_list, 1, &runner->heap);
+    ID3D12GraphicsCommandList_SetDescriptorHeaps(command_list, 1, &runner->heap);
     for (i = 0; i < runner->r.resource_count; ++i)
     {
         struct d3d12_resource *resource = d3d12_resource(runner->r.resources[i]);
@@ -1200,6 +1191,9 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     {
         runner->caps.format_caps[formats[i]] = get_format_support(device, formats[i]);
     }
+
+    runner->heap = create_gpu_descriptor_heap(device,
+            D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, MAX_RESOURCE_DESCRIPTORS);
 }
 
 static bool device_supports_shader_model_6_0(ID3D12Device *device)
