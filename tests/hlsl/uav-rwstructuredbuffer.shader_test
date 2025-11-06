@@ -121,6 +121,11 @@ float4 main() : sv_target1
     return 0;
 }
 
+[uav 2]
+stride 24
+size (buffer, 2)
+0 0 0 0 0 0
+0 0 0 0 0 0
 
 [pixel shader todo]
 struct apple
@@ -128,13 +133,18 @@ struct apple
     float3 a, x;
 };
 
-RWStructuredBuffer<apple> u;
+RWStructuredBuffer<apple> u : register(u2);
 
 float4 main() : sv_target
 {
     u[0].x = float3(30.0, 40.0, 50.0);
     return 0;
 }
+
+[test]
+todo(sm<6 | msl) draw quad
+probe uav-2 (0) f32(0.0, 0.0, 0.0, 30.0)
+probe uav-2 (1) f32(40.0, 50.0, 0.0, 0.0)
 
 [uav 2]
 stride 16
@@ -361,3 +371,408 @@ probe uav-2 (7) u32(0)
 probe uav-2 (4) f64(-4.25)
 probe uav-2 (10) u32(15)
 probe uav-2 (11) u32(0)
+
+[require]
+shader model >= 5.0
+
+[uav 2]
+stride 16
+size (buffer, 2)
+
+1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0
+
+% The instruction set only allows x, xy, xyw and xywz swizzles, but fxc
+% lowers the other swizzles to either multiple stores or offsets.
+
+[compute shader todo]
+RWStructuredBuffer<float4> u : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    // Emitted as store_structured with an 8 byte offset.
+    u[0].zw = float2(1.0, 2.0);
+    // Emitted as two store_structured instructions.
+    u[1].yw = float2(5.0, 7.0);
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (0) f32(1.0, 2.0, 1.0, 2.0)
+probe uav-2 (1) f32(5.0, 5.0, 7.0, 7.0)
+
+% Cursed matrix swizzles.
+
+[uav 2]
+stride 64
+size(buffer, 1)
+
+ 1.0  2.0  3.0  4.0
+ 5.0  6.0  7.0  8.0
+ 9.0 10.0 11.0 12.0
+13.0 14.0 15.0 16.0
+
+[compute shader todo]
+RWStructuredBuffer<float4x4> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    buf[0]._31_21 = float2(42.0, 43.0);
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (0) f32(1.0, 43.0, 42.0, 4.0)
+
+[compute shader todo]
+struct container
+{
+    row_major float4x4 m;
+};
+
+RWStructuredBuffer<container> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    buf[0].m._31_21 = float2(42.0, 43.0);
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (1) f32(43.0, 6.0, 7.0, 8.0)
+probe uav-2 (2) f32(42.0, 10.0, 11.0, 12.0)
+
+[uav 2]
+stride 24
+size (buffer, 1)
+
+1.0 2.0
+3.0 4.0
+5.0 6.0
+
+[compute shader todo]
+RWStructuredBuffer<float2x3> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    buf[0]._22_21 = float2(42.0, 43.0);
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (0) f32(1.0, 43.0, 3, 42.0)
+
+[uav 2]
+stride 32
+size (buffer, 1)
+
+1.0 2.0 3.0 4.0
+5.0 6.0 7.0 8.0
+
+[compute shader todo]
+RWStructuredBuffer<float4x2> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    buf[0][0] = float2(42.0, 43.0);
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (0) f32(42.0, 2.0, 3.0, 4.0)
+probe uav-2 (1) f32(43.0, 6.0, 7.0, 8.0)
+
+[uav 2]
+stride 32
+size (buffer, 1)
+
+1.0 2.0
+3.0 4.0
+5.0 6.0
+7.0 8.0
+
+% SM6 (dxc) ignores the row_major attribute on typedef aliases.
+[compute shader todo]
+typedef row_major float4x2 rm_float4x2;
+RWStructuredBuffer<rm_float4x2> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    buf[0][0] = float2(42.0, 43.0);
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+if(sm<6) probe uav-2 (0) f32(42.0, 43.0, 3.0, 4.0)
+if(sm>=6) probe uav-2 (0) f32(42.0, 2.0, 3.0, 4.0)
+
+[uav 2]
+stride 32
+size (buffer, 1)
+
+1.0 2.0
+3.0 4.0
+5.0 6.0
+7.0 8.0
+
+[compute shader todo]
+struct c
+{
+    row_major float4x2 m;
+};
+RWStructuredBuffer<c> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    buf[0].m[0] = float2(42.0, 43.0);
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (0) f32(42.0, 43.0, 3.0, 4.0)
+
+[uav 2]
+stride 32
+size (buffer, 1)
+
+1.0 2.0 3.0 4.0
+5.0 6.0 7.0 8.0
+
+% Absolute nightmare scenario.
+[compute shader todo]
+RWStructuredBuffer<float4x2> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    buf[0][0][1] = 42.0;
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (1) f32(42.0, 6.0, 7.0, 8.0)
+
+[uav 2]
+stride 32
+size (buffer, 1)
+
+1.0 2.0 3.0 4.0
+5.0 6.0 7.0 8.0
+
+[compute shader todo]
+typedef row_major float4x2 rm_float4x2;
+RWStructuredBuffer<rm_float4x2> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    buf[0][0][1] = 42.0;
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+if(sm<6) probe uav-2 (0) f32(1.0, 42.0, 3.0, 4.0)
+if(sm>=6) probe uav-2 (0) f32(1.0, 2.0, 3.0, 4.0)
+
+[uav 2]
+stride 84
+size (buffer, 2)
+
+1000.0 2000.0 3000.0
+1.0 2.0
+3.0 4.0
+5.0 6.0
+10.0 20.0 30.0
+40.0 50.0 60.0
+100.0 200.0 300.0
+400.0 500.0 600.0
+
+-1000.0 -2000.0 -3000.0
+-1.0 -2.0
+-3.0 -4.0
+-5.0 -6.0
+-10.0 -20.0 -30.0
+-40.0 -50.0 -60.0
+-100.0 -200.0 -300.0
+-400.0 -500.0 -600.0
+
+[compute shader todo]
+struct apple {
+    float3 offsetter;
+    float3x2 arr[3];
+};
+
+RWStructuredBuffer<struct apple> buf : register(u2);
+int i, j, k, w;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    buf[i].arr[j][k][w] = 777;
+}
+
+[test]
+write cbv-0 (0) i32(0, 1, 0, 1)
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (3) f32(777, 50, 60, 100)
+write cbv-0 (0) i32(1, 2, 1, 0)
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (9) f32(-100, 777, -300, -400)
+
+[uav 2]
+stride 32
+size (buffer, 1)
+
+1.0 2.0
+3.0 4.0
+5.0 6.0
+7.0 8.0
+
+[compute shader todo]
+RWStructuredBuffer<float2x4> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    buf[0][1] = float4(100, 200, 300, 400);
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (0) f32(1, 100, 3, 200)
+probe uav-2 (1) f32(5, 300, 7, 400)
+
+[uav 2]
+stride 20
+size (buffer, 2)
+
+-1.0 -1.0 -1.0
+-1.0 -1.0
+-2.0 -2.0 -2.0
+-2.0 -2.0
+
+[compute shader todo]
+struct apple
+{
+    float3 a;
+    float2 b;
+};
+
+RWStructuredBuffer<apple> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    struct apple ap = {10, 20, 30, 40, 50};
+
+    buf[1] = ap;
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (1) f32(-1, 10, 20, 30)
+
+[compute shader todo]
+struct apple
+{
+    float3 a;
+    float2 b;
+};
+typedef apple pie[3]; // pie is an array of 3 apples.
+
+RWStructuredBuffer<pie> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    struct apple aps[3] = {
+            11, 12, 13, 14, 15,
+            21, 22, 23, 24, 25,
+            31, 32, 33, 34, 35};
+
+    buf[1] = aps; // whole-array assignment.
+}
+
+[uav 2]
+stride 24
+size (buffer, 3)
+
+-1.0 -1.0 -1.0
+-1.0 -1.0 -1.0
+-2.0 -2.0 -2.0
+-2.0 -2.0 -2.0
+-3.0 -3.0 -3.0
+-3.0 -3.0 -3.0
+
+[compute shader todo]
+typedef row_major float2x3 rm_float2x3;
+RWStructuredBuffer<rm_float2x3> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    float2x3 mat = {1, 2, 3, 4, 5, 6};
+
+    buf[2] = mat; // whole-matrix assignment.
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+if(sm<6) probe uav-2 (3) f32(1.0, 2.0, 3.0, 4.0)
+if(sm>=6) probe uav-2 (3) f32(1.0, 4.0, 2.0, 5.0)
+
+[uav 2]
+stride 24
+size (buffer, 3)
+
+-1.0 -1.0 -1.0
+-1.0 -1.0 -1.0
+-2.0 -2.0 -2.0
+-2.0 -2.0 -2.0
+-3.0 -3.0 -3.0
+-3.0 -3.0 -3.0
+
+[compute shader todo]
+RWStructuredBuffer<float2x3> buf : register(u2);
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    float2x3 mat = {1, 2, 3, 4, 5, 6};
+
+    buf[2] = mat; // whole-matrix assignment.
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (3) f32(1.0, 4.0, 2.0, 5.0)
+
+[uav 2]
+stride 24
+size (buffer, 3)
+
+-1.0 -1.0 -1.0
+-1.0 -1.0 -1.0
+-2.0 -2.0 -2.0
+-2.0 -2.0 -2.0
+-3.0 -3.0 -3.0
+-3.0 -3.0 -3.0
+
+[compute shader todo]
+RWStructuredBuffer<float2x3> buf : register(u2);
+    [numthreads(1, 1, 1)]
+void main()
+{
+    buf[2]._12_23 = float2(11, 22);
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-2 (3) f32(-3.0, -3.0, 11.0, -3.0)
+probe uav-2 (4) f32(-3.0, 22.0)
