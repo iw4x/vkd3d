@@ -87,12 +87,12 @@ probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
 u[2:2], space 0, uav 3
 
 [test]
-draw quad
+todo(msl) draw quad
 probe (0, 0) f32(3.0, 3.0, 3.0, 3.0)
 
 [descriptors]
 u[2:3], space 0, uav 1
 
 [test]
-draw quad
+todo(msl) draw quad
 probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)

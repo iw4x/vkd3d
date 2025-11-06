@@ -386,8 +386,8 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
 {
     struct vkd3d_shader_interface_info interface_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_INTERFACE_INFO};
     struct vkd3d_shader_compile_info info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO};
-    struct vkd3d_shader_resource_binding bindings[MAX_RESOURCES + MAX_SAMPLERS + 1 /* CBV */];
-    struct vkd3d_shader_resource_binding *binding, *base_binding = NULL;
+    struct vkd3d_shader_resource_binding bindings[MAX_DESCRIPTORS + MAX_SAMPLERS + 1 /* CBV */];
+    struct vkd3d_shader_resource_binding *binding;
     unsigned int i, binding_idx = 0;
     char *messages;
     int ret;
@@ -424,53 +424,27 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
         binding->binding.set = 0;
         binding->binding.binding = binding_idx;
         binding->binding.count = 1;
+
         ++interface_info.binding_count;
         ++binding_idx;
     }
 
-    for (i = 0; i < runner->r.resource_count; ++i)
+    for (i = 0; i < runner->r.descriptor_count; ++i)
     {
-        const struct metal_resource *resource = metal_resource(runner->r.resources[i]);
+        const struct descriptor_mapping *descriptor = &runner->r.descriptors[i];
 
-        switch (resource->r.desc.type)
-        {
-            case RESOURCE_TYPE_TEXTURE:
-            case RESOURCE_TYPE_UAV:
-                binding = &bindings[interface_info.binding_count];
-                if (resource->r.desc.type == RESOURCE_TYPE_UAV)
-                    binding->type = VKD3D_SHADER_DESCRIPTOR_TYPE_UAV;
-                else
-                    binding->type = VKD3D_SHADER_DESCRIPTOR_TYPE_SRV;
-                binding->register_space = 0;
-                binding->register_index = resource->r.desc.slot;
-                binding->shader_visibility = VKD3D_SHADER_VISIBILITY_ALL;
-                if (resource->r.desc.dimension == RESOURCE_DIMENSION_BUFFER)
-                    binding->flags = VKD3D_SHADER_BINDING_FLAG_BUFFER;
-                else
-                    binding->flags = VKD3D_SHADER_BINDING_FLAG_IMAGE;
-                binding->binding.set = 0;
-                binding->binding.binding = binding_idx;
-                binding->binding.count = 1;
+        binding = &bindings[interface_info.binding_count];
+        binding->type = descriptor->type;
+        binding->register_index = descriptor->register_idx;
+        binding->register_space = descriptor->register_space;
+        binding->shader_visibility = VKD3D_SHADER_VISIBILITY_ALL;
+        binding->flags = VKD3D_SHADER_BINDING_FLAG_BUFFER | VKD3D_SHADER_BINDING_FLAG_IMAGE;
+        binding->binding.set = 0;
+        binding->binding.binding = binding_idx;
+        binding->binding.count = descriptor->count;
 
-                if (base_binding && base_binding->type == binding->type && base_binding->flags == binding->flags
-                        && base_binding->register_index + base_binding->binding.count == resource->r.desc.slot)
-                {
-                    ++base_binding->binding.count;
-                    ++binding_idx;
-                    break;
-                }
-
-                base_binding = binding;
-                ++interface_info.binding_count;
-                ++binding_idx;
-                break;
-
-            case RESOURCE_TYPE_RENDER_TARGET:
-            case RESOURCE_TYPE_DEPTH_STENCIL:
-            case RESOURCE_TYPE_VERTEX_BUFFER:
-                break;
-
-        }
+        ++interface_info.binding_count;
+        binding_idx += descriptor->count;
     }
 
     for (i = 0; i < runner->r.sampler_count; ++i)
@@ -484,6 +458,7 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
         binding->binding.set = 0;
         binding->binding.binding = binding_idx;
         binding->binding.count = 1;
+
         ++interface_info.binding_count;
         ++binding_idx;
     }
@@ -527,6 +502,34 @@ static id<MTLFunction> compile_stage(struct metal_runner *runner, enum shader_ty
     return [function autorelease];
 }
 
+static struct metal_resource *find_resource(struct metal_runner *runner,
+        const struct descriptor_mapping *descriptor, unsigned int offset)
+{
+    enum resource_type resource_type;
+    struct resource *resource;
+
+    switch (descriptor->type)
+    {
+        case VKD3D_SHADER_DESCRIPTOR_TYPE_SRV:
+            resource_type = RESOURCE_TYPE_TEXTURE;
+            break;
+
+        case VKD3D_SHADER_DESCRIPTOR_TYPE_UAV:
+            resource_type = RESOURCE_TYPE_UAV;
+            break;
+
+        default:
+            fatal_error("Unhandled descriptor type %#x.\n", descriptor->type);
+    }
+
+    resource = shader_runner_get_resource(&runner->r, resource_type, descriptor->target_idx + offset);
+
+    if (!resource)
+        return NULL;
+
+    return metal_resource(resource);
+}
+
 static bool encode_argument_buffer(struct metal_runner *runner, id<MTLCommandEncoder> command_encoder,
         void (*use_resource)(id<MTLCommandEncoder> encoder, id<MTLResource> resource, MTLResourceUsage usage),
         const id<MTLSamplerState> *samplers, id<MTLBuffer> *argument_buffer)
@@ -535,7 +538,7 @@ static bool encode_argument_buffer(struct metal_runner *runner, id<MTLCommandEnc
     id<MTLDevice> device = runner->device;
     MTLArgumentDescriptor *arg_desc;
     id<MTLArgumentEncoder> encoder;
-    unsigned int i, index = 0;
+    unsigned int i, j, index = 0;
 
     argument_descriptors = [[[NSMutableArray alloc] init] autorelease];
 
@@ -548,34 +551,21 @@ static bool encode_argument_buffer(struct metal_runner *runner, id<MTLCommandEnc
         [argument_descriptors addObject:arg_desc];
     }
 
-    for (i = 0; i < runner->r.resource_count; ++i)
+    for (i = 0; i < runner->r.descriptor_count; ++i)
     {
-        struct metal_resource *resource = metal_resource(runner->r.resources[i]);
+        const struct descriptor_mapping *descriptor = &runner->r.descriptors[i];
 
-        switch (resource->r.desc.type)
+        for (j = 0; j < descriptor->count; ++j)
         {
-            case RESOURCE_TYPE_TEXTURE:
-                arg_desc = [MTLArgumentDescriptor argumentDescriptor];
-                arg_desc.dataType = MTLDataTypeTexture;
-                arg_desc.index = [argument_descriptors count];
-                arg_desc.access = MTLBindingAccessReadOnly;
-                arg_desc.textureType = [resource->texture textureType];
-                [argument_descriptors addObject:arg_desc];
-                break;
+            const struct metal_resource *resource = find_resource(runner, descriptor, j);
 
-            case RESOURCE_TYPE_UAV:
-                arg_desc = [MTLArgumentDescriptor argumentDescriptor];
-                arg_desc.dataType = MTLDataTypeTexture;
-                arg_desc.index = [argument_descriptors count];
-                arg_desc.access = MTLBindingAccessReadWrite;
-                arg_desc.textureType = [resource->texture textureType];
-                [argument_descriptors addObject:arg_desc];
-                break;
-
-            case RESOURCE_TYPE_RENDER_TARGET:
-            case RESOURCE_TYPE_DEPTH_STENCIL:
-            case RESOURCE_TYPE_VERTEX_BUFFER:
-                break;
+            arg_desc = [MTLArgumentDescriptor argumentDescriptor];
+            arg_desc.dataType = MTLDataTypeTexture;
+            arg_desc.index = [argument_descriptors count];
+            arg_desc.access = descriptor->type == VKD3D_SHADER_DESCRIPTOR_TYPE_SRV ?
+                    MTLBindingAccessReadOnly : MTLBindingAccessReadWrite;
+            arg_desc.textureType = resource ? [resource->texture textureType] : MTLTextureType2D;
+            [argument_descriptors addObject:arg_desc];
         }
     }
 
@@ -610,26 +600,25 @@ static bool encode_argument_buffer(struct metal_runner *runner, id<MTLCommandEnc
         use_resource(command_encoder, cb, MTLResourceUsageRead);
     }
 
-    for (i = 0; i < runner->r.resource_count; ++i)
+    for (i = 0; i < runner->r.descriptor_count; ++i)
     {
-        struct metal_resource *resource = metal_resource(runner->r.resources[i]);
+        const struct descriptor_mapping *descriptor = &runner->r.descriptors[i];
+        MTLResourceUsage usage;
 
-        switch (resource->r.desc.type)
+        usage = descriptor->type == VKD3D_SHADER_DESCRIPTOR_TYPE_SRV ?
+                MTLResourceUsageRead : MTLResourceUsageRead | MTLResourceUsageWrite;
+
+        for (j = 0; j < descriptor->count; ++j)
         {
-            case RESOURCE_TYPE_TEXTURE:
-                [encoder setTexture:resource->texture atIndex:index++];
-                use_resource(command_encoder, resource->texture, MTLResourceUsageRead);
-                break;
+            const struct metal_resource *resource = find_resource(runner, descriptor, j);
 
-            case RESOURCE_TYPE_UAV:
-                [encoder setTexture:resource->texture atIndex:index++];
-                use_resource(command_encoder, resource->texture, MTLResourceUsageRead | MTLResourceUsageWrite);
-                break;
+            if (resource)
+            {
+                [encoder setTexture:resource->texture atIndex:index];
+                use_resource(command_encoder, resource->texture, usage);
+            }
 
-            case RESOURCE_TYPE_RENDER_TARGET:
-            case RESOURCE_TYPE_DEPTH_STENCIL:
-            case RESOURCE_TYPE_VERTEX_BUFFER:
-                break;
+            ++index;
         }
     }
 
@@ -1190,6 +1179,7 @@ static bool metal_runner_init(struct metal_runner *runner)
     }
 
     runner->caps.runner = "Metal";
+    runner->caps.shader_caps[SHADER_CAP_DESCRIPTORS] = true;
 
     runner->caps.tags[SHADER_RUNNER_TAG_MSL].present = true;
 
