@@ -517,7 +517,7 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
     }
 
     if (r->descriptor_count)
-        ID3D12GraphicsCommandList_SetGraphicsRootDescriptorTable(command_list, 0,
+        ID3D12GraphicsCommandList_SetComputeRootDescriptorTable(command_list, 0,
                 get_gpu_descriptor_handle(test_context, runner->heap, 0));
 
     ID3D12GraphicsCommandList_SetPipelineState(command_list, pso);
