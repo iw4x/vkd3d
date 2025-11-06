@@ -12088,6 +12088,7 @@ static bool sm4_generate_vsir_instr_resource_store(struct hlsl_ctx *ctx,
     struct hlsl_ir_node *instr = &store->node;
     bool tgsm = store->resource.var->is_tgsm;
     struct vkd3d_shader_instruction *ins;
+    bool structured;
 
     if (store->store_type != HLSL_RESOURCE_STORE)
     {
@@ -12120,19 +12121,24 @@ static bool sm4_generate_vsir_instr_resource_store(struct hlsl_ctx *ctx,
         return false;
     }
 
-    if (resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
-    {
-        hlsl_fixme(ctx, &store->node.loc, "Structured buffers store is not implemented.");
-        return false;
-    }
-
     if (tgsm && !hlsl_is_numeric_type(resource_type))
     {
         hlsl_fixme(ctx, &store->node.loc, "Store to structured TGSM.");
         return false;
     }
 
-    if (tgsm || resource_type->sampler_dim == HLSL_SAMPLER_DIM_RAW_BUFFER)
+    if ((structured = resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER))
+    {
+        if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_STORE_STRUCTURED, 1, 3)))
+            return false;
+
+        if (!sm4_generate_vsir_init_dst_operand_from_deref(ctx, program, &ins->dst[0],
+                &store->resource, &instr->loc, store->writemask))
+            return false;
+
+        vsir_src_from_hlsl_node(&ins->src[1], ctx, store->byte_offset.node, VKD3DSP_WRITEMASK_ALL);
+    }
+    else if (tgsm || resource_type->sampler_dim == HLSL_SAMPLER_DIM_RAW_BUFFER)
     {
         if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_STORE_RAW, 1, 2)))
             return false;
@@ -12152,7 +12158,7 @@ static bool sm4_generate_vsir_instr_resource_store(struct hlsl_ctx *ctx,
     }
 
     vsir_src_from_hlsl_node(&ins->src[0], ctx, coords, VKD3DSP_WRITEMASK_ALL);
-    vsir_src_from_hlsl_node(&ins->src[1], ctx, value, VKD3DSP_WRITEMASK_ALL);
+    vsir_src_from_hlsl_node(&ins->src[structured ? 2 : 1], ctx, value, VKD3DSP_WRITEMASK_ALL);
 
     return true;
 }
