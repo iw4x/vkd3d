@@ -10703,7 +10703,9 @@ static void write_sm1_uniforms(struct hlsl_ctx *ctx, struct vkd3d_bytecode_buffe
 
             ++uniform_count;
 
-            if (var->is_param && var->is_uniform)
+            /* Not var->is_uniform. The $ prefix is only added if the variable
+             * is actually declared with a 'uniform' modifier. */
+            if (var->is_param && (var->storage_modifiers & HLSL_STORAGE_UNIFORM))
             {
                 char *new_name;
 
