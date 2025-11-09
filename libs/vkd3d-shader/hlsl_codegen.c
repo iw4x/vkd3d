@@ -10609,7 +10609,11 @@ static void write_sm1_type(struct vkd3d_bytecode_buffer *buffer, struct hlsl_typ
     struct hlsl_struct_field *field;
     size_t i;
 
-    if (type->bytecode_offset)
+    /* Native deduplicates types, but emits the correct dimension for generic
+     * samplers. Apparently it deals with this by never deduplicating any
+     * sampler types. This is not very efficient, but we may as well do the
+     * same. */
+    if (type->bytecode_offset && array_type->class != HLSL_CLASS_SAMPLER)
         return;
 
     if (array_type->class == HLSL_CLASS_STRUCT)
