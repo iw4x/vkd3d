@@ -10648,6 +10648,8 @@ static void write_sm1_type(struct vkd3d_bytecode_buffer *buffer, struct hlsl_typ
                 vkd3d_make_u32(hlsl_sm1_class(type), hlsl_sm1_base_type(array_type, is_combined_sampler, sampler_dim)));
         if (hlsl_is_numeric_type(array_type))
             put_u32(buffer, vkd3d_make_u32(array_type->e.numeric.dimy, array_type->e.numeric.dimx));
+        else if (is_combined_sampler)
+            put_u32(buffer, vkd3d_make_u32(1, 4));
         else
             put_u32(buffer, vkd3d_make_u32(1, 1));
         put_u32(buffer, vkd3d_make_u32(array_size, 0));
