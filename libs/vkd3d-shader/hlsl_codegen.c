@@ -10485,7 +10485,8 @@ D3DXPARAMETER_CLASS hlsl_sm1_class(const struct hlsl_type *type)
     vkd3d_unreachable();
 }
 
-D3DXPARAMETER_TYPE hlsl_sm1_base_type(const struct hlsl_type *type, bool is_combined_sampler)
+D3DXPARAMETER_TYPE hlsl_sm1_base_type(const struct hlsl_type *type,
+        bool is_combined_sampler, enum hlsl_sampler_dim sampler_dim)
 {
     enum hlsl_type_class class = type->class;
 
@@ -10524,7 +10525,7 @@ D3DXPARAMETER_TYPE hlsl_sm1_base_type(const struct hlsl_type *type, bool is_comb
             break;
 
         case HLSL_CLASS_SAMPLER:
-            switch (type->sampler_dim)
+            switch (sampler_dim)
             {
                 case HLSL_SAMPLER_DIM_1D:
                     return D3DXPT_SAMPLER1D;
@@ -10562,7 +10563,7 @@ D3DXPARAMETER_TYPE hlsl_sm1_base_type(const struct hlsl_type *type, bool is_comb
             break;
 
         case HLSL_CLASS_ARRAY:
-            return hlsl_sm1_base_type(type->e.array.type, is_combined_sampler);
+            return hlsl_sm1_base_type(type->e.array.type, is_combined_sampler, sampler_dim);
 
         case HLSL_CLASS_STRUCT:
             return D3DXPT_VOID;
@@ -10600,8 +10601,8 @@ D3DXPARAMETER_TYPE hlsl_sm1_base_type(const struct hlsl_type *type, bool is_comb
     vkd3d_unreachable();
 }
 
-static void write_sm1_type(struct vkd3d_bytecode_buffer *buffer,
-        struct hlsl_type *type, bool is_combined_sampler, unsigned int ctab_start)
+static void write_sm1_type(struct vkd3d_bytecode_buffer *buffer, struct hlsl_type *type,
+        bool is_combined_sampler, enum hlsl_sampler_dim sampler_dim, unsigned int ctab_start)
 {
     const struct hlsl_type *array_type = hlsl_get_multiarray_element_type(type);
     unsigned int array_size = hlsl_get_multiarray_size(type);
@@ -10620,7 +10621,7 @@ static void write_sm1_type(struct vkd3d_bytecode_buffer *buffer,
         {
             field = &array_type->e.record.fields[i];
             field->name_bytecode_offset = put_string(buffer, field->name);
-            write_sm1_type(buffer, field->type, false, ctab_start);
+            write_sm1_type(buffer, field->type, false, HLSL_SAMPLER_DIM_GENERIC, ctab_start);
         }
 
         fields_offset = bytecode_align(buffer) - ctab_start;
@@ -10640,7 +10641,7 @@ static void write_sm1_type(struct vkd3d_bytecode_buffer *buffer,
     else
     {
         type->bytecode_offset = put_u32(buffer,
-                vkd3d_make_u32(hlsl_sm1_class(type), hlsl_sm1_base_type(array_type, is_combined_sampler)));
+                vkd3d_make_u32(hlsl_sm1_class(type), hlsl_sm1_base_type(array_type, is_combined_sampler, sampler_dim)));
         if (hlsl_is_numeric_type(array_type))
             put_u32(buffer, vkd3d_make_u32(array_type->e.numeric.dimy, array_type->e.numeric.dimx));
         else
@@ -10753,17 +10754,33 @@ static void write_sm1_uniforms(struct hlsl_ctx *ctx, struct vkd3d_bytecode_buffe
     {
         for (r = 0; r <= HLSL_REGSET_LAST; ++r)
         {
+            enum hlsl_sampler_dim sampler_dim = HLSL_SAMPLER_DIM_GENERIC;
             size_t var_offset, name_offset;
 
             if (var->semantic.name || !var->regs[r].allocated || !var->last_read)
                 continue;
+
+            /* Arrays can be used with multiple different dimensions.
+             * The dimension written into the CTAB is the dimension of the
+             * first usage, which is not really that sensible... */
+            if (r == HLSL_REGSET_SAMPLERS)
+            {
+                for (unsigned int i = 0; i < var->bind_count[r]; ++i)
+                {
+                    if (var->objects_usage[r][i].sampler_dim != HLSL_SAMPLER_DIM_GENERIC)
+                    {
+                        sampler_dim = var->objects_usage[r][i].sampler_dim;
+                        break;
+                    }
+                }
+            }
 
             var_offset = vars_start + (uniform_count * 5 * sizeof(uint32_t));
 
             name_offset = put_string(buffer, var->name);
             set_u32(buffer, var_offset, name_offset - ctab_start);
 
-            write_sm1_type(buffer, var->data_type, var->is_combined_sampler, ctab_start);
+            write_sm1_type(buffer, var->data_type, var->is_combined_sampler, sampler_dim, ctab_start);
             set_u32(buffer, var_offset + 3 * sizeof(uint32_t), var->data_type->bytecode_offset - ctab_start);
 
             if (var->default_values)
