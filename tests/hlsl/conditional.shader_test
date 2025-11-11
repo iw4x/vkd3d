@@ -70,10 +70,40 @@ float main() : sv_target
         return float4(0.9, 0.8, 0.7, 0.6);
 }
 
+[vertex shader]
+void main(float4 p : position, out float t[4] : texcoord, out float4 position : sv_position)
+{
+    t[0] = (p.x + 1.0) / 2.0;
+    t[2] = 0.0;
+    t[1] = (p.y + 1.0) / 2.0;
+    t[3] = 1.0;
+    position = p;
+}
+
+[pixel shader]
+float4 main(float t[4] : texcoord) : sv_target
+{
+    if (t[0] > 0.5)
+        return floor(float4(t) * 128.0 + 0.5) / 128.0;
+    return float4(0.0, 1.0, 0.0, 1.0);
+}
+
+[test]
+todo(msl & sm>=6) draw quad
+probe (160, 120) f32(0.00, 1.00, 0.0, 1.0)
+probe (480, 120) f32(0.75, 0.75, 0.0, 1.0)
+probe (160, 360) f32(0.00, 1.00, 0.0, 1.0)
+probe (480, 360) f32(0.75, 0.25, 0.0, 1.0)
+
 % Using older profiles fails to compile with forced control flow instruction
 [require]
 shader model >= 3.0
 
+[vertex shader]
+float4 main(float4 p : position) : sv_position
+{
+    return p;
+}
 
 [pixel shader]
 uniform float a;

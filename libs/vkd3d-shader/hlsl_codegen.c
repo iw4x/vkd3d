@@ -5490,10 +5490,14 @@ static struct hlsl_ir_node *lower_casts_to_bool(struct hlsl_ctx *ctx,
 struct hlsl_ir_node *hlsl_add_conditional(struct hlsl_ctx *ctx, struct hlsl_block *instrs,
         struct hlsl_ir_node *condition, struct hlsl_ir_node *if_true, struct hlsl_ir_node *if_false)
 {
+    struct hlsl_type *false_type = if_false->data_type;
     struct hlsl_type *cond_type = condition->data_type;
     struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS];
+    struct hlsl_type *true_type = if_true->data_type;
 
-    VKD3D_ASSERT(hlsl_types_are_equal(if_true->data_type, if_false->data_type));
+    VKD3D_ASSERT(hlsl_types_are_equal(true_type, false_type)
+            || (hlsl_is_vec1(true_type) && hlsl_is_vec1(false_type)
+            && true_type->e.numeric.type == false_type->e.numeric.type));
 
     if (cond_type->e.numeric.type != HLSL_TYPE_BOOL)
     {
@@ -5505,7 +5509,7 @@ struct hlsl_ir_node *hlsl_add_conditional(struct hlsl_ctx *ctx, struct hlsl_bloc
     operands[0] = condition;
     operands[1] = if_true;
     operands[2] = if_false;
-    return hlsl_block_add_expr(ctx, instrs, HLSL_OP3_TERNARY, operands, if_true->data_type, &condition->loc);
+    return hlsl_block_add_expr(ctx, instrs, HLSL_OP3_TERNARY, operands, true_type, &condition->loc);
 }
 
 static struct hlsl_ir_node *lower_int_division_sm4(struct hlsl_ctx *ctx,
