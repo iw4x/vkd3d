@@ -42,8 +42,6 @@ struct vulkan_resource
     VkImage image;
     VkImageView image_view;
     VkDeviceMemory memory;
-
-    uint32_t binding;
 };
 
 static struct vulkan_resource *vulkan_resource(struct resource *r)
@@ -293,6 +291,60 @@ static void vulkan_runner_destroy_resource(struct shader_runner *r, struct resou
     free(resource);
 }
 
+static struct vulkan_resource *find_resource(struct vulkan_shader_runner *runner,
+        const struct descriptor_mapping *descriptor, unsigned int offset)
+{
+    enum resource_type resource_type;
+    struct resource *resource;
+
+    switch (descriptor->type)
+    {
+        case VKD3D_SHADER_DESCRIPTOR_TYPE_SRV:
+            resource_type = RESOURCE_TYPE_TEXTURE;
+            break;
+
+        case VKD3D_SHADER_DESCRIPTOR_TYPE_UAV:
+            resource_type = RESOURCE_TYPE_UAV;
+            break;
+
+        default:
+            fatal_error("Unhandled descriptor type %#x.\n", descriptor->type);
+    }
+
+    if (!(resource = shader_runner_get_resource(&runner->r, resource_type, descriptor->target_idx + offset)))
+        return NULL;
+
+    return vulkan_resource(resource);
+}
+
+static bool is_mapping_buffer(struct vulkan_shader_runner *runner, const struct descriptor_mapping *descriptor)
+{
+    bool is_buffer = false, found = false;
+    unsigned int i;
+
+    for (i = 0; i < descriptor->count; ++i)
+    {
+        const struct vulkan_resource *resource;
+
+        if (!(resource = find_resource(runner, descriptor, i)))
+            continue;
+
+        if (!found)
+        {
+            is_buffer = resource->r.desc.dimension == RESOURCE_DIMENSION_BUFFER;
+            found = true;
+            continue;
+        }
+
+        if (is_buffer != (resource->r.desc.dimension == RESOURCE_DIMENSION_BUFFER))
+            fatal_error("Descriptor binding with mixed buffer and non-buffer resources.\n");
+    }
+
+    /* It might be that we found no descriptor at all; in that case it doesn't
+     * matter what we return. */
+    return is_buffer;
+}
+
 static enum vkd3d_shader_fog_fragment_mode get_fog_fragment_mode(enum fog_mode mode)
 {
     switch (mode)
@@ -440,36 +492,20 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     push_constants.offset = 0;
     push_constants.size = runner->r.uniform_count * sizeof(*runner->r.uniforms);
 
-    for (i = 0; i < runner->r.resource_count; ++i)
+    for (i = 0; i < runner->r.descriptor_count; ++i)
     {
-        const struct vulkan_resource *resource = vulkan_resource(runner->r.resources[i]);
+        const struct descriptor_mapping *mapping = &runner->r.descriptors[i];
 
-        switch (resource->r.desc.type)
-        {
-            case RESOURCE_TYPE_RENDER_TARGET:
-            case RESOURCE_TYPE_DEPTH_STENCIL:
-            case RESOURCE_TYPE_VERTEX_BUFFER:
-                break;
-
-            case RESOURCE_TYPE_TEXTURE:
-            case RESOURCE_TYPE_UAV:
-                binding = &bindings[interface_info.binding_count++];
-                if (resource->r.desc.type == RESOURCE_TYPE_UAV)
-                    binding->type = VKD3D_SHADER_DESCRIPTOR_TYPE_UAV;
-                else
-                    binding->type = VKD3D_SHADER_DESCRIPTOR_TYPE_SRV;
-                binding->register_space = 0;
-                binding->register_index = resource->r.desc.slot;
-                binding->shader_visibility = VKD3D_SHADER_VISIBILITY_ALL;
-                if (resource->r.desc.dimension == RESOURCE_DIMENSION_BUFFER)
-                    binding->flags = VKD3D_SHADER_BINDING_FLAG_BUFFER;
-                else
-                    binding->flags = VKD3D_SHADER_BINDING_FLAG_IMAGE;
-                binding->binding.set = 0;
-                binding->binding.binding = resource->binding;
-                binding->binding.count = 1;
-                break;
-        }
+        binding = &bindings[interface_info.binding_count++];
+        binding->type = mapping->type;
+        binding->register_space = mapping->register_space;
+        binding->register_index = mapping->register_idx;
+        binding->shader_visibility = VKD3D_SHADER_VISIBILITY_ALL;
+        binding->flags = is_mapping_buffer(runner, mapping) ?
+                VKD3D_SHADER_BINDING_FLAG_BUFFER : VKD3D_SHADER_BINDING_FLAG_IMAGE;
+        binding->binding.set = 0;
+        binding->binding.binding = i;
+        binding->binding.count = mapping->count;
     }
 
     for (i = 0; i < runner->r.sampler_count; ++i)
@@ -921,7 +957,8 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
     }
 
     vr = VK_CALL(vkCreateGraphicsPipelines(context->device, VK_NULL_HANDLE, 1, &pipeline_desc, NULL, &pipeline));
-    todo_if (runner->r.is_todo) ok(vr == VK_SUCCESS, "Failed to create graphics pipeline, vr %d.\n", vr);
+    todo_if(runner->r.is_todo) bug_if(runner->r.is_bug)
+    ok(vr == VK_SUCCESS, "Failed to create graphics pipeline, vr %d.\n", vr);
 
     for (i = 0; i < ARRAY_SIZE(stage_desc); ++i)
         VK_CALL(vkDestroyShaderModule(device, stage_desc[i].module, NULL));
@@ -953,7 +990,8 @@ static VkPipeline create_compute_pipeline(struct vulkan_shader_runner *runner, V
     }
 
     ret = create_shader_stage(runner, &pipeline_desc.stage, SHADER_TYPE_CS, VK_SHADER_STAGE_COMPUTE_BIT);
-    todo_if (runner->r.is_todo) ok(ret, "Failed to compile SPIR-V shader.\n");
+    todo_if(runner->r.is_todo) bug_if(runner->r.is_bug)
+    ok(ret, "Failed to compile SPIR-V shader.\n");
     if (!ret)
         return VK_NULL_HANDLE;
 
@@ -1003,42 +1041,30 @@ static VkDescriptorSetLayout create_descriptor_set_layout(struct vulkan_shader_r
 
     set_desc.pBindings = bindings;
 
-    for (i = 0; i < runner->r.resource_count; ++i)
+    for (i = 0; i < runner->r.descriptor_count; ++i)
     {
-        struct vulkan_resource *resource = vulkan_resource(runner->r.resources[i]);
+        const struct descriptor_mapping *mapping = &runner->r.descriptors[i];
 
-        switch (resource->r.desc.type)
+        binding = &bindings[set_desc.bindingCount++];
+        binding->binding = binding_index++;
+        binding->descriptorCount = mapping->count;
+        binding->stageFlags = VK_SHADER_STAGE_ALL;
+        binding->pImmutableSamplers = NULL;
+
+        switch (mapping->type)
         {
-            case RESOURCE_TYPE_RENDER_TARGET:
-            case RESOURCE_TYPE_DEPTH_STENCIL:
-            case RESOURCE_TYPE_VERTEX_BUFFER:
+            case VKD3D_SHADER_DESCRIPTOR_TYPE_SRV:
+                binding->descriptorType = is_mapping_buffer(runner, mapping) ?
+                        VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER : VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
                 break;
 
-            case RESOURCE_TYPE_TEXTURE:
-            case RESOURCE_TYPE_UAV:
-                binding = &bindings[set_desc.bindingCount++];
-
-                resource->binding = binding_index++;
-
-                binding->binding = resource->binding;
-                if (resource->r.desc.type == RESOURCE_TYPE_UAV)
-                {
-                    if (resource->r.desc.dimension == RESOURCE_DIMENSION_BUFFER)
-                        binding->descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
-                    else
-                        binding->descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-                }
-                else
-                {
-                    if (resource->r.desc.dimension == RESOURCE_DIMENSION_BUFFER)
-                        binding->descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-                    else
-                        binding->descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-                }
-                binding->descriptorCount = 1;
-                binding->stageFlags = VK_SHADER_STAGE_ALL;
-                binding->pImmutableSamplers = NULL;
+            case VKD3D_SHADER_DESCRIPTOR_TYPE_UAV:
+                binding->descriptorType = is_mapping_buffer(runner, mapping) ?
+                        VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
                 break;
+
+            default:
+                fatal_error("Unexpected descriptor type %#x.\n", mapping->type);
         }
     }
 
@@ -1082,7 +1108,7 @@ static void bind_resources(struct vulkan_shader_runner *runner, VkPipelineBindPo
     const struct vulkan_test_context *context = &runner->context;
     VkCommandBuffer cmd_buffer = context->cmd_buffer;
     VkDescriptorSet descriptor_set;
-    unsigned int i;
+    unsigned int i, j;
 
     set_desc.descriptorPool = context->descriptor_pool;
     set_desc.descriptorSetCount = 1;
@@ -1090,58 +1116,76 @@ static void bind_resources(struct vulkan_shader_runner *runner, VkPipelineBindPo
 
     VK_CALL(vkAllocateDescriptorSets(context->device, &set_desc, &descriptor_set));
 
+    for (i = 0; i < runner->r.descriptor_count; ++i)
+    {
+        const struct descriptor_mapping *mapping = &runner->r.descriptors[i];
+
+        for (j = 0; j < mapping->count; ++j)
+        {
+            VkWriteDescriptorSet write = { .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+            const struct vulkan_resource *resource = find_resource(runner, mapping, j);
+            VkDescriptorImageInfo image_info = { 0 };
+
+            write.dstSet = descriptor_set;
+            write.dstBinding = i;
+            write.dstArrayElement = j;
+            write.descriptorCount = 1;
+
+            switch (mapping->type)
+            {
+                case VKD3D_SHADER_DESCRIPTOR_TYPE_SRV:
+                    if (is_mapping_buffer(runner, mapping))
+                    {
+                        write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+                        write.pTexelBufferView = &resource->buffer_view;
+                    }
+                    else
+                    {
+                        image_info.imageView = resource->image_view;
+                        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                        write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+                        write.pImageInfo = &image_info;
+                    }
+                    break;
+
+                case VKD3D_SHADER_DESCRIPTOR_TYPE_UAV:
+                    if (is_mapping_buffer(runner, mapping))
+                    {
+                        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+                        write.pTexelBufferView = &resource->buffer_view;
+                    }
+                    else
+                    {
+                        image_info.imageView = resource->image_view;
+                        image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+                        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+                        write.pImageInfo = &image_info;
+                    }
+                    break;
+
+                default:
+                    fatal_error("Invalid descriptor type %#x.\n", mapping->type);
+            }
+
+            VK_CALL(vkUpdateDescriptorSets(context->device, 1, &write, 0, NULL));
+        }
+    }
+
     for (i = 0; i < runner->r.resource_count; ++i)
     {
         const struct vulkan_resource *resource = vulkan_resource(runner->r.resources[i]);
-        VkWriteDescriptorSet write = {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
         static const VkDeviceSize zero_offset;
-        VkDescriptorImageInfo image_info;
 
         switch (resource->r.desc.type)
         {
-            case RESOURCE_TYPE_TEXTURE:
-            case RESOURCE_TYPE_UAV:
-                if (resource->r.desc.dimension == RESOURCE_DIMENSION_BUFFER)
-                {
-                    write.dstSet = descriptor_set;
-                    write.dstBinding = resource->binding;
-                    write.dstArrayElement = 0;
-                    write.descriptorCount = 1;
-                    write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-                    write.pTexelBufferView = &resource->buffer_view;
-
-                    if (resource->r.desc.type == RESOURCE_TYPE_UAV)
-                        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
-
-                    VK_CALL(vkUpdateDescriptorSets(context->device, 1, &write, 0, NULL));
-                }
-                else
-                {
-                    image_info.imageView = resource->image_view;
-                    image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-                    write.dstSet = descriptor_set;
-                    write.dstBinding = resource->binding;
-                    write.dstArrayElement = 0;
-                    write.descriptorCount = 1;
-                    write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-                    write.pImageInfo = &image_info;
-
-                    if (resource->r.desc.type == RESOURCE_TYPE_UAV)
-                    {
-                        image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-                        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-                    }
-
-                    VK_CALL(vkUpdateDescriptorSets(context->device, 1, &write, 0, NULL));
-                }
-                break;
-
             case RESOURCE_TYPE_VERTEX_BUFFER:
                 if (bind_point == VK_PIPELINE_BIND_POINT_GRAPHICS)
-                    VK_CALL(vkCmdBindVertexBuffers(cmd_buffer, resource->r.desc.slot, 1, &resource->buffer, &zero_offset));
+                    VK_CALL(vkCmdBindVertexBuffers(cmd_buffer, resource->r.desc.slot,
+                            1, &resource->buffer, &zero_offset));
                 break;
 
+            case RESOURCE_TYPE_TEXTURE:
+            case RESOURCE_TYPE_UAV:
             case RESOURCE_TYPE_RENDER_TARGET:
             case RESOURCE_TYPE_DEPTH_STENCIL:
                 break;
