@@ -119,6 +119,9 @@ struct resource_params
 struct resource
 {
     struct resource_desc desc;
+    bool is_raw;
+    bool is_uav_counter;
+    unsigned int stride;
 };
 
 struct input_element

@@ -813,6 +813,9 @@ static void parse_input_layout_directive(struct shader_runner *runner, const cha
 void init_resource(struct resource *resource, const struct resource_params *params)
 {
     resource->desc = params->desc;
+    resource->is_raw = params->is_raw;
+    resource->is_uav_counter = params->is_uav_counter;
+    resource->stride = params->stride;
 }
 
 struct resource *shader_runner_get_resource(struct shader_runner *runner, enum resource_type type, unsigned int slot)

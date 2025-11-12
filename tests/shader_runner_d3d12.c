@@ -145,8 +145,6 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
         case RESOURCE_TYPE_TEXTURE:
             if (params->desc.dimension == RESOURCE_DIMENSION_BUFFER)
             {
-                D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = { 0 };
-
                 resource->resource = create_default_buffer(device, params->data_size, 0, initial_state);
                 if (params->data)
                 {
@@ -154,16 +152,6 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
                             test_context->queue, test_context->list, RESOURCE_STATE_DO_NOT_CHANGE, state);
                     reset_command_list(test_context->list, test_context->allocator);
                 }
-
-                srv_desc.Format = params->desc.format;
-                srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-                srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-                srv_desc.Buffer.NumElements = params->desc.width * params->desc.height;
-                srv_desc.Buffer.StructureByteStride = params->stride;
-                srv_desc.Buffer.Flags = params->is_raw ? D3D12_BUFFER_SRV_FLAG_RAW : 0;
-
-                ID3D12Device_CreateShaderResourceView(device, resource->resource,
-                        &srv_desc, get_cpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot));
             }
             else
             {
@@ -198,35 +186,12 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
                             test_context->queue, test_context->list, RESOURCE_STATE_DO_NOT_CHANGE, state);
                     reset_command_list(test_context->list, test_context->allocator);
                 }
-
-                if (params->desc.dimension == RESOURCE_DIMENSION_CUBE)
-                {
-                    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc =
-                    {
-                        .Format = params->desc.format,
-                        .ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE,
-                        .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-                        .TextureCube.MostDetailedMip = 0,
-                        .TextureCube.MipLevels = params->desc.level_count,
-                        .TextureCube.ResourceMinLODClamp = 0.0f,
-                    };
-
-                    ID3D12Device_CreateShaderResourceView(device, resource->resource,
-                            &srv_desc, get_cpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot));
-                }
-                else
-                {
-                    ID3D12Device_CreateShaderResourceView(device, resource->resource,
-                            NULL, get_cpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot));
-                }
             }
             break;
 
         case RESOURCE_TYPE_UAV:
             if (params->desc.dimension == RESOURCE_DIMENSION_BUFFER)
             {
-                D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = { 0 };
-
                 resource->resource = create_default_buffer(device, params->data_size,
                         D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, initial_state);
                 if (params->data)
@@ -235,16 +200,6 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
                             test_context->queue, test_context->list, RESOURCE_STATE_DO_NOT_CHANGE, state);
                     reset_command_list(test_context->list, test_context->allocator);
                 }
-
-                uav_desc.Format = params->desc.format;
-                uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-                uav_desc.Buffer.NumElements = params->desc.width * params->desc.height;
-                uav_desc.Buffer.StructureByteStride = params->stride;
-                uav_desc.Buffer.Flags = params->is_raw ? D3D12_BUFFER_UAV_FLAG_RAW : 0;
-
-                ID3D12Device_CreateUnorderedAccessView(device, resource->resource,
-                        params->is_uav_counter ? resource->resource : NULL, &uav_desc,
-                        get_cpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot + MAX_RESOURCES));
             }
             else
             {
@@ -274,8 +229,6 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
                             test_context->queue, test_context->list, RESOURCE_STATE_DO_NOT_CHANGE, state);
                     reset_command_list(test_context->list, test_context->allocator);
                 }
-                ID3D12Device_CreateUnorderedAccessView(device, resource->resource, NULL, NULL,
-                        get_cpu_descriptor_handle(test_context, runner->heap, resource->r.desc.slot + MAX_RESOURCES));
             }
             break;
 
@@ -313,6 +266,7 @@ static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shad
     D3D12_ROOT_PARAMETER root_params[17], *root_param;
     D3D12_STATIC_SAMPLER_DESC static_samplers[7];
     ID3D12RootSignature *root_signature;
+    unsigned int descriptor_index = 0;
     HRESULT hr;
     size_t i;
 
@@ -341,10 +295,8 @@ static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shad
             range->BaseShaderRegister = descriptor->register_idx;
             range->RegisterSpace = descriptor->register_space;
             range->NumDescriptors = descriptor->count;
-
-            range->OffsetInDescriptorsFromTableStart = descriptor->target_idx;
-            if (descriptor->type == VKD3D_SHADER_DESCRIPTOR_TYPE_UAV)
-                range->OffsetInDescriptorsFromTableStart += MAX_RESOURCES;
+            range->OffsetInDescriptorsFromTableStart = descriptor_index;
+            descriptor_index += descriptor->count;
         }
     }
 
@@ -383,6 +335,111 @@ static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shad
     return root_signature;
 }
 
+static struct d3d12_resource *find_resource(struct d3d12_shader_runner *runner,
+        const struct descriptor_mapping *descriptor, unsigned int offset)
+{
+    enum resource_type resource_type;
+    struct resource *resource;
+
+    switch (descriptor->type)
+    {
+        case VKD3D_SHADER_DESCRIPTOR_TYPE_SRV:
+            resource_type = RESOURCE_TYPE_TEXTURE;
+            break;
+
+        case VKD3D_SHADER_DESCRIPTOR_TYPE_UAV:
+            resource_type = RESOURCE_TYPE_UAV;
+            break;
+
+        default:
+            fatal_error("Unhandled descriptor type %#x.\n", descriptor->type);
+    }
+
+    if (!(resource = shader_runner_get_resource(&runner->r, resource_type, descriptor->target_idx + offset)))
+        return NULL;
+
+    return d3d12_resource(resource);
+}
+
+static void write_descriptors(struct d3d12_shader_runner *runner)
+{
+    ID3D12Device *device = runner->test_context.device;
+    unsigned int descriptor_index = 0, i, j;
+
+    for (i = 0; i < runner->r.descriptor_count; ++i)
+    {
+        const struct descriptor_mapping *mapping = &runner->r.descriptors[i];
+
+        for (j = 0; j < mapping->count; ++j)
+        {
+            const struct d3d12_resource *resource = find_resource(runner, mapping, j);
+
+            D3D12_CPU_DESCRIPTOR_HANDLE handle = get_cpu_descriptor_handle(&runner->test_context,
+                    runner->heap, descriptor_index++);
+
+            switch (mapping->type)
+            {
+                case VKD3D_SHADER_DESCRIPTOR_TYPE_SRV:
+                    if (resource->r.desc.dimension == RESOURCE_DIMENSION_BUFFER)
+                    {
+                        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = { 0 };
+
+                        srv_desc.Format = resource->r.desc.format;
+                        srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+                        srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                        srv_desc.Buffer.NumElements = resource->r.desc.width * resource->r.desc.height;
+                        srv_desc.Buffer.StructureByteStride = resource->r.stride;
+                        srv_desc.Buffer.Flags = resource->r.is_raw ? D3D12_BUFFER_SRV_FLAG_RAW : 0;
+
+                        ID3D12Device_CreateShaderResourceView(device, resource->resource, &srv_desc, handle);
+                    }
+                    else if (resource->r.desc.dimension == RESOURCE_DIMENSION_CUBE)
+                    {
+                        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc =
+                        {
+                            .Format = resource->r.desc.format,
+                            .ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE,
+                            .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+                            .TextureCube.MostDetailedMip = 0,
+                            .TextureCube.MipLevels = resource->r.desc.level_count,
+                            .TextureCube.ResourceMinLODClamp = 0.0f,
+                        };
+
+                        ID3D12Device_CreateShaderResourceView(device, resource->resource, &srv_desc, handle);
+                    }
+                    else
+                    {
+                        ID3D12Device_CreateShaderResourceView(device, resource->resource, NULL, handle);
+                    }
+                    break;
+
+                case VKD3D_SHADER_DESCRIPTOR_TYPE_UAV:
+                    if (resource->r.desc.dimension == RESOURCE_DIMENSION_BUFFER)
+                    {
+                        D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = { 0 };
+
+                        uav_desc.Format = resource->r.desc.format;
+                        uav_desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+                        uav_desc.Buffer.NumElements = resource->r.desc.width * resource->r.desc.height;
+                        uav_desc.Buffer.StructureByteStride = resource->r.stride;
+                        uav_desc.Buffer.Flags = resource->r.is_raw ? D3D12_BUFFER_UAV_FLAG_RAW : 0;
+
+                        ID3D12Device_CreateUnorderedAccessView(device, resource->resource,
+                                resource->r.is_uav_counter ? resource->resource : NULL, &uav_desc, handle);
+                    }
+                    else
+                    {
+                        ID3D12Device_CreateUnorderedAccessView(device, resource->resource, NULL, NULL, handle);
+                    }
+                    break;
+
+                default:
+                    fatal_error("Invalid descriptor type %#x.\n", mapping->type);
+            }
+        }
+    }
+}
+
 static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsigned int y, unsigned int z)
 {
     struct d3d12_shader_runner *runner = d3d12_shader_runner(r);
@@ -405,6 +462,8 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
         return false;
 
     root_signature = d3d12_runner_create_root_signature(runner, queue, allocator, command_list, &uniform_index);
+
+    write_descriptors(runner);
 
     cs.pShaderBytecode = ID3D10Blob_GetBufferPointer(cs_code);
     cs.BytecodeLength = ID3D10Blob_GetBufferSize(cs_code);
@@ -818,6 +877,8 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
 
     test_context->root_signature = d3d12_runner_create_root_signature(runner,
             queue, test_context->allocator, command_list, &uniform_index);
+
+    write_descriptors(runner);
 
     pso = test_context->device2
             ?  create_pipeline_device2(runner, primitive_topology, vs_code, ps_code, hs_code, ds_code, gs_code)
