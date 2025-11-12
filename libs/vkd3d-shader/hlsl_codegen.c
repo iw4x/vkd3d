@@ -3715,25 +3715,20 @@ static struct hlsl_ir_node *fold_redundant_casts(struct hlsl_ctx *ctx,
  * split_array_copies(), split_struct_copies() and
  * split_matrix_copies(). Inserts new instructions right before
  * "store". */
-static bool split_copy(struct hlsl_ctx *ctx, struct hlsl_ir_store *store,
+static void split_copy(struct hlsl_ctx *ctx, struct hlsl_ir_store *store,
         const struct hlsl_ir_load *load, const unsigned int idx, struct hlsl_type *type)
 {
-    struct hlsl_ir_node *split_store, *c;
-    struct hlsl_ir_load *split_load;
+    struct hlsl_ir_node *c, *split_load;
+    struct hlsl_block block;
 
-    if (!(c = hlsl_new_uint_constant(ctx, idx, &store->node.loc)))
-        return false;
-    list_add_before(&store->node.entry, &c->entry);
+    hlsl_block_init(&block);
 
-    if (!(split_load = hlsl_new_load_index(ctx, &load->src, c, &store->node.loc)))
-        return false;
-    list_add_before(&store->node.entry, &split_load->node.entry);
+    c = hlsl_block_add_uint_constant(ctx, &block, idx, &store->node.loc);
+    split_load = hlsl_block_add_load_index(ctx, &block, &load->src, c, &store->node.loc);
 
-    if (!(split_store = hlsl_new_store_index(ctx, &store->lhs, c, &split_load->node, 0, &store->node.loc)))
-        return false;
-    list_add_before(&store->node.entry, &split_store->entry);
+    hlsl_block_add_store_index(ctx, &block, &store->lhs, c, split_load, 0, &store->node.loc);
 
-    return true;
+    list_move_before(&store->node.entry, &block.instrs);
 }
 
 static bool split_array_copies(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
@@ -3762,8 +3757,7 @@ static bool split_array_copies(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr,
 
     for (i = 0; i < type->e.array.elements_count; ++i)
     {
-        if (!split_copy(ctx, store, hlsl_ir_load(rhs), i, element_type))
-            return false;
+        split_copy(ctx, store, hlsl_ir_load(rhs), i, element_type);
     }
 
     /* Remove the store instruction, so that we can split structs which contain
@@ -3800,8 +3794,7 @@ static bool split_struct_copies(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr
     {
         const struct hlsl_struct_field *field = &type->e.record.fields[i];
 
-        if (!split_copy(ctx, store, hlsl_ir_load(rhs), i, field->type))
-            return false;
+        split_copy(ctx, store, hlsl_ir_load(rhs), i, field->type);
     }
 
     /* Remove the store instruction, so that we can split structs which contain
@@ -3933,8 +3926,7 @@ static bool split_matrix_copies(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr
     {
         for (i = 0; i < hlsl_type_major_size(type); ++i)
         {
-            if (!split_copy(ctx, store, hlsl_ir_load(rhs), i, element_type))
-                return false;
+            split_copy(ctx, store, hlsl_ir_load(rhs), i, element_type);
         }
     }
 
