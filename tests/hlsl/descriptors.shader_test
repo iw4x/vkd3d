@@ -1,4 +1,31 @@
 [require]
+shader model >= 4.0
+
+[srv 0]
+format r32-float
+size (2d, 1, 1)
+
+1.0
+
+% Test a shader that uses an SRV in combination with a CBV longer than the
+% declared uniforms.
+[pixel shader]
+Texture2D<float> t : register(t0);
+
+uniform float4 x;
+uniform float4 y;
+
+float4 main() : SV_Target
+{
+    return t.Load(uint3(0, 0, 0)) + x;
+}
+
+[test]
+uniform 0 float4 1.0 2.0 3.0 4.0
+todo(d3d12 & !windows & !mvk) draw quad
+probe (0, 0) f32(2.0, 3.0, 4.0, 5.0)
+
+[require]
 shader model >= 5.0
 descriptors
 
