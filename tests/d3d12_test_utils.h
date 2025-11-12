@@ -1143,8 +1143,6 @@ struct test_context
     ID3D12CommandAllocator *allocator;
     ID3D12GraphicsCommandList *list;
     ID3D12GraphicsCommandList1 *list1;
-    ID3D12PipelineState **pso;
-    size_t pso_count, pso_capacity;
 
     D3D12_RESOURCE_DESC render_target_desc;
     ID3D12Resource *render_target;
@@ -1332,15 +1330,6 @@ static inline bool init_compute_test_context_(const char *file, unsigned int lin
     return true;
 }
 
-static inline void destroy_pipeline_state_objects(struct test_context *context)
-{
-    size_t i;
-
-    for (i = 0; i < context->pso_count; ++i)
-        ID3D12PipelineState_Release(context->pso[i]);
-    context->pso_count = 0;
-}
-
 #define destroy_test_context(context) destroy_test_context_(__FILE__, __LINE__, context)
 static inline void destroy_test_context_(const char *file, unsigned int line, struct test_context *context)
 {
@@ -1361,8 +1350,6 @@ static inline void destroy_test_context_(const char *file, unsigned int line, st
     if (context->list1)
         ID3D12GraphicsCommandList1_Release(context->list1);
     ID3D12GraphicsCommandList_Release(context->list);
-    destroy_pipeline_state_objects(context);
-    free(context->pso);
 
     if (context->device2)
         ID3D12Device2_Release(context->device2);

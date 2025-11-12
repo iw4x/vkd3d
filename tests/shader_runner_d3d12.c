@@ -383,13 +383,6 @@ static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shad
     return root_signature;
 }
 
-static void add_pso(struct test_context *test_context, ID3D12PipelineState *pso)
-{
-    vkd3d_array_reserve((void **)&test_context->pso, &test_context->pso_capacity,
-            test_context->pso_count + 1, sizeof(*test_context->pso));
-    test_context->pso[test_context->pso_count++] = pso;
-}
-
 static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsigned int y, unsigned int z)
 {
     struct d3d12_shader_runner *runner = d3d12_shader_runner(r);
@@ -425,8 +418,6 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
         return false;
     }
 
-    add_pso(test_context, pso);
-
     ID3D12GraphicsCommandList_SetComputeRootSignature(command_list, root_signature);
     ID3D12GraphicsCommandList_SetDescriptorHeaps(command_list, 1, &runner->heap);
     if (runner->r.uniform_count)
@@ -449,6 +440,8 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
     exec_command_list(queue, command_list);
     wait_queue_idle(device, queue);
     reset_command_list(command_list, allocator);
+
+    ID3D12PipelineState_Release(pso);
 
     return true;
 }
@@ -846,8 +839,6 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
         return false;
     }
 
-    add_pso(test_context, pso);
-
     fb_width = ~0u;
     fb_height = ~0u;
     ID3D12GraphicsCommandList_SetGraphicsRootSignature(command_list, test_context->root_signature);
@@ -933,6 +924,8 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
     if (test_context->root_signature)
         ID3D12RootSignature_Release(test_context->root_signature);
     test_context->root_signature = NULL;
+
+    ID3D12PipelineState_Release(pso);
 
     return true;
 }
