@@ -5610,13 +5610,13 @@ static struct hlsl_block *add_shader_compilation(struct hlsl_ctx *ctx, const cha
 {
     struct hlsl_ir_node *compile, *call_to_compile = NULL;
     struct hlsl_ir_function_decl *decl;
+    struct hlsl_block *block = NULL;
 
     if (!ctx->in_state_block && ctx->cur_scope != ctx->globals)
     {
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_MISPLACED_COMPILE,
                 "Shader compilation statements must be in global scope or a state block.");
-        free_parse_initializer(args);
-        return NULL;
+        goto out;
     }
 
     if (!(decl = find_function_call(ctx, function_name, args, true, loc)))
@@ -5632,8 +5632,7 @@ static struct hlsl_block *add_shader_compilation(struct hlsl_ctx *ctx, const cha
             hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_NOT_DEFINED,
                     "Function \"%s\" is not defined.", function_name);
         }
-        free_parse_initializer(args);
-        return NULL;
+        goto out;
     }
 
     for (unsigned int i = 0; i < args->args_count; ++i)
@@ -5647,20 +5646,17 @@ static struct hlsl_block *add_shader_compilation(struct hlsl_ctx *ctx, const cha
     }
 
     if (!(call_to_compile = add_user_call(ctx, decl, args, true, loc)))
-    {
-        free_parse_initializer(args);
-        return NULL;
-    }
+        goto out;
 
     if (!(compile = hlsl_new_compile(ctx, HLSL_COMPILE_TYPE_COMPILE,
             profile_name, &call_to_compile, 1, args->instrs, loc)))
-    {
-        free_parse_initializer(args);
-        return NULL;
-    }
+        goto out;
 
+    block = make_block(ctx, compile);
+
+out:
     free_parse_initializer(args);
-    return make_block(ctx, compile);
+    return block;
 }
 
 static struct hlsl_block *add_constructor(struct hlsl_ctx *ctx, struct hlsl_type *type,
