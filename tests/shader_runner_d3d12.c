@@ -823,8 +823,6 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
         return false;
     }
 
-    if (test_context->root_signature)
-        ID3D12RootSignature_Release(test_context->root_signature);
     test_context->root_signature = d3d12_runner_create_root_signature(runner,
             queue, test_context->allocator, command_list, &uniform_index);
 
@@ -842,7 +840,11 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
         ID3D10Blob_Release(gs_code);
 
     if (!pso)
+    {
+        ID3D12RootSignature_Release(test_context->root_signature);
+        test_context->root_signature = NULL;
         return false;
+    }
 
     add_pso(test_context, pso);
 
@@ -927,6 +929,10 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
     exec_command_list(queue, command_list);
     wait_queue_idle(device, queue);
     reset_command_list(command_list, test_context->allocator);
+
+    if (test_context->root_signature)
+        ID3D12RootSignature_Release(test_context->root_signature);
+    test_context->root_signature = NULL;
 
     return true;
 }
