@@ -153,6 +153,25 @@ void hlsl_free_state_block(struct hlsl_state_block *state_block)
     vkd3d_free(state_block);
 }
 
+void hlsl_free_default_value(struct hlsl_default_value *value)
+{
+    vkd3d_free((void *)value->string);
+}
+
+void hlsl_free_default_values(struct hlsl_ir_var *decl)
+{
+    unsigned int component_count;
+
+    if (!decl->default_values)
+        return;
+
+    component_count = hlsl_type_component_count(decl->data_type);
+    for (size_t i = 0; i < component_count; ++i)
+        hlsl_free_default_value(&decl->default_values[i]);
+    vkd3d_free(decl->default_values);
+    decl->default_values = NULL;
+}
+
 void hlsl_free_var(struct hlsl_ir_var *decl)
 {
     unsigned int k, i;
@@ -162,14 +181,7 @@ void hlsl_free_var(struct hlsl_ir_var *decl)
     for (k = 0; k <= HLSL_REGSET_LAST_OBJECT; ++k)
         vkd3d_free((void *)decl->objects_usage[k]);
 
-    if (decl->default_values)
-    {
-        unsigned int component_count = hlsl_type_component_count(decl->data_type);
-
-        for (k = 0; k < component_count; ++k)
-            vkd3d_free((void *)decl->default_values[k].string);
-        vkd3d_free(decl->default_values);
-    }
+    hlsl_free_default_values(decl);
 
     for (i = 0; i < decl->state_block_count; ++i)
         hlsl_free_state_block(decl->state_blocks[i]);
