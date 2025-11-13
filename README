@@ -1,9 +1,64 @@
-=============================
-The vkd3d 3D Graphics Library
-=============================
+=======================
+About the vkd3d project
+=======================
 
-Vkd3d is a 3D graphics library built on top of Vulkan. It has an API very
-similar, but not identical, to Direct3D 12.
+The vkd3d project consists of a set of libraries and tools intended to help port
+Direct3D applications to other platforms. For example, Vulkan or OpenGL on
+Linux, or Metal on macOS. The project is made available under the terms of
+version 2.1 or later of the GNU Lesser General Public License.
+
+The main components of vkd3d are:
+
+  * libvkd3d-shader - This is vkd3d's shader translation library; it can
+    translate between its various supported shader formats, as well as retrieve
+    reflection information from shaders in those formats. Supported input
+    formats include HLSL, DXIL, DXBC/TPF (i.e., Direct3D shader model 4 and 5),
+    and Direct3D shader model 1-3 bytecode. Supported output formats include
+    SPIR-V, GL Shading Language (GLSL), Metal Shading Language (MSL), the
+    different Direct3D formats, and Direct3D shader assembly. GL Shading
+    Language (GLSL) and Metal Shading Language (MSL) output are a work in
+    progress; see the "Preprocessor definitions" section further below for
+    instructions on how to enable those. libvkd3d-shader's main entry points are
+    vkd3d_shader_compile() and vkd3d_shader_scan().
+
+  * libvkd3d - This is vkd3d's (low-level) Direct3D 12 implementation on top of
+    Vulkan. It uses libvkd3d-shader to translate Direct3D shaders to SPIR-V. Its
+    main entry points are vkd3d_create_instance() and vkd3d_create_device(), and
+    the way the API is organised should look familiar to people with existing
+    Vulkan experience. Instead of using libvkd3d directly, most applications
+    will likely want to use the libvkd3d-utils library described below, which
+    provides the entry points that people with a Direct3D background should be
+    familiar with.
+
+  * libvkd3d-utils - A set of utility functions built on top of libvd3d and
+    libvkd3d-shader. This provides the familiar Direct3D entry points like
+    D3D12CreateDevice() and D3DCompile(). Note that neither libvkd3d nor
+    libvkd3d-utils implement any DXGI interfaces for adapter enumeration,
+    swapchain handling, windowing, etc. Applications are expected to either
+    implement this functionality themselves, or use an existing library like
+    GLFW, SDL, or Qt for this purpose.
+
+  * vkd3d-compiler - A command line shader compiler built on top of
+    libvkd3d-shader. Among other uses, it can be used as an offline compiler for
+    HLSL shaders, much like Microsoft's fxc.
+
+  * vkd3d-dxbc - A command line utility for DXBC inspection and manipulation,
+    built on top of libvkd3d-shader.
+
+  * vkd3d demos - A set of demo applications intended to show how to integrate
+    vkd3d into an application, as well as for testing that vkd3d is working
+    properly. One of the most interesting parts is likely
+    demo_swapchain_create() from demos/demo_vkd3d.h, which shows how to access
+    the underlying Vulkan objects of a Direct3D 12 device, as well as how to
+    create a Direct3D 12 resource backed by a Vulkan image. The vkd3d-triangle
+    demo draws a single triangle, and is a fairly minimal example of how to
+    integrate vkd3d into an existing Direct3D application. The vkd3d-gears demo
+    is inspired by the classic glxgears program, and draws a set of rotating
+    gears. It is primarily intended as a basic diagnostic tool, to verify that
+    the vkd3d/Vulkan setup is working as expected. The vkd3d-teapot demo uses
+    some moderately more advanced features like geometry shaders, tessellation
+    shaders, and indirect draws to draw a version of Martin Newell's famous
+    teapot.
 
 ==============
 Building vkd3d
@@ -34,16 +89,6 @@ to submit their patches using the merge request tool.
 
 Each merge request is automatically tested with the GitLab CI
 system. See gitlab/README in the Git tree for more details.
-
-===========
-Using vkd3d
-===========
-
-Vkd3d can be used by projects that target Direct3D 12 as a drop-in replacement
-at build-time with some modest source modifications.
-
-If vkd3d is available when building Wine, then Wine will use it to support
-Direct3D 12 applications.
 
 =====================
 Environment variables
