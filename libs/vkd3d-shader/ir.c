@@ -3064,11 +3064,6 @@ struct hull_flattener
     unsigned int orig_ssa_count;
 };
 
-static bool flattener_is_in_fork_or_join_phase(const struct hull_flattener *flattener)
-{
-    return flattener->phase == VSIR_OP_HS_FORK_PHASE || flattener->phase == VSIR_OP_HS_JOIN_PHASE;
-}
-
 static void flattener_fixup_ssa_register(struct hull_flattener *normaliser,
         struct vkd3d_shader_register *reg, unsigned int instance_id)
 {
@@ -3190,9 +3185,9 @@ static enum vkd3d_result flattener_flatten_phases(struct hull_flattener *normali
     normaliser->phase = VSIR_OP_INVALID;
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
-        if (ins->opcode == VSIR_OP_HS_FORK_PHASE || ins->opcode == VSIR_OP_HS_JOIN_PHASE)
+        if (vsir_opcode_is_fork_or_join_phase(ins->opcode))
         {
-            b = flattener_is_in_fork_or_join_phase(normaliser);
+            b = vsir_opcode_is_fork_or_join_phase(normaliser->phase);
             /* Reset the phase info. */
             phase_body_it_valid = false;
             normaliser->phase = ins->opcode;
@@ -3481,11 +3476,6 @@ struct io_normaliser
     bool use_vocp;
 };
 
-static bool io_normaliser_is_in_fork_or_join_phase(const struct io_normaliser *normaliser)
-{
-    return normaliser->phase == VSIR_OP_HS_FORK_PHASE || normaliser->phase == VSIR_OP_HS_JOIN_PHASE;
-}
-
 static bool shader_signature_find_element_for_reg(const struct shader_signature *signature,
         unsigned int reg_idx, unsigned int write_mask, unsigned int *element_idx)
 {
@@ -3603,7 +3593,7 @@ static enum vkd3d_result io_normaliser_add_index_range(struct io_normaliser *nor
             signature = normaliser->output_signature;
             break;
         case VKD3DSPR_OUTPUT:
-            if (!io_normaliser_is_in_fork_or_join_phase(normaliser))
+            if (!vsir_opcode_is_fork_or_join_phase(normaliser->phase))
             {
                 range_map = normaliser->output_range_map;
                 signature = normaliser->output_signature;
@@ -3889,7 +3879,7 @@ static bool shader_dst_param_io_normalise(struct vkd3d_shader_dst_param *dst_par
     {
         case VKD3DSPR_OUTPUT:
             reg_idx = reg->idx[reg->idx_count - 1].offset;
-            if (io_normaliser_is_in_fork_or_join_phase(normaliser))
+            if (vsir_opcode_is_fork_or_join_phase(normaliser->phase))
             {
                 signature = normaliser->patch_constant_signature;
                 /* Convert patch constant outputs to the patch constant register type to avoid the need
@@ -4005,7 +3995,7 @@ static void shader_src_param_io_normalise(struct vkd3d_shader_src_param *src_par
 
         case VKD3DSPR_OUTCONTROLPOINT:
             reg->type = VKD3DSPR_OUTPUT;
-            if (io_normaliser_is_in_fork_or_join_phase(normaliser))
+            if (vsir_opcode_is_fork_or_join_phase(normaliser->phase))
                 normaliser->use_vocp = true;
             /* fall through */
         case VKD3DSPR_OUTPUT:

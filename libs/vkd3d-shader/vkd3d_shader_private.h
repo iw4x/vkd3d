@@ -632,6 +632,11 @@ enum vkd3d_shader_opcode
 
 const char *vsir_opcode_get_name(enum vkd3d_shader_opcode op, const char *error);
 
+static inline bool vsir_opcode_is_fork_or_join_phase(enum vkd3d_shader_opcode op)
+{
+    return op == VSIR_OP_HS_FORK_PHASE || op == VSIR_OP_HS_JOIN_PHASE;
+}
+
 enum vkd3d_shader_register_type
 {
     VKD3DSPR_TEMP,

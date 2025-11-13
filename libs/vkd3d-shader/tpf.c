@@ -964,11 +964,6 @@ static void shader_sm4_read_dcl_sampler(struct vkd3d_shader_instruction *ins, ui
     shader_sm4_read_register_space(priv, &tokens, end, &ins->declaration.sampler.range.space);
 }
 
-static bool sm4_parser_is_in_fork_or_join_phase(const struct vkd3d_shader_sm4_parser *sm4)
-{
-    return sm4->phase == VSIR_OP_HS_FORK_PHASE || sm4->phase == VSIR_OP_HS_JOIN_PHASE;
-}
-
 static void shader_sm4_read_dcl_index_range(struct vkd3d_shader_instruction *ins, uint32_t opcode,
         uint32_t opcode_token, const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *priv)
 {
@@ -997,7 +992,7 @@ static void shader_sm4_read_dcl_index_range(struct vkd3d_shader_instruction *ins
             signature = &program->input_signature;
             break;
         case VKD3DSPR_OUTPUT:
-            if (sm4_parser_is_in_fork_or_join_phase(priv))
+            if (vsir_opcode_is_fork_or_join_phase(priv->phase))
             {
                 io_masks = priv->patch_constant_register_masks;
                 ranges = &priv->patch_constant_index_ranges;
@@ -2319,8 +2314,8 @@ static bool shader_sm4_validate_input_output_register(struct vkd3d_shader_sm4_pa
             masks = priv->input_register_masks;
             break;
         case VKD3DSPR_OUTPUT:
-            masks = sm4_parser_is_in_fork_or_join_phase(priv) ? priv->patch_constant_register_masks
-                    : priv->output_register_masks;
+            masks = vsir_opcode_is_fork_or_join_phase(priv->phase)
+                    ? priv->patch_constant_register_masks : priv->output_register_masks;
             break;
         case VKD3DSPR_COLOROUT:
         case VKD3DSPR_OUTCONTROLPOINT:

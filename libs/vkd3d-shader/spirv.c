@@ -3024,11 +3024,6 @@ static bool is_in_control_point_phase(const struct spirv_compiler *compiler)
     return compiler->phase == VSIR_OP_HS_CONTROL_POINT_PHASE;
 }
 
-static bool is_in_fork_or_join_phase(const struct spirv_compiler *compiler)
-{
-    return compiler->phase == VSIR_OP_HS_FORK_PHASE || compiler->phase == VSIR_OP_HS_JOIN_PHASE;
-}
-
 static void spirv_compiler_emit_initial_declarations(struct spirv_compiler *compiler);
 static size_t spirv_compiler_get_current_function_location(struct spirv_compiler *compiler);
 static void spirv_compiler_emit_main_prolog(struct spirv_compiler *compiler);
@@ -5708,7 +5703,7 @@ static void spirv_compiler_emit_input(struct spirv_compiler *compiler,
          * duplicate declarations are: a single register split into multiple declarations having
          * different components, which should have been merged, and declarations in one phase
          * being repeated in another (i.e. vcp/vocp), which should have been deleted. */
-        if (reg_type != VKD3DSPR_INPUT || !is_in_fork_or_join_phase(compiler))
+        if (reg_type != VKD3DSPR_INPUT || !vsir_opcode_is_fork_or_join_phase(compiler->phase))
             FIXME("Duplicate input definition found.\n");
         return;
     }
@@ -5902,7 +5897,7 @@ static uint32_t spirv_compiler_emit_shader_phase_builtin_variable(struct spirv_c
         return *variable_id;
 
     id = spirv_compiler_emit_builtin_variable_v(compiler, builtin, SpvStorageClassOutput, array_sizes, size_count);
-    if (is_in_fork_or_join_phase(compiler))
+    if (vsir_opcode_is_fork_or_join_phase(compiler->phase))
         vkd3d_spirv_build_op_decorate(builder, id, SpvDecorationPatch, NULL, 0);
 
     if (variable_id)
@@ -6190,7 +6185,7 @@ static void spirv_compiler_emit_shader_epilogue_function(struct spirv_compiler *
     STATIC_ASSERT(ARRAY_SIZE(compiler->private_output_variable) == ARRAY_SIZE(param_type_id));
     STATIC_ASSERT(ARRAY_SIZE(compiler->private_output_variable) == ARRAY_SIZE(compiler->private_output_variable_write_mask));
 
-    is_patch_constant = is_in_fork_or_join_phase(compiler);
+    is_patch_constant = vsir_opcode_is_fork_or_join_phase(compiler->phase);
 
     signature = is_patch_constant ? &compiler->program->patch_constant_signature
             : &compiler->program->output_signature;
