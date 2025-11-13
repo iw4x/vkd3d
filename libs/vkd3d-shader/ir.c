@@ -3274,11 +3274,6 @@ struct control_point_normaliser
     struct vkd3d_shader_src_param *outpointid_param;
 };
 
-static bool control_point_normaliser_is_in_control_point_phase(const struct control_point_normaliser *normaliser)
-{
-    return normaliser->phase == VSIR_OP_HS_CONTROL_POINT_PHASE;
-}
-
 struct vkd3d_shader_src_param *vsir_program_create_outpointid_param(struct vsir_program *program)
 {
     struct vkd3d_shader_src_param *rel_addr;
@@ -3298,7 +3293,7 @@ static void shader_dst_param_normalise_outpointid(struct vkd3d_shader_dst_param 
 {
     struct vkd3d_shader_register *reg = &dst_param->reg;
 
-    if (control_point_normaliser_is_in_control_point_phase(normaliser) && reg->type == VKD3DSPR_OUTPUT)
+    if (vsir_opcode_is_control_point_phase(normaliser->phase) && reg->type == VKD3DSPR_OUTPUT)
     {
         /* The TPF reader validates idx_count. */
         VKD3D_ASSERT(reg->idx_count == 1);

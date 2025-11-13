@@ -637,6 +637,11 @@ static inline bool vsir_opcode_is_fork_or_join_phase(enum vkd3d_shader_opcode op
     return op == VSIR_OP_HS_FORK_PHASE || op == VSIR_OP_HS_JOIN_PHASE;
 }
 
+static inline bool vsir_opcode_is_control_point_phase(enum vkd3d_shader_opcode op)
+{
+    return op == VSIR_OP_HS_CONTROL_POINT_PHASE;
+}
+
 enum vkd3d_shader_register_type
 {
     VKD3DSPR_TEMP,

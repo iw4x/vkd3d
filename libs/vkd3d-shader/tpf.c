@@ -2280,7 +2280,7 @@ static bool register_is_control_point_input(const struct vkd3d_shader_register *
         const struct vkd3d_shader_sm4_parser *priv)
 {
     return reg->type == VKD3DSPR_INCONTROLPOINT || reg->type == VKD3DSPR_OUTCONTROLPOINT
-            || (reg->type == VKD3DSPR_INPUT && (priv->phase == VSIR_OP_HS_CONTROL_POINT_PHASE
+            || (reg->type == VKD3DSPR_INPUT && (vsir_opcode_is_control_point_phase(priv->phase)
             || priv->program->shader_version.type == VKD3D_SHADER_TYPE_GEOMETRY));
 }
 
@@ -2656,7 +2656,7 @@ static void shader_sm4_read_instruction(struct vkd3d_shader_sm4_parser *sm4, str
     if (ins->opcode == VSIR_OP_HS_CONTROL_POINT_PHASE || ins->opcode == VSIR_OP_HS_FORK_PHASE
             || ins->opcode == VSIR_OP_HS_JOIN_PHASE)
         sm4->phase = ins->opcode;
-    sm4->has_control_point_phase |= ins->opcode == VSIR_OP_HS_CONTROL_POINT_PHASE;
+    sm4->has_control_point_phase |= vsir_opcode_is_control_point_phase(ins->opcode);
     ins->flags = 0;
     ins->coissue = false;
     ins->raw = false;
