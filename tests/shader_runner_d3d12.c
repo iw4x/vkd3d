@@ -1086,6 +1086,9 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     if (is_llvmpipe_device(device))
         runner->caps.tags[SHADER_RUNNER_TAG_LLVMPIPE].present = true;
 
+    if (is_intel_device(device))
+        runner->caps.tags[SHADER_RUNNER_TAG_INTEL].present = true;
+
     runner->caps.tags[SHADER_RUNNER_TAG_MESA].present = get_mesa_device_version(device,
             &runner->caps.tags[SHADER_RUNNER_TAG_MESA].major, &runner->caps.tags[SHADER_RUNNER_TAG_MESA].minor,
             &runner->caps.tags[SHADER_RUNNER_TAG_MESA].patch);

@@ -1837,6 +1837,9 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
     if (device_info.driver_properties.driverID == VK_DRIVER_ID_MESA_LLVMPIPE)
         runner->caps.tags[SHADER_RUNNER_TAG_LLVMPIPE].present = true;
 
+    if (device_info.driver_properties.driverID == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
+        runner->caps.tags[SHADER_RUNNER_TAG_INTEL].present = true;
+
     runner->caps.shader_caps[SHADER_CAP_CLIP_PLANES] = true;
     runner->caps.shader_caps[SHADER_CAP_FOG] = true;
     runner->caps.shader_caps[SHADER_CAP_POINT_SIZE] = true;

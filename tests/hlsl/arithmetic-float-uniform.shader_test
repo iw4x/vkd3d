@@ -537,12 +537,12 @@ uint4 main() : SV_Target
 denorm preserve
 uniform 0 uint64_t2 0x0031fa182c40c60d 0                                 % f64(1e-307, 0)
 draw quad
-todo(llvmpipe) probe (0, 0) u64(0x0000b8157268fdaf, 0x009c16c5c5253574)  % f64(1e-309, 9.999999999999999e-306)
+todo(llvmpipe | intel) probe (0, 0) u64(0x0000b8157268fdaf, 0x009c16c5c5253574)  % f64(1e-309, 9.999999999999999e-306)
 
 denorm ftz
 uniform 0 uint64_t2 0x0031fa182c40c60d 0                                 % f64(1e-307, 0)
 draw quad
-todo(llvmpipe) probe (0, 0) u64(0x0000b8157268fdaf, 0x009c16c5c5253574)  % f64(1e-309, 9.999999999999999e-306)
+todo(llvmpipe | intel) probe (0, 0) u64(0x0000b8157268fdaf, 0x009c16c5c5253574)  % f64(1e-309, 9.999999999999999e-306)
 
 [require]
 shader model >= 6.2

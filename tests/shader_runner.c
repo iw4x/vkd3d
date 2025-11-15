@@ -139,6 +139,7 @@ static const char * const shader_runner_tag_names[SHADER_RUNNER_TAG_COUNT] =
     [SHADER_RUNNER_TAG_D3D11]    = "d3d11",
     [SHADER_RUNNER_TAG_D3D12]    = "d3d12",
     [SHADER_RUNNER_TAG_GLSL]     = "glsl",
+    [SHADER_RUNNER_TAG_INTEL]    = "intel",
     [SHADER_RUNNER_TAG_LLVM]     = "llvm",
     [SHADER_RUNNER_TAG_LLVMPIPE] = "llvmpipe",
     [SHADER_RUNNER_TAG_MESA]     = "mesa",
