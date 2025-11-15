@@ -48,6 +48,31 @@ void main(uint local_idx : SV_GroupIndex)
 [require]
 shader model >= 4.0
 
+% The type of a groupshared variable must not contain objects.
+[compute shader fail(sm<6) todo]
+struct data
+{
+    Texture2D tex;
+    uint u;
+};
+
+groupshared data m[4];
+
+    [numthreads(4, 1, 1)]
+void main(uint local_idx : SV_GroupIndex)
+{
+}
+
+% Even though the 'groupshared' attribute is ignored in non-compute shaders,
+% native still checks whether the type of the variable contains objects or not.
+[pixel shader fail(sm<6) todo]
+groupshared Texture2D m[4];
+
+float4 main() : SV_Target
+{
+    return 0;
+}
+
 [uav 0]
 format r32-typeless
 size (raw_buffer, 4)
@@ -64,6 +89,28 @@ void main(uint local_idx : SV_GroupIndex)
     m[local_idx] = 0xcafef00d;
     GroupMemoryBarrierWithGroupSync();
     u.Store(4 * local_idx, m[0]);
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav 0 (0) u32(0xcafef00d)
+probe uav 0 (1) u32(0xcafef00d)
+probe uav 0 (2) u32(0xcafef00d)
+probe uav 0 (3) u32(0xcafef00d)
+
+[compute shader todo]
+RWByteAddressBuffer u : register(u0);
+groupshared uint m[4][2];
+
+    [numthreads(4, 1, 1)]
+void main(uint local_idx : SV_GroupIndex)
+{
+    m[local_idx][0] = 0xcafef00d;
+    m[local_idx][1] = 0xdeadbeef;
+    GroupMemoryBarrierWithGroupSync();
+
+    uint m_copy[4][2] = m;
+    u.Store(4 * local_idx, m_copy[local_idx][0]);
 }
 
 [test]
@@ -209,6 +256,69 @@ probe uav 2 (5)  i32(6)
 probe uav 2 (6)  i32(3)
 probe uav 2 (7)  i32(4)
 
+[uav 1]
+format r32-float
+size (buffer, 8)
+
+1 1 1 1 0 0 0 0
+
+[uav 2]
+format r32-sint
+size (buffer, 8)
+
+1 1 1 1 0 0 0 0
+
+[compute shader todo]
+uniform uint idx;
+
+#define GROUP_SIZE 4
+
+struct data
+{
+    float f;
+    uint u;
+};
+
+RWBuffer<float> u : register(u1);
+RWBuffer<uint> u2 : register(u2);
+groupshared data m[GROUP_SIZE][2];
+
+    [numthreads(GROUP_SIZE, 1, 1)]
+void main(uint local_idx : SV_GroupIndex, uint group_id : SV_GroupID,
+        uint thread_id : SV_DispatchThreadID)
+{
+    uint val = local_idx * 10 + group_id;
+    m[local_idx][group_id].f = val;
+    m[local_idx][group_id].u = val;
+    GroupMemoryBarrierWithGroupSync();
+    InterlockedAdd(m[0][group_id].u, 2 * group_id);
+    InterlockedAdd(m[idx][group_id].u, group_id);
+    GroupMemoryBarrierWithGroupSync();
+
+    data m_copy[GROUP_SIZE][2] = m;
+    u[thread_id] = m_copy[local_idx][group_id].f;
+    u2[thread_id] = m_copy[local_idx][group_id].u;
+}
+
+[test]
+uniform 0 uint 1
+todo(sm<6 | msl) dispatch 2 1 1
+probe uav 1 (0) f32(0.0)
+probe uav 1 (1) f32(10.0)
+probe uav 1 (2) f32(20.0)
+probe uav 1 (3) f32(30.0)
+probe uav 1 (4) f32(1.0)
+probe uav 1 (5) f32(11.0)
+probe uav 1 (6) f32(21.0)
+probe uav 1 (7) f32(31.0)
+probe uav 2 (0) i32(0)
+probe uav 2 (1) i32(10)
+probe uav 2 (2) i32(20)
+probe uav 2 (3) i32(30)
+probe uav 2 (4) i32(9)
+probe uav 2 (5) i32(15)
+probe uav 2 (6) i32(21)
+probe uav 2 (7) i32(31)
 
 [uav 1]
 format r32-typeless
@@ -260,6 +370,38 @@ void main(uint local_idx : SV_GroupIndex, uint group_id : SV_GroupID)
     /* Depending on the driver and D3D version, two or four bytes are written
      * when using a minimum precision type, so we explicitly cast. */
     u.Store(16 * group_id.x + 4 * local_idx, (uint)m[local_idx]);
+}
+
+[test]
+todo(sm<6 | msl) dispatch 2 1 1
+probe uav 0 (0) u32(0x18)
+probe uav 0 (1) u32(0x18)
+probe uav 0 (2) u32(0x38)
+probe uav 0 (3) u32(0x38)
+probe uav 0 (4) u32(0x1a)
+probe uav 0 (5) u32(0x1a)
+probe uav 0 (6) u32(0x3a)
+probe uav 0 (7) u32(0x3a)
+
+[uav 0]
+format r32-typeless
+size (raw_buffer, 8)
+
+0xf000f 0xf000f 0xf000f 0xf000f
+0xf000f 0xf000f 0xf000f 0xf000f
+
+[compute shader todo]
+RWByteAddressBuffer u : register(u0);
+groupshared uint4x2 m;
+
+    [numthreads(4, 1, 1)]
+void main(uint local_idx : SV_GroupIndex, uint group_id : SV_GroupID)
+{
+    m[local_idx][group_id] = group_id + 8 * (local_idx + 1);
+    GroupMemoryBarrierWithGroupSync();
+    m[local_idx] += m[local_idx ^ 1];
+    GroupMemoryBarrierWithGroupSync();
+    u.Store(16 * group_id + 4 * local_idx, m[local_idx][group_id]);
 }
 
 [test]
