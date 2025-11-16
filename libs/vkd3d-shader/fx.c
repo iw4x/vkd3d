@@ -127,7 +127,9 @@ struct type_entry
 {
     struct list entry;
     const char *name;
+    const struct hlsl_type *element_type;
     uint32_t elements_count;
+    uint32_t unpacked_size;
     uint32_t modifiers;
     uint32_t offset;
 };
@@ -369,46 +371,27 @@ static void write_fx_4_annotations(struct hlsl_scope *scope, struct fx_write_con
     set_u32(buffer, count_offset, count);
 }
 
-static uint32_t write_fx_4_type(const struct hlsl_type *type, struct fx_write_context *fx);
+static uint32_t write_fx_4_type(const struct type_entry *type, struct fx_write_context *fx);
 static const char * get_fx_4_type_name(const struct hlsl_type *type);
 static void write_fx_4_annotation(struct hlsl_ir_var *var, struct fx_write_context *fx);
 
-static uint32_t write_type(const struct hlsl_type *type, struct fx_write_context *fx)
+static uint32_t write_type(const struct type_entry *type, struct fx_write_context *fx)
 {
-    unsigned int elements_count, modifiers;
-    const struct hlsl_type *element_type;
     struct type_entry *type_entry;
-    const char *name;
-
-    VKD3D_ASSERT(fx->ctx->profile->major_version >= 4);
-
-    if (type->class == HLSL_CLASS_ARRAY)
-    {
-        elements_count = hlsl_get_multiarray_size(type);
-        element_type = hlsl_get_multiarray_element_type(type);
-    }
-    else
-    {
-        elements_count = 0;
-        element_type = type;
-    }
-
-    name = get_fx_4_type_name(element_type);
-    modifiers = element_type->modifiers & HLSL_MODIFIERS_MAJORITY_MASK;
 
     /* We don't try to reuse nameless types; they will get the same
      * "<unnamed>" name, but are not available for the type cache. */
-    if (name)
+    if (type->name)
     {
         LIST_FOR_EACH_ENTRY(type_entry, &fx->types, struct type_entry, entry)
         {
-            if (strcmp(type_entry->name, name))
+            if (strcmp(type_entry->name, type->name))
                 continue;
 
-            if (type_entry->elements_count != elements_count)
+            if (type_entry->elements_count != type->elements_count)
                 continue;
 
-            if (type_entry->modifiers != modifiers)
+            if (type_entry->modifiers != type->modifiers)
                 continue;
 
             return type_entry->offset;
@@ -418,15 +401,40 @@ static uint32_t write_type(const struct hlsl_type *type, struct fx_write_context
     if (!(type_entry = hlsl_alloc(fx->ctx, sizeof(*type_entry))))
         return 0;
 
+    *type_entry = *type;
     type_entry->offset = write_fx_4_type(type, fx);
-    type_entry->name = name;
-    type_entry->elements_count = elements_count;
-    type_entry->modifiers = modifiers;
 
-    if (name)
+    if (type_entry->name)
         list_add_tail(&fx->types, &type_entry->entry);
 
     return type_entry->offset;
+}
+
+static void type_entry_from_type(struct type_entry *e, const struct hlsl_type *type, const struct fx_write_context *fx)
+{
+    const struct hlsl_type *element_type = hlsl_get_multiarray_element_type(type);
+
+    VKD3D_ASSERT(fx->ctx->profile->major_version >= 4);
+
+    *e = (struct type_entry)
+    {
+        .elements_count = type->class == HLSL_CLASS_ARRAY ? hlsl_get_multiarray_size(type) : 0,
+        /* Structures can only contain numeric fields, this is validated
+         * during variable declaration. */
+        .unpacked_size = type->reg_size[HLSL_REGSET_NUMERIC] * sizeof(float),
+        .modifiers = element_type->modifiers & HLSL_MODIFIERS_MAJORITY_MASK,
+        .name = get_fx_4_type_name(element_type),
+        .element_type = element_type,
+    };
+}
+
+static uint32_t write_var_type(struct hlsl_ir_var *var, struct fx_write_context *fx)
+{
+    struct type_entry entry;
+
+    type_entry_from_type(&entry, var->data_type, fx);
+
+    return write_type(&entry, fx);
 }
 
 static void fx_write_context_init(struct hlsl_ctx *ctx, const struct fx_write_context_ops *ops,
@@ -1253,7 +1261,7 @@ static bool is_numeric_fx_4_type(const struct hlsl_type *type)
     return type->class == HLSL_CLASS_STRUCT || hlsl_is_numeric_type(type);
 }
 
-static uint32_t write_fx_4_type(const struct hlsl_type *type, struct fx_write_context *fx)
+static uint32_t write_fx_4_type(const struct type_entry *type, struct fx_write_context *fx)
 {
     struct field_offsets
     {
@@ -1262,20 +1270,15 @@ static uint32_t write_fx_4_type(const struct hlsl_type *type, struct fx_write_co
         uint32_t offset;
         uint32_t type;
     };
-    uint32_t name_offset, offset, unpacked_size, packed_size, stride, numeric_desc;
+    uint32_t name_offset, offset, packed_size, stride, numeric_desc;
+    const struct hlsl_type *element_type = type->element_type;
     struct vkd3d_bytecode_buffer *buffer = &fx->unstructured;
+    uint32_t elements_count = type->elements_count;
+    uint32_t unpacked_size = type->unpacked_size;
     struct field_offsets *field_offsets = NULL;
-    const struct hlsl_type *element_type;
     struct hlsl_ctx *ctx = fx->ctx;
-    uint32_t elements_count = 0;
-    const char *name;
+    const char *name = type->name;
     size_t i;
-
-    if (type->class == HLSL_CLASS_ARRAY)
-        elements_count = hlsl_get_multiarray_size(type);
-    element_type = hlsl_get_multiarray_element_type(type);
-
-    name = get_fx_4_type_name(element_type);
 
     name_offset = write_string(name ? name : "<unnamed>", fx);
     if (element_type->class == HLSL_CLASS_STRUCT)
@@ -1286,11 +1289,13 @@ static uint32_t write_fx_4_type(const struct hlsl_type *type, struct fx_write_co
         for (i = 0; i < element_type->e.record.field_count; ++i)
         {
             const struct hlsl_struct_field *field = &element_type->e.record.fields[i];
+            struct type_entry entry;
 
+            type_entry_from_type(&entry, field->type, fx);
             field_offsets[i].name = write_string(field->name, fx);
             field_offsets[i].semantic = write_string(field->semantic.raw_name, fx);
             field_offsets[i].offset = field->reg_offset[HLSL_REGSET_NUMERIC] * sizeof(float);
-            field_offsets[i].type = write_type(field->type, fx);
+            field_offsets[i].type = write_type(&entry, fx);
         }
     }
 
@@ -1341,9 +1346,6 @@ static uint32_t write_fx_4_type(const struct hlsl_type *type, struct fx_write_co
             set_status(fx, VKD3D_ERROR_NOT_IMPLEMENTED);
             return 0;
     }
-
-    /* Structures can only contain numeric fields, this is validated during variable declaration. */
-    unpacked_size = type->reg_size[HLSL_REGSET_NUMERIC] * sizeof(float);
 
     packed_size = 0;
     if (is_numeric_fx_4_type(element_type))
@@ -2190,7 +2192,7 @@ static void write_fx_4_numeric_variable(struct hlsl_ir_var *var, bool shared, st
     if (var->has_explicit_bind_point)
         flags |= FX_4_HAS_EXPLICIT_BIND_POINT;
 
-    type_offset = write_type(var->data_type, fx);
+    type_offset = write_var_type(var, fx);
     name_offset = write_string(var->name, fx);
     semantic_offset = write_string(var->semantic.raw_name, fx);
 
@@ -2225,7 +2227,7 @@ static void write_fx_4_annotation(struct hlsl_ir_var *var, struct fx_write_conte
     struct hlsl_ctx *ctx = fx->ctx;
 
     name_offset = write_string(var->name, fx);
-    type_offset = write_type(var->data_type, fx);
+    type_offset = write_var_type(var, fx);
 
     put_u32(buffer, name_offset);
     put_u32(buffer, type_offset);
@@ -3353,7 +3355,7 @@ static void write_fx_4_object_variable(struct hlsl_ir_var *var, struct fx_write_
     if (var->reg_reservation.reg_type)
         bind_point = var->reg_reservation.reg_index;
 
-    type_offset = write_type(var->data_type, fx);
+    type_offset = write_var_type(var, fx);
     name_offset = write_string(var->name, fx);
     semantic_offset = write_string(var->semantic.raw_name, fx);
 
