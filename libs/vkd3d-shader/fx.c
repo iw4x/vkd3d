@@ -5023,6 +5023,7 @@ fxlc_opcodes[] =
     { 0x216, "iadd"  },
     { 0x219, "imul"  },
     { 0x21a, "udiv"  },
+    { 0x21b, "umod"  },
     { 0x21d, "imin"  },
     { 0x21e, "imax"  },
     { 0x21f, "umin"  },
