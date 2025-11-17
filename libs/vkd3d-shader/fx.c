@@ -5294,8 +5294,11 @@ static void fx_print_fxlc_argument(struct fx_parser *parser, const struct fxlc_a
                 break;
             }
 
-            case FX_FXLC_REG_INPUT:
             case FX_FXLC_REG_OUTPUT:
+                vkd3d_string_buffer_printf(&parser->buffer, "expr");
+                break;
+
+            case FX_FXLC_REG_INPUT:
             case FX_FXLC_REG_TEMP:
                 fx_print_fxlc_register(parser, reg, code);
                 break;
