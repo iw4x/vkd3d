@@ -2199,9 +2199,12 @@ static struct hlsl_ir_resource_load *hlsl_new_resource_load(struct hlsl_ctx *ctx
 struct hlsl_ir_node *hlsl_block_add_resource_load(struct hlsl_ctx *ctx, struct hlsl_block *block,
         const struct hlsl_resource_load_params *params, const struct vkd3d_shader_location *loc)
 {
-    struct hlsl_ir_resource_load *load = hlsl_new_resource_load(ctx, params, loc);
+    struct hlsl_ir_resource_load *load;
 
-    if (load && load->sampling_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
+    if (!(load = hlsl_new_resource_load(ctx, params, loc)))
+        return NULL;
+
+    if (load->sampling_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
         hlsl_src_from_node(&load->byte_offset, hlsl_block_add_uint_constant(ctx, block, 0, loc));
 
     return append_new_instr(ctx, block, &load->node);
