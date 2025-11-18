@@ -601,10 +601,20 @@ struct sm6_pointer_info
     enum bitcode_address_space addr_space;
 };
 
+enum dxil_well_known_structs
+{
+    WELL_KNOWN_NONE = 0,
+    WELL_KNOWN_HANDLE,
+    WELL_KNOWN_DIMENSIONS,
+    WELL_KNOWN_SPLITDOUBLE,
+    WELL_KNOWN_FOURI32,
+};
+
 struct sm6_struct_info
 {
     const char *name;
     unsigned int elem_count;
+    enum dxil_well_known_structs well_known;
     const struct sm6_type *elem_types[];
 };
 
@@ -1692,6 +1702,8 @@ static bool dxil_record_validate_operand_count(const struct dxil_record *record,
     return dxil_record_validate_operand_min_count(record, min_count, sm6);
 }
 
+static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6_struct_info *info);
+
 static enum vkd3d_result sm6_parser_type_table_init(struct sm6_parser *sm6)
 {
     const struct dxil_record *record;
@@ -1907,11 +1919,14 @@ static enum vkd3d_result sm6_parser_type_table_init(struct sm6_parser *sm6)
                     break;
                 }
 
-                if (!strcmp(struct_name, "dx.types.Handle"))
-                    sm6->handle_type = type;
-
                 type->u.struc->name = struct_name;
                 struct_name = NULL;
+
+                dxil_recognise_well_known_struct(sm6, type->u.struc);
+
+                if (type->u.struc->well_known == WELL_KNOWN_HANDLE)
+                    sm6->handle_type = type;
+
                 break;
 
             case TYPE_CODE_STRUCT_NAME:
@@ -2066,7 +2081,7 @@ static inline bool sm6_type_is_function_pointer(const struct sm6_type *type)
 
 static inline bool sm6_type_is_handle(const struct sm6_type *type)
 {
-    return sm6_type_is_struct(type) && !strcmp(type->u.struc->name, "dx.types.Handle");
+    return sm6_type_is_struct(type) && type->u.struc->well_known == WELL_KNOWN_HANDLE;
 }
 
 static const struct sm6_type *sm6_type_get_pointer_to_type(const struct sm6_type *type,
@@ -2085,6 +2100,79 @@ static const struct sm6_type *sm6_type_get_pointer_to_type(const struct sm6_type
     }
 
     return NULL;
+}
+
+static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6_struct_info *info)
+{
+    unsigned int i;
+
+    info->well_known = WELL_KNOWN_NONE;
+
+    if (!info->name)
+        return;
+
+    if (!strcmp(info->name, "dx.types.Dimensions"))
+    {
+        if (info->elem_count != 4)
+            goto error;
+        for (i = 0; i < 4; ++i)
+        {
+            if (!sm6_type_is_i32(info->elem_types[i]))
+                goto error;
+        }
+        info->well_known = WELL_KNOWN_DIMENSIONS;
+
+        return;
+    }
+
+    if (!strcmp(info->name, "dx.types.fouri32"))
+    {
+        if (info->elem_count != 4)
+            goto error;
+        for (i = 0; i < 4; ++i)
+        {
+            if (!sm6_type_is_i32(info->elem_types[i]))
+                goto error;
+        }
+        info->well_known = WELL_KNOWN_FOURI32;
+
+        return;
+    }
+
+    if (!strcmp(info->name, "dx.types.Handle"))
+    {
+        if (info->elem_count != 1)
+            goto error;
+        if (!sm6_type_is_pointer(info->elem_types[0]))
+            goto error;
+        if (!sm6_type_is_i8(info->elem_types[0]->u.pointer.type))
+            goto error;
+        if (info->elem_types[0]->u.pointer.addr_space != ADDRESS_SPACE_DEFAULT)
+            goto error;
+        info->well_known = WELL_KNOWN_HANDLE;
+
+        return;
+    }
+
+    if (!strcmp(info->name, "dx.types.splitdouble"))
+    {
+        if (info->elem_count != 2)
+            goto error;
+        for (i = 0; i < 2; ++i)
+        {
+            if (!sm6_type_is_i32(info->elem_types[i]))
+                goto error;
+        }
+        info->well_known = WELL_KNOWN_SPLITDOUBLE;
+
+        return;
+    }
+
+    return;
+
+error:
+    vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
+            "Structure type `%s' has unexpected fields.", info->name);
 }
 
 static const struct sm6_type *sm6_type_get_cmpxchg_result_struct(struct sm6_parser *sm6)
@@ -6879,13 +6967,13 @@ static bool sm6_parser_validate_operand_type(struct sm6_parser *sm6, const struc
         case 'g':
             return sm6_type_is_floating_point(type);
         case 'H':
-            return sm6_value_is_handle(value) && type == sm6->handle_type;
+            return sm6_value_is_handle(value) && type->u.struc->well_known == WELL_KNOWN_HANDLE;
         case 'D':
-            return sm6_type_is_struct(type) && !strcmp(type->u.struc->name, "dx.types.Dimensions");
+            return sm6_type_is_struct(type) && type->u.struc->well_known == WELL_KNOWN_DIMENSIONS;
         case 'S':
-            return sm6_type_is_struct(type) && !strcmp(type->u.struc->name, "dx.types.splitdouble");
+            return sm6_type_is_struct(type) && type->u.struc->well_known == WELL_KNOWN_SPLITDOUBLE;
         case 'V':
-            return sm6_type_is_struct(type) && !strcmp(type->u.struc->name, "dx.types.fouri32");
+            return sm6_type_is_struct(type) && type->u.struc->well_known == WELL_KNOWN_FOURI32;
         case 'v':
             return sm6_value_is_invalid(value) && !type;
         case 'o':
