@@ -46,7 +46,8 @@ enum shader_model
     SHADER_MODEL_5_1,
     SHADER_MODEL_6_0,
     SHADER_MODEL_6_2,
-    SHADER_MODEL_MAX = SHADER_MODEL_6_2,
+    SHADER_MODEL_6_6,
+    SHADER_MODEL_MAX = SHADER_MODEL_6_6,
 };
 
 enum shader_type

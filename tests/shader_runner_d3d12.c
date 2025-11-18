@@ -276,6 +276,9 @@ static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shad
     root_signature_desc.pStaticSamplers = static_samplers;
     root_signature_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
+    if (runner->r.minimum_shader_model >= SHADER_MODEL_6_6)
+        root_signature_desc.Flags |= D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
+
     /* Native d3d12 doesn't like an empty root descriptor table. */
     if (runner->r.descriptor_count)
     {
@@ -477,8 +480,9 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
         return false;
     }
 
-    ID3D12GraphicsCommandList_SetComputeRootSignature(command_list, root_signature);
+    /* With dynamic resources descriptor heaps must be set before the root signature. */
     ID3D12GraphicsCommandList_SetDescriptorHeaps(command_list, 1, &runner->heap);
+    ID3D12GraphicsCommandList_SetComputeRootSignature(command_list, root_signature);
     if (runner->r.uniform_count)
         ID3D12GraphicsCommandList_SetComputeRoot32BitConstants(command_list, uniform_index,
                 runner->r.uniform_count, runner->r.uniforms, 0);
@@ -902,11 +906,13 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
 
     fb_width = ~0u;
     fb_height = ~0u;
+
+    /* With dynamic resources descriptor heaps must be set before the root signature. */
+    ID3D12GraphicsCommandList_SetDescriptorHeaps(command_list, 1, &runner->heap);
     ID3D12GraphicsCommandList_SetGraphicsRootSignature(command_list, test_context->root_signature);
     if (runner->r.uniform_count)
         ID3D12GraphicsCommandList_SetGraphicsRoot32BitConstants(command_list, uniform_index,
                 runner->r.uniform_count, runner->r.uniforms, 0);
-    ID3D12GraphicsCommandList_SetDescriptorHeaps(command_list, 1, &runner->heap);
     for (i = 0; i < runner->r.resource_count; ++i)
     {
         struct d3d12_resource *resource = d3d12_resource(runner->r.resources[i]);
@@ -1176,14 +1182,37 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
             D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, MAX_RESOURCE_DESCRIPTORS);
 }
 
-static bool device_supports_shader_model_6_0(ID3D12Device *device)
+static enum shader_model get_supported_shader_model(ID3D12Device *device)
 {
-    D3D12_FEATURE_DATA_SHADER_MODEL sm = {D3D_SHADER_MODEL_6_0};
+    D3D12_FEATURE_DATA_SHADER_MODEL sm_feature;
+    D3D_SHADER_MODEL sm;
+    unsigned int i;
     HRESULT hr;
 
-    hr = ID3D12Device_CheckFeatureSupport(device, D3D12_FEATURE_SHADER_MODEL, &sm, sizeof(sm));
-    ok(hr == S_OK, "Failed to check feature shader model support, hr %#x.\n", hr);
-    return sm.HighestShaderModel >= D3D_SHADER_MODEL_6_0;
+    static const D3D_SHADER_MODEL d3d_shader_models[] =
+    {
+        [SHADER_MODEL_5_1] = D3D_SHADER_MODEL_5_1,
+        [SHADER_MODEL_6_0] = D3D_SHADER_MODEL_6_0,
+        [SHADER_MODEL_6_2] = D3D_SHADER_MODEL_6_2,
+        [SHADER_MODEL_6_6] = D3D_SHADER_MODEL_6_6,
+    };
+
+    for (i = ARRAY_SIZE(d3d_shader_models) - 1; i != UINT_MAX; --i)
+    {
+        if (!(sm = d3d_shader_models[i]))
+            continue;
+
+        sm_feature.HighestShaderModel = sm;
+
+        hr = ID3D12Device_CheckFeatureSupport(device, D3D12_FEATURE_SHADER_MODEL, &sm_feature, sizeof(sm_feature));
+        /* Might return E_INVALIDARG is the runtime doesn't know about modern SMs. */
+        ok(hr == S_OK || hr == E_INVALIDARG, "Failed to check feature shader model support, hr %#x.\n", hr);
+
+        if (hr == S_OK && sm_feature.HighestShaderModel >= sm)
+            return i;
+    }
+
+    fatal_error("Maximum shader model is smaller than 5.1.\n");
 }
 
 static void run_shader_tests_for_model_range(void *dxc_compiler,
@@ -1204,7 +1233,9 @@ static void run_shader_tests_for_model_range(void *dxc_compiler,
         return;
     device = runner.test_context.device;
 
-    if (minimum_shader_model >= SHADER_MODEL_6_0 && !device_supports_shader_model_6_0(device))
+    maximum_shader_model = min(maximum_shader_model, get_supported_shader_model(device));
+
+    if (minimum_shader_model >= SHADER_MODEL_6_0 && maximum_shader_model < SHADER_MODEL_6_0)
     {
         skip("The device does not support shader model 6.0.\n");
         destroy_test_context(&runner.test_context);

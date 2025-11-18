@@ -83,6 +83,7 @@ static const char *const sm_strings_dot[] =
     [SHADER_MODEL_5_1] = "5.1",
     [SHADER_MODEL_6_0] = "6.0",
     [SHADER_MODEL_6_2] = "6.2",
+    [SHADER_MODEL_6_6] = "6.6",
 };
 
 static const char *const sm_strings_underscore[] =
@@ -95,6 +96,7 @@ static const char *const sm_strings_underscore[] =
     [SHADER_MODEL_5_1] = "5_1",
     [SHADER_MODEL_6_0] = "6_0",
     [SHADER_MODEL_6_2] = "6_2",
+    [SHADER_MODEL_6_6] = "6_6",
 };
 
 void fatal_error(const char *format, ...)
