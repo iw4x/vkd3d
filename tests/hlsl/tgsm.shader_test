@@ -49,7 +49,7 @@ void main(uint local_idx : SV_GroupIndex)
 shader model >= 4.0
 
 % The type of a groupshared variable must not contain objects.
-[compute shader fail(sm<6) todo]
+[compute shader fail(sm<6)]
 struct data
 {
     Texture2D tex;
@@ -65,7 +65,7 @@ void main(uint local_idx : SV_GroupIndex)
 
 % Even though the 'groupshared' attribute is ignored in non-compute shaders,
 % native still checks whether the type of the variable contains objects or not.
-[pixel shader fail(sm<6) todo]
+[pixel shader fail(sm<6) todo(sm>=5.1 & sm<6)]
 groupshared Texture2D m[4];
 
 float4 main() : SV_Target

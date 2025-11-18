@@ -2410,6 +2410,21 @@ static void check_invalid_object_fields(struct hlsl_ctx *ctx, const struct hlsl_
                 "Target profile doesn't support objects as struct members in uniform variables.");
 }
 
+static void validate_groupshared_var(struct hlsl_ctx *ctx, const struct hlsl_ir_var *var)
+{
+    if (type_has_object_components(var->data_type))
+    {
+        struct vkd3d_string_buffer *string;
+
+        if ((string = hlsl_type_to_string(ctx, var->data_type)))
+        {
+            hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                    "Groupshared type %s is not numeric.", string->buffer);
+            hlsl_release_string_buffer(ctx, string);
+        }
+    }
+}
+
 static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
 {
     uint32_t modifiers = v->modifiers | v->semantic.modifiers;
@@ -2564,11 +2579,18 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_MODIFIER,
                     "Variable '%s' is declared as both \"uniform\" and \"static\".", var->name);
 
-        if ((modifiers & HLSL_STORAGE_GROUPSHARED) && ctx->profile->type != VKD3D_SHADER_TYPE_COMPUTE)
+        if ((modifiers & HLSL_STORAGE_GROUPSHARED))
         {
-            modifiers &= ~HLSL_STORAGE_GROUPSHARED;
-            hlsl_warning(ctx, &var->loc, VKD3D_SHADER_WARNING_HLSL_IGNORED_MODIFIER,
-                    "Ignoring the 'groupshared' modifier in a non-compute shader.");
+            /* d3dcompiler/fxc always validates global groupshared variables,
+             * regardless of whether the groupshared modifier is ignored. */
+            validate_groupshared_var(ctx, var);
+
+            if (ctx->profile->type != VKD3D_SHADER_TYPE_COMPUTE)
+            {
+                modifiers &= ~HLSL_STORAGE_GROUPSHARED;
+                hlsl_warning(ctx, &var->loc, VKD3D_SHADER_WARNING_HLSL_IGNORED_MODIFIER,
+                        "Ignoring the 'groupshared' modifier in a non-compute shader.");
+            }
         }
 
         /* Mark it as uniform. We need to do this here since synthetic
