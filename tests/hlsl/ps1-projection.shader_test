@@ -18,7 +18,7 @@ size (2d, 5, 5)
 [vertex shader]
 void main(inout float4 pos : position, out float4 tex : texcoord)
 {
-    tex = float4(1.2, 0.5, 4.0, 2.0);
+    tex = float4(1.4, 0.5, 4.0, 2.0);
 }
 
 [pixel shader d3dbc-hex]
