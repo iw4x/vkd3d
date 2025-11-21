@@ -7754,6 +7754,10 @@ bool hlsl_regset_index_from_deref(struct hlsl_ctx *ctx, const struct hlsl_deref 
                     *index += 4 * idx;
                     break;
 
+                case HLSL_CLASS_VECTOR:
+                    *index += idx;
+                    break;
+
                 default:
                     vkd3d_unreachable();
             }
