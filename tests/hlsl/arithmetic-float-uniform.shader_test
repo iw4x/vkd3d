@@ -480,6 +480,55 @@ draw quad
 % The computation is done in f16, but ULPs are relative to the f32 result.
 probe (0, 0) rgba(-0.0156173706, -6.5, 1.90734863e-06, 15.0) 16384
 
+% Denormal behavior.
+% Some C libraries are unable to parse denormal numbers, so we bitcast to uint.
+%
+% By default all D3D versions flush to zero for f32 (see section 3.1.3.2
+% "Complete Listing of Deviations or Additional Requirements vs. IEEE-754" of
+% the Direct3D 11.3 Functional Specification.)
+[require]
+
+[pixel shader]
+uniform float2 f;
+
+float4 main() : SV_Target
+{
+    /* Implementations differ on whether just returning f.x should cause
+     * a flush to zero or not. Se we don't test that behaviour. */
+    return float4(0.0, f.x / 100.0f, f.x * 100.0f, f.x / f.y);
+}
+
+[test]
+uniform 0 float4 1.0e-37 100.0 0.0 0.0
+draw quad
+bug(llvmpipe) probe (0, 0) u32(0x00000000, 0x00000000, 0x0554ad2e, 0x00000000)  % f32(0.0, 0.0, 1.0e-35, 0.0)
+uniform 0 uint4 0x000ae398 0x3c23d70a 0 0                                       % f32(1.0e-39, 0.01, 0, 0)
+draw quad
+bug(llvmpipe) probe (0, 0) u32(0x00000000, 0x00000000, 0x00000000, 0x00000000)  % f32(0.0, 0.0, 0.0, 0.0)
+
+% f64 preserves denormals instead.
+[require]
+shader model >= 5.0
+float64
+
+[pixel shader todo]
+uniform double f;
+
+uint4 main() : SV_Target
+{
+    uint4 ret;
+    double2 d = double2(f / 100.0, f * 100.0);
+    asuint(d.x, ret.x, ret.y);
+    asuint(d.y, ret.z, ret.w);
+    return ret;
+}
+
+[test]
+uniform 0 uint64_t2 0x0031fa182c40c60d 0                                        % f64(1e-307, 0)
+todo(sm<6) draw quad
+todo(llvmpipe | intel) probe (0, 0) u64(0x0000b8157268fdaf, 0x009c16c5c5253574) % f64(1e-309, 9.999999999999999e-306)
+
+% DXIL SM 6.2+ allow setting the f32 behaviour.
 [require]
 shader model >= 6.2
 
@@ -490,8 +539,6 @@ float4 main() : SV_Target
 {
     return float4(f.x, f.x / 100.0f, f.x * 100.0f, f.x / f.y);
 }
-
-% Some C libraries are unable to parse denormal numbers, so we bitcast to uint
 
 [test]
 denorm preserve
@@ -514,7 +561,7 @@ probe (0, 0) u32(0x000ae398, 0x00000000, 0x00000000, 0x00000000)  % f32(1.0e-39,
 format r32g32b32a32-uint
 size (2d, 640, 480)
 
-% Per the specification, the dernom mode only applies to f32;
+% Per the specification, the denorm mode only applies to f32;
 % f64 and f16 are always supposed to preserve denormals. Tests agree.
 
 [require]
