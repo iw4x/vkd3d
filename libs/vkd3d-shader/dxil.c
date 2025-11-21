@@ -8699,6 +8699,7 @@ static void sm6_parser_init_attribute_groups(struct sm6_parser *dxil, const stru
     {
         vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
                 "Out of memory while allocating the parameter attribute groups array.");
+        dxil->attribute_group_count = 0;
         return;
     }
 
