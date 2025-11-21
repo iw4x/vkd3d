@@ -76,6 +76,7 @@ struct physical_device_info
     VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT demote_to_helper_invocation_features;
     VkPhysicalDeviceProperties2 properties2;
     VkPhysicalDeviceDriverPropertiesKHR driver_properties;
+    VkPhysicalDeviceSamplerFilterMinmaxPropertiesEXT filter_minmax_properties;
 };
 
 static struct vulkan_shader_runner *vulkan_shader_runner(struct shader_runner *r)
@@ -1026,6 +1027,24 @@ static VkSamplerAddressMode vk_address_mode_from_d3d12(D3D12_TEXTURE_ADDRESS_MOD
     }
 }
 
+static VkSamplerReductionModeEXT vk_reduction_mode_from_d3d12(D3D12_FILTER filter)
+{
+    D3D12_FILTER_REDUCTION_TYPE r = D3D12_DECODE_FILTER_REDUCTION(filter);
+
+    switch (r)
+    {
+        case D3D12_FILTER_REDUCTION_TYPE_STANDARD:
+        case D3D12_FILTER_REDUCTION_TYPE_COMPARISON:
+            return VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE;
+        case D3D12_FILTER_REDUCTION_TYPE_MINIMUM:
+            return VK_SAMPLER_REDUCTION_MODE_MIN;
+        case D3D12_FILTER_REDUCTION_TYPE_MAXIMUM:
+            return VK_SAMPLER_REDUCTION_MODE_MAX;
+        default:
+            fatal_error("Unhandled reduction type %#x.\n", r);
+    }
+}
+
 static VkDescriptorSetLayout create_descriptor_set_layout(struct vulkan_shader_runner *runner)
 {
     VkDescriptorSetLayoutCreateInfo set_desc = {.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
@@ -1073,6 +1092,15 @@ static VkDescriptorSetLayout create_descriptor_set_layout(struct vulkan_shader_r
         VkSamplerCreateInfo sampler_desc = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
         struct vulkan_sampler *vulkan_sampler = &runner->samplers[i];
         const struct sampler *sampler = &runner->r.samplers[i];
+        VkSamplerReductionModeCreateInfoEXT reduction_desc;
+
+        reduction_desc.reductionMode = vk_reduction_mode_from_d3d12(sampler->filter);
+        if (reduction_desc.reductionMode != VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE)
+        {
+            sampler_desc.pNext = &reduction_desc;
+            reduction_desc.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT;
+            reduction_desc.pNext = NULL;
+        }
 
         sampler_desc.magFilter = (sampler->filter & 0x4) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
         sampler_desc.minFilter = (sampler->filter & 0x10) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
@@ -1695,6 +1723,7 @@ static bool check_device_extensions(struct vulkan_shader_runner *runner,
     device_extensions[] =
     {
         {VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME},
+        {VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME},
         {VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME},
         {VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME},
         {VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME, true},
@@ -1718,6 +1747,8 @@ static bool check_device_extensions(struct vulkan_shader_runner *runner,
             enabled_extensions->names[enabled_extensions->count++] = name;
             if (!strcmp(name, VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME))
                 runner->caps.shader_caps[SHADER_CAP_ROV] = true;
+            if (!strcmp(name, VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
+                runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX] = true;
             if (!strcmp(name, VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME))
                 runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX] = true;
             if (!strcmp(name, VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME))
@@ -1776,10 +1807,22 @@ static void get_physical_device_info(struct vulkan_shader_runner *runner, struct
         info->driver_properties.pNext = list;
     }
 
+    if (runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX])
+    {
+        info->filter_minmax_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_FILTER_MINMAX_PROPERTIES_EXT;
+        info->filter_minmax_properties.pNext = info->properties2.pNext;
+        info->properties2.pNext = &info->filter_minmax_properties;
+    }
+
     if (context->vkGetPhysicalDeviceFeatures2KHR)
         VK_CALL(vkGetPhysicalDeviceProperties2KHR(context->phys_device, &info->properties2));
     else
         VK_CALL(vkGetPhysicalDeviceProperties(context->phys_device, &info->properties2.properties));
+
+    if (runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX]
+            && (!info->filter_minmax_properties.filterMinmaxSingleComponentFormats
+            || !info->filter_minmax_properties.filterMinmaxImageComponentMapping))
+        runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX] = false;
 }
 
 static uint32_t get_format_support(const struct vulkan_test_context *context, enum DXGI_FORMAT format)

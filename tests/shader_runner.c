@@ -480,6 +480,7 @@ static const char *const shader_cap_strings[] =
     [SHADER_CAP_CULL_DISTANCE]       = "cull-distance",
     [SHADER_CAP_DEPTH_BOUNDS]        = "depth-bounds",
     [SHADER_CAP_DESCRIPTORS]         = "descriptors",
+    [SHADER_CAP_FILTER_MINMAX]       = "filter-minmax",
     [SHADER_CAP_FLOAT64]             = "float64",
     [SHADER_CAP_FOG]                 = "fog",
     [SHADER_CAP_GEOMETRY_SHADER]     = "geometry-shader",
@@ -647,6 +648,9 @@ static void parse_sampler_directive(struct sampler *sampler, const char *line)
     }
     else if (match_string(line, "filter", &line))
     {
+        D3D12_FILTER_REDUCTION_TYPE reduction = D3D12_FILTER_REDUCTION_TYPE_STANDARD;
+        unsigned int i;
+
         static const struct
         {
             const char *string;
@@ -663,15 +667,19 @@ static void parse_sampler_directive(struct sampler *sampler, const char *line)
             {"linear linear point",     D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT},
             {"linear linear linear",    D3D12_FILTER_MIN_MAG_MIP_LINEAR},
         };
-        unsigned int i;
+
+        if (sampler->func)
+            reduction = D3D12_FILTER_REDUCTION_TYPE_COMPARISON;
+        else if (match_string(line, "minimum", &line))
+            reduction = D3D12_FILTER_REDUCTION_TYPE_MINIMUM;
+        else if (match_string(line, "maximum", &line))
+            reduction = D3D12_FILTER_REDUCTION_TYPE_MAXIMUM;
 
         for (i = 0; i < ARRAY_SIZE(filters); ++i)
         {
             if (match_string(line, filters[i].string, &line))
             {
-                sampler->filter = filters[i].filter;
-                if (sampler->func)
-                    sampler->filter |= D3D12_FILTER_REDUCTION_TYPE_COMPARISON << D3D12_FILTER_REDUCTION_TYPE_SHIFT;
+                sampler->filter = (reduction << D3D12_FILTER_REDUCTION_TYPE_SHIFT) | filters[i].filter;
                 return;
             }
         }
@@ -680,6 +688,7 @@ static void parse_sampler_directive(struct sampler *sampler, const char *line)
     }
     else if (match_string(line, "comparison", &line))
     {
+        sampler->filter &= ~(D3D12_FILTER_REDUCTION_TYPE_MASK << D3D12_FILTER_REDUCTION_TYPE_SHIFT);
         sampler->filter |= D3D12_FILTER_REDUCTION_TYPE_COMPARISON << D3D12_FILTER_REDUCTION_TYPE_SHIFT;
         sampler->func = parse_comparison_func(line, &line);
         return;

@@ -293,6 +293,7 @@ static bool is_nvidia_windows_device(ID3D11Device *device)
 
 static BOOL init_test_context(struct d3d11_shader_runner *runner)
 {
+    D3D11_FEATURE_DATA_D3D11_OPTIONS1 options1 = {0};
     D3D11_FEATURE_DATA_D3D11_OPTIONS2 options2 = {0};
     D3D11_FEATURE_DATA_D3D11_OPTIONS3 options3 = {0};
     D3D11_FEATURE_DATA_DOUBLES doubles = {0};
@@ -331,26 +332,27 @@ static BOOL init_test_context(struct d3d11_shader_runner *runner)
         return FALSE;
     }
 
-    runner->caps.runner = "d3d11.dll";
-    runner->caps.compiler = HLSL_COMPILER;
-    runner->caps.minimum_shader_model = SHADER_MODEL_4_0;
-    runner->caps.maximum_shader_model = SHADER_MODEL_5_0;
-
-    runner->caps.shader_caps[SHADER_CAP_CULL_DISTANCE] = true;
     hr = ID3D11Device_CheckFeatureSupport(runner->device, D3D11_FEATURE_DOUBLES,
             &doubles, sizeof(doubles));
     ok(hr == S_OK, "Failed to check double precision feature support, hr %#lx.\n", hr);
-    runner->caps.shader_caps[SHADER_CAP_FLOAT64] = doubles.DoublePrecisionFloatShaderOps;
-    runner->caps.shader_caps[SHADER_CAP_GEOMETRY_SHADER] = true;
-
+    hr = ID3D11Device_CheckFeatureSupport(runner->device,
+            D3D11_FEATURE_D3D11_OPTIONS1, &options1, sizeof(options1));
+    ok(hr == S_OK, "Failed to check feature options1 support, hr %#lx.\n", hr);
     hr = ID3D11Device_CheckFeatureSupport(runner->device,
             D3D11_FEATURE_D3D11_OPTIONS2, &options2, sizeof(options2));
     ok(hr == S_OK, "Failed to check feature options2 support, hr %#lx.\n", hr);
-
     hr = ID3D11Device_CheckFeatureSupport(runner->device,
             D3D11_FEATURE_D3D11_OPTIONS3, &options3, sizeof(options3));
     ok(hr == S_OK, "Failed to check feature options3 support, hr %#lx.\n", hr);
 
+    runner->caps.runner = "d3d11.dll";
+    runner->caps.compiler = HLSL_COMPILER;
+    runner->caps.minimum_shader_model = SHADER_MODEL_4_0;
+    runner->caps.maximum_shader_model = SHADER_MODEL_5_0;
+    runner->caps.shader_caps[SHADER_CAP_CULL_DISTANCE] = true;
+    runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX] = options1.MinMaxFiltering;
+    runner->caps.shader_caps[SHADER_CAP_FLOAT64] = doubles.DoublePrecisionFloatShaderOps;
+    runner->caps.shader_caps[SHADER_CAP_GEOMETRY_SHADER] = true;
     runner->caps.shader_caps[SHADER_CAP_ROV] = options2.ROVsSupported;
     runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX] = options3.VPAndRTArrayIndexFromAnyShaderFeedingRasterizer;
     runner->caps.shader_caps[SHADER_CAP_TESSELLATION_SHADER] = true;

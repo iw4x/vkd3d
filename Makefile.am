@@ -243,6 +243,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/sample-cmp.shader_test \
 	tests/hlsl/sample-grad.shader_test \
 	tests/hlsl/sample-level.shader_test \
+	tests/hlsl/sample-minmax.shader_test \
 	tests/hlsl/sampler-offset.shader_test \
 	tests/hlsl/sampler-state.shader_test \
 	tests/hlsl/sampler.shader_test \

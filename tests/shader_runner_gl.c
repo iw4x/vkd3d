@@ -166,6 +166,8 @@ static bool check_gl_extensions(struct gl_runner *runner)
         runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX] = true;
     if (check_gl_extension("GL_ARB_tessellation_shader", count))
         runner->caps.shader_caps[SHADER_CAP_TESSELLATION_SHADER] = true;
+    if (check_gl_extension("GL_ARB_texture_filter_minmax", count))
+        runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX] = true;
 
     return true;
 }
@@ -1108,6 +1110,24 @@ static GLenum get_compare_op_gl(D3D12_COMPARISON_FUNC op)
     }
 }
 
+static GLenum get_texture_reduction_mode_gl(D3D12_FILTER filter)
+{
+    D3D12_FILTER_REDUCTION_TYPE r = D3D12_DECODE_FILTER_REDUCTION(filter);
+
+    switch (r)
+    {
+        case D3D12_FILTER_REDUCTION_TYPE_STANDARD:
+        case D3D12_FILTER_REDUCTION_TYPE_COMPARISON:
+            return GL_WEIGHTED_AVERAGE_ARB;
+        case D3D12_FILTER_REDUCTION_TYPE_MINIMUM:
+            return GL_MIN;
+        case D3D12_FILTER_REDUCTION_TYPE_MAXIMUM:
+            return GL_MAX;
+        default:
+            fatal_error("Unhandled reduction type %#x.\n", r);
+    }
+}
+
 static GLuint compile_graphics_shader_program(struct gl_runner *runner, ID3D10Blob **vs_blob)
 {
     ID3D10Blob *fs_blob, *hs_blob = NULL, *ds_blob = NULL, *gs_blob = NULL;
@@ -1301,6 +1321,8 @@ static bool gl_runner_draw(struct shader_runner *r,
         glSamplerParameteri(id, GL_TEXTURE_WRAP_R, get_texture_wrap_gl(sampler->w_address));
         glSamplerParameteri(id, GL_TEXTURE_MAG_FILTER, get_texture_filter_mag_gl(sampler->filter));
         glSamplerParameteri(id, GL_TEXTURE_MIN_FILTER, get_texture_filter_min_gl(sampler->filter));
+        if (runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX])
+            glSamplerParameteri(id, GL_TEXTURE_REDUCTION_MODE_ARB, get_texture_reduction_mode_gl(sampler->filter));
         if (sampler->func)
         {
             glSamplerParameteri(id, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
