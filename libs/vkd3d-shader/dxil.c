@@ -176,6 +176,11 @@ enum bitcode_value_symtab_code
     VST_CODE_BBENTRY = 2,
 };
 
+enum bitcode_paramattr_code
+{
+    PARAMATTR_CODE_ENTRY = 2,
+};
+
 enum bitcode_paramattr_group_code
 {
     PARAMATTR_GRP_CODE_ENTRY = 3,
@@ -858,6 +863,12 @@ struct sm6_descriptor_info
     enum vsir_data_type reg_data_type;
 };
 
+struct dxil_parameter_attribute
+{
+    uint64_t *groups;
+    size_t group_count;
+};
+
 enum dxil_attribute_kind
 {
     ATTRIBUTE_WELL_KNOWN = 0,
@@ -942,6 +953,9 @@ struct sm6_parser
     size_t value_capacity;
     size_t cur_max_value;
     unsigned int ssa_next_id;
+
+    struct dxil_parameter_attribute *parameter_attributes;
+    size_t parameter_attribute_count;
 
     struct dxil_attribute_group *attribute_groups;
     size_t attribute_group_count;
@@ -8623,6 +8637,51 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
     return VKD3D_OK;
 }
 
+static void sm6_parser_init_parameter_attributes(struct sm6_parser *dxil, const struct dxil_block *block)
+{
+    size_t i;
+
+    if (dxil->parameter_attributes)
+    {
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_DUPLICATED_BLOCK,
+                "Duplicated PARAMATTR block.");
+        return;
+    }
+
+    dxil->parameter_attribute_count = block->record_count;
+
+    if (!(dxil->parameter_attributes = vkd3d_calloc(block->record_count, sizeof(*dxil->parameter_attributes))))
+    {
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
+                "Out of memory while allocating the parameter attributes array.");
+        dxil->parameter_attribute_count = 0;
+        return;
+    }
+
+    for (i = 0; i < block->record_count; ++i)
+    {
+        struct dxil_parameter_attribute *attribute = &dxil->parameter_attributes[i];
+        struct dxil_record *record = block->records[i];
+
+        if (record->code != PARAMATTR_CODE_ENTRY)
+        {
+            vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
+                    "PARAMATTR record code %u is not implemented.", record->code);
+            return;
+        }
+
+        if (!(attribute->groups = vkd3d_calloc(record->operand_count, sizeof(*attribute->groups))))
+        {
+            vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
+                    "Out of memory while allocating the groups array.");
+            return;
+        }
+
+        memcpy(attribute->groups, record->operands, record->operand_count * sizeof(*attribute->groups));
+        attribute->group_count = record->operand_count;
+    }
+}
+
 static void sm6_parser_init_attribute_groups(struct sm6_parser *dxil, const struct dxil_block *block)
 {
     size_t i, j;
@@ -8754,6 +8813,12 @@ static enum vkd3d_result sm6_parser_module_init(struct sm6_parser *sm6, const st
 
     switch (block->id)
     {
+        case PARAMATTR_BLOCK:
+            sm6_parser_init_parameter_attributes(sm6, block);
+            if (sm6->p.status < 0)
+                return sm6->p.status;
+            break;
+
         case PARAMATTR_GROUP_BLOCK:
             sm6_parser_init_attribute_groups(sm6, block);
             break;
@@ -8779,7 +8844,6 @@ static enum vkd3d_result sm6_parser_module_init(struct sm6_parser *sm6, const st
 
         case BLOCKINFO_BLOCK:
         case MODULE_BLOCK:
-        case PARAMATTR_BLOCK:
         case VALUE_SYMTAB_BLOCK:
         case METADATA_BLOCK:
         case METADATA_ATTACHMENT_BLOCK:
@@ -10803,6 +10867,20 @@ static void sm6_functions_cleanup(struct sm6_function *functions, size_t count)
     vkd3d_free(functions);
 }
 
+static void sm6_parser_cleanup_parameter_attributes(struct sm6_parser *sm6)
+{
+    size_t i;
+
+    for (i = 0; i < sm6->parameter_attribute_count; ++i)
+    {
+        struct dxil_parameter_attribute *attribute = &sm6->parameter_attributes[i];
+
+        vkd3d_free(attribute->groups);
+    }
+
+    vkd3d_free(sm6->parameter_attributes);
+}
+
 static void sm6_parser_cleanup_attribute_groups(struct sm6_parser *dxil)
 {
     struct dxil_attribute_group *group;
@@ -10843,6 +10921,7 @@ static void sm6_parser_cleanup(struct sm6_parser *sm6)
     sm6_type_table_cleanup(sm6->types, sm6->type_count);
     sm6_symtab_cleanup(sm6->global_symbols, sm6->global_symbol_count);
     sm6_functions_cleanup(sm6->functions, sm6->function_count);
+    sm6_parser_cleanup_parameter_attributes(sm6);
     sm6_parser_cleanup_attribute_groups(sm6);
     sm6_parser_metadata_cleanup(sm6);
     vkd3d_free(sm6->descriptors);
