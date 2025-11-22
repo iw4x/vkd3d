@@ -1833,7 +1833,6 @@ struct vkd3d_shader_message_context
 };
 
 void vkd3d_shader_message_context_cleanup(struct vkd3d_shader_message_context *context);
-bool vkd3d_shader_message_context_copy_messages(struct vkd3d_shader_message_context *context, char **out);
 void vkd3d_shader_message_context_init(struct vkd3d_shader_message_context *context,
         enum vkd3d_shader_log_level log_level);
 void vkd3d_shader_message_context_trace_messages_(const struct vkd3d_shader_message_context *context,
@@ -1850,6 +1849,8 @@ void vkd3d_shader_warning(struct vkd3d_shader_message_context *context, const st
         enum vkd3d_shader_error error, const char *format, ...) VKD3D_PRINTF_FUNC(4, 5);
 void vkd3d_shader_vwarning(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
         enum vkd3d_shader_error error, const char *format, va_list args);
+
+void vkd3d_shader_string_from_message_context(char **out, struct vkd3d_shader_message_context *context);
 
 uint64_t vkd3d_shader_init_config_flags(void);
 void vkd3d_shader_trace_text_(const char *text, size_t size, const char *function);
