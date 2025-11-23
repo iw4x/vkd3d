@@ -1572,6 +1572,24 @@ static inline struct vkd3d_shader_instruction *vsir_program_iterator_insert_befo
     return vsir_program_iterator_current(it);
 }
 
+static inline void vsir_program_iterator_nop_range(const struct vsir_program_iterator *first,
+        const struct vsir_program_iterator *last, const struct vkd3d_shader_location *location)
+{
+    const struct vkd3d_shader_instruction_array *array = first->array;
+    size_t first_idx = first->idx;
+    size_t last_idx = last->idx;
+    size_t idx;
+
+    VKD3D_ASSERT(last->array == array);
+    VKD3D_ASSERT(last_idx < array->count);
+    VKD3D_ASSERT(first_idx <= last_idx);
+
+    for (idx = first_idx; idx <= last_idx; ++idx)
+    {
+        vsir_instruction_init(&array->elements[idx], location, VSIR_OP_NOP);
+    }
+}
+
 enum vkd3d_shader_config_flags
 {
     VKD3D_SHADER_CONFIG_FLAG_FORCE_VALIDATION = 0x00000001,

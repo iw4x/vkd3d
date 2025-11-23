@@ -24,7 +24,7 @@ ffff0300                                % ps_3_0
 0000ffff                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (320, 240) f32(.707106769, .707106769, 0, .707106769)
 
 [pixel shader d3dbc-hex]
@@ -38,7 +38,7 @@ ffff0300                                % ps_3_0
 
 [test]
 uniform 0 float4 .1 .1 .1 .1
-todo draw quad
+draw quad
 probe (320, 240) f32(.707106769, .707106769, .1, .1)
 
 [pixel shader d3dbc-hex]
@@ -49,7 +49,7 @@ ffff0300                                % ps_3_0
 0000ffff                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (320, 240) f32(0, .957826257, .287347883, .478913128)
 
 [pixel shader d3dbc-hex]
@@ -60,7 +60,7 @@ ffff0300                                % ps_3_0
 0000ffff                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (320, 240) f32(0, .957826257, .287347883, .478913128)
 
 [pixel shader d3dbc-hex]
@@ -73,7 +73,7 @@ ffff0300                                % ps_3_0
 0000ffff                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (320, 240) f32(0, .957826257, .1, .1)
 
 [pixel shader d3dbc-hex]
@@ -85,7 +85,7 @@ ffff0300                                % ps_3_0
 0000ffff                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (320, 240) f32(0, .707106769, .707106769, .707106769)
 
 [pixel shader d3dbc-hex]
@@ -97,7 +97,7 @@ ffff0300                                % ps_3_0
 0000ffff                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (320, 240) f32(.816496611, .408248276, .408248276, .1) 1
 
 [pixel shader d3dbc-hex]
@@ -109,7 +109,7 @@ ffff0300                                % ps_3_0
 0000ffff                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (320, 240) f32(0, .707106769, .707106769, .707106769)
 
 [pixel shader d3dbc-hex]
@@ -121,13 +121,13 @@ ffff0300                                % ps_3_0
 
 [test]
 uniform 0 float4 0 0 0 0
-todo draw quad
+draw quad
 probe (320, 240) f32(0, 0, 0, 0)
 uniform 0 float4 2.0 0.0 0.0 0.5
-todo draw quad
+draw quad
 probe (320, 240) f32(1.0, 0.0, .25, .25)
 uniform 0 float4 1.0 1.0 1.0 1.0
-todo draw quad
+draw quad
 probe (320, 240) f32(.577350259, .577350259, .577350259, .577350259)
 
 [pixel shader d3dbc-hex]
@@ -138,5 +138,5 @@ ffff0300                                % ps_3_0
 
 [test]
 uniform 0 float4 1.0 1.0 0.0 2.0
-todo draw quad
+draw quad
 probe (320, 240) f32(.447213590, 0, .894427180, .447213590)
