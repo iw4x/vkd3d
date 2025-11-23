@@ -52,6 +52,7 @@ vkd3d_cross_tests = \
 	tests/hlsl_d3d12
 
 vkd3d_shader_tests = \
+	tests/d3dbc/nrm.shader_test \
 	tests/hlsl/abs.shader_test \
 	tests/hlsl/all.shader_test \
 	tests/hlsl/alpha-test.shader_test \

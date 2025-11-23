@@ -429,6 +429,7 @@ format_info[] =
     {"r32g32b32a32-float",  16, DXGI_FORMAT_R32G32B32A32_FLOAT},
     {"r32g32b32a32-sint",   16, DXGI_FORMAT_R32G32B32A32_SINT},
     {"r32g32b32a32-uint",   16, DXGI_FORMAT_R32G32B32A32_UINT},
+    {"r32g32b32-float",     12, DXGI_FORMAT_R32G32B32_FLOAT},
     {"r32g32-float",         8, DXGI_FORMAT_R32G32_FLOAT},
     {"r32g32-sint",          8, DXGI_FORMAT_R32G32_SINT},
     {"r32g32-uint",          8, DXGI_FORMAT_R32G32_UINT},
@@ -510,16 +511,23 @@ static void parse_require_directive(struct shader_runner *runner, const char *li
 {
     enum shader_cap shader_cap;
     bool less_than = false;
+    bool equal = false;
     unsigned int i;
 
     if (match_string(line, "shader model >=", &line)
+            || (equal = match_string(line, "shader model =", &line))
             || (less_than = match_string(line, "shader model <", &line)))
     {
         for (i = 0; i < ARRAY_SIZE(sm_strings_dot); ++i)
         {
             if (match_string(line, sm_strings_dot[i], &line))
             {
-                if (less_than)
+                if (equal)
+                {
+                    runner->maximum_shader_model = min(runner->maximum_shader_model, i);
+                    runner->minimum_shader_model = max(runner->minimum_shader_model, i);
+                }
+                else if (less_than)
                 {
                     if (!i)
                         fatal_error("Shader model < '%s' is invalid.\n", line);
