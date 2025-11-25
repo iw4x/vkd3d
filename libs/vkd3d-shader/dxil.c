@@ -4447,6 +4447,7 @@ static const struct sm6_value *sm6_parser_next_function_definition(struct sm6_pa
 struct function_emission_state
 {
     struct sm6_function *function;
+    const struct dxil_record *record;
     struct vkd3d_shader_instruction *ins;
     unsigned int temp_idx;
 };
@@ -4455,9 +4456,11 @@ static bool sm6_parser_emit_reg_composite_construct(struct sm6_parser *sm6,
         const struct vkd3d_shader_register *operand_regs, unsigned int component_count,
         struct function_emission_state *state, struct vkd3d_shader_register *reg);
 
-static void sm6_parser_emit_alloca(struct sm6_parser *sm6, const struct dxil_record *record,
-        struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
+static void sm6_parser_emit_alloca(struct sm6_parser *sm6, struct function_emission_state *state)
 {
+    struct sm6_value *dst = sm6_parser_get_current_value(sm6);
+    struct vkd3d_shader_instruction *ins = state->ins;
+    const struct dxil_record *record = state->record;
     const struct sm6_type *type[2], *elem_type;
     const struct sm6_value *size;
     unsigned int i, alignment;
@@ -8488,13 +8491,14 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
         is_terminator = false;
 
         state.function = function;
+        state.record = block->records[i];
         state.ins = ins;
 
         record = block->records[i];
         switch (record->code)
         {
             case FUNC_CODE_INST_ALLOCA:
-                sm6_parser_emit_alloca(sm6, record, ins, dst);
+                sm6_parser_emit_alloca(sm6, &state);
                 break;
             case FUNC_CODE_INST_ATOMICRMW:
                 sm6_parser_emit_atomicrmw(sm6, record, &state, dst);
