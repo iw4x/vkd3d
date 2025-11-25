@@ -477,6 +477,15 @@ static bool d3d9_runner_draw(struct shader_runner *r,
         ok(hr == D3D_OK, "Failed to set uniforms, hr %#lx.\n", hr);
     }
 
+    u = &runner->r.uniform_buffers[VKD3D_SHADER_D3DBC_INT_CONSTANT_REGISTER];
+    if (u->count)
+    {
+        hr = IDirect3DDevice9_SetVertexShaderConstantI(device, 0, (const int *)u->elements, u->count / 4);
+        ok(hr == D3D_OK, "Failed to set integer constants, hr %#lx.\n", hr);
+        hr = IDirect3DDevice9_SetPixelShaderConstantI(device, 0, (const int *)u->elements, u->count / 4);
+        ok(hr == D3D_OK, "Failed to set integer constants, hr %#lx.\n", hr);
+    }
+
     decl_elements = calloc(runner->r.input.element_count + 1, sizeof(*decl_elements));
     for (i = 0; i < runner->r.input.element_count; ++i)
     {
