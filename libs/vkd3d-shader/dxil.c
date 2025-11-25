@@ -4648,12 +4648,18 @@ static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, struct function_em
             return;
     }
 
-    ins = state->ins;
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+        return;
+    state->pushed_instruction = true;
+
     vsir_instruction_init(ins, &sm6->p.location, op);
     ins->flags = is_volatile ? VKD3DARF_VOLATILE : 0;
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
     if (ptr->structure_stride)
         src_param_init_vector_from_reg(&src_params[0], &coord);
     else
@@ -4663,7 +4669,10 @@ static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, struct function_em
     sm6_parser_init_ssa_value(sm6, dst);
 
     if (!(dst_params = instruction_dst_params_alloc(ins, 2, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
     vsir_register_from_dxil_value(&dst_params[0].reg, dst, 0, sm6);
     dst_param_init(&dst_params[0]);
 
