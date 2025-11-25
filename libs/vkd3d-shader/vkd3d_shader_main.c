@@ -1677,7 +1677,7 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
         add_descriptor_info = true;
     }
 
-    if (program->has_descriptor_info)
+    if (program->normalisation_flags.has_descriptor_info)
         add_descriptor_info = false;
 
     tessellation_info = vkd3d_find_struct(compile_info->next, SCAN_HULL_SHADER_TESSELLATION_INFO);
@@ -1687,7 +1687,7 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
             add_descriptor_info ? &program->descriptors : NULL, combined_sampler_info, message_context);
 
     if (add_descriptor_info)
-        program->has_descriptor_info = true;
+        program->normalisation_flags.has_descriptor_info = true;
 
     if (TRACE_ON())
         vsir_program_trace(program);

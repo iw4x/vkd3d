@@ -985,6 +985,8 @@ struct vkd3d_shader_version
 
 struct vsir_normalisation_flags
 {
+    bool has_descriptor_info;
+    bool has_no_modifiers;
     bool normalised_clip_cull_arrays;
 };
 
@@ -1626,7 +1628,6 @@ struct vsir_program
     struct shader_signature patch_constant_signature;
 
     struct vkd3d_shader_scan_descriptor_info1 descriptors;
-    bool has_descriptor_info;
     size_t descriptors_size;
 
     unsigned int parameter_count;
@@ -1645,7 +1646,6 @@ struct vsir_program
     bool has_fog;
     uint8_t diffuse_written_mask;
     enum vsir_control_flow_type cf_type;
-    bool has_no_modifiers;
     enum vkd3d_tessellator_domain tess_domain;
     enum vkd3d_shader_tessellator_partitioning tess_partitioning;
     enum vkd3d_shader_tessellator_output_primitive tess_output_primitive;

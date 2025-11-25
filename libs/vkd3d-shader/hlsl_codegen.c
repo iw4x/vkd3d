@@ -13478,7 +13478,7 @@ static void generate_vsir_descriptors(struct hlsl_ctx *ctx, struct vsir_program 
         }
     }
 
-    program->has_descriptor_info = true;
+    program->normalisation_flags.has_descriptor_info = true;
 }
 
 /* For some reason, for matrices, values from default value initializers end
