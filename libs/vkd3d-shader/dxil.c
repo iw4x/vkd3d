@@ -4662,7 +4662,8 @@ static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, struct function_em
 
     sm6_parser_init_ssa_value(sm6, dst);
 
-    dst_params = instruction_dst_params_alloc(ins, 2, sm6);
+    if (!(dst_params = instruction_dst_params_alloc(ins, 2, sm6)))
+        return;
     vsir_register_from_dxil_value(&dst_params[0].reg, dst, 0, sm6);
     dst_param_init(&dst_params[0]);
 
