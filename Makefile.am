@@ -195,6 +195,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/load-level.shader_test \
 	tests/hlsl/log.shader_test \
 	tests/hlsl/logic-operations.shader_test \
+	tests/hlsl/loop-sm3.shader_test \
 	tests/hlsl/loop.shader_test \
 	tests/hlsl/majority-pragma.shader_test \
 	tests/hlsl/majority-syntax.shader_test \

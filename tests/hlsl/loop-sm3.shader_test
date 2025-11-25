@@ -1,0 +1,171 @@
+[require]
+shader model >= 3.0
+
+% NOTE: While these unrolled loop tests are valid for all shader models above
+% 3.0, the comments here are in regards to shader model 3.0, since this model
+% allows for a limited subset of these.
+
+% The compiler uses `i` registers to define the number of iterations to do on
+% a loop. When this matches the value of a uniform, it reserves an `i` register
+% to be provided by the user with the integer value of the uniform via
+% SetShaderConstantI().
+%
+% This loop looks like this:
+%
+%     rep i0
+%       mad r0.xyz, r0, c1.y, r0.w
+%       add r0.w, r0.w, c1.z
+%     endrep
+%
+% NOTE: When compiled with fxc, this shader outputs warnings such as:
+%
+%     warning X4122: sum of 1.23457e+038 and 39 cannot be represented accurately in double precision
+%
+% which appears to suggest that internally it executes a loop unrolling
+% despite the [loop] attribute.
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit;    // In SM3, this gets i0.x as int, and c0.x as float.
+float other;  // In SM3, this should get c1.x as float.
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    [loop]
+    for (int i = 0; i < limit; ++i)
+    {
+        sum *= 10;
+        sum += i;
+    }
+    sum.z = limit;
+    sum.w = other;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(4.0)
+if(sm<4) write cbv-f32 (4) f32(555)
+if(sm<4) write cbv-i32 (0) i32(4)
+if(sm>=4) write cbv-0 (0) i32(4)
+if(sm>=4) write cbv-0 (1) f32(555)
+todo(sm<4) draw quad
+probe (0, 0) f32(123.0, 123.0, 4.0, 555.0)
+if(sm<4) write cbv-f32 (0) f32(7.0)
+if(sm<4) write cbv-f32 (4) f32(555)
+if(sm<4) write cbv-i32 (0) i32(7)
+if(sm>=4) write cbv-0 (0) i32(7)
+todo(sm<4) draw quad
+probe (0, 0) f32(123456.0, 123456.0, 7.0, 555.0)
+
+% The compiler detects when the iterator increment happens inside the loop,
+% even if it is not the last instruction.
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit;   // In SM3, this gets i0.x as int.
+float other; // In SM3, this gets c0.x as float.
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    [loop]
+    for (int i = 0; i < limit;)
+    {
+        sum *= 10;
+        ++i; // Iterator increment here.
+        sum += i;
+    }
+    sum.w = other;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(444)
+if(sm<4) write cbv-i32 (0) i32(5)
+if(sm>=4) write cbv-0 (0) i32(5)
+if(sm>=4) write cbv-0 (1) f32(444)
+todo(sm<4) draw quad
+probe (0, 0) f32(12345.0, 12345.0, 12345.0, 444.0)
+
+% The compiler behaves the same when the iterator is initialized as zero outside
+% the loop.
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit; // In SM3, this gets i0.x as int, and c0.x as float.
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+    int i = 0;
+
+    [loop]
+    for (; i < limit; ++i)
+    {
+        sum *= 10;
+        sum += i;
+    }
+    sum.w = limit;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(3.0)
+if(sm<4) write cbv-i32 (0) i32(3)
+if(sm>=4) write cbv-0 (0) i32(3)
+todo(sm<4) draw quad
+probe (0, 0) f32(12.0, 12.0, 12.0, 3.0)
+
+[pixel shader fail(sm<3) todo(sm<4)]
+int2 limit;  // In SM3, this gets c0.xy, and i0.x, i0.y.
+float other; // In SM3, this gets c1.x.
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    for (int i = 0; i < limit.x; ++i)
+    {
+        sum.x += 1;
+        for (int j = 0; j < limit.y; ++j)
+            sum.y += 1;
+    }
+    sum.zw = limit;
+    sum += other;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(4.0, 3.0, 0.0, 0.0)
+if(sm<4) write cbv-f32 (4) f32(1000)
+if(sm<4) write cbv-i32 (0) i32(4)
+if(sm<4) write cbv-i32 (4) i32(3)
+if(sm>=4) write cbv-0 (0) i32(4, 3)
+if(sm>=4) write cbv-0 (2) f32(1000)
+todo(sm<4) draw quad
+probe (0, 0) f32(1004.0, 1012.0, 1004.0, 1003.0)
+
+% `while` also works this way, and detects when the iterator increases by 1.
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit; // In SM3, this gets i0.x as int, and c0.x as float.
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+    int i = 0;
+
+    [loop]
+    while (i < limit)
+    {
+        i += 2;
+        sum *= 10;
+        sum += i;
+        i -= 1;
+    }
+    sum.w = limit;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(4.0)
+if(sm<4) write cbv-i32 (0) i32(4)
+if(sm>=4) write cbv-0 (0) i32(4)
+todo(sm<4) draw quad
+if(!warp) probe (0, 0) f32(2345.0, 2345.0, 2345.0, 4.0)
