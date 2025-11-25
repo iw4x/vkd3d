@@ -4450,7 +4450,25 @@ struct function_emission_state
     const struct dxil_record *record;
     struct vkd3d_shader_instruction *ins;
     unsigned int temp_idx;
+
+    /* Keep track of whether the helper below sm6_parser_function_init()
+     * already incremented the instruction count or not. Excepected to be
+     * removed once all helpers increment the count. */
+    bool pushed_instruction;
 };
+
+static struct vkd3d_shader_instruction *sm6_parser_add_function_instruction(struct sm6_parser *sm6,
+        struct function_emission_state *state)
+{
+    struct sm6_function *function = state->function;
+    struct vkd3d_shader_instruction *ins;
+
+    if (!(ins = shader_instruction_array_append(&function->instructions)))
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
+                "Out of memory allocating instruction.");
+
+    return ins;
+}
 
 static bool sm6_parser_emit_reg_composite_construct(struct sm6_parser *sm6,
         const struct vkd3d_shader_register *operand_regs, unsigned int component_count,
@@ -4459,9 +4477,9 @@ static bool sm6_parser_emit_reg_composite_construct(struct sm6_parser *sm6,
 static void sm6_parser_emit_alloca(struct sm6_parser *sm6, struct function_emission_state *state)
 {
     struct sm6_value *dst = sm6_parser_get_current_value(sm6);
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
     const struct sm6_type *type[2], *elem_type;
+    struct vkd3d_shader_instruction *ins;
     const struct sm6_value *size;
     unsigned int i, alignment;
     uint64_t packed_operands;
@@ -4527,6 +4545,10 @@ static void sm6_parser_emit_alloca(struct sm6_parser *sm6, struct function_emiss
 
     if (packed_operands)
         WARN("Ignoring flags %#"PRIx64".\n", packed_operands);
+
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+        return;
+    state->pushed_instruction = true;
 
     sm6_parser_declare_indexable_temp(sm6, elem_type, type[0]->u.array.count, alignment, true, 0, ins, dst);
 }
@@ -8562,7 +8584,8 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
         if (record->attachment)
             metadata_attachment_record_apply(record->attachment, record->code, ins, dst, sm6);
 
-        function->instructions.count += ins->opcode != VSIR_OP_NOP;
+        if (!state.pushed_instruction)
+            function->instructions.count += ins->opcode != VSIR_OP_NOP;
 
         if (is_terminator)
         {
