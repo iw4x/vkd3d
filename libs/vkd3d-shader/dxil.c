@@ -8450,6 +8450,8 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
 
     for (i = 1, block_idx = 0, ret_found = false; i < block->record_count; ++i)
     {
+        struct function_emission_state state = {0};
+
         sm6->p.location.column = i;
 
         if (block_idx >= function->block_count)
@@ -8485,6 +8487,9 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
         dst->is_back_ref = true;
         is_terminator = false;
 
+        state.function = function;
+        state.ins = ins;
+
         record = block->records[i];
         switch (record->code)
         {
@@ -8492,12 +8497,8 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 sm6_parser_emit_alloca(sm6, record, ins, dst);
                 break;
             case FUNC_CODE_INST_ATOMICRMW:
-            {
-                struct function_emission_state state = {function, ins};
                 sm6_parser_emit_atomicrmw(sm6, record, &state, dst);
-                program->temp_count = max(program->temp_count, state.temp_idx);
                 break;
-            }
             case FUNC_CODE_INST_BINOP:
                 sm6_parser_emit_binop(sm6, record, function, ins, dst);
                 break;
@@ -8506,12 +8507,8 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 is_terminator = true;
                 break;
             case FUNC_CODE_INST_CALL:
-            {
-                struct function_emission_state state = {function, ins};
                 sm6_parser_emit_call(sm6, record, &state, dst);
-                program->temp_count = max(program->temp_count, state.temp_idx);
                 break;
-            }
             case FUNC_CODE_INST_CAST:
                 sm6_parser_emit_cast(sm6, record, ins, dst);
                 break;
@@ -8552,6 +8549,8 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 FIXME("Unhandled dxil instruction %u.\n", record->code);
                 return VKD3D_ERROR_INVALID_SHADER;
         }
+
+        program->temp_count = max(program->temp_count, state.temp_idx);
 
         if (sm6->p.status < 0)
             return sm6->p.status;
