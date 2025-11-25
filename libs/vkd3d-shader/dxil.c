@@ -4581,9 +4581,10 @@ static enum vkd3d_shader_opcode map_dx_atomicrmw_op(uint64_t code)
     }
 }
 
-static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, const struct dxil_record *record,
-        struct function_emission_state *state, struct sm6_value *dst)
+static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, struct function_emission_state *state)
 {
+    struct sm6_value *dst = sm6_parser_get_current_value(sm6);
+    const struct dxil_record *record = state->record;
     struct vkd3d_shader_dst_param *dst_params;
     struct vkd3d_shader_src_param *src_params;
     struct vkd3d_shader_register regs[2], reg;
@@ -8523,7 +8524,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 sm6_parser_emit_alloca(sm6, &state);
                 break;
             case FUNC_CODE_INST_ATOMICRMW:
-                sm6_parser_emit_atomicrmw(sm6, record, &state, dst);
+                sm6_parser_emit_atomicrmw(sm6, &state);
                 break;
             case FUNC_CODE_INST_BINOP:
                 sm6_parser_emit_binop(sm6, record, function, ins, dst);
