@@ -169,3 +169,205 @@ if(sm<4) write cbv-i32 (0) i32(4)
 if(sm>=4) write cbv-0 (0) i32(4)
 todo(sm<4) draw quad
 if(!warp) probe (0, 0) f32(2345.0, 2345.0, 2345.0, 4.0)
+
+% Uniforms get as many `i` registers as the last component used for a loop
+% limit.
+% Note that components are counted as if all matrices were row_major.
+[pixel shader fail(sm<3) todo(sm<4)]
+int4x3 limit; // gets from i0 to i10, and c0 to c2
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    for (int i = 0; i < limit._42; ++i) // `rep i10`.
+        sum.x += 1;
+    sum.yzw = limit[3];
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32  (0) f32(67.0, 67.0, 67.0, 67.0)
+if(sm<4) write cbv-f32  (4) f32(67.0, 67.0, 67.0,  6.0)
+if(sm<4) write cbv-f32  (8) f32(67.0, 67.0, 67.0, 67.0)
+if(sm<4) write cbv-i32 (40) i32(6)
+if(sm>=4) write cbv-0 (0) i32(67, 67, 67, 67)
+if(sm>=4) write cbv-0 (4) i32(67, 67, 67,  6)
+if(sm>=4) write cbv-0 (8) i32(67, 67, 67, 67)
+todo(sm<4) draw quad
+probe (0, 0) f32(6.0, 67.0, 6.0, 67.0)
+
+% Note that components are counted as if all matrices were row_major.
+[pixel shader fail(sm<3) todo(sm<4)]
+row_major int3x2 limit;
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    for (int i = 0; i < limit._21; ++i) // `rep i2`.
+        sum.x += 1;
+    sum.yz = limit[1];
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(-1.0, -1.0, 0.0, 0.0)
+if(sm<4) write cbv-f32 (4) f32( 3.0, -1.0, 0.0, 0.0)
+if(sm<4) write cbv-f32 (8) f32(-1.0, -1.0, 0.0, 0.0)
+if(sm<4) write cbv-i32 (8) i32(3)
+if(sm>=4) write cbv-0 (0) i32(-1, -1, 0, 0)
+if(sm>=4) write cbv-0 (4) i32( 3, -1, 0, 0)
+if(sm>=4) write cbv-0 (8) i32(-1, -1, 0, 0)
+todo(sm<4) draw quad
+probe (0, 0) f32(3.0, 3.0, -1.0, 0.0)
+
+% The compiler allows initial offsets for the iterator (i = 42, here).
+% The way this is compiled is interesting:
+%
+%     ps_3_0
+%     def c1, 0, 0, 42, 10
+%     def c2, 1, 0, 0, 0
+%     defi i0, 255, 0, 0, 0
+%     mov r0, c1.yyyz
+%     rep i0
+%       break_ge r0.w, c0.x
+%       mad r0.xyz, r0, c1.w, r0.w
+%       add r0.w, r0.w, c2.x
+%     endrep
+%     mov oC0.xyz, r0
+%     mov oC0.w, c0.x
+%
+% Register i0 is defined as 255 (maximum number of iterations) instead of
+% defined by the uniform, and a break_ge instruction finishes the loop
+% instead.
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit;
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    [loop]
+    for (int i = 42; i < limit; ++i)
+    {
+        sum *= 10;
+        sum += i;
+    }
+    sum.w = limit;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(45.0)
+if(sm>=4) write cbv-0 (0) i32(45)
+todo(sm<4) draw quad
+probe (0, 0) f32(4674, 4674, 4674, 45)
+
+% `while` loops are valid:
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit;
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+    int i = 0;
+
+    while (i < limit)
+    {
+        sum *= 1.8;
+        i += 2;
+        sum += i;
+    }
+
+    sum.w = limit;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(5.0)
+if(sm>=4) write cbv-0 (0) i32(5)
+todo(sm<4) draw quad
+probe (0, 0) f32(19.68, 19.68, 19.68, 5.0)
+
+% `break` can be used inside an arbitrary condition.
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit;
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+    int i = 3;
+
+    for (;;)
+    {
+        sum += i;
+
+        if (i * i > limit * limit)
+            break;
+        i += 1;
+    }
+    sum.w = i;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(7.0)
+if(sm>=4) write cbv-0 (0) i32(7)
+todo(sm<4) draw quad
+probe (0, 0) f32(33.0, 33.0, 33.0, 8.0)
+
+% In this case the same i0 register, defined with
+%
+%     defi i0, 255, 0, 0, 0
+%
+% gets used for both `rep` instructions.
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit1;
+int limit2;
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    for (int i = 42; i < limit1; ++i)
+    {
+        sum.x += 1;
+        for (int j = i; j < limit2; ++j)
+            sum.y += 1;
+    }
+    sum.zw = float2(limit1, limit2);
+    return sum;
+}
+[test]
+if(sm<4) write cbv-f32 (0) f32(52.0)
+if(sm<4) write cbv-f32 (4) f32(62.0)
+if(sm>=4) write cbv-0 (0) i32(52, 62, 0, 0)
+todo(sm<4) draw quad
+probe (0, 0) f32(10.0, 155.0, 52.0, 62.0)
+
+% The compiler doesn't detect that these are `limit` iterations, and also uses
+% the `defi i0, 255, 0, 0, 0` trick.
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit; // In SM3, this doesn't get i0.
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+    int i;
+
+    [loop]
+    for (i = 3; i < limit + 3; ++i)
+    {
+        sum *= 10;
+        sum += i;
+    }
+    sum.w = limit;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(6.0)
+if(sm>=4) write cbv-0 (0) i32(6)
+todo(sm<4) draw quad
+probe (0, 0) f32(345678.0, 345678.0, 345678.0, 6.0)
