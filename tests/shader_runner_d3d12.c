@@ -1167,6 +1167,9 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     if (test_options.use_warp_device)
         runner->caps.tags[SHADER_RUNNER_TAG_WARP].present = true;
 
+    if (is_amd_windows_device(device) || is_radv_device(device))
+        runner->caps.tags[SHADER_RUNNER_TAG_AMD].present = true;
+
     if (is_nvidia_windows_device(device) || is_nvidia_device(device))
         runner->caps.tags[SHADER_RUNNER_TAG_NVIDIA].present = true;
 

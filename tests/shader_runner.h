@@ -174,6 +174,7 @@ enum shader_cap
 
 enum shader_runner_tag
 {
+    SHADER_RUNNER_TAG_AMD,
     SHADER_RUNNER_TAG_D3D11,
     SHADER_RUNNER_TAG_D3D12,
     SHADER_RUNNER_TAG_GLSL,

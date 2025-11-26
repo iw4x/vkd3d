@@ -167,6 +167,7 @@ static enum shader_model match_shader_model_string(const char *string, const cha
 
 static const char * const shader_runner_tag_names[SHADER_RUNNER_TAG_COUNT] =
 {
+    [SHADER_RUNNER_TAG_AMD]      = "amd",
     [SHADER_RUNNER_TAG_D3D11]    = "d3d11",
     [SHADER_RUNNER_TAG_D3D12]    = "d3d12",
     [SHADER_RUNNER_TAG_GLSL]     = "glsl",
@@ -1129,6 +1130,16 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         if (match_string_with_args(runner, line, "bug", &line))
         {
             runner->is_bug = true;
+            match = true;
+        }
+
+        /* For tests whose results are inconsistent across Windows D3D
+         * implementations/drivers, but we want to run to verify that our
+         * implementation behaves as we expect. */
+        if (match_string_with_args(runner, line, "winbug", &line))
+        {
+            if (runner->caps->tags[SHADER_RUNNER_TAG_WINDOWS].present)
+                skip_directive = true;
             match = true;
         }
 
