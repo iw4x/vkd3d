@@ -520,3 +520,98 @@ if(sm<4) write cbv-i32 (0) i32(4)
 if(sm>=4) write cbv-0 (0) i32(4)
 todo(sm<4) draw quad
 probe (0, 0) f32(123.0, 123.0, 0.0, 4.0)
+
+[require]
+options: backcompat
+shader model >= 3.0
+
+[vertex shader fail(sm<3) todo(sm<3)]
+void main(float4 p : position, out float4 position : sv_position, out float4 col[4] : COLOR)
+{
+    col[0] = float4(1.0, 0.0, 0.0, 1.0);
+    col[1] = float4(0.0, 1.0, 0.0, 1.0);
+    col[2] = float4(0.0, 0.0, 1.0, 1.0);
+    col[3] = float4(0.5, 0.5, 0.5, 1.0);
+    position = p;
+}
+
+% This shader makes fxc use the aL (loop counter) register.
+% This register is to be used on a `loop` instruction -- a variant of `rep` that
+% takes it as an argument) to relative address an array of input COLOR
+% semantics:
+%
+%    loop aL, i0
+%      add r0, r0, v0[aL]
+%    endloop
+%
+% According to the documentation, for the `loop` instruction, i0.x should be the
+% iteration count, i0.y should be the start, i0.z should be the step, and i0.w
+% should be zero, but these values are not set in the shader on this example so
+% are probably expected to be provided by the user.
+% Note that the [loop] attribute is necessary for this to happen, otherwise the
+% loop is unrolled.
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit;
+
+float4 main(float4 pos : sv_position, in float4 cols[4] : COLOR) : sv_target
+{
+    float4 sum = 0;
+
+    [loop]
+    for (int i = 0; i < limit; ++i)
+        sum += cols[i];
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-i32 (0) i32(3, 0, 1, 0)
+if(sm>=4) write cbv-0 (0) i32(3)
+todo(sm<4 | msl & sm>=6) draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 3.0)
+if(sm<4) write cbv-i32 (0) i32(4, 0, 1, 0)
+if(sm>=4) write cbv-0 (0) i32(4)
+todo(sm<4 | msl & sm>=6) draw quad
+probe (0, 0) f32(1.5, 1.5, 1.5, 4.0)
+
+% Hack values
+if(sm<4) write cbv-i32 (0) i32(2, 1, 2, 0)
+todo(sm<4) if(sm<4) draw quad
+if(sm<4) probe (0, 0) f32(0.5, 1.5, 0.5, 2.0)
+
+% This shader forces the use of the aL register, but the shader provides the
+% limit, start, step, and zero values using `defi`.
+% Note that it acknowledges that the maximum number of iterations is 4 because
+% of the size of the `cols` array.
+%
+%     defi i0, 4, 0, 1, 0
+%     ...
+%     loop aL, i0
+%         mov r0.z, r0.x
+%         break_ge r0.y, r0.z
+%         add r1, r1, v0[aL]
+%         add r0.y, r0.y, c1.z
+%     endloop
+%     ...
+%
+[pixel shader fail(sm<3) todo(sm<4)]
+int2 limit;
+
+float4 main(float4 pos : sv_position, in float4 cols[4] : COLOR) : sv_target
+{
+    float4 sum = 0;
+
+    [loop]
+    for (int i = 0; i < limit.x + limit.y; i++)
+        sum += cols[i];
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(1.0, 2.0, 0.0, 0.0)
+if(sm>=4) write cbv-0 (0) i32(1, 2, 0, 0)
+todo(sm<4 | msl & sm>=6) draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 3.0)
+if(sm<4) write cbv-f32 (0) f32(3.0, 1.0, 0.0, 0.0)
+if(sm>=4) write cbv-0 (0) i32(3, 1, 0, 0)
+todo(sm<4 | msl & sm>=6) draw quad
+probe (0, 0) f32(1.5, 1.5, 1.5, 4.0)
