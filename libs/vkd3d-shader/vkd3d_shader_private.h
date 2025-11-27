@@ -1015,7 +1015,7 @@ struct vkd3d_shader_indexable_temp
 
 struct vkd3d_shader_register_index
 {
-    struct vkd3d_shader_src_param *rel_addr;
+    struct vsir_src_operand *rel_addr;
     unsigned int offset;
     /* address is known to fall within the object (for optimisation) */
     bool is_in_bounds;
@@ -1086,16 +1086,16 @@ void vsir_dst_operand_init(struct vsir_dst_operand *dst, enum vkd3d_shader_regis
         enum vsir_data_type data_type, unsigned int idx_count);
 void vsir_dst_operand_init_null(struct vsir_dst_operand *dst);
 
-struct vkd3d_shader_src_param
+struct vsir_src_operand
 {
     struct vkd3d_shader_register reg;
     uint32_t swizzle;
     enum vkd3d_shader_src_modifier modifiers;
 };
 
-void vsir_src_param_init(struct vkd3d_shader_src_param *param, enum vkd3d_shader_register_type reg_type,
+void vsir_src_operand_init(struct vsir_src_operand *src, enum vkd3d_shader_register_type reg_type,
         enum vsir_data_type data_type, unsigned int idx_count);
-void vsir_src_param_init_label(struct vkd3d_shader_src_param *param, unsigned int label_id);
+void vsir_src_operand_init_label(struct vsir_src_operand *src, unsigned int label_id);
 
 struct vkd3d_shader_index_range
 {
@@ -1262,13 +1262,13 @@ struct vkd3d_shader_register_semantic
 
 struct vkd3d_shader_sampler
 {
-    struct vkd3d_shader_src_param src;
+    struct vsir_src_operand src;
     struct vkd3d_shader_register_range range;
 };
 
 struct vkd3d_shader_constant_buffer
 {
-    struct vkd3d_shader_src_param src;
+    struct vsir_src_operand src;
     unsigned int size;
     struct vkd3d_shader_register_range range;
 };
@@ -1363,13 +1363,13 @@ struct vkd3d_shader_instruction
     size_t dst_count;
     size_t src_count;
     struct vsir_dst_operand *dst;
-    struct vkd3d_shader_src_param *src;
+    struct vsir_src_operand *src;
     struct vkd3d_shader_texel_offset texel_offset;
     enum vkd3d_shader_resource_type resource_type;
     unsigned int resource_stride;
     enum vsir_data_type resource_data_type[VKD3D_VEC4_SIZE];
     bool coissue, structured, raw;
-    const struct vkd3d_shader_src_param *predicate;
+    const struct vsir_src_operand *predicate;
     union
     {
         enum vsir_global_flags global_flags;
@@ -1694,7 +1694,7 @@ struct vsir_program
     size_t icb_capacity;
     size_t icb_count;
 
-    struct vkd3d_shader_param_allocator src_params;
+    struct vkd3d_shader_param_allocator src_operands;
     struct vkd3d_shader_param_allocator dst_operands;
 
     enum vsir_denorm_mode f32_denorm_mode;
@@ -1726,8 +1726,7 @@ enum vkd3d_result vsir_program_transform_early(struct vsir_program *program, uin
         const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_message_context *message_context);
 enum vkd3d_result vsir_program_validate(struct vsir_program *program, uint64_t config_flags,
         const char *source_name, struct vkd3d_shader_message_context *message_context);
-struct vkd3d_shader_src_param *vsir_program_create_outpointid_param(
-        struct vsir_program *program);
+struct vsir_src_operand *vsir_program_create_outpointid_param(struct vsir_program *program);
 bool vsir_instruction_init_with_params(struct vsir_program *program,
         struct vkd3d_shader_instruction *ins, const struct vkd3d_shader_location *location,
         enum vkd3d_shader_opcode opcode, unsigned int dst_count, unsigned int src_count);
@@ -1747,12 +1746,12 @@ static inline struct vsir_dst_operand *vsir_program_get_dst_operands(
     return shader_param_allocator_get(allocator, count);
 }
 
-static inline struct vkd3d_shader_src_param *vsir_program_get_src_params(
+static inline struct vsir_src_operand *vsir_program_get_src_operands(
         struct vsir_program *program, unsigned int count)
 {
-    struct vkd3d_shader_param_allocator *allocator = &program->src_params;
+    struct vkd3d_shader_param_allocator *allocator = &program->src_operands;
 
-    VKD3D_ASSERT(allocator->stride == sizeof(struct vkd3d_shader_src_param));
+    VKD3D_ASSERT(allocator->stride == sizeof(struct vsir_src_operand));
 
     return shader_param_allocator_get(allocator, count);
 }

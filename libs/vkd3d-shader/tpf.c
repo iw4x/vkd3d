@@ -771,8 +771,8 @@ static bool shader_is_sm_5_1(const struct vkd3d_shader_sm4_parser *sm4)
     return version->major >= 5 && version->minor >= 1;
 }
 
-static bool shader_sm4_read_src_param(struct vkd3d_shader_sm4_parser *priv, const uint32_t **ptr,
-        const uint32_t *end, enum vsir_data_type data_type, struct vkd3d_shader_src_param *src_param);
+static bool tpf_read_src_operand(struct vkd3d_shader_sm4_parser *tpf, const uint32_t **ptr,
+        const uint32_t *end, enum vsir_data_type data_type, struct vsir_src_operand *src);
 static bool tpf_read_dst_operand(struct vkd3d_shader_sm4_parser *tpf, const uint32_t **ptr,
         const uint32_t *end, enum vsir_data_type data_type, struct vsir_dst_operand *dst);
 
@@ -795,23 +795,20 @@ static bool shader_sm4_read_register_space(struct vkd3d_shader_sm4_parser *priv,
 }
 
 static void shader_sm4_read_conditional_op(struct vkd3d_shader_instruction *ins, uint32_t opcode,
-        uint32_t opcode_token, const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *priv)
+        uint32_t opcode_token, const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *tpf)
 {
-    shader_sm4_read_src_param(priv, &tokens, &tokens[token_count], VSIR_DATA_U32, &ins->src[0]);
+    tpf_read_src_operand(tpf, &tokens, &tokens[token_count], VSIR_DATA_U32, &ins->src[0]);
     ins->flags = (opcode_token & VKD3D_SM4_CONDITIONAL_NZ) ?
             VKD3D_SHADER_CONDITIONAL_OP_NZ : VKD3D_SHADER_CONDITIONAL_OP_Z;
 }
 
 static void shader_sm4_read_case_condition(struct vkd3d_shader_instruction *ins, uint32_t opcode,
-        uint32_t opcode_token, const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *priv)
+        uint32_t opcode_token, const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *tpf)
 {
-    shader_sm4_read_src_param(priv, &tokens, &tokens[token_count], VSIR_DATA_U32, &ins->src[0]);
+    tpf_read_src_operand(tpf, &tokens, &tokens[token_count], VSIR_DATA_U32, &ins->src[0]);
     if (ins->src[0].reg.type != VKD3DSPR_IMMCONST)
-    {
-        FIXME("Switch case value is not a 32-bit constant.\n");
-        vkd3d_shader_parser_error(&priv->p, VKD3D_SHADER_ERROR_TPF_INVALID_CASE_VALUE,
+        vkd3d_shader_parser_error(&tpf->p, VKD3D_SHADER_ERROR_TPF_INVALID_CASE_VALUE,
                 "Switch case value is not a 32-bit immediate constant register.");
-    }
 }
 
 static void shader_sm4_read_shader_data(struct vkd3d_shader_instruction *ins, uint32_t opcode, uint32_t opcode_token,
@@ -924,19 +921,19 @@ static void shader_sm4_read_dcl_resource(struct vkd3d_shader_instruction *ins, u
 }
 
 static void shader_sm4_read_dcl_constant_buffer(struct vkd3d_shader_instruction *ins, uint32_t opcode,
-        uint32_t opcode_token, const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *priv)
+        uint32_t opcode_token, const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *tpf)
 {
     const uint32_t *end = &tokens[token_count];
 
-    shader_sm4_read_src_param(priv, &tokens, end, VSIR_DATA_F32, &ins->declaration.cb.src);
-    shader_sm4_set_descriptor_register_range(priv, &ins->declaration.cb.src.reg, &ins->declaration.cb.range);
+    tpf_read_src_operand(tpf, &tokens, end, VSIR_DATA_F32, &ins->declaration.cb.src);
+    shader_sm4_set_descriptor_register_range(tpf, &ins->declaration.cb.src.reg, &ins->declaration.cb.range);
     if (opcode_token & VKD3D_SM4_INDEX_TYPE_MASK)
         ins->flags |= VKD3DSI_INDEXED_DYNAMIC;
 
     ins->declaration.cb.size = ins->declaration.cb.src.reg.idx[2].offset;
     ins->declaration.cb.range.space = 0;
 
-    if (shader_is_sm_5_1(priv))
+    if (shader_is_sm_5_1(tpf))
     {
         if (tokens >= end)
         {
@@ -945,23 +942,23 @@ static void shader_sm4_read_dcl_constant_buffer(struct vkd3d_shader_instruction 
         }
 
         ins->declaration.cb.size = *tokens++;
-        shader_sm4_read_register_space(priv, &tokens, end, &ins->declaration.cb.range.space);
+        shader_sm4_read_register_space(tpf, &tokens, end, &ins->declaration.cb.range.space);
     }
 
     ins->declaration.cb.size *= VKD3D_VEC4_SIZE * sizeof(float);
 }
 
 static void shader_sm4_read_dcl_sampler(struct vkd3d_shader_instruction *ins, uint32_t opcode, uint32_t opcode_token,
-        const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *priv)
+        const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *tpf)
 {
     const uint32_t *end = &tokens[token_count];
 
     ins->flags = (opcode_token & VKD3D_SM4_SAMPLER_MODE_MASK) >> VKD3D_SM4_SAMPLER_MODE_SHIFT;
     if (ins->flags & ~VKD3D_SM4_SAMPLER_COMPARISON)
         FIXME("Unhandled sampler mode %#x.\n", ins->flags);
-    shader_sm4_read_src_param(priv, &tokens, end, VSIR_DATA_UNUSED, &ins->declaration.sampler.src);
-    shader_sm4_set_descriptor_register_range(priv, &ins->declaration.sampler.src.reg, &ins->declaration.sampler.range);
-    shader_sm4_read_register_space(priv, &tokens, end, &ins->declaration.sampler.range.space);
+    tpf_read_src_operand(tpf, &tokens, end, VSIR_DATA_UNUSED, &ins->declaration.sampler.src);
+    shader_sm4_set_descriptor_register_range(tpf, &ins->declaration.sampler.src.reg, &ins->declaration.sampler.range);
+    shader_sm4_read_register_space(tpf, &tokens, end, &ins->declaration.sampler.range.space);
 }
 
 static void shader_sm4_read_dcl_index_range(struct vkd3d_shader_instruction *ins, uint32_t opcode,
@@ -1207,10 +1204,10 @@ static void shader_sm4_read_dcl_global_flags(struct vkd3d_shader_instruction *in
 }
 
 static void shader_sm5_read_fcall(struct vkd3d_shader_instruction *ins, uint32_t opcode, uint32_t opcode_token,
-        const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *priv)
+        const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *tpf)
 {
     ins->src[0].reg.u.fp_body_idx = *tokens++;
-    shader_sm4_read_src_param(priv, &tokens, &tokens[token_count], VSIR_DATA_OPAQUE, &ins->src[0]);
+    tpf_read_src_operand(tpf, &tokens, &tokens[token_count], VSIR_DATA_OPAQUE, &ins->src[0]);
 }
 
 static void shader_sm5_read_dcl_function_body(struct vkd3d_shader_instruction *ins, uint32_t opcode,
@@ -1986,12 +1983,12 @@ static enum vsir_data_type map_data_type(char t)
     }
 }
 
-static bool shader_sm4_read_reg_idx(struct vkd3d_shader_sm4_parser *priv, const uint32_t **ptr,
+static bool shader_sm4_read_reg_idx(struct vkd3d_shader_sm4_parser *tpf, const uint32_t **ptr,
         const uint32_t *end, uint32_t addressing, struct vkd3d_shader_register_index *reg_idx)
 {
     if (addressing & VKD3D_SM4_ADDRESSING_RELATIVE)
     {
-        struct vkd3d_shader_src_param *rel_addr = vsir_program_get_src_params(priv->program, 1);
+        struct vsir_src_operand *rel_addr = vsir_program_get_src_operands(tpf->program, 1);
 
         if (!(reg_idx->rel_addr = rel_addr))
         {
@@ -2003,7 +2000,7 @@ static bool shader_sm4_read_reg_idx(struct vkd3d_shader_sm4_parser *priv, const 
             reg_idx->offset = *(*ptr)++;
         else
             reg_idx->offset = 0;
-        shader_sm4_read_src_param(priv, ptr, end, VSIR_DATA_I32, rel_addr);
+        tpf_read_src_operand(tpf, ptr, end, VSIR_DATA_I32, rel_addr);
     }
     else
     {
@@ -2329,8 +2326,8 @@ static bool shader_sm4_validate_input_output_register(struct vkd3d_shader_sm4_pa
     return true;
 }
 
-static bool shader_sm4_read_src_param(struct vkd3d_shader_sm4_parser *priv, const uint32_t **ptr,
-        const uint32_t *end, enum vsir_data_type data_type, struct vkd3d_shader_src_param *src_param)
+static bool tpf_read_src_operand(struct vkd3d_shader_sm4_parser *tpf, const uint32_t **ptr,
+        const uint32_t *end, enum vsir_data_type data_type, struct vsir_src_operand *src)
 {
     unsigned int dimension, mask;
     uint32_t token;
@@ -2342,7 +2339,7 @@ static bool shader_sm4_read_src_param(struct vkd3d_shader_sm4_parser *priv, cons
     }
     token = **ptr;
 
-    if (!shader_sm4_read_param(priv, ptr, end, data_type, &src_param->reg, &src_param->modifiers))
+    if (!shader_sm4_read_param(tpf, ptr, end, data_type, &src->reg, &src->modifiers))
     {
         ERR("Failed to read parameter.\n");
         return false;
@@ -2352,7 +2349,7 @@ static bool shader_sm4_read_src_param(struct vkd3d_shader_sm4_parser *priv, cons
     {
         case VKD3D_SM4_DIMENSION_NONE:
         case VKD3D_SM4_DIMENSION_SCALAR:
-            src_param->swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+            src->swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
             break;
 
         case VKD3D_SM4_DIMENSION_VEC4:
@@ -2363,37 +2360,30 @@ static bool shader_sm4_read_src_param(struct vkd3d_shader_sm4_parser *priv, cons
             switch (swizzle_type)
             {
                 case VKD3D_SM4_SWIZZLE_NONE:
-                    src_param->swizzle = VKD3D_SHADER_NO_SWIZZLE;
+                    src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
 
                     mask = (token & VKD3D_SM4_WRITEMASK_MASK) >> VKD3D_SM4_WRITEMASK_SHIFT;
                     /* Mask seems only to be used for vec4 constants and is always zero. */
-                    if (!register_is_constant(&src_param->reg))
-                    {
-                        FIXME("Source mask %#x is not for a constant.\n", mask);
-                        vkd3d_shader_parser_warning(&priv->p, VKD3D_SHADER_WARNING_TPF_UNHANDLED_REGISTER_MASK,
+                    if (!register_is_constant(&src->reg))
+                        vkd3d_shader_parser_warning(&tpf->p, VKD3D_SHADER_WARNING_TPF_UNHANDLED_REGISTER_MASK,
                                 "Unhandled mask %#x for a non-constant source register.", mask);
-                    }
                     else if (mask)
-                    {
-                        FIXME("Unhandled mask %#x.\n", mask);
-                        vkd3d_shader_parser_warning(&priv->p, VKD3D_SHADER_WARNING_TPF_UNHANDLED_REGISTER_MASK,
+                        vkd3d_shader_parser_warning(&tpf->p, VKD3D_SHADER_WARNING_TPF_UNHANDLED_REGISTER_MASK,
                                 "Unhandled source register mask %#x.", mask);
-                    }
 
                     break;
 
                 case VKD3D_SM4_SWIZZLE_SCALAR:
-                    src_param->swizzle = (token & VKD3D_SM4_SWIZZLE_MASK) >> VKD3D_SM4_SWIZZLE_SHIFT;
-                    src_param->swizzle = (src_param->swizzle & 0x3) * 0x01010101;
+                    src->swizzle = (token & VKD3D_SM4_SWIZZLE_MASK) >> VKD3D_SM4_SWIZZLE_SHIFT;
+                    src->swizzle = (src->swizzle & 0x3) * 0x01010101;
                     break;
 
                 case VKD3D_SM4_SWIZZLE_VEC4:
-                    src_param->swizzle = swizzle_from_sm4((token & VKD3D_SM4_SWIZZLE_MASK) >> VKD3D_SM4_SWIZZLE_SHIFT);
+                    src->swizzle = swizzle_from_sm4((token & VKD3D_SM4_SWIZZLE_MASK) >> VKD3D_SM4_SWIZZLE_SHIFT);
                     break;
 
                 default:
-                    FIXME("Unhandled swizzle type %#x.\n", swizzle_type);
-                    vkd3d_shader_parser_error(&priv->p, VKD3D_SHADER_ERROR_TPF_INVALID_REGISTER_SWIZZLE,
+                    vkd3d_shader_parser_error(&tpf->p, VKD3D_SHADER_ERROR_TPF_INVALID_REGISTER_SWIZZLE,
                             "Source register swizzle type %#x is invalid.", swizzle_type);
                     break;
             }
@@ -2401,17 +2391,16 @@ static bool shader_sm4_read_src_param(struct vkd3d_shader_sm4_parser *priv, cons
         }
 
         default:
-            FIXME("Unhandled dimension %#x.\n", dimension);
-            vkd3d_shader_parser_error(&priv->p, VKD3D_SHADER_ERROR_TPF_INVALID_REGISTER_DIMENSION,
+            vkd3d_shader_parser_error(&tpf->p, VKD3D_SHADER_ERROR_TPF_INVALID_REGISTER_DIMENSION,
                     "Source register dimension %#x is invalid.", dimension);
             break;
     }
 
     if (data_type_is_64_bit(data_type))
-        src_param->swizzle = vsir_swizzle_64_from_32(src_param->swizzle);
+        src->swizzle = vsir_swizzle_64_from_32(src->swizzle);
 
-    if (register_is_input_output(&src_param->reg) && !shader_sm4_validate_input_output_register(priv,
-            &src_param->reg, mask_from_swizzle(src_param->swizzle)))
+    if (register_is_input_output(&src->reg) && !shader_sm4_validate_input_output_register(tpf,
+            &src->reg, mask_from_swizzle(src->swizzle)))
         return false;
 
     return true;
@@ -2589,8 +2578,8 @@ static void shader_sm4_read_instruction(struct vkd3d_shader_sm4_parser *sm4, str
     const struct vkd3d_sm4_opcode_info *opcode_info;
     uint32_t opcode_token, opcode, previous_token;
     struct vsir_program *program = sm4->program;
-    struct vkd3d_shader_src_param *src_params;
     const uint32_t **ptr = &sm4->ptr;
+    struct vsir_src_operand *src;
     struct vsir_dst_operand *dst;
     unsigned int i, len;
     const uint32_t *p;
@@ -2646,10 +2635,9 @@ static void shader_sm4_read_instruction(struct vkd3d_shader_sm4_parser *sm4, str
     ins->predicate = NULL;
     ins->dst_count = opcode_info_get_dst_count(opcode_info);
     ins->src_count = opcode_info_get_src_count(opcode_info);
-    ins->src = src_params = vsir_program_get_src_params(program, ins->src_count);
-    if (!src_params && ins->src_count)
+    ins->src = src = vsir_program_get_src_operands(program, ins->src_count);
+    if (!src && ins->src_count)
     {
-        ERR("Failed to allocate src parameters.\n");
         vkd3d_shader_parser_error(&sm4->p, VKD3D_SHADER_ERROR_TPF_OUT_OF_MEMORY, "Out of memory.");
         ins->opcode = VSIR_OP_INVALID;
         return;
@@ -2707,8 +2695,7 @@ static void shader_sm4_read_instruction(struct vkd3d_shader_sm4_parser *sm4, str
 
         for (i = 0; i < ins->src_count; ++i)
         {
-            if (!(shader_sm4_read_src_param(sm4, &p, *ptr, map_data_type(opcode_info->src_info[i]),
-                    &src_params[i])))
+            if (!(tpf_read_src_operand(sm4, &p, *ptr, map_data_type(opcode_info->src_info[i]), &src[i])))
             {
                 ins->opcode = VSIR_OP_INVALID;
                 return;
@@ -3395,7 +3382,7 @@ struct sm4_instruction
     struct vsir_dst_operand dsts[2];
     unsigned int dst_count;
 
-    struct vkd3d_shader_src_param srcs[5];
+    struct vsir_src_operand srcs[5];
     unsigned int src_count;
 
     unsigned int byte_stride;
@@ -3403,7 +3390,7 @@ struct sm4_instruction
     uint32_t idx[3];
     unsigned int idx_count;
 
-    struct vkd3d_shader_src_param idx_srcs[7];
+    struct vsir_src_operand idx_srcs[7];
     unsigned int idx_src_count;
 };
 
@@ -3496,7 +3483,7 @@ static void sm4_write_register_index(const struct tpf_compiler *tpf, const struc
 
     if (addressing & VKD3D_SM4_ADDRESSING_RELATIVE)
     {
-        const struct vkd3d_shader_src_param *idx_src = idx->rel_addr;
+        const struct vsir_src_operand *idx_src = idx->rel_addr;
         uint32_t idx_src_token;
 
         VKD3D_ASSERT(idx_src);
@@ -3526,7 +3513,7 @@ static void sm4_write_dst_register(const struct tpf_compiler *tpf, const struct 
         sm4_write_register_index(tpf, &dst->reg, j);
 }
 
-static void sm4_write_src_register(const struct tpf_compiler *tpf, const struct vkd3d_shader_src_param *src)
+static void sm4_write_src_register(const struct tpf_compiler *tpf, const struct vsir_src_operand *src)
 {
     struct vkd3d_bytecode_buffer *buffer = tpf->buffer;
     uint32_t token = 0, mod_token = 0;

@@ -563,8 +563,8 @@ static void shader_print_dcl_usage(struct vkd3d_d3d_asm_compiler *compiler,
         vkd3d_string_buffer_printf(buffer, "%s%s%s", prefix, usage, suffix);
 }
 
-static void shader_print_src_param(struct vkd3d_d3d_asm_compiler *compiler,
-        const char *prefix, const struct vkd3d_shader_src_param *param, const char *suffix);
+static void shader_print_src_operand(struct vkd3d_d3d_asm_compiler *compiler,
+        const char *prefix, const struct vsir_src_operand *src, const char *suffix);
 
 static void shader_print_float_literal(struct vkd3d_d3d_asm_compiler *compiler,
         const char *prefix, float f, const char *suffix)
@@ -672,10 +672,10 @@ static void shader_print_untyped_literal(struct vkd3d_d3d_asm_compiler *compiler
 }
 
 static void shader_print_subscript(struct vkd3d_d3d_asm_compiler *compiler,
-        unsigned int offset, const struct vkd3d_shader_src_param *rel_addr)
+        unsigned int offset, const struct vsir_src_operand *rel_addr)
 {
     if (rel_addr)
-        shader_print_src_param(compiler, "[", rel_addr, " + ");
+        shader_print_src_operand(compiler, "[", rel_addr, " + ");
     shader_print_uint_literal(compiler, rel_addr ? "" : "[", offset, "]");
 }
 
@@ -1061,12 +1061,12 @@ static void shader_print_dst_operand(struct vkd3d_d3d_asm_compiler *compiler,
     shader_print_reg_type(compiler, "", &dst->reg, suffix);
 }
 
-static void shader_print_src_param(struct vkd3d_d3d_asm_compiler *compiler,
-        const char *prefix, const struct vkd3d_shader_src_param *param, const char *suffix)
+static void shader_print_src_operand(struct vkd3d_d3d_asm_compiler *compiler,
+        const char *prefix, const struct vsir_src_operand *src, const char *suffix)
 {
-    enum vkd3d_shader_src_modifier src_modifier = param->modifiers;
+    enum vkd3d_shader_src_modifier src_modifier = src->modifiers;
     struct vkd3d_string_buffer *buffer = &compiler->buffer;
-    uint32_t swizzle = param->swizzle;
+    uint32_t swizzle = src->swizzle;
     const char *modifier = "";
     bool is_abs = false;
 
@@ -1085,7 +1085,7 @@ static void shader_print_src_param(struct vkd3d_d3d_asm_compiler *compiler,
     if (src_modifier == VKD3DSPSM_ABS || src_modifier == VKD3DSPSM_ABSNEG)
         is_abs = true;
 
-    shader_print_register(compiler, is_abs ? "|" : "", &param->reg, false, "");
+    shader_print_register(compiler, is_abs ? "|" : "", &src->reg, false, "");
 
     switch (src_modifier)
     {
@@ -1120,14 +1120,14 @@ static void shader_print_src_param(struct vkd3d_d3d_asm_compiler *compiler,
             break;
     }
 
-    if (param->reg.type != VKD3DSPR_IMMCONST && param->reg.type != VKD3DSPR_IMMCONST64
-            && param->reg.dimension == VSIR_DIMENSION_VEC4)
+    if (src->reg.type != VKD3DSPR_IMMCONST && src->reg.type != VKD3DSPR_IMMCONST64
+            && src->reg.dimension == VSIR_DIMENSION_VEC4)
     {
         static const char swizzle_chars[] = "xyzw";
 
         unsigned int swizzle_x, swizzle_y, swizzle_z, swizzle_w;
 
-        if (data_type_is_64_bit(param->reg.data_type))
+        if (data_type_is_64_bit(src->reg.data_type))
             swizzle = vsir_swizzle_32_from_64(swizzle);
 
         swizzle_x = vsir_swizzle_get_component(swizzle, 0);
@@ -1147,9 +1147,9 @@ static void shader_print_src_param(struct vkd3d_d3d_asm_compiler *compiler,
     if (is_abs)
         vkd3d_string_buffer_printf(buffer, "|");
 
-    shader_print_precision(compiler, &param->reg);
-    shader_print_non_uniform(compiler, &param->reg);
-    shader_print_reg_type(compiler, "", &param->reg, suffix);
+    shader_print_precision(compiler, &src->reg);
+    shader_print_non_uniform(compiler, &src->reg);
+    shader_print_reg_type(compiler, "", &src->reg, suffix);
 }
 
 static void shader_dump_ins_modifiers(struct vkd3d_d3d_asm_compiler *compiler,
@@ -1508,7 +1508,7 @@ static void shader_dump_instruction(struct vkd3d_d3d_asm_compiler *compiler,
     compiler->current = ins;
 
     if (ins->predicate)
-        shader_print_src_param(compiler, "(", ins->predicate, ") ");
+        shader_print_src_operand(compiler, "(", ins->predicate, ") ");
 
     /* PixWin marks instructions with the coissue flag with a '+' */
     if (ins->coissue)
@@ -1750,7 +1750,7 @@ static void shader_dump_instruction(struct vkd3d_d3d_asm_compiler *compiler,
             /* Other source tokens */
             for (i = ins->dst_count; i < (ins->dst_count + ins->src_count); ++i)
             {
-                shader_print_src_param(compiler, !i ? " " : ", ", &ins->src[i - ins->dst_count], "");
+                shader_print_src_operand(compiler, !i ? " " : ", ", &ins->src[i - ins->dst_count], "");
             }
             break;
     }
