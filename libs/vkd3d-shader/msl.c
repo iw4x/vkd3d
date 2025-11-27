@@ -34,7 +34,7 @@ struct msl_src
 
 struct msl_dst
 {
-    const struct vkd3d_shader_dst_param *vsir;
+    const struct vsir_dst_operand *vsir;
     struct vkd3d_string_buffer *register_name;
     struct vkd3d_string_buffer *mask;
 };
@@ -586,7 +586,7 @@ static void msl_dst_cleanup(struct msl_dst *dst, struct vkd3d_string_buffer_cach
 }
 
 static uint32_t msl_dst_init(struct msl_dst *msl_dst, struct msl_generator *gen,
-        const struct vkd3d_shader_instruction *ins, const struct vkd3d_shader_dst_param *vsir_dst)
+        const struct vkd3d_shader_instruction *ins, const struct vsir_dst_operand *vsir_dst)
 {
     uint32_t write_mask = vsir_dst->write_mask;
     enum msl_data_type dst_data_type;

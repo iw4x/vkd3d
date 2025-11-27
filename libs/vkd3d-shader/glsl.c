@@ -38,7 +38,7 @@ struct glsl_src
 
 struct glsl_dst
 {
-    const struct vkd3d_shader_dst_param *vsir;
+    const struct vsir_dst_operand *vsir;
     struct vkd3d_string_buffer *register_name;
     struct vkd3d_string_buffer *mask;
 };
@@ -431,7 +431,7 @@ static void glsl_dst_cleanup(struct glsl_dst *dst, struct vkd3d_string_buffer_ca
 }
 
 static uint32_t glsl_dst_init(struct glsl_dst *glsl_dst, struct vkd3d_glsl_generator *gen,
-        const struct vkd3d_shader_instruction *ins, const struct vkd3d_shader_dst_param *vsir_dst)
+        const struct vkd3d_shader_instruction *ins, const struct vsir_dst_operand *vsir_dst)
 {
     uint32_t write_mask = vsir_dst->write_mask;
 

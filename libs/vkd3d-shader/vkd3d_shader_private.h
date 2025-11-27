@@ -1074,13 +1074,17 @@ static inline enum vkd3d_shader_register_type vsir_register_type_from_sysval_inp
     }
 }
 
-struct vkd3d_shader_dst_param
+struct vsir_dst_operand
 {
     struct vkd3d_shader_register reg;
     uint32_t write_mask;
     uint32_t modifiers;
     unsigned int shift;
 };
+
+void vsir_dst_operand_init(struct vsir_dst_operand *dst, enum vkd3d_shader_register_type reg_type,
+        enum vsir_data_type data_type, unsigned int idx_count);
+void vsir_dst_operand_init_null(struct vsir_dst_operand *dst);
 
 struct vkd3d_shader_src_param
 {
@@ -1091,14 +1095,11 @@ struct vkd3d_shader_src_param
 
 void vsir_src_param_init(struct vkd3d_shader_src_param *param, enum vkd3d_shader_register_type reg_type,
         enum vsir_data_type data_type, unsigned int idx_count);
-void vsir_dst_param_init(struct vkd3d_shader_dst_param *param, enum vkd3d_shader_register_type reg_type,
-        enum vsir_data_type data_type, unsigned int idx_count);
-void vsir_dst_param_init_null(struct vkd3d_shader_dst_param *dst);
 void vsir_src_param_init_label(struct vkd3d_shader_src_param *param, unsigned int label_id);
 
 struct vkd3d_shader_index_range
 {
-    struct vkd3d_shader_dst_param dst;
+    struct vsir_dst_operand dst;
     unsigned int register_count;
 };
 
@@ -1110,7 +1111,7 @@ struct vkd3d_shader_register_range
 
 struct vkd3d_shader_resource
 {
-    struct vkd3d_shader_dst_param reg;
+    struct vsir_dst_operand reg;
     struct vkd3d_shader_register_range range;
 };
 
@@ -1255,7 +1256,7 @@ struct dxbc_shader_desc
 
 struct vkd3d_shader_register_semantic
 {
-    struct vkd3d_shader_dst_param reg;
+    struct vsir_dst_operand reg;
     enum vkd3d_shader_input_sysval_semantic sysval_semantic;
 };
 
@@ -1291,7 +1292,7 @@ struct vkd3d_shader_tgsm
 
 struct vkd3d_shader_tgsm_raw
 {
-    struct vkd3d_shader_dst_param reg;
+    struct vsir_dst_operand reg;
     unsigned int alignment;
     unsigned int byte_count;
     bool zero_init;
@@ -1299,7 +1300,7 @@ struct vkd3d_shader_tgsm_raw
 
 struct vkd3d_shader_tgsm_structured
 {
-    struct vkd3d_shader_dst_param reg;
+    struct vsir_dst_operand reg;
     unsigned int alignment;
     unsigned int byte_stride;
     unsigned int structure_count;
@@ -1361,7 +1362,7 @@ struct vkd3d_shader_instruction
     uint32_t flags;
     size_t dst_count;
     size_t src_count;
-    struct vkd3d_shader_dst_param *dst;
+    struct vsir_dst_operand *dst;
     struct vkd3d_shader_src_param *src;
     struct vkd3d_shader_texel_offset texel_offset;
     enum vkd3d_shader_resource_type resource_type;
@@ -1375,7 +1376,7 @@ struct vkd3d_shader_instruction
         struct vkd3d_shader_semantic semantic;
         struct vkd3d_shader_register_semantic register_semantic;
         struct vkd3d_shader_primitive_type primitive_type;
-        struct vkd3d_shader_dst_param dst;
+        struct vsir_dst_operand dst;
         struct vkd3d_shader_constant_buffer cb;
         struct vkd3d_shader_sampler sampler;
         unsigned int count;
@@ -1694,7 +1695,7 @@ struct vsir_program
     size_t icb_count;
 
     struct vkd3d_shader_param_allocator src_params;
-    struct vkd3d_shader_param_allocator dst_params;
+    struct vkd3d_shader_param_allocator dst_operands;
 
     enum vsir_denorm_mode f32_denorm_mode;
 };
@@ -1736,12 +1737,12 @@ static inline struct vkd3d_shader_instruction *vsir_program_append(struct vsir_p
     return shader_instruction_array_append(&program->instructions);
 }
 
-static inline struct vkd3d_shader_dst_param *vsir_program_get_dst_params(
+static inline struct vsir_dst_operand *vsir_program_get_dst_operands(
         struct vsir_program *program, unsigned int count)
 {
-    struct vkd3d_shader_param_allocator *allocator = &program->dst_params;
+    struct vkd3d_shader_param_allocator *allocator = &program->dst_operands;
 
-    VKD3D_ASSERT(allocator->stride == sizeof(struct vkd3d_shader_dst_param));
+    VKD3D_ASSERT(allocator->stride == sizeof(struct vsir_dst_operand));
 
     return shader_param_allocator_get(allocator, count);
 }
