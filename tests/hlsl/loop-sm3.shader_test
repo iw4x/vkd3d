@@ -372,6 +372,85 @@ if(sm>=4) write cbv-0 (0) i32(6)
 todo(sm<4) draw quad
 probe (0, 0) f32(345678.0, 345678.0, 345678.0, 6.0)
 
+% In this example, the iterator expects `limit` in i0, so it recognizes it as
+% the limit of iterations, despite a lot of shenanigans happening with the
+% iterator `i`.
+% So, the for-loop conditional could be used to identify both the iterator
+% and the limit, and then a hidden loop unrolling could be used to verify
+% that the iterator increases by one on every iteration.
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit; // gets i0 and c0.
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+    int a, i = 0;
+
+    for (; i < limit;)
+    {
+        sum *= 10;
+        a = i % 3;
+        i -= a;
+        sum += a;
+        i += a + 1;
+
+        if (sum.x > 1e30)
+            break;
+    }
+    sum.w = limit;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(7.0)
+if(sm<4) write cbv-i32 (0) i32(7)
+if(sm>=4) write cbv-0 (0) i32(7)
+todo(sm<4) draw quad
+probe (0, 0) f32(120120.0, 120120.0, 120120.0, 7.0)
+
+% The compiler recognizes that the number of iterations depends on `limit` even
+% though the `li` temp is used, so copy-prop happens first.
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit; // gets i0.
+
+float4 main() : sv_target
+{
+    int li = limit;
+    float4 sum = 0;
+
+    [loop]
+    for(int i = 0; i < li; ++i)
+        sum += i * i;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-i32 (0) i32(5)
+if(sm>=4) write cbv-0 (0) i32(5)
+todo(sm<4) draw quad
+probe (0, 0) f32(30.0, 30.0, 30.0, 30.0)
+
+% The compiler seems to only recognize `>` and `<` expressions in the for loop's
+% condition, it uses the `defi` trick here.
+[pixel shader fail(sm<3) todo(sm<4)]
+int limit; // gets c0 but not i0.
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    [loop]
+    for(int i = 0; i != limit; ++i)
+        sum += i * i;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(6)
+if(sm>=4) write cbv-0 (0) i32(6)
+todo(sm<4) draw quad
+probe (0, 0) f32(55.0, 55.0, 55.0, 55.0)
+
 [require]
 options: backcompat
 shader model >= 3.0
