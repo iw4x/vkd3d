@@ -1323,6 +1323,54 @@ static enum vkd3d_result vsir_program_lower_ifc(struct vsir_program *program,
     return VKD3D_OK;
 }
 
+static enum vkd3d_result vsir_program_lower_lrp(struct vsir_program *program, struct vsir_program_iterator *lrp)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(lrp);
+    const struct vkd3d_shader_location location = ins->location;
+    const struct vkd3d_shader_src_param *src = ins->src;
+    const struct vkd3d_shader_dst_param *dst = ins->dst;
+    struct vsir_program_iterator it;
+    unsigned int neg_id, mad_id;
+
+    /* lrp DST, SRC0, SRC1, SRC2
+     *      ->
+     * neg srNEG, SRC0
+     * mad srMAD, srNEG, SRC2, SRC2
+     * mad DST, SRC0, SRC1, srMAD */
+
+    if (!(ins = vsir_program_iterator_insert_before(lrp, &it, 2)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_NEG, 1, 1))
+        goto fail;
+    neg_id = program->ssa_count++;
+    dst_param_init_ssa(&ins->dst[0], neg_id, src[0].reg.data_type, src[0].reg.dimension);
+    ins->src[0] = src[0];
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MAD, 1, 3))
+        goto fail;
+    mad_id = program->ssa_count++;
+    dst_param_init_ssa(&ins->dst[0], mad_id, src[2].reg.data_type, src[2].reg.dimension);
+    src_param_init_ssa(&ins->src[0], neg_id, src[0].reg.data_type, src[0].reg.dimension);
+    ins->src[1] = src[2];
+    ins->src[2] = src[2];
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MAD, 1, 3))
+        goto fail;
+    ins->dst[0] = dst[0];
+    ins->src[0] = src[0];
+    ins->src[1] = src[1];
+    src_param_init_ssa(&ins->src[2], mad_id, src[2].reg.data_type, src[2].reg.dimension);
+
+    return VKD3D_OK;
+
+fail:
+    vsir_program_iterator_nop_range(&it, lrp, &location);
+
+    return VKD3D_ERROR_OUT_OF_MEMORY;
+}
+
 static enum vkd3d_result vsir_program_lower_nrm(struct vsir_program *program, struct vsir_program_iterator *nrm)
 {
     struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(nrm);
@@ -2418,6 +2466,10 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_IFC:
                 ret = vsir_program_lower_ifc(program, &it, &tmp_idx, message_context);
+                break;
+
+            case VSIR_OP_LRP:
+                ret = vsir_program_lower_lrp(program, &it);
                 break;
 
             case VSIR_OP_NRM:
