@@ -15128,20 +15128,24 @@ static enum vkd3d_result vsir_program_copy_propagation(struct vsir_program *prog
     return VKD3D_OK;
 }
 
+static void vsir_optimize(struct vsir_transformation_context *ctx)
+{
+    do
+    {
+        ctx->progress = false;
+        vsir_transform(ctx, vsir_program_copy_propagation);
+        vsir_transform(ctx, vsir_program_dce);
+    }
+    while (ctx->progress);
+}
+
 enum vkd3d_result vsir_program_optimize(struct vsir_program *program, uint64_t config_flags,
         const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_message_context *message_context)
 {
     struct vsir_transformation_context ctx;
 
     vsir_transformation_context_init(&ctx, program, config_flags, compile_info, message_context);
-
-    do
-    {
-        ctx.progress = false;
-        vsir_transform(&ctx, vsir_program_copy_propagation);
-        vsir_transform(&ctx, vsir_program_dce);
-    }
-    while (ctx.progress);
+    vsir_optimize(&ctx);
 
     if (TRACE_ON())
         vsir_program_trace(program);
@@ -15211,6 +15215,9 @@ enum vkd3d_result vsir_program_transform(struct vsir_program *program, uint64_t 
         vsir_transform(&ctx, vsir_program_materialise_phi_ssas_to_temps);
         vsir_transform(&ctx, vsir_program_lower_switch_to_selection_ladder);
         vsir_transform(&ctx, vsir_program_structurize);
+
+        vsir_optimize(&ctx);
+
         if (compile_info->target_type != VKD3D_SHADER_TARGET_MSL)
         {
             vsir_transform(&ctx, vsir_program_flatten_control_flow_constructs);
@@ -15236,6 +15243,9 @@ enum vkd3d_result vsir_program_transform(struct vsir_program *program, uint64_t 
         vsir_transform(&ctx, instruction_array_normalise_hull_shader_control_point_io);
         vsir_transform(&ctx, vsir_program_normalise_io_registers);
         vsir_transform(&ctx, vsir_program_normalise_flat_constants);
+
+        vsir_optimize(&ctx);
+
         vsir_transform(&ctx, vsir_program_remove_dead_code);
 
         if (compile_info->target_type != VKD3D_SHADER_TARGET_GLSL
