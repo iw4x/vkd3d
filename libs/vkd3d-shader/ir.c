@@ -15015,6 +15015,10 @@ static enum vkd3d_result vsir_program_copy_propagation(struct vsir_program *prog
             }
             if (mov_src->reg.type != VKD3DSPR_IMMCONST)
                 src->swizzle = new_swizzle;
+            else if (mov_src->reg.dimension == VSIR_DIMENSION_VEC4)
+                src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
+            else
+                src->swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
 
             if (src->modifiers == VKD3DSPSM_NONE)
                 src->modifiers = mov_src->modifiers;
