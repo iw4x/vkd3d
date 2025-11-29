@@ -14924,12 +14924,19 @@ static bool is_read_only(const struct vsir_program *program, enum vkd3d_shader_r
 
 static bool can_propagate_ssa_source(const struct vsir_program *program, const struct vkd3d_shader_instruction *ins)
 {
+    enum vsir_data_type dst_data_type, src_data_type;
+
     if (ins->opcode != VSIR_OP_MOV)
         return false;
     /* TODO: Propagate copies for other register types. */
     if (ins->dst[0].reg.type != VKD3DSPR_SSA)
         return false;
     if (ins->dst[0].modifiers || ins->dst[0].shift)
+        return false;
+
+    dst_data_type = ins->dst[0].reg.data_type;
+    src_data_type = ins->src[0].reg.data_type;
+    if (data_type_is_64_bit(dst_data_type) != data_type_is_64_bit(src_data_type))
         return false;
 
     /* TODO: We can perform copy-prop for read-write register types, but we
