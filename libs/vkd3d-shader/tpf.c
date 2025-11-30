@@ -3177,9 +3177,9 @@ bool sm4_sysval_semantic_from_semantic_name(enum vkd3d_shader_sysval_semantic *s
             *sysval_semantic = VKD3D_SHADER_SV_RENDER_TARGET_ARRAY_INDEX;
         else if (!ascii_strcasecmp(semantic_name, "sv_viewportarrayindex"))
             *sysval_semantic = VKD3D_SHADER_SV_VIEWPORT_ARRAY_INDEX;
-        else if (!ascii_strcasecmp(semantic_name, "sv_clipdistance"))
+        else if (!ascii_strcasecmp(semantic_name, "sv_clipdistance") && semantic_idx <= 1)
             *sysval_semantic = VKD3D_SHADER_SV_CLIP_DISTANCE;
-        else if (!ascii_strcasecmp(semantic_name, "sv_culldistance"))
+        else if (!ascii_strcasecmp(semantic_name, "sv_culldistance") && semantic_idx <= 1)
             *sysval_semantic = VKD3D_SHADER_SV_CULL_DISTANCE;
         else if (has_sv_prefix)
             return false;
@@ -3226,6 +3226,8 @@ bool sm4_sysval_semantic_from_semantic_name(enum vkd3d_shader_sysval_semantic *s
                 && (semantic_compat_mapping || has_sv_prefix)
                 && version->type == semantics[i].shader_type)
         {
+            if (vsir_sysval_semantic_is_clip_cull(semantics[i].semantic) && semantic_idx > 1)
+                return false;
             if (is_patch_constant_func && output && semantics[i].semantic != ~0u)
                 *sysval_semantic = VKD3D_SHADER_SV_NONE;
             else

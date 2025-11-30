@@ -185,7 +185,7 @@ probe rtv-0 (480, 120) f32(0.0, 0.0, 0.0, 1.0)
 probe rtv-0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
 probe rtv-0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
 
-[vertex shader todo(sm<6) fail(sm<6)]
+[vertex shader fail(sm<6)]
 struct vertex_data
 {
     float4 position : SV_POSITION;   // o0.xyzw
@@ -204,7 +204,7 @@ void main(float4 position : POSITION, out vertex_data vertex)
     vertex.clipC = -position.x; // Removes all pixels on the right side of the render target.
 }
 
-[pixel shader todo(sm<6) fail(sm<6)]
+[pixel shader fail(sm<6)]
 struct vertex_data
 {
     float4 position : SV_POSITION;   // v0.xyzw
