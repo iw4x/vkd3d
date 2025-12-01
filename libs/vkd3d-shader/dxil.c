@@ -3698,10 +3698,43 @@ static enum vkd3d_result sm6_parser_constants_init(struct sm6_parser *sm6, const
                     dst->value_type = VALUE_TYPE_CONSTANT_ARRAY;
                     dst->u.constant_array.elements = NULL;
                 }
-                else
+                else if (sm6_type_is_numeric(type))
                 {
                     dst->value_type = VALUE_TYPE_CONSTANT;
                     memset(&dst->u.constant, 0, sizeof(dst->u.constant));
+                }
+                else if (sm6_type_is_struct(type))
+                {
+                    if (type->u.struc->elem_count > VKD3D_VEC4_SIZE)
+                    {
+                        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_CONSTANT,
+                                "The type of a null constant is a structure type with %u fields, "
+                                "while at most %u are allowed.", type->u.struc->elem_count, VKD3D_VEC4_SIZE);
+                        return VKD3D_ERROR_INVALID_SHADER;
+                    }
+
+                    dst->value_type = VALUE_TYPE_CONSTANT;
+                    memset(&dst->u.constant.immconst, 0, sizeof(dst->u.constant.immconst));
+
+                    for (j = 0; j < record->operand_count; ++j)
+                    {
+                        const struct sm6_type *elem_type = type->u.struc->elem_types[j];
+
+                        if (!sm6_type_is_integer(elem_type) || elem_type->u.width > 32)
+                        {
+                            vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+                                    "The type of a structure element is not an integer of width <= 32 bits.");
+                            return VKD3D_ERROR_INVALID_SHADER;
+                        }
+                        dst->u.constant.immconst.immconst_u32[j] = sm6_value_get_constant_uint(
+                                &sm6->values[record->operands[j]], sm6);
+                    }
+                }
+                else
+                {
+                    vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_TYPE,
+                            "The type of a null constant is not numeric, structure or array.");
+                    return VKD3D_ERROR_INVALID_SHADER;
                 }
                 break;
 
