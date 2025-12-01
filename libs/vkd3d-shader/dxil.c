@@ -108,6 +108,7 @@ enum bitcode_constant_code
     CST_CODE_UNDEF           =  3,
     CST_CODE_INTEGER         =  4,
     CST_CODE_FLOAT           =  6,
+    CST_CODE_AGGREGATE       =  7,
     CST_CODE_STRING          =  8,
     CST_CODE_CE_CAST         = 11,
     CST_CODE_CE_GEP          = 12,
@@ -2874,8 +2875,10 @@ static void vsir_register_from_dxil_value(struct vkd3d_shader_register *reg,
             break;
 
         case VALUE_TYPE_CONSTANT:
+            VKD3D_ASSERT(sm6_type_is_numeric(value->type) || sm6_type_is_struct(value->type));
             vsir_register_init(reg, scalar_type->u.width == 64 ? VKD3DSPR_IMMCONST64 : VKD3DSPR_IMMCONST,
                     data_type, 0);
+            reg->dimension = sm6_type_is_numeric(value->type) ? VSIR_DIMENSION_SCALAR : VSIR_DIMENSION_VEC4;
             reg->u = value->u.constant.immconst;
             break;
 
@@ -3650,7 +3653,7 @@ static enum vkd3d_result sm6_parser_init_constexpr_gep(struct sm6_parser *sm6, c
 static enum vkd3d_result sm6_parser_constants_init(struct sm6_parser *sm6, const struct dxil_block *block)
 {
     const struct sm6_type *type, *ptr_type;
-    size_t i, base_value_idx, value_idx;
+    size_t i, j, base_value_idx, value_idx;
     const struct dxil_record *record;
     const struct sm6_value *src;
     enum vkd3d_result ret;
@@ -3702,6 +3705,11 @@ static enum vkd3d_result sm6_parser_constants_init(struct sm6_parser *sm6, const
                 }
                 break;
 
+            case CST_CODE_UNDEF:
+                dxil_record_validate_operand_max_count(record, 0, sm6);
+                dst->value_type = VALUE_TYPE_UNDEFINED;
+                break;
+
             case CST_CODE_INTEGER:
                 if (!dxil_record_validate_operand_count(record, 1, 1, sm6))
                     return VKD3D_ERROR_INVALID_SHADER;
@@ -3742,10 +3750,58 @@ static enum vkd3d_result sm6_parser_constants_init(struct sm6_parser *sm6, const
 
                 break;
 
+            case CST_CODE_AGGREGATE:
+                if (!sm6_type_is_struct(type))
+                {
+                    vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_TYPE,
+                            "The type of a constant aggregate is not a structure type.");
+                    return VKD3D_ERROR_INVALID_SHADER;
+                }
+
+                if (type->u.struc->elem_count > VKD3D_VEC4_SIZE)
+                {
+                    vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_CONSTANT,
+                            "The type of a constant aggregate is a structure type with %u fields, "
+                            "while at most %u are allowed.", type->u.struc->elem_count, VKD3D_VEC4_SIZE);
+                    return VKD3D_ERROR_INVALID_SHADER;
+                }
+
+                if (!dxil_record_validate_operand_count(record,
+                        type->u.struc->elem_count, type->u.struc->elem_count, sm6))
+                    return VKD3D_ERROR_INVALID_SHADER;
+
+                dst->value_type = VALUE_TYPE_CONSTANT;
+
+                for (j = 0; j < record->operand_count; ++j)
+                {
+                    const struct sm6_type *elem_type = type->u.struc->elem_types[j];
+
+                    if (!sm6_type_is_integer(elem_type) || elem_type->u.width > 32)
+                    {
+                        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+                                "The type of a structure element is not an integer of width <= 32 bits.");
+                        return VKD3D_ERROR_INVALID_SHADER;
+                    }
+                    dst->u.constant.immconst.immconst_u32[j] = sm6_value_get_constant_uint(
+                            &sm6->values[record->operands[j]], sm6);
+                }
+                break;
+
+            case CST_CODE_CE_CAST:
+                /* Resolve later in case forward refs exist. */
+                dst->type = type;
+                dst->value_type = VALUE_TYPE_INVALID;
+                break;
+
+            case CST_CODE_CE_GEP:
+            case CST_CODE_CE_INBOUNDS_GEP:
+                if ((ret = sm6_parser_init_constexpr_gep(sm6, record, dst)) < 0)
+                    return ret;
+                break;
+
             case CST_CODE_DATA:
                 if (!sm6_type_is_array(type))
                 {
-                    WARN("Invalid type %u for data constant idx %zu.\n", type->class, value_idx);
                     vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                             "The type of a constant array is not an array type.");
                     return VKD3D_ERROR_INVALID_SHADER;
@@ -3756,23 +3812,6 @@ static enum vkd3d_result sm6_parser_constants_init(struct sm6_parser *sm6, const
                 dst->value_type = VALUE_TYPE_CONSTANT_ARRAY;
                 dst->u.constant_array.elements = record->operands;
 
-                break;
-
-            case CST_CODE_CE_GEP:
-            case CST_CODE_CE_INBOUNDS_GEP:
-                if ((ret = sm6_parser_init_constexpr_gep(sm6, record, dst)) < 0)
-                    return ret;
-                break;
-
-            case CST_CODE_CE_CAST:
-                /* Resolve later in case forward refs exist. */
-                dst->type = type;
-                dst->value_type = VALUE_TYPE_INVALID;
-                break;
-
-            case CST_CODE_UNDEF:
-                dxil_record_validate_operand_max_count(record, 0, sm6);
-                dst->value_type = VALUE_TYPE_UNDEFINED;
                 break;
 
             default:
