@@ -4797,12 +4797,11 @@ static enum vkd3d_shader_opcode map_binary_op(uint64_t code, const struct sm6_ty
 static void sm6_parser_emit_binop(struct sm6_parser *sm6, struct function_emission_state *state)
 {
     struct sm6_value *dst = sm6_parser_get_current_value(sm6);
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
-    struct sm6_function *function = state->function;
     enum vkd3d_shader_opcode opcode, aux_opcode;
     struct vkd3d_shader_src_param *src_params;
     struct vkd3d_shader_dst_param *dst_params;
+    struct vkd3d_shader_instruction *ins;
     uint32_t type_flags = 0, aux_id = 0;
     const struct sm6_value *a, *b;
     uint64_t code, flags;
@@ -4825,11 +4824,17 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, struct function_emissi
 
     if (aux_opcode != VSIR_OP_NOP)
     {
+        if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+            return;
+
         vsir_instruction_init(ins, &sm6->p.location, aux_opcode);
 
         if (!(dst_params = instruction_dst_params_alloc(ins, 1, sm6))
                 || !(src_params = instruction_src_params_alloc(ins, 1, sm6)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
             return;
+        }
 
         aux_id = sm6_parser_alloc_ssa_id(sm6);
 
@@ -4837,10 +4842,12 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, struct function_emissi
 
         dst_param_init(&dst_params[0]);
         register_init_with_id(&dst_params[0].reg, VKD3DSPR_SSA, src_params[0].reg.data_type, aux_id);
-
-        ++ins;
-        ++function->instructions.count;
     }
+
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+        return;
+
+    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &sm6->p.location, opcode);
 
@@ -4890,7 +4897,10 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, struct function_emissi
     }
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
 
     src_param_init_from_value(&src_params[0], a, type_flags, sm6);
 
@@ -4913,7 +4923,9 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, struct function_emissi
          * do. */
         ins->flags |= VKD3DSI_SHIFT_UNMASKED;
     }
-    instruction_dst_param_init_ssa_scalar(ins, type_flags, sm6);
+
+    if (!instruction_dst_param_init_ssa_scalar(ins, type_flags, sm6))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static bool sm6_function_validate_block_index(const struct sm6_function *function,
