@@ -4941,9 +4941,11 @@ static bool sm6_function_validate_block_index(const struct sm6_function *functio
     return true;
 }
 
-static void sm6_parser_emit_br(struct sm6_parser *dxil, const struct dxil_record *record,
-        struct sm6_function *function, struct vkd3d_shader_instruction *ins)
+static void sm6_parser_emit_br(struct sm6_parser *dxil, struct function_emission_state *state)
 {
+    struct vkd3d_shader_instruction *ins = state->ins;
+    const struct dxil_record *record = state->record;
+    struct sm6_function *function = state->function;
     struct vkd3d_shader_src_param *src_params;
     const struct sm6_value *value;
     unsigned int i = 2;
@@ -8568,7 +8570,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 sm6_parser_emit_binop(sm6, &state);
                 break;
             case FUNC_CODE_INST_BR:
-                sm6_parser_emit_br(sm6, record, function, ins);
+                sm6_parser_emit_br(sm6, &state);
                 is_terminator = true;
                 break;
             case FUNC_CODE_INST_CALL:
