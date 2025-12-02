@@ -4943,10 +4943,10 @@ static bool sm6_function_validate_block_index(const struct sm6_function *functio
 
 static void sm6_parser_emit_br(struct sm6_parser *dxil, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
     struct sm6_function *function = state->function;
     struct vkd3d_shader_src_param *src_params;
+    struct vkd3d_shader_instruction *ins;
     const struct sm6_value *value;
     unsigned int i = 2;
 
@@ -4961,6 +4961,11 @@ static void sm6_parser_emit_br(struct sm6_parser *dxil, struct function_emission
     {
         if (!sm6_function_validate_block_index(function, record->operands[0], dxil))
             return;
+
+        if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+            return;
+
+        state->pushed_instruction = true;
 
         vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_BRANCH);
         if (!(src_params = instruction_src_params_alloc(ins, 1, dxil)))
@@ -4987,6 +4992,11 @@ static void sm6_parser_emit_br(struct sm6_parser *dxil, struct function_emission
         if (!sm6_function_validate_block_index(function, record->operands[0], dxil)
                 || !sm6_function_validate_block_index(function, record->operands[1], dxil))
             return;
+
+        if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+            return;
+
+        state->pushed_instruction = true;
 
         vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_BRANCH);
         if (!(src_params = instruction_src_params_alloc(ins, 3, dxil)))
