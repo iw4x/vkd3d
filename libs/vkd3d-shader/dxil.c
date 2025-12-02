@@ -7093,35 +7093,19 @@ static bool sm6_parser_validate_dx_op(struct sm6_parser *sm6, enum dx_intrinsic_
     return true;
 }
 
-static void sm6_parser_emit_unhandled(struct sm6_parser *sm6, struct vkd3d_shader_instruction *ins,
-        struct sm6_value *dst)
-{
-    ins->opcode = VSIR_OP_NOP;
-
-    if (!dst->type)
-        return;
-
-    dst->value_type = VALUE_TYPE_INVALID;
-}
-
 static void sm6_parser_decode_dx_op(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
         const char *name, const struct sm6_value **operands, unsigned int operand_count,
         struct function_emission_state *state, struct sm6_value *dst)
 {
     if (op >= ARRAY_SIZE(sm6_dx_op_table) || !sm6_dx_op_table[op].operand_info)
     {
-        FIXME("Unhandled dx intrinsic function id %u, '%s'.\n", op, name);
         vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_UNHANDLED_INTRINSIC,
                 "Call to intrinsic function %s is unhandled.", name);
-        sm6_parser_emit_unhandled(sm6, state->ins, dst);
         return;
     }
 
     if (!sm6_parser_validate_dx_op(sm6, op, name, operands, operand_count, dst))
-    {
-        sm6_parser_emit_unhandled(sm6, state->ins, dst);
         return;
-    }
 
     sm6_dx_op_table[op].handler(sm6, op, operands, state);
 
