@@ -5354,11 +5354,19 @@ static void sm6_parser_emit_dx_atomic_binop(struct sm6_parser *sm6, enum dx_intr
         }
     }
 
-    ins = state->ins;
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     vsir_instruction_init(ins, &sm6->p.location, opcode);
 
     if (!(src_params = instruction_src_params_alloc(ins, 2 + is_cmp_xchg, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
+
     src_param_init_vector_from_reg(&src_params[0], &reg);
     if (is_cmp_xchg)
         src_param_init_from_value(&src_params[1], operands[4], 0, sm6);
@@ -5366,7 +5374,12 @@ static void sm6_parser_emit_dx_atomic_binop(struct sm6_parser *sm6, enum dx_intr
 
     sm6_parser_init_ssa_value(sm6, dst);
 
-    dst_params = instruction_dst_params_alloc(ins, 2, sm6);
+    if (!(dst_params = instruction_dst_params_alloc(ins, 2, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
     dst_param_init(&dst_params[0]);
     vsir_register_from_dxil_value(&dst_params[0].reg, dst, 0, sm6);
     dst_param_init(&dst_params[1]);
