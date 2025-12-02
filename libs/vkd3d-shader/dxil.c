@@ -2962,15 +2962,20 @@ static bool instruction_dst_param_init_ssa_scalar(struct vkd3d_shader_instructio
     return true;
 }
 
-static void instruction_dst_param_init_ssa_vector(struct vkd3d_shader_instruction *ins,
-        unsigned int component_count, struct sm6_parser *sm6)
+static bool instruction_dst_param_init_ssa_vector(struct vkd3d_shader_instruction *ins,
+        unsigned int component_count, struct sm6_parser *dxil)
 {
-    struct vsir_dst_operand *param = instruction_dst_params_alloc(ins, 1, sm6);
-    struct sm6_value *dst = sm6_parser_get_current_value(sm6);
+    struct sm6_value *dxil_dst = sm6_parser_get_current_value(dxil);
+    struct vsir_dst_operand *vsir_dst;
 
-    dst_param_init_vector(param, component_count);
-    sm6_parser_init_ssa_value(sm6, dst);
-    vsir_register_from_dxil_value(&param->reg, dst, 0, sm6);
+    if (!(vsir_dst = instruction_dst_params_alloc(ins, 1, dxil)))
+        return false;
+
+    dst_param_init_vector(vsir_dst, component_count);
+    sm6_parser_init_ssa_value(dxil, dxil_dst);
+    vsir_register_from_dxil_value(&vsir_dst->reg, dxil_dst, 0, dxil);
+
+    return true;
 }
 
 static bool instruction_dst_param_init_uint_temp_vector(struct vkd3d_shader_instruction *ins, struct sm6_parser *sm6)
@@ -6217,7 +6222,7 @@ static void sm6_parser_emit_dx_raw_buffer_store(struct sm6_parser *sm6, enum dx_
 static void sm6_parser_emit_dx_buffer_load(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     const struct sm6_value *resource;
 
@@ -6227,33 +6232,36 @@ static void sm6_parser_emit_dx_buffer_load(struct sm6_parser *sm6, enum dx_intri
 
     if (resource->u.handle.d->kind == RESOURCE_KIND_RAWBUFFER
             || resource->u.handle.d->kind == RESOURCE_KIND_STRUCTUREDBUFFER)
-    {
         return sm6_parser_emit_dx_raw_buffer_load(sm6, op, operands, state);
-    }
 
     if (resource->u.handle.d->kind != RESOURCE_KIND_TYPEDBUFFER)
-    {
-        WARN("Resource is not a typed buffer.\n");
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_INVALID_OPERATION,
                 "Resource for a typed buffer load is not a typed buffer.");
-    }
+
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+        return;
+
+    state->pushed_instruction = true;
 
     instruction_init_with_resource(ins, (resource->u.handle.d->type == VKD3D_SHADER_DESCRIPTOR_TYPE_UAV)
             ? VSIR_OP_LD_UAV_TYPED : VSIR_OP_LD, resource, sm6);
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
-        return;
-    src_param_init_from_value(&src_params[0], operands[1], 0, sm6);
-    if (!sm6_value_is_undef(operands[2]))
     {
-        /* Constant zero would be ok, but is not worth checking for unless it shows up. */
-        WARN("Ignoring structure offset.\n");
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
+    src_param_init_from_value(&src_params[0], operands[1], 0, sm6);
+    /* Constant zero would be ok, but is not worth checking for unless it
+     * shows up. */
+    if (!sm6_value_is_undef(operands[2]))
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring structure offset for a typed buffer load.");
-    }
     src_param_init_vector_from_handle(sm6, &src_params[1], &resource->u.handle);
 
-    instruction_dst_param_init_ssa_vector(ins, VKD3D_VEC4_SIZE, sm6);
+    if (!instruction_dst_param_init_ssa_vector(ins, VKD3D_VEC4_SIZE, sm6))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_emit_dx_buffer_store(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
