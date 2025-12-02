@@ -6110,7 +6110,7 @@ static void sm6_parser_emit_dx_raw_buffer_load(struct sm6_parser *sm6, enum dx_i
         const struct sm6_value **operands, struct function_emission_state *state)
 {
     unsigned int operand_count, write_mask, component_count = VKD3D_VEC4_SIZE;
-    struct vkd3d_shader_instruction *ins = state->ins;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     const struct sm6_value *resource;
     bool raw;
@@ -6125,28 +6125,37 @@ static void sm6_parser_emit_dx_raw_buffer_load(struct sm6_parser *sm6, enum dx_i
         write_mask = sm6_value_get_constant_uint(operands[3], sm6);
         if (!write_mask || write_mask > VKD3DSP_WRITEMASK_ALL)
         {
-            WARN("Invalid write mask %#x.\n", write_mask);
             vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                     "Write mask %#x for a raw/structured buffer load operation is invalid.", write_mask);
             return;
         }
         else if (write_mask & (write_mask + 1))
         {
-            FIXME("Unhandled write mask %#x.\n", write_mask);
             vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                     "Write mask %#x for a raw/structured buffer load operation is unhandled.", write_mask);
         }
         component_count = vsir_write_mask_component_count(write_mask);
     }
 
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     instruction_init_with_resource(ins, raw ? VSIR_OP_LD_RAW : VSIR_OP_LD_STRUCTURED, resource, sm6);
     operand_count = 2 + !raw;
+
     if (!(src_params = instruction_src_params_alloc(ins, operand_count, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
+
     src_params_init_from_operands(src_params, &operands[1], operand_count - 1, sm6);
     src_param_init_vector_from_handle(sm6, &src_params[operand_count - 1], &resource->u.handle);
 
-    instruction_dst_param_init_ssa_vector(ins, component_count, sm6);
+    if (!instruction_dst_param_init_ssa_vector(ins, component_count, sm6))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_emit_dx_raw_buffer_store(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
