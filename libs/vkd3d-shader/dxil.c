@@ -5386,25 +5386,27 @@ static void sm6_parser_emit_dx_atomic_binop(struct sm6_parser *sm6, enum dx_intr
     sm6_register_from_handle(sm6, &resource->u.handle, &dst_params[1].reg);
 }
 
-static void sm6_parser_emit_dx_barrier(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
+static void sm6_parser_emit_dx_barrier(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
+    struct vkd3d_shader_instruction *ins;
     enum dxil_sync_flags flags;
 
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_SYNC);
-    flags = sm6_value_get_constant_uint(operands[0], sm6);
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
+    state->pushed_instruction = true;
+
+    vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_SYNC);
+    flags = sm6_value_get_constant_uint(operands[0], dxil);
     ins->flags = flags & (SYNC_THREAD_GROUP | SYNC_THREAD_GROUP_UAV);
     if (flags & SYNC_GLOBAL_UAV)
         ins->flags |= VKD3DSSF_GLOBAL_UAV;
     if (flags & SYNC_GROUP_SHARED_MEMORY)
         ins->flags |= VKD3DSSF_GROUP_SHARED_MEMORY;
     if (flags &= ~(SYNC_THREAD_GROUP | SYNC_GLOBAL_UAV | SYNC_THREAD_GROUP_UAV | SYNC_GROUP_SHARED_MEMORY))
-    {
-        FIXME("Unhandled flags %#x.\n", flags);
-        vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
+        vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Barrier flags %#x are unhandled.", flags);
-    }
 }
 
 static void sm6_parser_emit_dx_buffer_update_counter(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
