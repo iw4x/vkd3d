@@ -7135,10 +7135,11 @@ static void sm6_parser_decode_dx_op(struct sm6_parser *sm6, enum dx_intrinsic_op
     }
 }
 
-static void sm6_parser_emit_call(struct sm6_parser *sm6, const struct dxil_record *record,
-        struct function_emission_state *state, struct sm6_value *dst)
+static void sm6_parser_emit_call(struct sm6_parser *sm6, struct function_emission_state *state)
 {
+    struct sm6_value *dst = sm6_parser_get_current_value(sm6);
     const struct sm6_value *operands[DXIL_OP_MAX_OPERANDS];
+    const struct dxil_record *record = state->record;
     const struct sm6_value *fn_value, *op_value;
     unsigned int i = 1, j, operand_count;
     const struct sm6_type *type = NULL;
@@ -8584,7 +8585,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 is_terminator = true;
                 break;
             case FUNC_CODE_INST_CALL:
-                sm6_parser_emit_call(sm6, record, &state, dst);
+                sm6_parser_emit_call(sm6, &state);
                 break;
             case FUNC_CODE_INST_CAST:
                 sm6_parser_emit_cast(sm6, record, ins, dst);
