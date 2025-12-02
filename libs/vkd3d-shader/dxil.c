@@ -4794,9 +4794,12 @@ static enum vkd3d_shader_opcode map_binary_op(uint64_t code, const struct sm6_ty
     return op;
 }
 
-static void sm6_parser_emit_binop(struct sm6_parser *sm6, const struct dxil_record *record,
-        struct sm6_function *function, struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
+static void sm6_parser_emit_binop(struct sm6_parser *sm6, struct function_emission_state *state)
 {
+    struct sm6_value *dst = sm6_parser_get_current_value(sm6);
+    struct vkd3d_shader_instruction *ins = state->ins;
+    const struct dxil_record *record = state->record;
+    struct sm6_function *function = state->function;
     enum vkd3d_shader_opcode opcode, aux_opcode;
     struct vkd3d_shader_src_param *src_params;
     struct vkd3d_shader_dst_param *dst_params;
@@ -8550,7 +8553,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 sm6_parser_emit_atomicrmw(sm6, &state);
                 break;
             case FUNC_CODE_INST_BINOP:
-                sm6_parser_emit_binop(sm6, record, function, ins, dst);
+                sm6_parser_emit_binop(sm6, &state);
                 break;
             case FUNC_CODE_INST_BR:
                 sm6_parser_emit_br(sm6, record, function, ins);
