@@ -2847,8 +2847,9 @@ static void vsir_register_from_dxil_value(struct vkd3d_shader_register *reg,
     switch (value->value_type)
     {
         case VALUE_TYPE_SSA:
+            VKD3D_ASSERT(sm6_type_is_numeric(value->type) || sm6_type_is_struct(value->type));
             register_init_with_id(reg, VKD3DSPR_SSA, data_type, value->u.ssa.id);
-            reg->dimension = sm6_type_is_scalar(value->type) ? VSIR_DIMENSION_SCALAR : VSIR_DIMENSION_VEC4;
+            reg->dimension = sm6_type_is_numeric(value->type) ? VSIR_DIMENSION_SCALAR : VSIR_DIMENSION_VEC4;
             break;
 
         case VALUE_TYPE_ICB:
@@ -2909,6 +2910,10 @@ static void sm6_parser_init_ssa_value(struct sm6_parser *sm6, struct sm6_value *
 
     value->value_type = VALUE_TYPE_SSA;
     value->u.ssa.id = id;
+
+    if (!sm6_type_is_numeric(value->type) && !sm6_type_is_struct(value->type))
+        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_TYPE,
+                "The type of SSA value %u is neither numeric nor a structure.", id);
 }
 
 static void register_make_constant_uint(struct vkd3d_shader_register *reg, unsigned int value)
@@ -3355,6 +3360,10 @@ static void sm6_parser_pre_init_or_validate_referenced_value(struct sm6_parser *
         value->type = fwd_type;
         value->value_type = VALUE_TYPE_SSA;
         value->u.ssa.id = sm6_parser_alloc_ssa_id(dxil);
+
+        if (!sm6_type_is_numeric(value->type) && !sm6_type_is_struct(value->type))
+            vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_TYPE,
+                    "The type of SSA value %u is neither numeric nor a structure.", value->u.ssa.id);
     }
 }
 
