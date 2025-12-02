@@ -5647,10 +5647,7 @@ static struct hlsl_block *add_call(struct hlsl_ctx *ctx, const char *name,
     for (unsigned int i = 0; i < args->args_count; ++i)
     {
         if (args->args[i]->data_type->class == HLSL_CLASS_ERROR)
-        {
-            args->instrs->value = ctx->error_instr;
-            return args->instrs;
-        }
+            goto fail;
     }
 
     if ((decl = find_function_call(ctx, name, args, false, loc)))
@@ -5707,8 +5704,9 @@ static struct hlsl_block *add_call(struct hlsl_ctx *ctx, const char *name,
     return args->instrs;
 
 fail:
-    free_parse_initializer(args);
-    return NULL;
+    args->instrs->value = ctx->error_instr;
+    vkd3d_free(args->args);
+    return args->instrs;
 }
 
 static struct hlsl_block *add_shader_compilation(struct hlsl_ctx *ctx, const char *profile_name,
@@ -9582,11 +9580,7 @@ primary_expr:
         }
     | var_identifier '(' func_arguments ')'
         {
-            if (!($$ = add_call(ctx, $1, &$3, &@1)))
-            {
-                vkd3d_free($1);
-                YYABORT;
-            }
+            $$ = add_call(ctx, $1, &$3, &@1);
             vkd3d_free($1);
         }
     | KW_SAMPLER_STATE '{' state_block_start state_block '}'
