@@ -10720,6 +10720,33 @@ static void sm1_generate_vsir_instr_if(struct hlsl_ctx *ctx, struct vsir_program
         return;
 }
 
+static void sm1_generate_vsir_instr_loop(struct hlsl_ctx *ctx,
+        struct vsir_program *program, struct hlsl_ir_loop *loop)
+{
+    struct hlsl_ir_node *instr = &loop->node;
+    struct vkd3d_shader_instruction *ins;
+    struct vsir_src_operand *src;
+
+    if (loop->limiter)
+    {
+        hlsl_fixme(ctx, &instr->loc, "Loops with user-defined limiter int uniform.");
+        return;
+    }
+
+    if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_REP, 0, 1)))
+        return;
+    src = &ins->src[0];
+    vsir_src_operand_init(src, VKD3DSPR_CONSTINT, VSIR_DATA_I32, 1);
+    src->reg.dimension = VSIR_DIMENSION_VEC4;
+    src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
+    src->reg.idx[0].offset = ctx->d3d255intconst.id;
+
+    sm1_generate_vsir_block(ctx, &loop->body, program);
+
+    if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_ENDREP, 0, 0)))
+        return;
+}
+
 static void sm1_generate_vsir_block(struct hlsl_ctx *ctx, struct hlsl_block *block, struct vsir_program *program)
 {
     struct hlsl_ir_node *instr, *next;
@@ -10770,6 +10797,10 @@ static void sm1_generate_vsir_block(struct hlsl_ctx *ctx, struct hlsl_block *blo
 
             case HLSL_IR_SWIZZLE:
                 generate_vsir_instr_swizzle(ctx, program, hlsl_ir_swizzle(instr));
+                break;
+
+            case HLSL_IR_LOOP:
+                sm1_generate_vsir_instr_loop(ctx, program, hlsl_ir_loop(instr));
                 break;
 
             default:
