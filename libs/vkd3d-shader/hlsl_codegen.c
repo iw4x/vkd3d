@@ -10677,6 +10677,11 @@ static void sm1_generate_vsir_instr_jump(struct hlsl_ctx *ctx,
 
         vsir_src_from_hlsl_node(&ins->src[0], ctx, condition, VKD3DSP_WRITEMASK_ALL);
     }
+    else if (jump->type == HLSL_IR_JUMP_BREAK)
+    {
+        if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_BREAK, 0, 0)))
+            return;
+    }
     else
     {
         hlsl_fixme(ctx, &instr->loc, "Jump type %s.", hlsl_jump_type_to_string(jump->type));

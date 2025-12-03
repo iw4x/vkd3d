@@ -518,7 +518,7 @@ probe (0, 0) f32(6.0, 6.0, 2003, 6)
 % detects the tex2D() which is an operation that might require gradients.
 % This makes sense since, for gradients to work, adjacent pixels must take
 % the same flow control path.
-[pixel shader fail(sm<4) todo(sm<4)]
+[pixel shader fail(sm<4)]
 sampler sam;
 int limit;
 
@@ -542,7 +542,7 @@ float4 main() : sv_target
 %     warning X3553: can't use gradient instructions in loops with break, forcing loop to unroll
 %     error X3511: unable to unroll loop, loop does not appear to terminate in a timely manner (1024 iterations)
 %
-[pixel shader fail(sm<4) todo(sm<4)]
+[pixel shader fail(sm<4)]
 sampler sam;
 int limit;
 
@@ -555,7 +555,7 @@ float4 main() : sv_target
     return 0;
 }
 
-[pixel shader fail(sm<4) todo(sm<4)]
+[pixel shader fail(sm<4)]
 sampler sam;
 int limit;
 
