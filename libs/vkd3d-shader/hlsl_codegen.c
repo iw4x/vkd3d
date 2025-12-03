@@ -7004,12 +7004,14 @@ static bool find_constant(struct hlsl_ctx *ctx, const float *f, unsigned int cou
     {
         const struct hlsl_constant_register *reg = &defs->regs[i];
 
+        if (reg->is_int)
+            continue;
         for (size_t j = 0; j <= 4 - count; ++j)
         {
             unsigned int writemask = ((1u << count) - 1) << j;
 
             if ((reg->allocated_mask & writemask) == writemask
-                    && !memcmp(f, &reg->value.f[j], count * sizeof(float)))
+                    && !memcmp(f, &reg->value[j].f, count * sizeof(float)))
             {
                 ret->type = VKD3DSPR_CONST;
                 ret->id = reg->index;
@@ -7024,7 +7026,8 @@ static bool find_constant(struct hlsl_ctx *ctx, const float *f, unsigned int cou
     return false;
 }
 
-static void record_constant(struct hlsl_ctx *ctx, unsigned int component_index, float f,
+static void record_constant_value(struct hlsl_ctx *ctx, unsigned int component_index,
+        bool is_int, union hlsl_constant_value_component v,
         const struct vkd3d_shader_location *loc)
 {
     struct hlsl_constant_defs *defs = &ctx->constant_defs;
@@ -7034,9 +7037,9 @@ static void record_constant(struct hlsl_ctx *ctx, unsigned int component_index, 
     for (i = 0; i < defs->count; ++i)
     {
         reg = &defs->regs[i];
-        if (reg->index == (component_index / 4))
+        if (reg->is_int == is_int && reg->index == (component_index / 4))
         {
-            reg->value.f[component_index % 4] = f;
+            reg->value[component_index % 4] = v;
             reg->allocated_mask |= (1u << (component_index % 4));
             return;
         }
@@ -7046,10 +7049,29 @@ static void record_constant(struct hlsl_ctx *ctx, unsigned int component_index, 
         return;
     reg = &defs->regs[defs->count++];
     memset(reg, 0, sizeof(*reg));
+    reg->is_int = is_int;
     reg->index = component_index / 4;
-    reg->value.f[component_index % 4] = f;
+    reg->value[component_index % 4] = v;
     reg->allocated_mask = (1u << (component_index % 4));
     reg->loc = *loc;
+}
+
+static void record_constant(struct hlsl_ctx *ctx, unsigned int component_index,
+        float f, const struct vkd3d_shader_location *loc)
+{
+    union hlsl_constant_value_component v;
+
+    v.f = f;
+    record_constant_value(ctx, component_index, false, v, loc);
+}
+
+static void record_constint(struct hlsl_ctx *ctx, unsigned int component_index,
+        int i, const struct vkd3d_shader_location *loc)
+{
+    union hlsl_constant_value_component v;
+
+    v.i = i;
+    record_constant_value(ctx, component_index, true, v, loc);
 }
 
 static void allocate_const_registers_recurse(struct hlsl_ctx *ctx,
@@ -7188,6 +7210,34 @@ static void sort_uniforms_by_bind_count(struct hlsl_ctx *ctx, enum hlsl_regset r
     list_move_tail(&ctx->extern_vars, &sorted);
 }
 
+static bool allocate_constint_registers_for_loops(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, void *context)
+{
+    struct register_allocator *allocator = (struct register_allocator *)context;
+    struct hlsl_ir_loop *loop;
+
+    if (ctx->d3d255intconst.allocated)
+        return false;
+
+    if (instr->type != HLSL_IR_LOOP)
+        return false;
+    loop = hlsl_ir_loop(instr);
+
+    if (!loop->limiter)
+    {
+        ctx->d3d255intconst = allocate_register(ctx, allocator, 4, 4, 0, false, false, false);
+        TRACE("Allocated D3D255INTCONST to %s.\n",
+                debug_register(ctx->d3d255intconst, hlsl_get_vector_type(ctx, HLSL_TYPE_INT, 4)));
+        record_constint(ctx, ctx->d3d255intconst.id * 4 + 0, 255, &instr->loc);
+        record_constint(ctx, ctx->d3d255intconst.id * 4 + 1, 0, &instr->loc);
+        record_constint(ctx, ctx->d3d255intconst.id * 4 + 2, 0, &instr->loc);
+        record_constint(ctx, ctx->d3d255intconst.id * 4 + 3, 0, &instr->loc);
+        return true;
+    }
+
+    return false;
+}
+
 /* In SM2, 'sincos' expects specific constants as src1 and src2 arguments.
  * These have to be referenced directly, i.e. as 'c' not 'r'. */
 static void allocate_sincos_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *block,
@@ -7228,6 +7278,7 @@ static void allocate_sincos_const_registers(struct hlsl_ctx *ctx, struct hlsl_bl
 static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *body)
 {
     struct register_allocator allocator = {.type = VKD3DSPR_CONST}, allocator_used = {.type = VKD3DSPR_CONST};
+    struct register_allocator allocator_constint = {.type = VKD3DSPR_CONSTINT};
     struct hlsl_ir_var *var;
 
     sort_uniforms_by_bind_count(ctx, HLSL_REGSET_NUMERIC);
@@ -7290,6 +7341,8 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
     allocate_const_registers_recurse(ctx, body, &allocator);
 
     allocate_sincos_const_registers(ctx, body, &allocator);
+
+    hlsl_transform_ir(ctx, allocate_constint_registers_for_loops, body, &allocator_constint);
 
     vkd3d_free(allocator.allocations);
 }
@@ -9406,27 +9459,44 @@ static void sm1_generate_vsir_constant_defs(struct hlsl_ctx *ctx,
             ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
             return;
         }
-        if (!vsir_instruction_init_with_params(program, ins, &constant_reg->loc, VSIR_OP_DEF, 1, 1))
+        if (!vsir_instruction_init_with_params(program, ins, &constant_reg->loc,
+                constant_reg->is_int ? VSIR_OP_DEFI : VSIR_OP_DEF, 1, 1))
         {
             vsir_instruction_init(ins, &constant_reg->loc, VSIR_OP_NOP);
             ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
             return;
         }
 
-        dst = &ins->dst[0];
-        vsir_dst_operand_init(dst, VKD3DSPR_CONST, VSIR_DATA_F32, 1);
-        dst->reg.dimension = VSIR_DIMENSION_VEC4;
-        dst->reg.idx[0].offset = constant_reg->index;
-        dst->write_mask = VKD3DSP_WRITEMASK_ALL;
-
-        src = &ins->src[0];
-        vsir_src_operand_init(src, VKD3DSPR_IMMCONST, VSIR_DATA_F32, 0);
-        src->reg.dimension = VSIR_DIMENSION_VEC4;
-        for (x = 0; x < 4; ++x)
+        if (constant_reg->is_int)
         {
-            src->reg.u.immconst_f32[x] = constant_reg->value.f[x];
+            dst = &ins->dst[0];
+            vsir_register_init(&dst->reg, VKD3DSPR_CONSTINT, VSIR_DATA_I32, 1);
+            dst->reg.dimension = VSIR_DIMENSION_VEC4;
+            dst->reg.idx[0].offset = constant_reg->index;
+            dst->write_mask = VKD3DSP_WRITEMASK_ALL;
+
+            src = &ins->src[0];
+            vsir_src_operand_init(src, VKD3DSPR_IMMCONST, VSIR_DATA_I32, 0);
+            src->reg.dimension = VSIR_DIMENSION_VEC4;
+            for (x = 0; x < 4; ++x)
+                src->reg.u.immconst_u32[x] = constant_reg->value[x].u;
+            src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
         }
-        src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
+        else
+        {
+            dst = &ins->dst[0];
+            vsir_register_init(&dst->reg, VKD3DSPR_CONST, VSIR_DATA_F32, 1);
+            dst->reg.dimension = VSIR_DIMENSION_VEC4;
+            dst->reg.idx[0].offset = constant_reg->index;
+            dst->write_mask = VKD3DSP_WRITEMASK_ALL;
+
+            src = &ins->src[0];
+            vsir_src_operand_init(src, VKD3DSPR_IMMCONST, VSIR_DATA_F32, 0);
+            src->reg.dimension = VSIR_DIMENSION_VEC4;
+            for (x = 0; x < 4; ++x)
+                src->reg.u.immconst_f32[x] = constant_reg->value[x].f;
+            src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
+        }
     }
 }
 
