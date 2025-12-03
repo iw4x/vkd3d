@@ -21,8 +21,8 @@ shader model >= 3.0
 %
 %     warning X4122: sum of 1.23457e+038 and 39 cannot be represented accurately in double precision
 %
-% which appears to suggest that internally it executes a loop unrolling
-% despite the [loop] attribute.
+% which suggests that internally it executes a loop unrolling despite the
+% [loop] attribute being present.
 [pixel shader fail(sm<3) todo(sm<4)]
 int limit;    // In SM3, this gets i0.x as int, and c0.x as float.
 float other;  // In SM3, this should get c1.x as float.

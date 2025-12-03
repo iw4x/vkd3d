@@ -1107,7 +1107,7 @@ static void insert_early_return_break(struct hlsl_ctx *ctx,
 
     hlsl_block_add_jump(ctx, &then_block, HLSL_IR_JUMP_BREAK, NULL, &cf_instr->loc);
 
-    if (!(iff = hlsl_new_if(ctx, &load->node, &then_block, NULL, HLSL_IF_FLATTEN_DEFAULT, &cf_instr->loc)))
+    if (!(iff = hlsl_new_if(ctx, &load->node, &then_block, NULL, HLSL_IF_FLATTEN_DEFAULT, false, &cf_instr->loc)))
         return;
     list_add_after(&load->node.entry, &iff->entry);
 }
@@ -1292,7 +1292,7 @@ static bool lower_return(struct hlsl_ctx *ctx, struct hlsl_ir_function_decl *fun
 
         load = hlsl_block_add_simple_load(ctx, block, func->early_return_var, &cf_instr->loc);
         not = hlsl_block_add_unary_expr(ctx, block, HLSL_OP1_LOGIC_NOT, load, &cf_instr->loc);
-        hlsl_block_add_if(ctx, block, not, &then_block, NULL, HLSL_IF_FLATTEN_DEFAULT, &cf_instr->loc);
+        hlsl_block_add_if(ctx, block, not, &then_block, NULL, HLSL_IF_FLATTEN_DEFAULT, false, &cf_instr->loc);
     }
 
     return has_early_return;
@@ -13830,14 +13830,23 @@ static void generate_vsir_descriptors(struct hlsl_ctx *ctx, struct vsir_program 
     program->normalisation_flags.has_descriptor_info = true;
 }
 
-/* For some reason, for matrices, values from default value initializers end
- * up in different components than from regular initializers. Default value
- * initializers fill the matrix in vertical reading order
- * (left-to-right top-to-bottom) instead of regular reading order
- * (top-to-bottom left-to-right), so they have to be adjusted. An exception is
- * that the order of matrix initializers for function parameters are row-major
- * (top-to-bottom left-to-right). */
-static unsigned int get_component_index_from_default_initializer_index(struct hlsl_type *type, unsigned int index)
+enum reading_order
+{
+    /* For some reason, for matrices, values from default value initializers end
+     * up in different components than from regular initializers. Default value
+     * initializers fill the matrix in vertical reading order
+     * (left-to-right top-to-bottom) instead of regular reading order
+     * (top-to-bottom left-to-right), so they have to be adjusted. An exception is
+     * that the order of matrix initializers for function parameters are row-major
+     * (top-to-bottom left-to-right). */
+    READING_ORDER_DEFAULT_VALUES,
+    /* Map the component index from column-major matrices as if they were
+     * row-major matrices. This is the order in which constint registers are
+     * assigned to matrix components in SM3. */
+    READING_ORDER_ALWAYS_ROW_MAJOR,
+};
+
+static unsigned int map_matrix_component_index(struct hlsl_type *type, unsigned int index, enum reading_order order)
 {
     unsigned int element_comp_count, element, x, y, i;
     unsigned int base = 0;
@@ -13845,15 +13854,20 @@ static unsigned int get_component_index_from_default_initializer_index(struct hl
     switch (type->class)
     {
         case HLSL_CLASS_MATRIX:
-            x = index / type->e.numeric.dimy;
-            y = index % type->e.numeric.dimy;
-            return y * type->e.numeric.dimx + x;
+            if ((order == READING_ORDER_ALWAYS_ROW_MAJOR && !hlsl_type_is_row_major(type))
+                    || order == READING_ORDER_DEFAULT_VALUES)
+            {
+                x = index / type->e.numeric.dimy;
+                y = index % type->e.numeric.dimy;
+                return y * type->e.numeric.dimx + x;
+            }
+            return index;
 
         case HLSL_CLASS_ARRAY:
             element_comp_count = hlsl_type_component_count(type->e.array.type);
             element = index / element_comp_count;
             base = element * element_comp_count;
-            return base + get_component_index_from_default_initializer_index(type->e.array.type, index - base);
+            return base + map_matrix_component_index(type->e.array.type, index - base, order);
 
         case HLSL_CLASS_STRUCT:
             for (i = 0; i < type->e.record.field_count; ++i)
@@ -13862,7 +13876,7 @@ static unsigned int get_component_index_from_default_initializer_index(struct hl
 
                 element_comp_count = hlsl_type_component_count(field_type);
                 if (index - base < element_comp_count)
-                    return base + get_component_index_from_default_initializer_index(field_type, index - base);
+                    return base + map_matrix_component_index(field_type, index - base, order);
                 base += element_comp_count;
             }
             break;
@@ -14423,7 +14437,7 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ou
                         continue;
                     }
 
-                    comp_index = get_component_index_from_default_initializer_index(var->data_type, k);
+                    comp_index = map_matrix_component_index(var->data_type, k, READING_ORDER_DEFAULT_VALUES);
                     comp_offset = hlsl_type_get_component_offset(ctx, var->data_type, comp_index, &regset);
                     if (regset == HLSL_REGSET_NUMERIC)
                     {
@@ -14562,7 +14576,7 @@ static struct hlsl_ir_if *loop_unrolling_generate_var_check(struct hlsl_ctx *ctx
     load = hlsl_block_add_simple_load(ctx, dst, var, loc);
     cond = hlsl_block_add_unary_expr(ctx, dst, HLSL_OP1_LOGIC_NOT, load, loc);
 
-    if (!(iff = hlsl_new_if(ctx, cond, &then_block, NULL, HLSL_IF_FLATTEN_DEFAULT, loc)))
+    if (!(iff = hlsl_new_if(ctx, cond, &then_block, NULL, HLSL_IF_FLATTEN_DEFAULT, false, loc)))
         return NULL;
     hlsl_block_add_instr(dst, iff);
 
@@ -14653,6 +14667,141 @@ static void loop_unrolling_simplify(struct hlsl_ctx *ctx, struct hlsl_block *blo
     *index = current_index;
 }
 
+static struct hlsl_ir_if *find_loop_conditional(struct hlsl_block *block)
+{
+    struct hlsl_ir_node *instr;
+
+    LIST_FOR_EACH_ENTRY(instr, &block->instrs, struct hlsl_ir_node, entry)
+    {
+        if (instr->type == HLSL_IR_IF && hlsl_ir_if(instr)->is_loop_conditional)
+            return hlsl_ir_if(instr);
+    }
+
+    return NULL;
+}
+
+static bool hlsl_version_has_sm1_loop_support(struct hlsl_ctx *ctx)
+{
+    if (hlsl_version_ge(ctx, 4, 0))
+        return false;
+    if (ctx->profile->type == VKD3D_SHADER_TYPE_VERTEX)
+        return hlsl_version_ge(ctx, 2, 0);
+    return hlsl_version_ge(ctx, 2, 1);
+}
+
+/* In SM1, the native compiler will emit REP or LOOP instructions to represent
+ * loops. These instructions require an i# register containing the number of
+ * iterations.
+ *
+ * When the compiler is able to determine that the number of iterations depends
+ * of an int uniform, it will expect the user to provide its value on an i#
+ * register instead of defining it in the program using DEFI. We call this
+ * uniform the "limiter".
+ *
+ * To detect such cases, instead of simply pattern-matching loops like
+ * "for (i = 0; i < n; ++i)", native apparently tests that the condition
+ * ultimately matches 'k < n' for the k-th iteration of the loop, for all k
+ * from 0 to 255.
+ *
+ * This means that complex conditions like "for (i = 0; i % 255 < n; ++i)" and
+ * "for (i = 0; i / 2 < n; i += 2)" will use a user-provided i# uniform, so will
+ * conditions like "for (; i < n;)" if i is initialized to 0 before the loop
+ * and incremented by 1 inside it.
+ * Interestingly, something as simple as "for (i = 1; i <= n; ++i)" doesn't
+ * match, so it doesn't use a user-provided i# uniform.
+ *
+ * The choice of whether a uniform is placed in c# or i# (or both) is a
+ * relatively user-visible detail, that also affects the registers on which
+ * other uniforms are allocated, so it's important to try to replicate the
+ * same logic.
+ *
+ * For a block of instructions containing a singular, lowered, iteration of a
+ * loop, this function checks if the loop conditional on that iteration has the
+ * form 'k < n', where k is a constant.
+ *
+ * If we find that the condition matches, we track the uniform (n) as the
+ * loop's limiter. On the other hand, if the condition ever fails, or matches
+ * for another uniform (or another component of the same one), then we unset it,
+ * return NULL and fail. */
+static struct hlsl_ir_if *identify_limiter_uniform(struct hlsl_ctx *ctx,
+        struct hlsl_ir_loop *loop, struct hlsl_block *block, unsigned int k)
+{
+    unsigned int limiter_component, component_count, swizzle_component = 0;
+    struct hlsl_ir_node *condition, *arg1;
+    struct hlsl_ir_if *iff = NULL;
+    struct hlsl_ir_expr *expr;
+    struct hlsl_ir_load *load;
+    struct hlsl_ir_var *var;
+
+    VKD3D_ASSERT(loop->unroll_type == HLSL_LOOP_FORCE_LOOP);
+    VKD3D_ASSERT(loop->type != HLSL_LOOP_DO_WHILE);
+
+    iff = find_loop_conditional(block);
+
+    if (!iff)
+        goto fail;
+
+    condition = iff->condition.node;
+    if (condition->type != HLSL_IR_EXPR)
+        goto fail;
+    expr = hlsl_ir_expr(condition);
+
+    if (expr->op == HLSL_OP1_LOGIC_NOT)
+    {
+        if (expr->operands[0].node->type != HLSL_IR_EXPR)
+            goto fail;
+        expr = hlsl_ir_expr(expr->operands[0].node);
+        if (expr->op != HLSL_OP2_LESS)
+            goto fail;
+    }
+    else if (expr->op != HLSL_OP2_GEQUAL)
+        goto fail;
+
+    if (expr->operands[0].node->type != HLSL_IR_CONSTANT)
+        goto fail;
+    arg1 = expr->operands[1].node;
+    if (arg1->type == HLSL_IR_SWIZZLE)
+    {
+        VKD3D_ASSERT(hlsl_ir_swizzle(arg1)->val.node->data_type->class == HLSL_CLASS_VECTOR);
+
+        swizzle_component = hlsl_swizzle_get_component(hlsl_ir_swizzle(arg1)->u.vector, 0);
+        arg1 = hlsl_ir_swizzle(arg1)->val.node;
+    }
+    if (arg1->type != HLSL_IR_LOAD)
+        goto fail;
+    if (hlsl_ir_constant(expr->operands[0].node)->value.u[0].u != k)
+        goto fail;
+
+    load = hlsl_ir_load(arg1);
+    if (load->node.data_type->e.numeric.type != HLSL_TYPE_INT
+            && load->node.data_type->e.numeric.type != HLSL_TYPE_UINT)
+        goto fail;
+    var = load->src.var;
+
+    if (!var->is_uniform)
+        goto fail;
+
+    if (!hlsl_component_index_range_from_deref(ctx, &load->src, &limiter_component, &component_count))
+        goto fail;
+    limiter_component += swizzle_component;
+    limiter_component = map_matrix_component_index(var->data_type, limiter_component, READING_ORDER_ALWAYS_ROW_MAJOR);
+
+    if (!loop->limiter)
+    {
+        loop->limiter = var;
+        loop->limiter_component = limiter_component;
+    }
+
+    if (loop->limiter != var || loop->limiter_component != limiter_component)
+        goto fail;
+
+    return iff;
+
+fail:
+    loop->limiter = NULL;
+    return NULL;
+}
+
 static bool loop_unrolling_check_val(struct copy_propagation_state *state, struct hlsl_ir_var *var)
 {
     struct copy_propagation_value *v;
@@ -14664,8 +14813,8 @@ static bool loop_unrolling_check_val(struct copy_propagation_state *state, struc
     return hlsl_ir_constant(v->node)->value.u[0].u;
 }
 
-static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *block, struct hlsl_ir_loop *loop,
-        unsigned int unroll_limit)
+static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *block,
+        struct hlsl_ir_loop *loop, unsigned int unroll_limit, bool identify_limiter)
 {
     struct hlsl_block draft, tmp_dst, loop_body;
     struct hlsl_ir_var *broken, *continued;
@@ -14729,6 +14878,20 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
 
         loop_unrolling_simplify(ctx, &target_if->then_block, &state, &index);
 
+        if (identify_limiter)
+        {
+            struct hlsl_ir_if *limiter_if;
+
+            if (!(limiter_if = identify_limiter_uniform(ctx, loop, &target_if->then_block, i)))
+                goto fail;
+            VKD3D_ASSERT(list_empty(&limiter_if->else_block.instrs));
+            /* Remove the conditional so the next iteration can assume that this
+             * one was completed while lowering. */
+            list_remove(&limiter_if->node.entry);
+            hlsl_free_instr(&limiter_if->node);
+            loop_unrolling_simplify(ctx, &target_if->then_block, &state, &index);
+        }
+
         if (loop_unrolling_check_val(&state, broken))
             break;
 
@@ -14751,6 +14914,9 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
                 "Unable to unroll loop, maximum iterations reached (%u).", max_iterations);
         goto fail;
     }
+
+    if (identify_limiter)
+        goto fail;
 
     hlsl_block_cleanup(&loop_body);
     copy_propagation_state_destroy(&state);
@@ -14800,10 +14966,28 @@ static bool unroll_loops(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, void *
         unroll_limit = c->value.u[0].u;
     }
 
-    if (!loop_unrolling_unroll_loop(ctx, program, loop, unroll_limit))
+    if (!loop_unrolling_unroll_loop(ctx, program, loop, unroll_limit, false))
         loop->unroll_type = HLSL_LOOP_FORCE_LOOP;
 
     return true;
+}
+
+static bool identify_loop_limiters(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, void *context)
+{
+    struct hlsl_block *program = context;
+    struct hlsl_ir_loop *loop;
+
+    if (node->type != HLSL_IR_LOOP)
+        return false;
+
+    loop = hlsl_ir_loop(node);
+
+    if (loop->type == HLSL_LOOP_DO_WHILE)
+        return false;
+    if (loop->unroll_type == HLSL_LOOP_FORCE_LOOP)
+        loop_unrolling_unroll_loop(ctx, program, loop, 255, true);
+
+    return false;
 }
 
 /* We could handle this at parse time. However, loop unrolling often needs to
@@ -14912,6 +15096,8 @@ static void loop_unrolling_execute(struct hlsl_ctx *ctx, struct hlsl_block *bloc
         if (!hlsl_transform_ir_once(ctx, unroll_loops, block, block))
             break;
     }
+    if (hlsl_version_has_sm1_loop_support(ctx))
+        hlsl_transform_ir(ctx, identify_loop_limiters, block, block);
     resolve_continues(ctx, block, NULL);
     hlsl_transform_ir(ctx, resolve_loops, block, NULL);
 }

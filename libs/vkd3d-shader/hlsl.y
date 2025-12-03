@@ -471,7 +471,7 @@ static void append_conditional_break(struct hlsl_ctx *ctx, struct hlsl_block *co
 
     hlsl_block_init(&then_block);
     hlsl_block_add_jump(ctx, &then_block, HLSL_IR_JUMP_BREAK, NULL, &condition->loc);
-    hlsl_block_add_if(ctx, cond_block, not, &then_block, NULL, HLSL_IF_FLATTEN_DEFAULT, &condition->loc);
+    hlsl_block_add_if(ctx, cond_block, not, &then_block, NULL, HLSL_IF_FLATTEN_DEFAULT, true, &condition->loc);
 }
 
 static void check_attribute_list_for_duplicates(struct hlsl_ctx *ctx, const struct parse_attribute_list *attrs)
@@ -9482,7 +9482,7 @@ selection_statement:
             check_condition_type(ctx, condition);
 
             condition = add_cast(ctx, $4, condition, hlsl_get_scalar_type(ctx, HLSL_TYPE_BOOL), &@4);
-            hlsl_block_add_if(ctx, $4, condition, $6.then_block, $6.else_block, flatten_type, &@2);
+            hlsl_block_add_if(ctx, $4, condition, $6.then_block, $6.else_block, flatten_type, false, &@2);
 
             destroy_block($6.then_block);
             destroy_block($6.else_block);
