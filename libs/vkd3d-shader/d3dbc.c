@@ -2022,6 +2022,30 @@ static void d3dbc_write_vsir_def(struct d3dbc_compiler *d3dbc, const struct vkd3
         put_f32(buffer, ins->src[0].reg.u.immconst_f32[x]);
 }
 
+static void d3dbc_write_vsir_defi(struct d3dbc_compiler *d3dbc, const struct vkd3d_shader_instruction *ins)
+{
+    const struct vkd3d_shader_version *version = &d3dbc->program->shader_version;
+    struct vkd3d_bytecode_buffer *buffer = &d3dbc->buffer;
+    uint32_t token;
+
+    const struct vsir_dst_operand reg =
+    {
+        .reg.type = VKD3DSPR_CONSTINT,
+        .write_mask = VKD3DSP_WRITEMASK_ALL,
+        .reg.idx[0].offset = ins->dst[0].reg.idx[0].offset,
+        .reg.idx_count = 1,
+    };
+
+    token = VKD3D_SM1_OP_DEFI;
+    if (version->major > 1)
+        token |= 5 << VKD3D_SM1_INSTRUCTION_LENGTH_SHIFT;
+    put_u32(buffer, token);
+
+    write_sm1_dst_register(buffer, &reg);
+    for (unsigned int x = 0; x < 4; ++x)
+        put_u32(buffer, ins->src[0].reg.u.immconst_u32[x]);
+}
+
 static void d3dbc_write_vsir_sampler_dcl(struct d3dbc_compiler *d3dbc,
         unsigned int reg_id, enum vkd3d_sm1_resource_type res_type)
 {
@@ -2099,6 +2123,10 @@ static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *d3dbc, const str
 
         case VSIR_OP_DEF:
             d3dbc_write_vsir_def(d3dbc, ins);
+            break;
+
+        case VSIR_OP_DEFI:
+            d3dbc_write_vsir_defi(d3dbc, ins);
             break;
 
         case VSIR_OP_DCL:

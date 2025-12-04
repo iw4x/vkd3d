@@ -241,7 +241,7 @@ probe (0, 0) f32(3.0, 3.0, -1.0, 0.0)
 % Register i0 is defined as 255 (maximum number of iterations) instead of
 % defined by the uniform, and a break_ge instruction finishes the loop
 % instead.
-[pixel shader fail(sm<3) todo(sm<4)]
+[pixel shader fail(sm<3)]
 int limit;
 
 float4 main() : sv_target
@@ -261,11 +261,11 @@ float4 main() : sv_target
 [test]
 if(sm<4) write cbv-f32 (0) f32(45.0)
 if(sm>=4) write cbv-0 (0) i32(45)
-todo(sm<4) draw quad
+draw quad
 probe (0, 0) f32(4674, 4674, 4674, 45)
 
 % `while` loops are valid:
-[pixel shader fail(sm<3) todo(sm<4)]
+[pixel shader fail(sm<3)]
 int limit;
 
 float4 main() : sv_target
@@ -287,11 +287,11 @@ float4 main() : sv_target
 [test]
 if(sm<4) write cbv-f32 (0) f32(5.0)
 if(sm>=4) write cbv-0 (0) i32(5)
-todo(sm<4) draw quad
+draw quad
 probe (0, 0) f32(19.68, 19.68, 19.68, 5.0)
 
 % `break` can be used inside an arbitrary condition.
-[pixel shader fail(sm<3) todo(sm<4)]
+[pixel shader fail(sm<3)]
 int limit;
 
 float4 main() : sv_target
@@ -314,7 +314,7 @@ float4 main() : sv_target
 [test]
 if(sm<4) write cbv-f32 (0) f32(7.0)
 if(sm>=4) write cbv-0 (0) i32(7)
-todo(sm<4) draw quad
+draw quad
 probe (0, 0) f32(33.0, 33.0, 33.0, 8.0)
 
 % In this case the same i0 register, defined with
@@ -322,7 +322,7 @@ probe (0, 0) f32(33.0, 33.0, 33.0, 8.0)
 %     defi i0, 255, 0, 0, 0
 %
 % gets used for both `rep` instructions.
-[pixel shader fail(sm<3) todo(sm<4)]
+[pixel shader fail(sm<3)]
 int limit1;
 int limit2;
 
@@ -343,12 +343,12 @@ float4 main() : sv_target
 if(sm<4) write cbv-f32 (0) f32(52.0)
 if(sm<4) write cbv-f32 (4) f32(62.0)
 if(sm>=4) write cbv-0 (0) i32(52, 62, 0, 0)
-todo(sm<4) draw quad
+draw quad
 probe (0, 0) f32(10.0, 155.0, 52.0, 62.0)
 
 % The compiler doesn't detect that these are `limit` iterations, and also uses
 % the `defi i0, 255, 0, 0, 0` trick.
-[pixel shader fail(sm<3) todo(sm<4)]
+[pixel shader fail(sm<3)]
 int limit; // In SM3, this doesn't get i0.
 
 float4 main() : sv_target
@@ -369,7 +369,7 @@ float4 main() : sv_target
 [test]
 if(sm<4) write cbv-f32 (0) f32(6.0)
 if(sm>=4) write cbv-0 (0) i32(6)
-todo(sm<4) draw quad
+draw quad
 probe (0, 0) f32(345678.0, 345678.0, 345678.0, 6.0)
 
 % In this example, the iterator expects `limit` in i0, so it recognizes it as
@@ -432,7 +432,7 @@ probe (0, 0) f32(30.0, 30.0, 30.0, 30.0)
 
 % The compiler seems to only recognize `>` and `<` expressions in the for loop's
 % condition, it uses the `defi` trick here.
-[pixel shader fail(sm<3) todo(sm<4)]
+[pixel shader fail(sm<3)]
 int limit; // gets c0 but not i0.
 
 float4 main() : sv_target
@@ -448,7 +448,7 @@ float4 main() : sv_target
 [test]
 if(sm<4) write cbv-f32 (0) f32(6)
 if(sm>=4) write cbv-0 (0) i32(6)
-todo(sm<4) draw quad
+draw quad
 probe (0, 0) f32(55.0, 55.0, 55.0, 55.0)
 
 [require]
@@ -518,7 +518,7 @@ probe (0, 0) f32(6.0, 6.0, 2003, 6)
 % detects the tex2D() which is an operation that might require gradients.
 % This makes sense since, for gradients to work, adjacent pixels must take
 % the same flow control path.
-[pixel shader fail(sm<4)]
+[pixel shader fail(sm<4) todo(sm<4)]
 sampler sam;
 int limit;
 
@@ -542,7 +542,7 @@ float4 main() : sv_target
 %     warning X3553: can't use gradient instructions in loops with break, forcing loop to unroll
 %     error X3511: unable to unroll loop, loop does not appear to terminate in a timely manner (1024 iterations)
 %
-[pixel shader fail(sm<4)]
+[pixel shader fail(sm<4) todo(sm<4)]
 sampler sam;
 int limit;
 
@@ -555,7 +555,7 @@ float4 main() : sv_target
     return 0;
 }
 
-[pixel shader fail(sm<4)]
+[pixel shader fail(sm<4) todo(sm<4)]
 sampler sam;
 int limit;
 
@@ -672,7 +672,7 @@ if(sm<4) probe (0, 0) f32(0.5, 1.5, 0.5, 2.0)
 %     endloop
 %     ...
 %
-[pixel shader fail(sm<3) todo(sm<4)]
+[pixel shader fail(sm<3)]
 int2 limit;
 
 float4 main(float4 pos : sv_position, in float4 cols[4] : COLOR) : sv_target
@@ -688,9 +688,9 @@ float4 main(float4 pos : sv_position, in float4 cols[4] : COLOR) : sv_target
 [test]
 if(sm<4) write cbv-f32 (0) f32(1.0, 2.0, 0.0, 0.0)
 if(sm>=4) write cbv-0 (0) i32(1, 2, 0, 0)
-todo(sm<4 | msl & sm>=6) draw quad
+todo(msl & sm>=6) draw quad
 probe (0, 0) f32(1.0, 1.0, 1.0, 3.0)
 if(sm<4) write cbv-f32 (0) f32(3.0, 1.0, 0.0, 0.0)
 if(sm>=4) write cbv-0 (0) i32(3, 1, 0, 0)
-todo(sm<4 | msl & sm>=6) draw quad
+todo(msl & sm>=6) draw quad
 probe (0, 0) f32(1.5, 1.5, 1.5, 4.0)
