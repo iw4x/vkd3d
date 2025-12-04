@@ -5021,7 +5021,7 @@ static bool sm6_parser_emit_reg_composite_construct(struct sm6_parser *sm6,
         const struct vkd3d_shader_register *operand_regs, unsigned int component_count,
         struct function_emission_state *state, struct vkd3d_shader_register *reg)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     struct vsir_dst_operand *dst_param;
     bool all_constant = true;
@@ -5050,27 +5050,33 @@ static bool sm6_parser_emit_reg_composite_construct(struct sm6_parser *sm6,
     register_init_with_id(reg, VKD3DSPR_TEMP, operand_regs[0].data_type, state->temp_idx++);
     reg->dimension = VSIR_DIMENSION_VEC4;
 
-    for (i = 0; i < component_count; ++i, ++ins)
+    for (i = 0; i < component_count; ++i)
     {
+        if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+            return false;
+
+        state->ins = ins + 1;
+
         vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
 
         if (!(src_params = instruction_src_params_alloc(ins, 1, sm6)))
-            return false;
+            goto error;
 
         src_param_init(&src_params[0]);
         src_params[0].reg = operand_regs[i];
 
         if (!(dst_param = instruction_dst_params_alloc(ins, 1, sm6)))
-            return false;
+            goto error;
 
         dst_param_init_scalar(dst_param, i);
         dst_param->reg = *reg;
     }
 
-    state->ins = ins;
-    state->function->instructions.count += component_count;
-
     return true;
+
+error:
+    vkd3d_shader_instruction_make_nop(ins);
+    return false;
 }
 
 static bool sm6_parser_emit_composite_construct(struct sm6_parser *sm6, const struct sm6_value **operands,
