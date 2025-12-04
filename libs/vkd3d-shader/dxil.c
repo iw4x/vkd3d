@@ -6295,29 +6295,23 @@ static void sm6_parser_emit_dx_buffer_store(struct sm6_parser *sm6, enum dx_intr
 
     if (resource->u.handle.d->kind == RESOURCE_KIND_RAWBUFFER
             || resource->u.handle.d->kind == RESOURCE_KIND_STRUCTUREDBUFFER)
-    {
         return sm6_parser_emit_dx_raw_buffer_store(sm6, op, operands, state);
-    }
 
     if (resource->u.handle.d->kind != RESOURCE_KIND_TYPEDBUFFER)
-    {
-        WARN("Resource is not a typed buffer.\n");
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_INVALID_OPERATION,
                 "Resource for a typed buffer store is not a typed buffer.");
-    }
 
     write_mask = sm6_value_get_constant_uint(operands[7], sm6);
     if (!write_mask || write_mask > VKD3DSP_WRITEMASK_ALL)
     {
-        WARN("Invalid write mask %#x.\n", write_mask);
         vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Write mask %#x for a typed buffer store operation is invalid.", write_mask);
         return;
     }
     else if (write_mask & (write_mask + 1))
     {
-        /* In this case, it is unclear which source operands will be defined unless we encounter it in a shader. */
-        FIXME("Unhandled write mask %#x.\n", write_mask);
+        /* In this case, it is unclear which source operands will be defined
+         * unless we encounter it in a shader. */
         vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Write mask %#x for a typed buffer store operation is unhandled.", write_mask);
     }
@@ -6326,22 +6320,33 @@ static void sm6_parser_emit_dx_buffer_store(struct sm6_parser *sm6, enum dx_intr
     if (!sm6_parser_emit_composite_construct(sm6, &operands[3], component_count, state, &texel))
         return;
 
-    ins = state->ins;
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_STORE_UAV_TYPED);
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
+
     src_param_init_from_value(&src_params[0], operands[1], 0, sm6);
     if (!sm6_value_is_undef(operands[2]))
-    {
-        /* Constant zero would have no effect, but is not worth checking for unless it shows up. */
-        WARN("Ignoring structure offset.\n");
+        /* Constant zero would have no effect, but is not worth checking for
+         * unless it shows up. */
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring structure offset for a typed buffer store.");
-    }
     src_param_init_vector_from_reg(&src_params[1], &texel);
 
-    dst_param = instruction_dst_params_alloc(ins, 1, sm6);
+    if (!(dst_param = instruction_dst_params_alloc(ins, 1, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
     dst_param_init_with_mask(dst_param, write_mask);
     sm6_register_from_handle(sm6, &resource->u.handle, &dst_param->reg);
 }
