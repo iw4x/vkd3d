@@ -5423,7 +5423,7 @@ static void sm6_parser_emit_dx_barrier(struct sm6_parser *dxil, enum dx_intrinsi
 static void sm6_parser_emit_dx_buffer_update_counter(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     const struct sm6_value *resource;
     unsigned int i;
@@ -5441,19 +5441,27 @@ static void sm6_parser_emit_dx_buffer_update_counter(struct sm6_parser *sm6, enu
     }
     i = sm6_value_get_constant_uint(operands[1], sm6);
     if (i != 1 && i != 255)
-    {
-        WARN("Unexpected update value %#x.\n", i);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Update value %#x for a UAV counter operation is not supported.", i);
-    }
     inc = i;
 
-    vsir_instruction_init(ins, &sm6->p.location, (inc < 0) ? VSIR_OP_IMM_ATOMIC_CONSUME : VSIR_OP_IMM_ATOMIC_ALLOC);
-    if (!(src_params = instruction_src_params_alloc(ins, 1, sm6)))
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
+
+    state->pushed_instruction = true;
+
+    vsir_instruction_init(ins, &sm6->p.location, (inc < 0) ? VSIR_OP_IMM_ATOMIC_CONSUME : VSIR_OP_IMM_ATOMIC_ALLOC);
+
+    if (!(src_params = instruction_src_params_alloc(ins, 1, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
     src_param_init_vector_from_handle(sm6, &src_params[0], &resource->u.handle);
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, sm6))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_emit_dx_calculate_lod(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
