@@ -2111,6 +2111,7 @@ static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *d3dbc, const str
 
         case VSIR_OP_ABS:
         case VSIR_OP_ADD:
+        case VSIR_OP_BREAK:
         case VSIR_OP_CMP:
         case VSIR_OP_DP2ADD:
         case VSIR_OP_DP3:
@@ -2119,6 +2120,7 @@ static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *d3dbc, const str
         case VSIR_OP_DSY:
         case VSIR_OP_ELSE:
         case VSIR_OP_ENDIF:
+        case VSIR_OP_ENDREP:
         case VSIR_OP_FRC:
         case VSIR_OP_IFC:
         case VSIR_OP_MAD:
@@ -2127,6 +2129,7 @@ static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *d3dbc, const str
         case VSIR_OP_MOV:
         case VSIR_OP_MOVA:
         case VSIR_OP_MUL:
+        case VSIR_OP_REP:
         case VSIR_OP_SINCOS:
         case VSIR_OP_SLT:
         case VSIR_OP_TEXLD:
