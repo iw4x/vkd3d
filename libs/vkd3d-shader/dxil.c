@@ -5801,8 +5801,8 @@ static void sm6_parser_emit_dx_dot(struct sm6_parser *dxil, enum dx_intrinsic_op
 static void sm6_parser_emit_dx_eval_attrib(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct shader_signature *signature;
+    struct vkd3d_shader_instruction *ins;
     unsigned int row_index, column_index;
     struct vsir_src_operand *src_params;
     const struct signature_element *e;
@@ -5813,7 +5813,6 @@ static void sm6_parser_emit_dx_eval_attrib(struct sm6_parser *sm6, enum dx_intri
     signature = &sm6->program->input_signature;
     if (row_index >= signature->element_count)
     {
-        WARN("Invalid row index %u.\n", row_index);
         vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Invalid input row index %u for an attribute evaluation.", row_index);
         return;
@@ -5822,17 +5821,24 @@ static void sm6_parser_emit_dx_eval_attrib(struct sm6_parser *sm6, enum dx_intri
     e = &signature->elements[row_index];
     if (column_index >= VKD3D_VEC4_SIZE || !(e->mask & (1 << column_index)))
     {
-        WARN("Invalid column index %u.\n", column_index);
         vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Invalid input column index %u for an attribute evaluation.", column_index);
         return;
     }
 
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     vsir_instruction_init(ins, &sm6->p.location, (op == DX_EVAL_CENTROID)
             ? VSIR_OP_EVAL_CENTROID : VSIR_OP_EVAL_SAMPLE_INDEX);
 
     if (!(src_params = instruction_src_params_alloc(ins, 1 + (op == DX_EVAL_SAMPLE_INDEX), sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
 
     src_params[0].reg = sm6->input_params[row_index].reg;
     src_param_init_scalar(&src_params[0], column_index);
@@ -5842,7 +5848,8 @@ static void sm6_parser_emit_dx_eval_attrib(struct sm6_parser *sm6, enum dx_intri
     if (op == DX_EVAL_SAMPLE_INDEX)
         src_param_init_from_value(&src_params[1], operands[3], 0, sm6);
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, sm6))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_emit_dx_fabs(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
