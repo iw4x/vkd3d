@@ -5688,16 +5688,26 @@ static void sm6_parser_emit_dx_stream(struct sm6_parser *dxil, enum dx_intrinsic
         sm6_parser_emit_dx_stream(dxil, DX_CUT_STREAM, operands, state);
 }
 
-static void sm6_parser_emit_dx_discard(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
+static void sm6_parser_emit_dx_discard(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_param;
 
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_DISCARD);
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
 
-    if ((src_param = instruction_src_params_alloc(ins, 1, sm6)))
-        src_param_init_from_value(src_param, operands[0], 0, sm6);
+    state->pushed_instruction = true;
+
+    vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_DISCARD);
+
+    if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
+    src_param_init_from_value(src_param, operands[0], 0, dxil);
 }
 
 static void sm6_parser_emit_dx_domain_location(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
