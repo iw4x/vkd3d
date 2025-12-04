@@ -5477,25 +5477,33 @@ static void sm6_parser_emit_dx_calculate_lod(struct sm6_parser *sm6, enum dx_int
     sampler = operands[1];
     if (!sm6_value_validate_is_texture_handle(resource, op, sm6)
             || !sm6_value_validate_is_sampler_handle(sampler, op, sm6))
-    {
         return;
-    }
 
     if (!sm6_parser_emit_coordinate_construct(sm6, &operands[2], 3, NULL, state, &coord))
         return;
 
     clamp = sm6_value_get_constant_uint(operands[5], sm6);
 
-    ins = state->ins;
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_LOD);
-    if (!(src_params = instruction_src_params_alloc(ins, 3, sm6)))
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
+
+    state->pushed_instruction = true;
+
+    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_LOD);
+
+    if (!(src_params = instruction_src_params_alloc(ins, 3, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
     src_param_init_vector_from_reg(&src_params[0], &coord);
     sm6_register_from_handle(sm6, &resource->u.handle, &src_params[1].reg);
     src_param_init_scalar(&src_params[1], !clamp);
     src_param_init_vector_from_handle(sm6, &src_params[2], &sampler->u.handle);
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, sm6))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_emit_dx_cbuffer_load(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
