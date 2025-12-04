@@ -11,7 +11,7 @@ ffff0200                                                % ps_2_0
 0000ffff                                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (320, 240) f32(.5, .5, .5, 1.0)
 
 % Test the _sat modifier.
@@ -31,5 +31,5 @@ ffff0200                                                % ps_2_0
 0000ffff                                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (320, 240) f32(.5, .5, .5, 1.0)
