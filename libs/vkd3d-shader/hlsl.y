@@ -2114,6 +2114,12 @@ static bool add_assignment(struct hlsl_ctx *ctx, struct hlsl_block *block, struc
         struct hlsl_type *resource_type;
         unsigned int dim_count;
 
+        if (rhs->data_type->class > HLSL_CLASS_LAST_NUMERIC)
+        {
+            hlsl_fixme(ctx, &lhs->loc, "Composite type structured buffer stores.");
+            return false;
+        }
+
         if (!hlsl_index_is_resource_access(hlsl_ir_index(lhs)))
         {
             hlsl_fixme(ctx, &lhs->loc, "Non-direct structured resource store.");
