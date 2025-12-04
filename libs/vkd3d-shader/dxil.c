@@ -5510,7 +5510,7 @@ static void sm6_parser_emit_dx_cbuffer_load(struct sm6_parser *sm6, enum dx_intr
         const struct sm6_value **operands, struct function_emission_state *state)
 {
     struct sm6_value *dst = sm6_parser_get_current_value(sm6);
-    struct vkd3d_shader_instruction *ins = state->ins;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_param;
     const struct sm6_value *buffer;
     const struct sm6_type *type;
@@ -5519,10 +5519,19 @@ static void sm6_parser_emit_dx_cbuffer_load(struct sm6_parser *sm6, enum dx_intr
     if (!sm6_value_validate_is_handle(buffer, sm6))
         return;
 
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
 
     if (!(src_param = instruction_src_params_alloc(ins, 1, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
+
     src_param_init_vector_from_handle(sm6, src_param, &buffer->u.handle);
     /* Differently from other descriptors, constant buffers require an
      * additional index, used to index within the constant buffer itself. */
@@ -5537,7 +5546,8 @@ static void sm6_parser_emit_dx_cbuffer_load(struct sm6_parser *sm6, enum dx_intr
     else
         register_convert_to_minimum_precision(&src_param->reg);
 
-    instruction_dst_param_init_ssa_vector(ins, sm6_type_max_vector_size(type), sm6);
+    if (!instruction_dst_param_init_ssa_vector(ins, sm6_type_max_vector_size(type), sm6))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_dcl_register_builtin(struct sm6_parser *dxil, enum vkd3d_shader_opcode opcode,
