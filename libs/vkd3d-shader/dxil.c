@@ -5630,7 +5630,6 @@ static const struct sm6_descriptor_info *sm6_parser_get_descriptor(struct sm6_pa
 static void sm6_parser_emit_dx_create_handle(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
     enum vkd3d_shader_descriptor_type type;
     const struct sm6_descriptor_info *d;
     struct sm6_value *dst;
@@ -5640,7 +5639,6 @@ static void sm6_parser_emit_dx_create_handle(struct sm6_parser *sm6, enum dx_int
     id = sm6_value_get_constant_uint(operands[1], sm6);
     if (!(d = sm6_parser_get_descriptor(sm6, type, id, operands[2])))
     {
-        WARN("Failed to find resource type %#x, id %#x.\n", type, id);
         vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Descriptor for resource type %#x, id %#x was not found.", type, id);
         return;
@@ -5652,8 +5650,10 @@ static void sm6_parser_emit_dx_create_handle(struct sm6_parser *sm6, enum dx_int
     dst->u.handle.index = operands[2];
     dst->u.handle.non_uniform = !!sm6_value_get_constant_uint(operands[3], sm6);
 
-    /* NOP is used to flag no instruction emitted. */
-    ins->opcode = VSIR_OP_NOP;
+    /* Well, not really, but the point here is that we pushed all the
+     * instructions we had to (i.e., none), and sm6_parser_function_init()
+     * doesn't have to do it for us. */
+    state->pushed_instruction = true;
 }
 
 static void sm6_parser_emit_dx_stream(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
