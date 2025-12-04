@@ -5656,35 +5656,36 @@ static void sm6_parser_emit_dx_create_handle(struct sm6_parser *sm6, enum dx_int
     state->pushed_instruction = true;
 }
 
-static void sm6_parser_emit_dx_stream(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
+static void sm6_parser_emit_dx_stream(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_param;
     unsigned int i;
 
-    vsir_instruction_init(ins, &sm6->p.location, (op == DX_CUT_STREAM) ? VSIR_OP_CUT_STREAM : VSIR_OP_EMIT_STREAM);
-
-    if (!(src_param = instruction_src_params_alloc(ins, 1, sm6)))
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    i = sm6_value_get_constant_uint(operands[0], sm6);
-    if (i >= MAX_GS_OUTPUT_STREAMS)
+    state->pushed_instruction = true;
+
+    vsir_instruction_init(ins, &dxil->p.location, (op == DX_CUT_STREAM) ? VSIR_OP_CUT_STREAM : VSIR_OP_EMIT_STREAM);
+
+    if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
     {
-        WARN("Invalid stream index %u.\n", i);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
-                "Output stream index %u is invalid.", i);
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
     }
+
+    i = sm6_value_get_constant_uint(operands[0], dxil);
+    if (i >= MAX_GS_OUTPUT_STREAMS)
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+                "Output stream index %u is invalid.", i);
 
     register_init_with_id(&src_param->reg, VKD3DSPR_STREAM, VSIR_DATA_UNUSED, i);
     src_param_init(src_param);
 
     if (op == DX_EMIT_THEN_CUT_STREAM)
-    {
-        ++state->ins;
-        ++state->function->instructions.count;
-        sm6_parser_emit_dx_stream(sm6, DX_CUT_STREAM, operands, state);
-    }
+        sm6_parser_emit_dx_stream(dxil, DX_CUT_STREAM, operands, state);
 }
 
 static void sm6_parser_emit_dx_discard(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
