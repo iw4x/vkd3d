@@ -5877,12 +5877,12 @@ static void sm6_parser_emit_dx_fabs(struct sm6_parser *dxil, enum dx_intrinsic_o
         vkd3d_shader_instruction_make_nop(ins);
 }
 
-static void sm6_parser_emit_dx_compute_builtin(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
+static void sm6_parser_emit_dx_compute_builtin(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
     unsigned int component_count = 3, component_idx = 0;
-    struct vkd3d_shader_instruction *ins = state->ins;
     enum vkd3d_shader_register_type reg_type;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_param;
 
     switch (op)
@@ -5904,17 +5904,29 @@ static void sm6_parser_emit_dx_compute_builtin(struct sm6_parser *sm6, enum dx_i
             vkd3d_unreachable();
     }
 
-    sm6_parser_dcl_register_builtin(sm6, VSIR_OP_DCL_INPUT, reg_type, VSIR_DATA_U32, component_count);
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
-    if (!(src_param = instruction_src_params_alloc(ins, 1, sm6)))
+    sm6_parser_dcl_register_builtin(dxil, VSIR_OP_DCL_INPUT, reg_type, VSIR_DATA_U32, component_count);
+
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
+
+    state->pushed_instruction = true;
+
+    vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
+
+    if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
     vsir_register_init(&src_param->reg, reg_type, VSIR_DATA_U32, 0);
     src_param->reg.dimension = VSIR_DIMENSION_VEC4;
     if (component_count > 1)
-        component_idx = sm6_value_get_constant_uint(operands[0], sm6);
+        component_idx = sm6_value_get_constant_uint(operands[0], dxil);
     src_param_init_scalar(src_param, component_idx);
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, dxil))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static enum vkd3d_shader_opcode sm6_dx_map_ma_op(enum dx_intrinsic_opcode op, const struct sm6_type *type)
