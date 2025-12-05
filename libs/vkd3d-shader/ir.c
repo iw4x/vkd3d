@@ -2467,6 +2467,54 @@ static enum vkd3d_result vsir_program_lower_bem(struct vsir_program *program, st
     return VKD3D_OK;
 }
 
+static enum vkd3d_result vsir_program_lower_rep(struct vsir_program *program, struct vsir_program_iterator *rep)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(rep);
+    struct vkd3d_shader_location location = ins->location;
+    const struct vsir_src_operand *src = ins->src;
+    unsigned int iter_id = program->temp_count++;
+    struct vsir_program_iterator it;
+
+    /* rep SRC0
+     *      ->
+     * mov rITER, SRC0
+     * loop
+     *     breakp_z rITER
+     *     iadd rITER, rITER, -1 */
+
+    /* NOTE: `endrep -> endloop` is done by another pass. */
+
+    if (!(ins = vsir_program_iterator_insert_before(rep, &it, 3)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MOV, 1, 1))
+        goto fail;
+    ins->src[0] = src[0];
+    vsir_dst_operand_init_temp_u32(&ins->dst[0], iter_id);
+
+    ins = vsir_program_iterator_next(&it);
+    vsir_instruction_init(ins, &location, VSIR_OP_LOOP);
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_BREAKP, 0, 1))
+        goto fail;
+    ins->flags = VKD3D_SHADER_CONDITIONAL_OP_Z;
+    vsir_src_operand_init_temp_u32(&ins->src[0], iter_id);
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_IADD, 1, 2))
+        goto fail;
+    vsir_dst_operand_init_temp_u32(&ins->dst[0], iter_id);
+    vsir_src_operand_init_temp_u32(&ins->src[0], iter_id);
+    vsir_src_operand_init_const_u32(&ins->src[1], ~0u);
+
+    return VKD3D_OK;
+
+fail:
+    vsir_program_iterator_nop_range(&it, rep, &location);
+
+    return VKD3D_ERROR_OUT_OF_MEMORY;
+}
+
 static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
         struct vsir_program_iterator *it, struct vkd3d_shader_message_context *message_context)
 {
@@ -2685,6 +2733,15 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_DP2ADD:
                 ret = vsir_program_lower_dp2add(program, &it);
+                break;
+
+            case VSIR_OP_ENDREP:
+                ins->opcode = VSIR_OP_ENDLOOP;
+                ret = VKD3D_OK;
+                break;
+
+            case VSIR_OP_REP:
+                ret = vsir_program_lower_rep(program, &it);
                 break;
 
             case VSIR_OP_IFC:
