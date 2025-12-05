@@ -2118,6 +2118,7 @@ enum vkd3d_result d3d_asm_compile(struct vsir_program *program, const struct vkd
             case VSIR_OP_ELSE:
             case VSIR_OP_ENDIF:
             case VSIR_OP_ENDLOOP:
+            case VSIR_OP_ENDREP:
             case VSIR_OP_ENDSWITCH:
                 if (indent)
                     --indent;
@@ -2148,6 +2149,7 @@ enum vkd3d_result d3d_asm_compile(struct vsir_program *program, const struct vkd
             case VSIR_OP_IF:
             case VSIR_OP_IFC:
             case VSIR_OP_LOOP:
+            case VSIR_OP_REP:
             case VSIR_OP_SWITCH:
             case VSIR_OP_LABEL:
                 ++indent;
