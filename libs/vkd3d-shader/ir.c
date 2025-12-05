@@ -1871,6 +1871,88 @@ static enum vkd3d_result vsir_program_lower_sm4_sincos(struct vsir_program *prog
     return VKD3D_OK;
 }
 
+static enum vkd3d_result vsir_program_lower_swapc(struct vsir_program *program,
+        struct vsir_program_iterator *swapc, struct vsir_transformation_context *ctx)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(swapc);
+    const struct vkd3d_shader_location location = ins->location;
+    const struct vsir_src_operand *src = ins->src;
+    const struct vsir_dst_operand *dst = ins->dst;
+    unsigned int mov_start, count = 2;
+    struct vsir_program_iterator it;
+
+    /* swapc DST0, DST1, SRC0, SRC1, SRC2
+     *      ->
+     * mov srS0, SRC0
+     * mov srS1, SRC1
+     * mov srS2, SRC2
+     * movc DST0, srS0, srS2, srS1
+     * movc DST1, srS0, srS1, srS2 */
+
+    if (ins->dst_count != 2)
+    {
+        vkd3d_shader_error(ctx->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_INVALID_DEST_COUNT,
+                "Internal compiler error: invalid destination count %zu for SWAPC.", ins->dst_count);
+        return VKD3D_ERROR;
+    }
+
+    if (dst[0].reg.type != VKD3DSPR_NULL)
+        ++count;
+    if (dst[1].reg.type != VKD3DSPR_NULL)
+        ++count;
+
+    if (!(ins = vsir_program_iterator_insert_before(swapc, &it, count)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    /* Save the sources in SSAs in case a destination collides with them. */
+    mov_start = program->ssa_count;
+    for (unsigned int i = 0; i < 3; ++i)
+    {
+        if (!(vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MOV, 1, 1)))
+            goto fail;
+
+        ins->src[0] = src[i];
+        vsir_dst_operand_init_ssa(&ins->dst[0], mov_start + i, src[i].reg.data_type, src[i].reg.dimension);
+        ++program->ssa_count;
+
+        ins = vsir_program_iterator_next(&it);
+    }
+
+    if (dst[0].reg.type != VKD3DSPR_NULL)
+    {
+        if (!(vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MOVC, 1, 3)))
+            goto fail;
+
+        ins->dst[0] = dst[0];
+
+        vsir_src_operand_init_ssa(&ins->src[0], mov_start, src[0].reg.data_type, src[0].reg.dimension);
+        vsir_src_operand_init_ssa(&ins->src[1], mov_start + 2, src[2].reg.data_type, src[2].reg.dimension);
+        vsir_src_operand_init_ssa(&ins->src[2], mov_start + 1, src[1].reg.data_type, src[1].reg.dimension);
+
+        ins = vsir_program_iterator_next(&it);
+    }
+
+    if (dst[1].reg.type != VKD3DSPR_NULL)
+    {
+
+        if (!(vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MOVC, 1, 3)))
+            goto fail;
+
+        ins->dst[0] = dst[1];
+
+        vsir_src_operand_init_ssa(&ins->src[0], mov_start, src[0].reg.data_type, src[0].reg.dimension);
+        vsir_src_operand_init_ssa(&ins->src[1], mov_start + 1, src[1].reg.data_type, src[1].reg.dimension);
+        vsir_src_operand_init_ssa(&ins->src[2], mov_start + 2, src[2].reg.data_type, src[2].reg.dimension);
+    }
+
+    return VKD3D_OK;
+
+fail:
+    vsir_program_iterator_nop_range(&it, swapc, &location);
+
+    return VKD3D_ERROR_OUT_OF_MEMORY;
+}
+
 static enum vkd3d_result vsir_program_lower_texcrd(struct vsir_program *program,
         struct vkd3d_shader_instruction *ins, struct vkd3d_shader_message_context *message_context)
 {
@@ -2780,6 +2862,11 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
 
             case VSIR_OP_SINCOS:
                 if ((ret = vsir_program_lower_sm4_sincos(program, &it, ctx)) < 0)
+                    return ret;
+                break;
+
+            case VSIR_OP_SWAPC:
+                if ((ret = vsir_program_lower_swapc(program, &it, ctx)) < 0)
                     return ret;
                 break;
 
