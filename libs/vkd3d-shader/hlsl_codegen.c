@@ -3751,7 +3751,7 @@ static struct hlsl_ir_node *fold_redundant_casts(struct hlsl_ctx *ctx,
  * split_matrix_copies(). Inserts new instructions right before
  * "store". */
 static void split_copy(struct hlsl_ctx *ctx, struct hlsl_ir_store *store,
-        const struct hlsl_ir_load *load, const unsigned int idx, struct hlsl_type *type)
+        struct hlsl_ir_load *load, const unsigned int idx, struct hlsl_type *type)
 {
     struct hlsl_ir_node *c, *split_load;
     struct hlsl_block block;
@@ -3763,6 +3763,50 @@ static void split_copy(struct hlsl_ctx *ctx, struct hlsl_ir_store *store,
 
     hlsl_block_add_store_index(ctx, &block, &store->lhs, c, split_load, 0, &store->node.loc);
 
+    list_move_before(&store->node.entry, &block.instrs);
+}
+
+/* Copy an element of a complex variable, where rhs is a structured resource load.
+ * Helper for split_array_copies(), split_struct_copies() and split_matrix_copies().
+ * Inserts new instructions right before "store". */
+static void split_resource_load(struct hlsl_ctx *ctx, struct hlsl_ir_store *store,
+        struct hlsl_ir_resource_load *load, const unsigned int idx, struct hlsl_type *type)
+{
+    struct hlsl_ir_node *c, *idx_offset, *split_load;
+    struct hlsl_block block;
+
+    hlsl_block_init(&block);
+
+    c = hlsl_block_add_uint_constant(ctx, &block, idx, &store->node.loc);
+
+    /* Structured (i.e. arrayed) TGSM load. */
+    if (load->resource.var->is_tgsm && !load->resource.path_len && load->node.data_type->class == HLSL_CLASS_ARRAY)
+    {
+        struct hlsl_resource_load_params params = {0};
+
+        params.type = HLSL_RESOURCE_LOAD;
+        params.resource = &load->node;
+        params.coords = c;
+        params.format = load->node.data_type->e.array.type;
+        split_load = hlsl_block_add_resource_load(ctx, &block, &params, &load->node.loc);
+    }
+    else
+    {
+        struct hlsl_ir_resource_load *res_load;
+
+        idx_offset = hlsl_block_add_packed_index_offset_append(ctx, &block,
+                load->byte_offset.node, c, load->node.data_type, &store->node.loc);
+
+        res_load = hlsl_ir_resource_load(hlsl_clone_instr(ctx, &load->node));
+        hlsl_src_remove(&res_load->byte_offset);
+        hlsl_src_from_node(&res_load->byte_offset, idx_offset);
+        res_load->node.data_type = type;
+        hlsl_block_add_instr(&block, &res_load->node);
+
+        split_load = &res_load->node;
+    }
+
+    hlsl_block_add_store_index(ctx, &block, &store->lhs, c, split_load, 0, &store->node.loc);
     list_move_before(&store->node.entry, &block.instrs);
 }
 
@@ -3784,15 +3828,30 @@ static bool split_array_copies(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr,
         return false;
     element_type = type->e.array.type;
 
-    if (rhs->type != HLSL_IR_LOAD)
+    if (rhs->type != HLSL_IR_LOAD && rhs->type != HLSL_IR_RESOURCE_LOAD)
     {
-        hlsl_fixme(ctx, &instr->loc, "Array store rhs is not HLSL_IR_LOAD. Broadcast may be missing.");
+        hlsl_fixme(ctx, &instr->loc, "Copying from unsupported node type.");
         return false;
     }
 
-    for (i = 0; i < type->e.array.elements_count; ++i)
+    if (rhs->type == HLSL_IR_RESOURCE_LOAD)
     {
-        split_copy(ctx, store, hlsl_ir_load(rhs), i, element_type);
+        struct hlsl_ir_resource_load *load = hlsl_ir_resource_load(rhs);
+
+        VKD3D_ASSERT(load->resource.var->is_tgsm
+                || hlsl_deref_get_type(ctx, &load->resource)->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER);
+
+        for (i = 0; i < type->e.array.elements_count; ++i)
+        {
+            split_resource_load(ctx, store, load, i, element_type);
+        }
+    }
+    else
+    {
+        for (i = 0; i < type->e.array.elements_count; ++i)
+        {
+            split_copy(ctx, store, hlsl_ir_load(rhs), i, element_type);
+        }
     }
 
     /* Remove the store instruction, so that we can split structs which contain
@@ -3819,17 +3878,34 @@ static bool split_struct_copies(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr
     if (type->class != HLSL_CLASS_STRUCT)
         return false;
 
-    if (rhs->type != HLSL_IR_LOAD)
+    if (rhs->type != HLSL_IR_LOAD && rhs->type != HLSL_IR_RESOURCE_LOAD)
     {
-        hlsl_fixme(ctx, &instr->loc, "Struct store rhs is not HLSL_IR_LOAD. Broadcast may be missing.");
+        hlsl_fixme(ctx, &instr->loc, "Copying from unsupported node type.");
         return false;
     }
 
-    for (i = 0; i < type->e.record.field_count; ++i)
+    if (rhs->type == HLSL_IR_RESOURCE_LOAD)
     {
-        const struct hlsl_struct_field *field = &type->e.record.fields[i];
+        struct hlsl_ir_resource_load *load = hlsl_ir_resource_load(rhs);
 
-        split_copy(ctx, store, hlsl_ir_load(rhs), i, field->type);
+        VKD3D_ASSERT(load->resource.var->is_tgsm
+                || hlsl_deref_get_type(ctx, &load->resource)->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER);
+
+        for (i = 0; i < type->e.record.field_count; ++i)
+        {
+            const struct hlsl_struct_field *field = &type->e.record.fields[i];
+
+            split_resource_load(ctx, store, load, i, field->type);
+        }
+    }
+    else
+    {
+        for (i = 0; i < type->e.record.field_count; ++i)
+        {
+            const struct hlsl_struct_field *field = &type->e.record.fields[i];
+
+            split_copy(ctx, store, hlsl_ir_load(rhs), i, field->type);
+        }
     }
 
     /* Remove the store instruction, so that we can split structs which contain
@@ -3894,30 +3970,6 @@ static bool lower_stream_appends(struct hlsl_ctx *ctx, struct hlsl_ir_node *inst
     hlsl_src_remove(&store->value);
 
     return true;
-}
-
-static void split_resource_load(struct hlsl_ctx *ctx, struct hlsl_ir_store *store,
-        struct hlsl_ir_resource_load *load, const unsigned int idx, struct hlsl_type *type)
-{
-    struct hlsl_ir_resource_load *vector_load;
-    struct hlsl_ir_node *c, *idx_offset;
-    struct hlsl_block block;
-
-    hlsl_block_init(&block);
-
-    c = hlsl_block_add_uint_constant(ctx, &block, idx, &store->node.loc);
-    idx_offset = hlsl_block_add_packed_index_offset_append(ctx, &block,
-            load->byte_offset.node, c, load->node.data_type, &store->node.loc);
-
-    vector_load = hlsl_ir_resource_load(hlsl_clone_instr(ctx, &load->node));
-    hlsl_src_remove(&vector_load->byte_offset);
-    hlsl_src_from_node(&vector_load->byte_offset, idx_offset);
-    vector_load->node.data_type = type;
-    hlsl_block_add_instr(&block, &vector_load->node);
-
-    hlsl_block_add_store_index(ctx, &block, &store->lhs, c, &vector_load->node, 0, &store->node.loc);
-
-    list_move_before(&store->node.entry, &block.instrs);
 }
 
 static bool split_matrix_copies(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
