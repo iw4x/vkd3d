@@ -1449,7 +1449,7 @@ static bool is_indexed_value_known_unmodified(const struct hlsl_block *block, co
 static struct hlsl_ir_node *lower_index_load(struct hlsl_ctx *ctx, struct hlsl_ir_index *index,
         struct hlsl_block *block, struct hlsl_block *containing_block)
 {
-    struct hlsl_ir_node *instr = &index->node;
+    struct hlsl_ir_node *instr = &index->node, *ret;
     const struct hlsl_deref *deref;
     struct hlsl_deref var_deref;
     struct hlsl_ir_load *load;
@@ -1478,11 +1478,39 @@ static struct hlsl_ir_node *lower_index_load(struct hlsl_ctx *ctx, struct hlsl_i
         return hlsl_block_add_resource_load(ctx, block, &params, &instr->loc);
     }
 
+    if (val->type == HLSL_IR_RESOURCE_LOAD && val->data_type->class == HLSL_CLASS_ARRAY)
+    {
+        const struct hlsl_deref *resource = &hlsl_ir_resource_load(val)->resource;
+
+        /* Structured (i.e. arrayed) TGSM access. */
+        if (resource->var->is_tgsm && !resource->path_len)
+        {
+            struct hlsl_ir_node *coords = index->idx.node;
+            struct hlsl_resource_load_params params = {0};
+            struct hlsl_ir_load *tgsm_load;
+
+            VKD3D_ASSERT(hlsl_is_vec1(coords->data_type));
+            VKD3D_ASSERT(coords->data_type->e.numeric.type == HLSL_TYPE_UINT);
+
+            if (!(tgsm_load = hlsl_new_var_load(ctx, resource->var, &instr->loc)))
+                return NULL;
+
+            params.type = HLSL_RESOURCE_LOAD;
+            params.resource = &tgsm_load->node;
+            params.coords = coords;
+            params.format = val->data_type->e.array.type;
+            ret = hlsl_block_add_resource_load(ctx, block, &params, &instr->loc);
+
+            hlsl_free_instr(&tgsm_load->node);
+            return ret;
+        }
+    }
+
     if (val->type == HLSL_IR_RESOURCE_LOAD)
     {
         struct hlsl_ir_resource_load *parent = hlsl_ir_resource_load(index->val.node);
 
-        if (parent->sampling_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
+        if (parent->sampling_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER || parent->resource.var->is_tgsm)
         {
             if (hlsl_index_is_noncontiguous(index))
             {
@@ -1714,31 +1742,32 @@ static struct hlsl_ir_node *lower_broadcasts(struct hlsl_ctx *ctx, struct hlsl_i
     return NULL;
 }
 
-/* Lowers loads from TGSMs to resource loads. */
+/* Lowers TGSM loads to resource loads.
+ * Note that the byte_offset, rather than coords, field of the resource load
+ * is used to hold the load address from TGSM loads.
+ * The coords field is used only for structured (i.e. arrayed) TGSM loads,
+ * and represents the structured array index. */
 static struct hlsl_ir_node *lower_tgsm_loads(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
-    struct hlsl_resource_load_params params = {.type = HLSL_RESOURCE_LOAD};
     const struct vkd3d_shader_location *loc = &instr->loc;
+    struct hlsl_resource_load_params params = {0};
+    const struct hlsl_ir_var *var;
     struct hlsl_ir_load *load;
-    struct hlsl_deref *deref;
 
-    if (instr->type != HLSL_IR_LOAD || !hlsl_is_numeric_type(instr->data_type))
+    if (instr->type != HLSL_IR_LOAD)
         return NULL;
     load = hlsl_ir_load(instr);
-    deref = &load->src;
+    var = load->src.var;
 
-    if (!deref->var->is_tgsm)
+    if (!var->is_tgsm)
         return NULL;
 
-    if (deref->path_len)
-    {
-        hlsl_fixme(ctx, &instr->loc, "Load from indexed TGSM.");
-        return NULL;
-    }
+    VKD3D_ASSERT(!load->src.path_len);
 
-    params.resource = hlsl_block_add_simple_load(ctx, block, deref->var, loc);
+    params.type = HLSL_RESOURCE_LOAD;
+    params.resource = instr;
+    params.coords = NULL;
     params.format = instr->data_type;
-    params.coords = hlsl_block_add_uint_constant(ctx, block, 0, &instr->loc);
     return hlsl_block_add_resource_load(ctx, block, &params, loc);
 }
 
@@ -2639,6 +2668,12 @@ static bool copy_propagation_transform_object_load(struct hlsl_ctx *ctx,
     struct copy_propagation_value *value;
     struct hlsl_ir_load *load;
     unsigned int start, count;
+
+    if (deref->var->is_tgsm)
+    {
+        VKD3D_ASSERT(deref->path_len == 0);
+        return false;
+    }
 
     if (!hlsl_component_index_range_from_deref(ctx, deref, &start, &count))
         return false;
@@ -6536,11 +6571,24 @@ static bool track_object_components_sampler_dim(struct hlsl_ctx *ctx, struct hls
 static void register_deref_usage(struct hlsl_ctx *ctx, const struct hlsl_deref *deref)
 {
     struct hlsl_ir_var *var = deref->var;
-    enum hlsl_regset regset = hlsl_deref_get_regset(ctx, deref);
     uint32_t required_bind_count;
+    enum hlsl_regset regset;
     struct hlsl_type *type;
     unsigned int index;
 
+    if (var->is_tgsm)
+    {
+        /* At this stage all TGSM loads should have already been lowered to
+         * resource loads, so this deref should have only originated from the
+         * resource field of a resource load. Moreover, since TGSM objects can
+         * exist only globally, and cannot be placed inside structures, this
+         * deref should have no path. */
+        VKD3D_ASSERT(!deref->path_len);
+        var->bind_count[HLSL_REGSET_NUMERIC] = 1;
+        return;
+    }
+
+    regset = hlsl_deref_get_regset(ctx, deref);
     hlsl_regset_index_from_deref(ctx, deref, regset, &index);
 
     if (regset <= HLSL_REGSET_LAST_OBJECT)
@@ -9627,7 +9675,7 @@ static bool sm4_generate_vsir_reg_from_deref(struct hlsl_ctx *ctx, struct vsir_p
         reg->dimension = VSIR_DIMENSION_VEC4;
         reg->idx[0].offset = var->regs[HLSL_REGSET_NUMERIC].id;
         reg->idx_count = 1;
-        *writemask = (1u << data_type->e.numeric.dimx) - 1;
+        *writemask = VKD3DSP_WRITEMASK_ALL;
     }
     else
     {
@@ -12087,17 +12135,11 @@ static bool sm4_generate_vsir_instr_ld(struct hlsl_ctx *ctx,
     multisampled = resource_type->class == HLSL_CLASS_TEXTURE
             && (resource_type->sampler_dim == HLSL_SAMPLER_DIM_2DMS
             || resource_type->sampler_dim == HLSL_SAMPLER_DIM_2DMSARRAY);
-    structured = resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER;
+    structured = resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER
+            || (tgsm && resource_type->class == HLSL_CLASS_ARRAY);
+    raw = resource_type->sampler_dim == HLSL_SAMPLER_DIM_RAW_BUFFER
+            || (tgsm && !structured);
 
-    if (!tgsm)
-    {
-        raw = resource_type->sampler_dim == HLSL_SAMPLER_DIM_RAW_BUFFER;
-    }
-    else if (!(raw = hlsl_is_numeric_type(resource_type)))
-    {
-        hlsl_fixme(ctx, &load->node.loc, "Load from structured TGSM.");
-        return false;
-    }
     VKD3D_ASSERT(!(structured && multisampled));
 
     if (structured)
@@ -12135,7 +12177,15 @@ static bool sm4_generate_vsir_instr_ld(struct hlsl_ctx *ctx,
             coords_writemask = VKD3DSP_WRITEMASK_0 | VKD3DSP_WRITEMASK_1 | VKD3DSP_WRITEMASK_3;
     }
 
-    vsir_src_from_hlsl_node(&ins->src[0], ctx, coords, coords_writemask);
+    if (raw && tgsm)
+    {
+        VKD3D_ASSERT(byte_offset);
+        vsir_src_from_hlsl_node(&ins->src[0], ctx, byte_offset, VKD3DSP_WRITEMASK_ALL);
+    }
+    else
+    {
+        vsir_src_from_hlsl_node(&ins->src[0], ctx, coords, coords_writemask);
+    }
 
     if (!sm4_generate_vsir_init_src_operand_from_deref(ctx, program,
             &ins->src[structured ? 2 : 1], resource, ins->dst[0].write_mask, &instr->loc))
@@ -15029,9 +15079,9 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
 
     replace_ir(ctx, lower_complex_casts, body);
     replace_ir(ctx, lower_matrix_swizzles, body);
+    replace_ir(ctx, lower_tgsm_loads, body);
     hlsl_lower_index_loads(ctx, body);
 
-    replace_ir(ctx, lower_tgsm_loads, body);
     replace_ir(ctx, lower_tgsm_stores, body);
 
     if (entry_func->return_var)

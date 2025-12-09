@@ -461,6 +461,11 @@ static enum hlsl_regset type_get_regset(const struct hlsl_type *type)
 
 enum hlsl_regset hlsl_deref_get_regset(struct hlsl_ctx *ctx, const struct hlsl_deref *deref)
 {
+    if (deref->var->is_tgsm)
+    {
+        /* We should have already validated that TGSM variables are numeric. */
+        return HLSL_REGSET_NUMERIC;
+    }
     return type_get_regset(hlsl_deref_get_type(ctx, deref));
 }
 
@@ -2209,7 +2214,7 @@ struct hlsl_ir_node *hlsl_block_add_resource_load(struct hlsl_ctx *ctx, struct h
         return ctx->error_instr;
     }
 
-    if (load->sampling_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
+    if (load->sampling_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER || load->resource.var->is_tgsm)
         hlsl_src_from_node(&load->byte_offset, hlsl_block_add_uint_constant(ctx, block, 0, loc));
 
     return append_new_instr(ctx, block, &load->node);
