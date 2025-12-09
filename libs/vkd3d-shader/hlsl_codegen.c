@@ -13300,29 +13300,37 @@ static void sm4_generate_vsir_add_dcl_texture(struct hlsl_ctx *ctx,
 static void sm4_generate_vsir_add_dcl_tgsm(struct hlsl_ctx *ctx,
         struct vsir_program *program, const struct hlsl_ir_var *var)
 {
+    bool raw = var->data_type->class != HLSL_CLASS_ARRAY;
     struct vkd3d_shader_instruction *ins;
+    enum vkd3d_shader_opcode opcode;
     struct vsir_dst_operand *dst;
 
-    if (!hlsl_is_numeric_type(var->data_type))
-    {
-        hlsl_fixme(ctx, &var->loc, "Structured TGSM declaration.");
-        return;
-    }
-
-    if (!(ins = generate_vsir_add_program_instruction(ctx, program, &var->loc, VSIR_OP_DCL_TGSM_RAW, 0, 0)))
+    opcode = raw ? VSIR_OP_DCL_TGSM_RAW : VSIR_OP_DCL_TGSM_STRUCTURED;
+    if (!(ins = generate_vsir_add_program_instruction(ctx, program, &var->loc, opcode, 0, 0)))
     {
         ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
         return;
     }
 
-    dst = &ins->declaration.tgsm_raw.reg;
+    if (raw)
+    {
+        dst = &ins->declaration.tgsm_raw.reg;
+
+        ins->declaration.tgsm_raw.byte_count = hlsl_type_get_packed_size(var->data_type);
+        ins->declaration.tgsm_raw.zero_init = false;
+    }
+    else
+    {
+        dst = &ins->declaration.tgsm_structured.reg;
+
+        ins->declaration.tgsm_structured.byte_stride = hlsl_type_get_packed_size(var->data_type->e.array.type);
+        ins->declaration.tgsm_structured.structure_count = var->data_type->e.array.elements_count;
+        ins->declaration.tgsm_structured.zero_init = false;
+    }
 
     vsir_dst_operand_init(dst, VKD3DSPR_GROUPSHAREDMEM, VSIR_DATA_F32, 1);
     dst->reg.dimension = VSIR_DIMENSION_NONE;
     dst->reg.idx[0].offset = var->regs[HLSL_REGSET_NUMERIC].id;
-
-    ins->declaration.tgsm_raw.byte_count = var->data_type->reg_size[HLSL_REGSET_NUMERIC] * 4;
-    ins->declaration.tgsm_raw.zero_init = false;
 }
 
 static void sm4_generate_vsir_add_dcl_stream(struct hlsl_ctx *ctx,
