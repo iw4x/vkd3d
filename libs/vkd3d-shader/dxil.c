@@ -6571,38 +6571,48 @@ static void sm6_parser_emit_dx_get_sample_count(struct sm6_parser *dxil, enum dx
     ins->dst->reg.data_type = VSIR_DATA_U32;
 }
 
-static void sm6_parser_emit_dx_get_sample_pos(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
+static void sm6_parser_emit_dx_get_sample_pos(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct sm6_value *resource = NULL;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
 
     if (op == DX_TEX2DMS_GET_SAMPLE_POS)
     {
         resource = operands[0];
-        if (!sm6_value_validate_is_texture_2dms_handle(resource, op, sm6))
+        if (!sm6_value_validate_is_texture_2dms_handle(resource, op, dxil))
             return;
     }
 
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_SAMPLE_POS);
-
-    if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
+
+    state->pushed_instruction = true;
+
+    vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_SAMPLE_POS);
+
+    if (!(src_params = instruction_src_params_alloc(ins, 2, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
     if (op == DX_TEX2DMS_GET_SAMPLE_POS)
     {
-        src_param_init_vector_from_handle(sm6, &src_params[0], &resource->u.handle);
-        src_param_init_from_value(&src_params[1], operands[1], 0, sm6);
+        src_param_init_vector_from_handle(dxil, &src_params[0], &resource->u.handle);
+        src_param_init_from_value(&src_params[1], operands[1], 0, dxil);
     }
     else
     {
         src_param_init_vector(&src_params[0], 2);
         vsir_register_init(&src_params[0].reg, VKD3DSPR_RASTERIZER, VSIR_DATA_F32, 0);
         src_params[0].reg.dimension = VSIR_DIMENSION_VEC4;
-        src_param_init_from_value(&src_params[1], operands[0], 0, sm6);
+        src_param_init_from_value(&src_params[1], operands[0], 0, dxil);
     }
 
-    instruction_dst_param_init_ssa_vector(ins, 2, sm6);
+    if (!instruction_dst_param_init_ssa_vector(ins, 2, dxil))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static unsigned int sm6_value_get_texel_offset(const struct sm6_value *value, struct sm6_parser *sm6)
