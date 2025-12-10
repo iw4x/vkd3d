@@ -127,7 +127,7 @@ struct resource
 
 struct input_element
 {
-    char *name;
+    const char *name;
     unsigned int slot;
     DXGI_FORMAT format;
     unsigned int texel_size;

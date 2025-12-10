@@ -119,7 +119,7 @@ static void input_layout_clear(struct input_layout *l)
 
     for (i = 0; i < l->element_count; ++i)
     {
-        free(l->elements[i].name);
+        free((char *)l->elements[i].name);
     }
     l->element_count = 0;
 }
@@ -834,6 +834,7 @@ static void parse_input_layout_directive(struct shader_runner *runner, const cha
 {
     struct input_element *element;
     const char *rest;
+    char *name;
 
     vkd3d_array_reserve((void **)&runner->input.elements, &runner->input.element_capacity,
             runner->input.element_count + 1, sizeof(*runner->input.elements));
@@ -848,9 +849,10 @@ static void parse_input_layout_directive(struct shader_runner *runner, const cha
 
     if (!(rest = strpbrk(line, " \n")))
         rest = line + strlen(line);
-    element->name = malloc(rest - line + 1);
-    memcpy(element->name, line, rest - line);
-    element->name[rest - line] = 0;
+    name = malloc(rest - line + 1);
+    memcpy(name, line, rest - line);
+    name[rest - line] = 0;
+    element->name = name;
     line = rest;
 
     element->index = strtoul(line, (char **)&rest, 10);
@@ -1207,8 +1209,8 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
     }
     else if (match_string(line, "draw quad", &line))
     {
+        struct input_layout input_layout;
         struct resource_params params;
-        struct input_element *element;
         unsigned int i;
 
         /* For simplicity, draw a large triangle instead. */
@@ -1217,6 +1219,22 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
             {-2.0f, -2.0f},
             {-2.0f,  4.0f},
             { 4.0f, -2.0f},
+        };
+
+        static const struct input_element position_element =
+        {
+            .name = "position",
+            .slot = 0,
+            .format = DXGI_FORMAT_R32G32_FLOAT,
+            .texel_size = sizeof(*quad),
+            .index = 0,
+        };
+
+        static const struct input_layout quad_layout =
+        {
+            .elements = (struct input_element *)&position_element,
+            .element_count = 1,
+            .element_capacity = 1,
         };
 
         static const char vs_source[] =
@@ -1230,17 +1248,8 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
 
         set_default_target(runner);
 
-        input_layout_clear(&runner->input);
-
-        vkd3d_array_reserve((void **)&runner->input.elements,
-                &runner->input.element_capacity, 1, sizeof(*runner->input.elements));
-        element = &runner->input.elements[0];
-        element->name = strdup("position");
-        element->slot = 0;
-        element->format = DXGI_FORMAT_R32G32_FLOAT;
-        element->texel_size = sizeof(*quad);
-        element->index = 0;
-        runner->input.element_count = 1;
+        input_layout = runner->input;
+        runner->input = quad_layout;
 
         memset(&params, 0, sizeof(params));
         params.desc.slot = 0;
@@ -1267,6 +1276,8 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         runner->last_render_failed = !runner->ops->draw(runner, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST, 3, 1);
         todo_if(runner->is_todo) bug_if(runner->is_bug)
         ok(!runner->last_render_failed, "Draw failed.\n");
+
+        runner->input = input_layout;
     }
     else if (match_string(line, "draw", &line))
     {
