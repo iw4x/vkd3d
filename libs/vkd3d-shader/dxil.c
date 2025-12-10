@@ -6825,7 +6825,7 @@ static void instruction_set_texel_offset(struct vkd3d_shader_instruction *ins,
         ins->texel_offset.w = 0;
 }
 
-static void sm6_parser_emit_dx_sample(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
+static void sm6_parser_emit_dx_sample(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
     unsigned int clamp_idx = 0, component_count = VKD3D_VEC4_SIZE;
@@ -6836,77 +6836,104 @@ static void sm6_parser_emit_dx_sample(struct sm6_parser *sm6, enum dx_intrinsic_
 
     resource = operands[0];
     sampler = operands[1];
-    if (!sm6_value_validate_is_texture_handle(resource, op, sm6)
-            || !sm6_value_validate_is_sampler_handle(sampler, op, sm6))
+    if (!sm6_value_validate_is_texture_handle(resource, op, dxil)
+            || !sm6_value_validate_is_sampler_handle(sampler, op, dxil))
     {
         return;
     }
 
-    if (!sm6_parser_emit_coordinate_construct(sm6, &operands[2], VKD3D_VEC4_SIZE, NULL, state, &coord))
+    if (!sm6_parser_emit_coordinate_construct(dxil, &operands[2], VKD3D_VEC4_SIZE, NULL, state, &coord))
         return;
 
     if (op == DX_SAMPLE_GRAD)
     {
-        if (!sm6_parser_emit_coordinate_construct(sm6, &operands[9], 3, NULL, state, &ddx))
+        if (!sm6_parser_emit_coordinate_construct(dxil, &operands[9], 3, NULL, state, &ddx))
             return;
-        if (!sm6_parser_emit_coordinate_construct(sm6, &operands[12], 3, NULL, state, &ddy))
+        if (!sm6_parser_emit_coordinate_construct(dxil, &operands[12], 3, NULL, state, &ddy))
             return;
     }
 
-    ins = state->ins;
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     switch (op)
     {
         case DX_SAMPLE:
-            instruction_init_with_resource(ins, VSIR_OP_SAMPLE, resource, sm6);
-            src_params = instruction_src_params_alloc(ins, 3, sm6);
+            instruction_init_with_resource(ins, VSIR_OP_SAMPLE, resource, dxil);
+
+            if (!(src_params = instruction_src_params_alloc(ins, 3, dxil)))
+            {
+                vkd3d_shader_instruction_make_nop(ins);
+                return;
+            }
+
             clamp_idx = 9;
             break;
+
         case DX_SAMPLE_B:
             clamp_idx = 10;
             /* fall through */
         case DX_SAMPLE_LOD:
             instruction_init_with_resource(ins, (op == DX_SAMPLE_B) ? VSIR_OP_SAMPLE_B : VSIR_OP_SAMPLE_LOD,
-                    resource, sm6);
-            src_params = instruction_src_params_alloc(ins, 4, sm6);
-            src_param_init_from_value(&src_params[3], operands[9], 0, sm6);
+                    resource, dxil);
+
+            if (!(src_params = instruction_src_params_alloc(ins, 4, dxil)))
+            {
+                vkd3d_shader_instruction_make_nop(ins);
+                return;
+            }
+
+            src_param_init_from_value(&src_params[3], operands[9], 0, dxil);
             break;
+
         case DX_SAMPLE_C:
             clamp_idx = 10;
             /* fall through */
         case DX_SAMPLE_C_LZ:
             instruction_init_with_resource(ins, (op == DX_SAMPLE_C_LZ) ? VSIR_OP_SAMPLE_C_LZ : VSIR_OP_SAMPLE_C,
-                    resource, sm6);
-            src_params = instruction_src_params_alloc(ins, 4, sm6);
-            src_param_init_from_value(&src_params[3], operands[9], 0, sm6);
+                    resource, dxil);
+
+            if (!(src_params = instruction_src_params_alloc(ins, 4, dxil)))
+            {
+                vkd3d_shader_instruction_make_nop(ins);
+                return;
+            }
+
+            src_param_init_from_value(&src_params[3], operands[9], 0, dxil);
             component_count = 1;
             break;
+
         case DX_SAMPLE_GRAD:
-            instruction_init_with_resource(ins, VSIR_OP_SAMPLE_GRAD, resource, sm6);
-            src_params = instruction_src_params_alloc(ins, 5, sm6);
+            instruction_init_with_resource(ins, VSIR_OP_SAMPLE_GRAD, resource, dxil);
+
+            if (!(src_params = instruction_src_params_alloc(ins, 5, dxil)))
+            {
+                vkd3d_shader_instruction_make_nop(ins);
+                return;
+            }
+
             src_param_init_vector_from_reg(&src_params[3], &ddx);
             src_param_init_vector_from_reg(&src_params[4], &ddy);
             clamp_idx = 15;
             break;
+
         default:
             vkd3d_unreachable();
     }
 
-    if (!src_params)
-        return;
-
     if (clamp_idx && !sm6_value_is_undef(operands[clamp_idx]))
-    {
-        FIXME("Ignoring LOD clamp value.\n");
-        vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
+        vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring LOD clamp value for a sample operation.");
-    }
 
     src_param_init_vector_from_reg(&src_params[0], &coord);
-    src_param_init_vector_from_handle(sm6, &src_params[1], &resource->u.handle);
-    src_param_init_vector_from_handle(sm6, &src_params[2], &sampler->u.handle);
-    instruction_set_texel_offset(ins, &operands[6], 3, sm6);
+    src_param_init_vector_from_handle(dxil, &src_params[1], &resource->u.handle);
+    src_param_init_vector_from_handle(dxil, &src_params[2], &sampler->u.handle);
+    instruction_set_texel_offset(ins, &operands[6], 3, dxil);
 
-    instruction_dst_param_init_ssa_vector(ins, component_count, sm6);
+    if (!instruction_dst_param_init_ssa_vector(ins, component_count, dxil))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_emit_dx_sample_index(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
