@@ -6936,32 +6936,41 @@ static void sm6_parser_emit_dx_sample(struct sm6_parser *dxil, enum dx_intrinsic
         vkd3d_shader_instruction_make_nop(ins);
 }
 
-static void sm6_parser_emit_dx_sample_index(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
+static void sm6_parser_emit_dx_sample_index(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
-    const struct shader_signature *signature = &sm6->program->input_signature;
-    struct vkd3d_shader_instruction *ins = state->ins;
+    const struct shader_signature *signature = &dxil->program->input_signature;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_param;
     unsigned int element_idx;
-
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
 
     /* SV_SampleIndex is identified in VSIR by its signature element index,
      * but the index is not supplied as a parameter to the DXIL intrinsic. */
     if (!vsir_signature_find_sysval(signature, VKD3D_SHADER_SV_SAMPLE_INDEX, 0, &element_idx))
     {
-        WARN("Sample index is not in the signature.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_SIGNATURE,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_SIGNATURE,
                 "Sample index signature element for a sample index operation is missing.");
         return;
     }
 
-    if (!(src_param = instruction_src_params_alloc(ins, 1, sm6)))
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-    src_param->reg = sm6->input_params[element_idx].reg;
+
+    state->pushed_instruction = true;
+
+    vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
+
+    if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
+    src_param->reg = dxil->input_params[element_idx].reg;
     src_param_init(src_param);
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, dxil))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_emit_dx_saturate(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
