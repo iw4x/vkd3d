@@ -478,10 +478,10 @@ static bool d3d9_runner_draw(struct shader_runner *r,
         ok(hr == D3D_OK, "Failed to set uniforms, hr %#lx.\n", hr);
     }
 
-    decl_elements = calloc(runner->r.input_element_count + 1, sizeof(*decl_elements));
-    for (i = 0; i < runner->r.input_element_count; ++i)
+    decl_elements = calloc(runner->r.input.element_count + 1, sizeof(*decl_elements));
+    for (i = 0; i < runner->r.input.element_count; ++i)
     {
-        const struct input_element *src_element = &runner->r.input_elements[i];
+        const struct input_element *src_element = &runner->r.input.elements[i];
         D3DVERTEXELEMENT9 *dst_element = &decl_elements[i];
 
         dst_element->Stream = src_element->slot;
@@ -492,7 +492,7 @@ static bool d3d9_runner_draw(struct shader_runner *r,
 
         /* The offset will be filled below. */
     }
-    decl_elements[runner->r.input_element_count] = decl_element_end;
+    decl_elements[runner->r.input.element_count] = decl_element_end;
 
     fb_width = ~0u;
     fb_height = ~0u;
@@ -534,12 +534,12 @@ static bool d3d9_runner_draw(struct shader_runner *r,
                 vkd3d_unreachable();
 
             case RESOURCE_TYPE_VERTEX_BUFFER:
-                for (j = 0; j < runner->r.input_element_count; ++j)
+                for (j = 0; j < runner->r.input.element_count; ++j)
                 {
-                    if (runner->r.input_elements[j].slot == resource->r.desc.slot)
+                    if (runner->r.input.elements[j].slot == resource->r.desc.slot)
                     {
                         decl_elements[j].Offset = stride;
-                        stride += runner->r.input_elements[j].texel_size;
+                        stride += runner->r.input.elements[j].texel_size;
                     }
                 }
 

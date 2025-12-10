@@ -858,13 +858,13 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
 
                 case RESOURCE_TYPE_VERTEX_BUFFER:
                     assert(resource->r.desc.slot < ARRAY_SIZE(vb_info));
-                    for (j = 0, stride = 0; j < runner->r.input_element_count; ++j)
+                    for (j = 0, stride = 0; j < runner->r.input.element_count; ++j)
                     {
-                        if (runner->r.input_elements[j].slot != resource->r.desc.slot)
+                        if (runner->r.input.elements[j].slot != resource->r.desc.slot)
                             continue;
                         assert(j < ARRAY_SIZE(attribute_offsets));
                         attribute_offsets[j] = stride;
-                        stride += runner->r.input_elements[j].texel_size;
+                        stride += runner->r.input.elements[j].texel_size;
                     }
                     if (!stride)
                         break;
@@ -898,12 +898,12 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
         [encoder setFragmentBuffer:argument_buffer offset:0 atIndex:0];
         [argument_buffer autorelease];
 
-        if (runner->r.input_element_count > 32)
-            fatal_error("Unsupported input element count %zu.\n", runner->r.input_element_count);
+        if (runner->r.input.element_count > 32)
+            fatal_error("Unsupported input element count %zu.\n", runner->r.input.element_count);
 
-        for (i = 0; i < runner->r.input_element_count; ++i)
+        for (i = 0; i < runner->r.input.element_count; ++i)
         {
-            const struct input_element *element = &runner->r.input_elements[i];
+            const struct input_element *element = &runner->r.input.elements[i];
             const struct vkd3d_shader_signature_element *signature_element;
             MTLVertexAttributeDescriptor *attribute;
 

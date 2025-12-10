@@ -972,15 +972,15 @@ static bool d3d11_runner_draw(struct shader_runner *r,
         ID3D11SamplerState_Release(d3d11_sampler);
     }
 
-    if (runner->r.input_element_count)
+    if (runner->r.input.element_count)
     {
         D3D11_INPUT_ELEMENT_DESC *descs;
         ID3D11InputLayout *input_layout;
 
-        descs = calloc(runner->r.input_element_count, sizeof(*descs));
-        for (i = 0; i < runner->r.input_element_count; ++i)
+        descs = calloc(runner->r.input.element_count, sizeof(*descs));
+        for (i = 0; i < runner->r.input.element_count; ++i)
         {
-            const struct input_element *element = &runner->r.input_elements[i];
+            const struct input_element *element = &runner->r.input.elements[i];
             D3D11_INPUT_ELEMENT_DESC *desc = &descs[i];
 
             desc->SemanticName = element->name;
@@ -991,7 +991,7 @@ static bool d3d11_runner_draw(struct shader_runner *r,
             desc->InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
         }
 
-        hr = ID3D11Device_CreateInputLayout(device, descs, runner->r.input_element_count,
+        hr = ID3D11Device_CreateInputLayout(device, descs, runner->r.input.element_count,
                 ID3D10Blob_GetBufferPointer(vs_code), ID3D10Blob_GetBufferSize(vs_code), &input_layout);
         ok(hr == S_OK, "Failed to create input layout, hr %#lx.\n", hr);
         ID3D11DeviceContext_IASetInputLayout(context, input_layout);

@@ -571,10 +571,10 @@ static D3D12_PRIMITIVE_TOPOLOGY_TYPE d3d12_primitive_topology_type_from_primitiv
 
 static D3D12_INPUT_ELEMENT_DESC *create_element_descs(const struct d3d12_shader_runner *runner)
 {
-    D3D12_INPUT_ELEMENT_DESC *input_element_descs = calloc(runner->r.input_element_count, sizeof(*input_element_descs));
-    for (size_t i = 0; i < runner->r.input_element_count; ++i)
+    D3D12_INPUT_ELEMENT_DESC *input_element_descs = calloc(runner->r.input.element_count, sizeof(*input_element_descs));
+    for (size_t i = 0; i < runner->r.input.element_count; ++i)
     {
-        const struct input_element *element = &runner->r.input_elements[i];
+        const struct input_element *element = &runner->r.input.elements[i];
         D3D12_INPUT_ELEMENT_DESC *desc = &input_element_descs[i];
 
         desc->SemanticName = element->name;
@@ -650,7 +650,7 @@ static ID3D12PipelineState *create_pipeline(struct d3d12_shader_runner *runner,
 
     input_element_descs = create_element_descs(runner);
     pso_desc.InputLayout.pInputElementDescs = input_element_descs;
-    pso_desc.InputLayout.NumElements = runner->r.input_element_count;
+    pso_desc.InputLayout.NumElements = runner->r.input.element_count;
 
     hr = ID3D12Device_CreateGraphicsPipelineState(device, &pso_desc,
             &IID_ID3D12PipelineState, (void **)&pso);
@@ -776,7 +776,7 @@ static ID3D12PipelineState *create_pipeline_device2(struct d3d12_shader_runner *
         return NULL;
 
     input_element_descs = create_element_descs(runner);
-    pipeline.input_layout.input_layout.NumElements = runner->r.input_element_count;
+    pipeline.input_layout.input_layout.NumElements = runner->r.input.element_count;
     pipeline.input_layout.input_layout.pInputElementDescs = input_element_descs;
 
     for (size_t i = 0; i < runner->r.resource_count; ++i)

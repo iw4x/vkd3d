@@ -113,6 +113,23 @@ void fatal_error(const char *format, ...)
     exit(1);
 }
 
+static void input_layout_clear(struct input_layout *l)
+{
+    size_t i;
+
+    for (i = 0; i < l->element_count; ++i)
+    {
+        free(l->elements[i].name);
+    }
+    l->element_count = 0;
+}
+
+static void input_layout_cleanup(struct input_layout *l)
+{
+    input_layout_clear(l);
+    free(l->elements);
+}
+
 enum parse_state
 {
     STATE_NONE,
@@ -818,9 +835,9 @@ static void parse_input_layout_directive(struct shader_runner *runner, const cha
     struct input_element *element;
     const char *rest;
 
-    vkd3d_array_reserve((void **)&runner->input_elements, &runner->input_element_capacity,
-            runner->input_element_count + 1, sizeof(*runner->input_elements));
-    element = &runner->input_elements[runner->input_element_count++];
+    vkd3d_array_reserve((void **)&runner->input.elements, &runner->input.element_capacity,
+            runner->input.element_count + 1, sizeof(*runner->input.elements));
+    element = &runner->input.elements[runner->input.element_count++];
 
     element->slot = strtoul(line, (char **)&rest, 10);
     if (rest == line)
@@ -1213,18 +1230,17 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
 
         set_default_target(runner);
 
-        for (i = 0; i < runner->input_element_count; ++i)
-            free(runner->input_elements[i].name);
+        input_layout_clear(&runner->input);
 
-        vkd3d_array_reserve((void **)&runner->input_elements, &runner->input_element_capacity,
-                1, sizeof(*runner->input_elements));
-        element = &runner->input_elements[0];
+        vkd3d_array_reserve((void **)&runner->input.elements,
+                &runner->input.element_capacity, 1, sizeof(*runner->input.elements));
+        element = &runner->input.elements[0];
         element->name = strdup("position");
         element->slot = 0;
         element->format = DXGI_FORMAT_R32G32_FLOAT;
         element->texel_size = sizeof(*quad);
         element->index = 0;
-        runner->input_element_count = 1;
+        runner->input.element_count = 1;
 
         memset(&params, 0, sizeof(params));
         params.desc.slot = 0;
@@ -1887,9 +1903,9 @@ unsigned int get_vb_stride(const struct shader_runner *runner, unsigned int slot
 
     /* We currently don't deal with vertex formats less than 32 bits, so don't
      * bother with alignment. */
-    for (i = 0; i < runner->input_element_count; ++i)
+    for (i = 0; i < runner->input.element_count; ++i)
     {
-        const struct input_element *element = &runner->input_elements[i];
+        const struct input_element *element = &runner->input.elements[i];
 
         if (element->slot == slot)
             stride += element->texel_size;
@@ -2857,9 +2873,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
             {
                 state = STATE_INPUT_LAYOUT;
 
-                for (i = 0; i < runner->input_element_count; ++i)
-                    free(runner->input_elements[i].name);
-                runner->input_element_count = 0;
+                input_layout_clear(&runner->input);
             }
             else if (!strcmp(line, "[descriptors]\n"))
             {
@@ -2931,9 +2945,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
     /* Pop line_number context. */
     vkd3d_test_pop_context();
 
-    for (i = 0; i < runner->input_element_count; ++i)
-        free(runner->input_elements[i].name);
-    free(runner->input_elements);
+    input_layout_cleanup(&runner->input);
     for (i = 0; i < SHADER_TYPE_COUNT; ++i)
         free(runner->shader_source[i]);
     free(runner->uniforms);

@@ -282,8 +282,11 @@ struct shader_runner
     struct sampler samplers[MAX_SAMPLERS];
     size_t sampler_count;
 
-    struct input_element *input_elements;
-    size_t input_element_count, input_element_capacity;
+    struct input_layout
+    {
+        struct input_element *elements;
+        size_t element_count, element_capacity;
+    } input;
 
     IDxcCompiler3 *dxc_compiler;
 

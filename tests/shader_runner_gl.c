@@ -1415,13 +1415,13 @@ static bool gl_runner_draw(struct shader_runner *r,
             case RESOURCE_TYPE_VERTEX_BUFFER:
                 assert(resource->r.desc.slot < ARRAY_SIZE(vbo_info));
                 vbo_info[resource->r.desc.slot].id = resource->id;
-                for (j = 0; j < runner->r.input_element_count; ++j)
+                for (j = 0; j < runner->r.input.element_count; ++j)
                 {
-                    if (runner->r.input_elements[j].slot != resource->r.desc.slot)
+                    if (runner->r.input.elements[j].slot != resource->r.desc.slot)
                         continue;
                     assert(j < ARRAY_SIZE(attribute_offsets));
                     attribute_offsets[j] = (uint8_t *)(uintptr_t)vbo_info[resource->r.desc.slot].stride;
-                    vbo_info[resource->r.desc.slot].stride += runner->r.input_elements[j].texel_size;
+                    vbo_info[resource->r.desc.slot].stride += runner->r.input.elements[j].texel_size;
                 }
                 break;
         }
@@ -1450,9 +1450,9 @@ static bool gl_runner_draw(struct shader_runner *r,
     ok(!ret, "Failed to parse input signature, error %d.\n", ret);
 
     map = runner->attribute_map;
-    for (i = 0, runner->attribute_map = 0; i < runner->r.input_element_count; ++i)
+    for (i = 0, runner->attribute_map = 0; i < runner->r.input.element_count; ++i)
     {
-        const struct input_element *element = &runner->r.input_elements[i];
+        const struct input_element *element = &runner->r.input.elements[i];
         const struct vkd3d_shader_signature_element *signature_element;
         const struct format_info *format;
 

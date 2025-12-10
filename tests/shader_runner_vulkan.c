@@ -823,13 +823,13 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
         return VK_NULL_HANDLE;
     }
 
-    if (runner->r.input_element_count > ARRAY_SIZE(input_attributes))
-        fatal_error("Input element count %zu is too high.\n", runner->r.input_element_count);
+    if (runner->r.input.element_count > ARRAY_SIZE(input_attributes))
+        fatal_error("Input element count %zu is too high.\n", runner->r.input.element_count);
 
-    for (i = 0; i < runner->r.input_element_count; ++i)
+    for (i = 0; i < runner->r.input.element_count; ++i)
     {
         VkVertexInputAttributeDescription *attribute = &input_attributes[i];
-        const struct input_element *element = &runner->r.input_elements[i];
+        const struct input_element *element = &runner->r.input.elements[i];
         const struct vkd3d_shader_signature_element *signature_element;
 
         signature_element = vkd3d_shader_find_signature_element(
@@ -842,7 +842,7 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
         /* The offset will be filled below. */
     }
 
-    input_desc.vertexAttributeDescriptionCount = runner->r.input_element_count;
+    input_desc.vertexAttributeDescriptionCount = runner->r.input.element_count;
     input_desc.pVertexAttributeDescriptions = input_attributes;
     input_desc.pVertexBindingDescriptions = input_bindings;
 
@@ -887,12 +887,12 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
                 binding->stride = 0;
                 binding->inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-                for (j = 0; j < runner->r.input_element_count; ++j)
+                for (j = 0; j < runner->r.input.element_count; ++j)
                 {
-                    if (runner->r.input_elements[j].slot == resource->r.desc.slot)
+                    if (runner->r.input.elements[j].slot == resource->r.desc.slot)
                     {
                         input_attributes[j].offset = binding->stride;
-                        binding->stride += runner->r.input_elements[j].texel_size;
+                        binding->stride += runner->r.input.elements[j].texel_size;
                     }
                 }
                 break;
