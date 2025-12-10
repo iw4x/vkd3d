@@ -5988,9 +5988,9 @@ static void sm6_parser_emit_dx_ma(struct sm6_parser *dxil, enum dx_intrinsic_opc
 static void sm6_parser_emit_dx_get_dimensions(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
     unsigned int is_texture, component_count;
     enum dxil_resource_kind resource_kind;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     const struct sm6_value *resource;
     struct vsir_dst_operand *dst;
@@ -6001,10 +6001,19 @@ static void sm6_parser_emit_dx_get_dimensions(struct sm6_parser *sm6, enum dx_in
     is_texture = resource->u.handle.d->resource_type != VKD3D_SHADER_RESOURCE_BUFFER;
     resource_kind = resource->u.handle.d->kind;
 
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     instruction_init_with_resource(ins, is_texture ? VSIR_OP_RESINFO : VSIR_OP_BUFINFO, resource, sm6);
 
     if (!(src_params = instruction_src_params_alloc(ins, 1 + is_texture, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
+
     src_param_init_vector_from_handle(sm6, &src_params[is_texture], &resource->u.handle);
 
     if (is_texture)
@@ -6015,8 +6024,16 @@ static void sm6_parser_emit_dx_get_dimensions(struct sm6_parser *sm6, enum dx_in
 
         if (resource_kind_is_multisampled(resource_kind))
         {
-            instruction_dst_param_init_uint_temp_vector(ins++, sm6);
+            if (!instruction_dst_param_init_uint_temp_vector(ins, sm6))
+            {
+                vkd3d_shader_instruction_make_nop(ins);
+                return;
+            }
+
             state->temp_idx = 1;
+
+            if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+                return;
 
             /* DXIL does not have an intrinsic for sample info, and resinfo is expected to return
              * the sample count in .w for MS textures. The result is always a struct of 4 x uint32. */
@@ -6024,21 +6041,36 @@ static void sm6_parser_emit_dx_get_dimensions(struct sm6_parser *sm6, enum dx_in
             ins->flags = VKD3DSI_SAMPLE_INFO_UINT;
 
             if (!(src_params = instruction_src_params_alloc(ins, 1, sm6)))
+            {
+                vkd3d_shader_instruction_make_nop(ins);
                 return;
+            }
+
             src_param_init_vector_from_handle(sm6, &src_params[0], &resource->u.handle);
             src_params[0].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
 
             if (!instruction_dst_param_init_uint_temp_vector(ins, sm6))
+            {
+                vkd3d_shader_instruction_make_nop(ins);
                 return;
+            }
+
             dst = ins->dst;
             dst->write_mask = VKD3DSP_WRITEMASK_3;
 
             /* Move the result to an SSA in case another instruction overwrites r0 before
              * the components are extracted for use. */
-            ++ins;
-            vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
-            if (!(src_params = instruction_src_params_alloc(ins, 1, sm6)))
+            if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
                 return;
+
+            vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
+
+            if (!(src_params = instruction_src_params_alloc(ins, 1, sm6)))
+            {
+                vkd3d_shader_instruction_make_nop(ins);
+                return;
+            }
+
             src_param_init_vector_from_reg(&src_params[0], &dst->reg);
 
             state->ins = ins;
@@ -6048,15 +6080,13 @@ static void sm6_parser_emit_dx_get_dimensions(struct sm6_parser *sm6, enum dx_in
     else
     {
         if (operands[1]->value_type != VALUE_TYPE_UNDEFINED)
-        {
-            WARN("Ignoring unexpected operand.\n");
             vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                     "Ignoring an unexpected defined LOD value for buffer GetDimensions.");
-        }
         component_count = 1 + (resource_kind == RESOURCE_KIND_STRUCTUREDBUFFER);
     }
 
-    instruction_dst_param_init_ssa_vector(ins, component_count, sm6);
+    if (!instruction_dst_param_init_ssa_vector(ins, component_count, sm6))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static enum vkd3d_shader_opcode sm6_dx_map_tertiary_op(enum dx_intrinsic_opcode op)
