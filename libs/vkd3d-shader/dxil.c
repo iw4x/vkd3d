@@ -6136,11 +6136,11 @@ static void sm6_parser_emit_dx_load_input(struct sm6_parser *sm6, enum dx_intrin
 {
     bool is_control_point = op == DX_LOAD_OUTPUT_CONTROL_POINT;
     bool is_patch_constant = op == DX_LOAD_PATCH_CONSTANT;
-    struct vkd3d_shader_instruction *ins = state->ins;
     struct vsir_program *program = sm6->program;
     unsigned int count, row_index, column_index;
     const struct shader_signature *signature;
     const struct vsir_dst_operand *params;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_param;
     const struct signature_element *e;
 
@@ -6148,14 +6148,9 @@ static void sm6_parser_emit_dx_load_input(struct sm6_parser *sm6, enum dx_intrin
     column_index = sm6_value_get_constant_uint(operands[2], sm6);
 
     if (is_control_point && operands[3]->value_type == VALUE_TYPE_UNDEFINED)
-    {
         /* dxcompiler will compile source which does this, so let it pass. */
-        WARN("Control point id is undefined.\n");
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_UNDEFINED_OPERAND,
                 "The index for a control point load is undefined.");
-    }
-
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
 
     if (is_patch_constant)
     {
@@ -6174,15 +6169,25 @@ static void sm6_parser_emit_dx_load_input(struct sm6_parser *sm6, enum dx_intrin
     }
     if (row_index >= signature->element_count)
     {
-        WARN("Invalid row index %u.\n", row_index);
         vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Invalid input row index %u.", row_index);
         return;
     }
     e = &signature->elements[row_index];
 
-    if (!(src_param = instruction_src_params_alloc(ins, 1, sm6)))
+    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
+
+    state->pushed_instruction = true;
+
+    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
+
+    if (!(src_param = instruction_src_params_alloc(ins, 1, sm6)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
     src_param->reg = params[row_index].reg;
     src_param_init_scalar(src_param, column_index);
     count = 0;
@@ -6196,7 +6201,8 @@ static void sm6_parser_emit_dx_load_input(struct sm6_parser *sm6, enum dx_intrin
         register_index_address_init(&src_param->reg.idx[count], operands[3], sm6);
     }
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, sm6))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_emit_dx_make_double(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
