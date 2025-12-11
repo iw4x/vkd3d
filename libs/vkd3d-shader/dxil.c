@@ -8140,9 +8140,9 @@ static const struct sm6_cmp_info *sm6_map_cmp2_op(uint64_t code)
 static void sm6_parser_emit_cmp2(struct sm6_parser *dxil, struct function_emission_state *state)
 {
     struct sm6_value *dst = sm6_parser_get_current_value(dxil);
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
     const struct sm6_type *type_a, *type_b;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     bool is_int, is_fp, silence_warning;
     const struct sm6_cmp_info *cmp;
@@ -8172,11 +8172,12 @@ static void sm6_parser_emit_cmp2(struct sm6_parser *dxil, struct function_emissi
 
     code = record->operands[i++];
 
+    state->pushed_instruction = true;
+
     /* dxcompiler occasionally emits bool not-equal-to-false, which is a no-op. Bool comparisons
      * do not otherwise occur, so deleting these avoids the need for backend support. */
     if (sm6_type_is_bool(type_a) && code == ICMP_NE && sm6_value_is_constant_zero(b))
     {
-        ins->opcode = VSIR_OP_NOP;
         *dst = *a;
         return;
     }
@@ -8199,6 +8200,9 @@ static void sm6_parser_emit_cmp2(struct sm6_parser *dxil, struct function_emissi
         return;
     }
 
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
     vsir_instruction_init(ins, &dxil->p.location, cmp->opcode);
 
     flags = (record->operand_count > i) ? record->operands[i] : 0;
@@ -8219,11 +8223,16 @@ static void sm6_parser_emit_cmp2(struct sm6_parser *dxil, struct function_emissi
                 "Ignoring flags %#"PRIx64" for a comparison operation.", flags);
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
+
     src_param_init_from_value(&src_params[0 ^ cmp->src_swap], a, cmp->type_flags, dxil);
     src_param_init_from_value(&src_params[1 ^ cmp->src_swap], b, cmp->type_flags, dxil);
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, dxil);
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, dxil))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_emit_cmpxchg(struct sm6_parser *sm6, const struct dxil_record *record,
