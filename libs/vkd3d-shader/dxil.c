@@ -7239,7 +7239,7 @@ static void sm6_parser_emit_dx_texture_gather(struct sm6_parser *dxil, enum dx_i
         vkd3d_shader_instruction_make_nop(ins);
 }
 
-static void sm6_parser_emit_dx_texture_load(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
+static void sm6_parser_emit_dx_texture_load(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
     const struct sm6_value *resource, *mip_level_or_sample_count;
@@ -7251,7 +7251,7 @@ static void sm6_parser_emit_dx_texture_load(struct sm6_parser *sm6, enum dx_intr
     unsigned int i;
 
     resource = operands[0];
-    if (!sm6_value_validate_is_texture_handle(resource, op, sm6))
+    if (!sm6_value_validate_is_texture_handle(resource, op, dxil))
         return;
 
     kind = resource->u.handle.d->kind;
@@ -7259,28 +7259,35 @@ static void sm6_parser_emit_dx_texture_load(struct sm6_parser *sm6, enum dx_intr
     is_uav = resource->u.handle.d->type == VKD3D_SHADER_DESCRIPTOR_TYPE_UAV;
 
     mip_level_or_sample_count = resource_kind_is_texture(kind) ? operands[1] : NULL;
-    if (!sm6_parser_emit_coordinate_construct(sm6, &operands[2], 3,
+    if (!sm6_parser_emit_coordinate_construct(dxil, &operands[2], 3,
             is_multisample ? NULL : mip_level_or_sample_count, state, &coord))
-    {
         return;
-    }
 
-    ins = state->ins;
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     instruction_init_with_resource(ins, is_uav ? VSIR_OP_LD_UAV_TYPED
-            : is_multisample ? VSIR_OP_LD2DMS : VSIR_OP_LD, resource, sm6);
-    instruction_set_texel_offset(ins, &operands[5], 3, sm6);
+            : is_multisample ? VSIR_OP_LD2DMS : VSIR_OP_LD, resource, dxil);
+    instruction_set_texel_offset(ins, &operands[5], 3, dxil);
 
     for (i = 0; i < VKD3D_VEC4_SIZE; ++i)
         ins->resource_data_type[i] = resource->u.handle.d->resource_data_type;
 
-    if (!(src_params = instruction_src_params_alloc(ins, 2 + is_multisample, sm6)))
+    if (!(src_params = instruction_src_params_alloc(ins, 2 + is_multisample, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
-    src_param_init_vector_from_reg(&src_params[0], &coord);
-    src_param_init_vector_from_handle(sm6, &src_params[1], &resource->u.handle);
-    if (is_multisample)
-        src_param_init_from_value(&src_params[2], mip_level_or_sample_count, 0, sm6);
+    }
 
-    instruction_dst_param_init_ssa_vector(ins, VKD3D_VEC4_SIZE, sm6);
+    src_param_init_vector_from_reg(&src_params[0], &coord);
+    src_param_init_vector_from_handle(dxil, &src_params[1], &resource->u.handle);
+    if (is_multisample)
+        src_param_init_from_value(&src_params[2], mip_level_or_sample_count, 0, dxil);
+
+    if (!instruction_dst_param_init_ssa_vector(ins, VKD3D_VEC4_SIZE, dxil))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_emit_dx_texture_store(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
