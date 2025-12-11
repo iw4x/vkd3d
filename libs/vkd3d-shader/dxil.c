@@ -8137,9 +8137,11 @@ static const struct sm6_cmp_info *sm6_map_cmp2_op(uint64_t code)
     return (code < ARRAY_SIZE(cmp_op_table)) ? &cmp_op_table[code] : NULL;
 }
 
-static void sm6_parser_emit_cmp2(struct sm6_parser *sm6, const struct dxil_record *record,
-        struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
+static void sm6_parser_emit_cmp2(struct sm6_parser *dxil, struct function_emission_state *state)
 {
+    struct sm6_value *dst = sm6_parser_get_current_value(dxil);
+    struct vkd3d_shader_instruction *ins = state->ins;
+    const struct dxil_record *record = state->record;
     const struct sm6_type *type_a, *type_b;
     struct vsir_src_operand *src_params;
     bool is_int, is_fp, silence_warning;
@@ -8148,22 +8150,19 @@ static void sm6_parser_emit_cmp2(struct sm6_parser *sm6, const struct dxil_recor
     uint64_t code, flags;
     unsigned int i = 0;
 
-    if (!(dst->type = sm6->bool_type))
+    if (!(dst->type = dxil->bool_type))
     {
-        WARN("Bool type not found.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_MODULE,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_MODULE,
                 "Module does not define a boolean type for comparison results.");
         return;
     }
 
-    a = sm6_parser_get_value_by_ref(sm6, record, NULL, &i);
-    if (!a)
+    if (!(a = sm6_parser_get_value_by_ref(dxil, record, NULL, &i)))
         return;
-    b = sm6_parser_get_value_by_ref(sm6, record, a->type, &i);
-    if (!b)
+    if (!(b = sm6_parser_get_value_by_ref(dxil, record, a->type, &i)))
         return;
 
-    if (!dxil_record_validate_operand_count(record, i + 1, i + 2, sm6))
+    if (!dxil_record_validate_operand_count(record, i + 1, i + 2, dxil))
         return;
 
     type_a = a->type;
@@ -8184,29 +8183,23 @@ static void sm6_parser_emit_cmp2(struct sm6_parser *sm6, const struct dxil_recor
 
     if ((!is_int && !is_fp) || is_int != (code >= ICMP_EQ))
     {
-        FIXME("Invalid operation %"PRIu64" on type class %u.\n", code, type_a->class);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Comparison operation %"PRIu64" on type class %u is invalid.", code, type_a->class);
         return;
     }
 
     if (type_a != type_b)
-    {
-        WARN("Type mismatch, type %u width %u vs type %u width %u.\n", type_a->class,
-                type_a->u.width, type_b->class, type_b->u.width);
-        vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
+        vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
                 "Type mismatch in comparison operation arguments.");
-    }
 
     if (!(cmp = sm6_map_cmp2_op(code)) || !cmp->opcode || cmp->opcode == VSIR_OP_INVALID)
     {
-        FIXME("Unhandled operation %"PRIu64".\n", code);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Comparison operation %"PRIu64" is unhandled.", code);
         return;
     }
 
-    vsir_instruction_init(ins, &sm6->p.location, cmp->opcode);
+    vsir_instruction_init(ins, &dxil->p.location, cmp->opcode);
 
     flags = (record->operand_count > i) ? record->operands[i] : 0;
     silence_warning = false;
@@ -8220,22 +8213,17 @@ static void sm6_parser_emit_cmp2(struct sm6_parser *sm6, const struct dxil_recor
         silence_warning = !(flags & ~(FP_NO_NAN | FP_NO_INF | FP_NO_SIGNED_ZEROS | FP_ALLOW_RECIPROCAL));
     }
     if (flags && silence_warning)
-    {
         TRACE("Ignoring fast FP modifier %#"PRIx64".\n", flags);
-    }
     else if (flags)
-    {
-        WARN("Ignoring flags %#"PRIx64".\n", flags);
-        vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
+        vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring flags %#"PRIx64" for a comparison operation.", flags);
-    }
 
-    if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
+    if (!(src_params = instruction_src_params_alloc(ins, 2, dxil)))
         return;
-    src_param_init_from_value(&src_params[0 ^ cmp->src_swap], a, cmp->type_flags, sm6);
-    src_param_init_from_value(&src_params[1 ^ cmp->src_swap], b, cmp->type_flags, sm6);
+    src_param_init_from_value(&src_params[0 ^ cmp->src_swap], a, cmp->type_flags, dxil);
+    src_param_init_from_value(&src_params[1 ^ cmp->src_swap], b, cmp->type_flags, dxil);
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    instruction_dst_param_init_ssa_scalar(ins, 0, dxil);
 }
 
 static void sm6_parser_emit_cmpxchg(struct sm6_parser *sm6, const struct dxil_record *record,
@@ -9296,7 +9284,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 sm6_parser_emit_cast(sm6, &state);
                 break;
             case FUNC_CODE_INST_CMP2:
-                sm6_parser_emit_cmp2(sm6, record, ins, dst);
+                sm6_parser_emit_cmp2(sm6, &state);
                 break;
             case FUNC_CODE_INST_CMPXCHG:
                 sm6_parser_emit_cmpxchg(sm6, record, ins, dst);
