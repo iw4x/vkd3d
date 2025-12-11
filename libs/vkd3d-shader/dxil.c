@@ -7166,7 +7166,7 @@ static void sm6_parser_emit_dx_store_output(struct sm6_parser *dxil, enum dx_int
     src_param_init_from_value(src_param, value, 0, dxil);
 }
 
-static void sm6_parser_emit_dx_texture_gather(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
+static void sm6_parser_emit_dx_texture_gather(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
     struct vkd3d_shader_register coord, offset;
@@ -7178,58 +7178,65 @@ static void sm6_parser_emit_dx_texture_gather(struct sm6_parser *sm6, enum dx_in
 
     resource = operands[0];
     sampler = operands[1];
-    if (!sm6_value_validate_is_texture_handle(resource, op, sm6)
-            || !sm6_value_validate_is_sampler_handle(sampler, op, sm6))
-    {
+    if (!sm6_value_validate_is_texture_handle(resource, op, dxil)
+            || !sm6_value_validate_is_sampler_handle(sampler, op, dxil))
         return;
-    }
 
-    if (!sm6_parser_emit_coordinate_construct(sm6, &operands[2], VKD3D_VEC4_SIZE, NULL, state, &coord))
+    if (!sm6_parser_emit_coordinate_construct(dxil, &operands[2], VKD3D_VEC4_SIZE, NULL, state, &coord))
         return;
 
     if ((extended_offset = !sm6_value_vector_is_constant_or_undef(&operands[6], 2))
-            && !sm6_parser_emit_coordinate_construct(sm6, &operands[6], 2, NULL, state, &offset))
-    {
+            && !sm6_parser_emit_coordinate_construct(dxil, &operands[6], 2, NULL, state, &offset))
         return;
-    }
 
     /* DXIL doesn't know about signedness, but vsir expects the offset to be signed. */
     if (extended_offset)
         offset.data_type = VSIR_DATA_I32;
 
-    ins = state->ins;
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     if (op == DX_TEXTURE_GATHER)
     {
-        instruction_init_with_resource(ins, extended_offset ? VSIR_OP_GATHER4_PO : VSIR_OP_GATHER4, resource, sm6);
-        if (!(src_params = instruction_src_params_alloc(ins, 3 + extended_offset, sm6)))
+        instruction_init_with_resource(ins, extended_offset ? VSIR_OP_GATHER4_PO : VSIR_OP_GATHER4, resource, dxil);
+
+        if (!(src_params = instruction_src_params_alloc(ins, 3 + extended_offset, dxil)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
             return;
+        }
     }
     else
     {
-        instruction_init_with_resource(ins, extended_offset ? VSIR_OP_GATHER4_PO_C : VSIR_OP_GATHER4_C, resource, sm6);
-        if (!(src_params = instruction_src_params_alloc(ins, 4 + extended_offset, sm6)))
+        instruction_init_with_resource(ins, extended_offset ? VSIR_OP_GATHER4_PO_C : VSIR_OP_GATHER4_C, resource, dxil);
+
+        if (!(src_params = instruction_src_params_alloc(ins, 4 + extended_offset, dxil)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
             return;
-        src_param_init_from_value(&src_params[3 + extended_offset], operands[9], 0, sm6);
+        }
+
+        src_param_init_from_value(&src_params[3 + extended_offset], operands[9], 0, dxil);
     }
 
     src_param_init_vector_from_reg(&src_params[0], &coord);
     if (extended_offset)
         src_param_init_vector_from_reg(&src_params[1], &offset);
     else
-        instruction_set_texel_offset(ins, &operands[6], 2, sm6);
-    src_param_init_vector_from_handle(sm6, &src_params[1 + extended_offset], &resource->u.handle);
-    src_param_init_vector_from_handle(sm6, &src_params[2 + extended_offset], &sampler->u.handle);
+        instruction_set_texel_offset(ins, &operands[6], 2, dxil);
+    src_param_init_vector_from_handle(dxil, &src_params[1 + extended_offset], &resource->u.handle);
+    src_param_init_vector_from_handle(dxil, &src_params[2 + extended_offset], &sampler->u.handle);
     /* Swizzle stored in the sampler parameter is the scalar component index to be gathered. */
-    swizzle = sm6_value_get_constant_uint(operands[8], sm6);
+    swizzle = sm6_value_get_constant_uint(operands[8], dxil);
     if (swizzle >= VKD3D_VEC4_SIZE)
-    {
-        WARN("Invalid swizzle %#x.\n", swizzle);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Swizzle %#x for a texture gather operation is invalid.", swizzle);
-    }
     src_params[2 + extended_offset].swizzle = swizzle;
 
-    instruction_dst_param_init_ssa_vector(ins, VKD3D_VEC4_SIZE, sm6);
+    if (!instruction_dst_param_init_ssa_vector(ins, VKD3D_VEC4_SIZE, dxil))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_emit_dx_texture_load(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
