@@ -8026,9 +8026,11 @@ static enum vkd3d_shader_opcode dxil_map_cast_op(uint64_t code, const struct sm6
     return op;
 }
 
-static void sm6_parser_emit_cast(struct sm6_parser *dxil, const struct dxil_record *record,
-        struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
+static void sm6_parser_emit_cast(struct sm6_parser *dxil, struct function_emission_state *state)
 {
+    struct sm6_value *dst = sm6_parser_get_current_value(dxil);
+    struct vkd3d_shader_instruction *ins = state->ins;
+    const struct dxil_record *record = state->record;
     struct vsir_src_operand *src_param;
     const struct sm6_value *value;
     enum vkd3d_shader_opcode op;
@@ -9279,7 +9281,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 sm6_parser_emit_call(sm6, &state);
                 break;
             case FUNC_CODE_INST_CAST:
-                sm6_parser_emit_cast(sm6, record, ins, dst);
+                sm6_parser_emit_cast(sm6, &state);
                 break;
             case FUNC_CODE_INST_CMP2:
                 sm6_parser_emit_cmp2(sm6, record, ins, dst);
