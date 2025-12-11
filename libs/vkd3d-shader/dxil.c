@@ -6072,9 +6072,6 @@ static void sm6_parser_emit_dx_get_dimensions(struct sm6_parser *sm6, enum dx_in
             }
 
             src_param_init_vector_from_reg(&src_params[0], &dst->reg);
-
-            state->ins = ins;
-            state->function->instructions.count += 2;
         }
     }
     else
