@@ -7023,27 +7023,26 @@ static void sm6_parser_emit_dx_split_double(struct sm6_parser *dxil, enum dx_int
         vkd3d_shader_instruction_make_nop(ins);
 }
 
-static void sm6_parser_emit_dx_store_output(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
+static void sm6_parser_emit_dx_store_output(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
     bool is_patch_constant = op == DX_STORE_PATCH_CONSTANT;
-    struct vkd3d_shader_instruction *ins = state->ins;
-    struct vsir_program *program = sm6->program;
+    struct vsir_program *program = dxil->program;
     const struct shader_signature *signature;
+    struct vkd3d_shader_instruction *ins;
     unsigned int row_index, column_index;
     struct vsir_src_operand *src_param;
     struct vsir_dst_operand *dst_param;
     const struct signature_element *e;
     const struct sm6_value *value;
 
-    row_index = sm6_value_get_constant_uint(operands[0], sm6);
-    column_index = sm6_value_get_constant_uint(operands[2], sm6);
+    row_index = sm6_value_get_constant_uint(operands[0], dxil);
+    column_index = sm6_value_get_constant_uint(operands[2], dxil);
 
     signature = is_patch_constant ? &program->patch_constant_signature : &program->output_signature;
     if (row_index >= signature->element_count)
     {
-        WARN("Invalid row index %u.\n", row_index);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Invalid output row index %u.", row_index);
         return;
     }
@@ -7052,8 +7051,7 @@ static void sm6_parser_emit_dx_store_output(struct sm6_parser *sm6, enum dx_intr
 
     if (column_index >= VKD3D_VEC4_SIZE)
     {
-        WARN("Invalid column index %u.\n", column_index);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Invalid output column index %u.", column_index);
         return;
     }
@@ -7061,29 +7059,41 @@ static void sm6_parser_emit_dx_store_output(struct sm6_parser *sm6, enum dx_intr
     value = operands[3];
     if (!sm6_value_is_register(value))
     {
-        WARN("Source value is not a register.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Expected store operation source to be a register.");
         return;
     }
 
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
-
-    if (!(dst_param = instruction_dst_params_alloc(ins, 1, sm6)))
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-    dst_param_init_scalar(dst_param, column_index);
-    dst_param->reg = is_patch_constant ? sm6->patch_constant_params[row_index].reg : sm6->output_params[row_index].reg;
-    if (e->register_count > 1)
-        register_index_address_init(&dst_param->reg.idx[0], operands[1], sm6);
 
-    if (e->register_index == UINT_MAX)
+    state->pushed_instruction = true;
+
+    vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
+
+    if (!(dst_param = instruction_dst_params_alloc(ins, 1, dxil)))
     {
-        sm6_parser_dcl_register_builtin(sm6, VSIR_OP_DCL_OUTPUT, dst_param->reg.type,
-                dst_param->reg.data_type, vsir_write_mask_component_count(e->mask));
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
     }
 
-    if ((src_param = instruction_src_params_alloc(ins, 1, sm6)))
-        src_param_init_from_value(src_param, value, 0, sm6);
+    dst_param_init_scalar(dst_param, column_index);
+    dst_param->reg = is_patch_constant ? dxil->patch_constant_params[row_index].reg
+            : dxil->output_params[row_index].reg;
+    if (e->register_count > 1)
+        register_index_address_init(&dst_param->reg.idx[0], operands[1], dxil);
+
+    if (e->register_index == UINT_MAX)
+        sm6_parser_dcl_register_builtin(dxil, VSIR_OP_DCL_OUTPUT, dst_param->reg.type,
+                dst_param->reg.data_type, vsir_write_mask_component_count(e->mask));
+
+    if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
+    src_param_init_from_value(src_param, value, 0, dxil);
 }
 
 static void sm6_parser_emit_dx_texture_gather(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
