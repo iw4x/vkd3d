@@ -8029,8 +8029,8 @@ static enum vkd3d_shader_opcode dxil_map_cast_op(uint64_t code, const struct sm6
 static void sm6_parser_emit_cast(struct sm6_parser *dxil, struct function_emission_state *state)
 {
     struct sm6_value *dst = sm6_parser_get_current_value(dxil);
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_param;
     const struct sm6_value *value;
     enum vkd3d_shader_opcode op;
@@ -8049,18 +8049,17 @@ static void sm6_parser_emit_cast(struct sm6_parser *dxil, struct function_emissi
 
     dst->type = type;
 
+    state->pushed_instruction = true;
+
     if (sm6_type_is_pointer(type))
     {
         *dst = *value;
         dst->type = type;
-        ins->opcode = VSIR_OP_NOP;
         return;
     }
 
     if ((op = dxil_map_cast_op(record->operands[i], value->type, &src_type_flags, type, dxil)) == VSIR_OP_INVALID)
         return;
-
-    vsir_instruction_init(ins, &dxil->p.location, op);
 
     if (op == VSIR_OP_NOP)
     {
@@ -8069,11 +8068,24 @@ static void sm6_parser_emit_cast(struct sm6_parser *dxil, struct function_emissi
         return;
     }
 
-    if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
+
+    vsir_instruction_init(ins, &dxil->p.location, op);
+
+    if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
     src_param_init_from_value(src_param, value, src_type_flags, dxil);
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, dxil);
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, dxil))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
 
     /* VSIR bitcasts are represented by source registers with types different
      * from the types they were written with, rather than with different types
