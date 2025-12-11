@@ -7290,7 +7290,7 @@ static void sm6_parser_emit_dx_texture_load(struct sm6_parser *dxil, enum dx_int
         vkd3d_shader_instruction_make_nop(ins);
 }
 
-static void sm6_parser_emit_dx_texture_store(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
+static void sm6_parser_emit_dx_texture_store(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
     struct vkd3d_shader_register coord, texel;
@@ -7301,42 +7301,53 @@ static void sm6_parser_emit_dx_texture_store(struct sm6_parser *sm6, enum dx_int
     const struct sm6_value *resource;
 
     resource = operands[0];
-    if (!sm6_value_validate_is_texture_handle(resource, op, sm6))
+    if (!sm6_value_validate_is_texture_handle(resource, op, dxil))
         return;
 
-    if (!sm6_parser_emit_coordinate_construct(sm6, &operands[1], 3, NULL, state, &coord))
+    if (!sm6_parser_emit_coordinate_construct(dxil, &operands[1], 3, NULL, state, &coord))
         return;
 
-    write_mask = sm6_value_get_constant_uint(operands[8], sm6);
+    write_mask = sm6_value_get_constant_uint(operands[8], dxil);
     if (!write_mask || write_mask > VKD3DSP_WRITEMASK_ALL)
     {
-        WARN("Invalid write mask %#x.\n", write_mask);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Write mask %#x for a texture store operation is invalid.", write_mask);
         return;
     }
-    else if (write_mask & (write_mask + 1))
-    {
-        /* In this case, it is unclear which source operands will be defined unless we encounter it in a shader. */
-        FIXME("Unhandled write mask %#x.\n", write_mask);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+
+    /* In this case, it is unclear which source operands will be defined
+     * unless we encounter it in a shader. */
+    if (write_mask & (write_mask + 1))
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Write mask %#x for a texture store operation is unhandled.", write_mask);
-    }
     component_count = vsir_write_mask_component_count(write_mask);
 
-    if (!sm6_parser_emit_composite_construct(sm6, &operands[4], component_count, state, &texel))
+    if (!sm6_parser_emit_composite_construct(dxil, &operands[4], component_count, state, &texel))
         return;
 
-    ins = state->ins;
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_STORE_UAV_TYPED);
-
-    if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
+
+    state->pushed_instruction = true;
+
+    vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_STORE_UAV_TYPED);
+
+    if (!(src_params = instruction_src_params_alloc(ins, 2, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
     src_param_init_vector_from_reg(&src_params[0], &coord);
     src_param_init_vector_from_reg(&src_params[1], &texel);
 
-    dst_param = instruction_dst_params_alloc(ins, 1, sm6);
-    sm6_register_from_handle(sm6, &resource->u.handle, &dst_param->reg);
+    if (!(dst_param = instruction_dst_params_alloc(ins, 1, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
+    sm6_register_from_handle(dxil, &resource->u.handle, &dst_param->reg);
     dst_param_init_with_mask(dst_param, write_mask);
 }
 
