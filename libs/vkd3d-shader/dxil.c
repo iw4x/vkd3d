@@ -5388,12 +5388,20 @@ static enum vkd3d_shader_opcode sm6_dx_map_void_op(enum dx_intrinsic_opcode op)
     }
 }
 
-static void sm6_parser_emit_dx_void(struct sm6_parser *sm6, enum dx_intrinsic_opcode op,
+static void sm6_parser_emit_dx_void(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
         const struct sm6_value **operands, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
-    vsir_instruction_init(ins, &sm6->p.location, sm6_dx_map_void_op(op));
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    struct vkd3d_shader_instruction *ins;
+
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
+    state->pushed_instruction = true;
+
+    vsir_instruction_init(ins, &dxil->p.location, sm6_dx_map_void_op(op));
+
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, dxil))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static enum vkd3d_shader_opcode map_dx_unary_op(enum dx_intrinsic_opcode op)
