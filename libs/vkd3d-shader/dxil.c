@@ -613,6 +613,7 @@ enum dxil_well_known_structs
     WELL_KNOWN_DIMENSIONS,
     WELL_KNOWN_SPLITDOUBLE,
     WELL_KNOWN_FOURI32,
+    WELL_KNOWN_RESRET_F32,
 };
 
 struct sm6_struct_info
@@ -2182,6 +2183,22 @@ static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6
                 goto error;
         }
         info->well_known = WELL_KNOWN_SPLITDOUBLE;
+
+        return;
+    }
+
+    if (!strcmp(info->name, "dx.types.ResRet.f32"))
+    {
+        if (info->elem_count != 5)
+            goto error;
+        for (i = 0; i < 4; ++i)
+        {
+            if (!sm6_type_is_float(info->elem_types[i]))
+                goto error;
+        }
+        if (!sm6_type_is_i32(info->elem_types[4]))
+            goto error;
+        info->well_known = WELL_KNOWN_RESRET_F32;
 
         return;
     }
