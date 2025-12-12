@@ -615,6 +615,7 @@ enum dxil_well_known_structs
     WELL_KNOWN_FOURI32,
     WELL_KNOWN_RESRET_F32,
     WELL_KNOWN_RESRET_I32,
+    WELL_KNOWN_CBUFRET_F32,
 };
 
 struct sm6_struct_info
@@ -2222,6 +2223,20 @@ static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6
 
             return;
         }
+    }
+
+    if (!strcmp(info->name, "dx.types.CBufRet.f32"))
+    {
+        if (info->elem_count != 4)
+            goto error;
+        for (i = 0; i < 4; ++i)
+        {
+            if (!sm6_type_is_float(info->elem_types[i]))
+                goto error;
+        }
+        info->well_known = WELL_KNOWN_CBUFRET_F32;
+
+        return;
     }
 
     vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_UNKNOWN_TYPE,
