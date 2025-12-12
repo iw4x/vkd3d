@@ -6252,6 +6252,8 @@ static void compute_liveness_recurse(struct hlsl_block *block, unsigned int loop
 
             compute_liveness_recurse(&loop->body, loop_first ? loop_first : instr->index,
                     loop_last ? loop_last : loop->next_index);
+            if (loop->unroll_limit.node)
+                loop->unroll_limit.node->last_read = last_read;
             break;
         }
         case HLSL_IR_RESOURCE_LOAD:
@@ -14444,11 +14446,12 @@ static void loop_unrolling_remove_jumps(struct hlsl_ctx *ctx, struct hlsl_block 
     while (loop_unrolling_remove_jumps_recurse(ctx, block, loop_broken, loop_continued));
 }
 
-static unsigned int loop_unrolling_get_max_iterations(struct hlsl_ctx *ctx, struct hlsl_ir_loop *loop)
+static unsigned int loop_unrolling_get_max_iterations(struct hlsl_ctx *ctx, struct hlsl_ir_loop *loop,
+        unsigned int unroll_limit)
 {
     /* Always use the explicit limit if it has been passed. */
-    if (loop->unroll_limit)
-        return loop->unroll_limit;
+    if (unroll_limit)
+        return unroll_limit;
 
     /* All SMs will default to 1024 if [unroll] has been specified without an explicit limit. */
     if (loop->unroll_type == HLSL_LOOP_FORCE_UNROLL)
@@ -14500,7 +14503,8 @@ static bool loop_unrolling_check_val(struct copy_propagation_state *state, struc
     return hlsl_ir_constant(v->node)->value.u[0].u;
 }
 
-static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *block, struct hlsl_ir_loop *loop)
+static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *block, struct hlsl_ir_loop *loop,
+        unsigned int unroll_limit)
 {
     struct hlsl_block draft, tmp_dst, loop_body;
     struct hlsl_ir_var *broken, *continued;
@@ -14519,7 +14523,7 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
     hlsl_block_init(&draft);
     hlsl_block_init(&tmp_dst);
 
-    max_iterations = loop_unrolling_get_max_iterations(ctx, loop);
+    max_iterations = loop_unrolling_get_max_iterations(ctx, loop, unroll_limit);
     copy_propagation_state_init(&state, ctx);
     index = 2;
     state.stop = &loop->node;
@@ -14577,7 +14581,7 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
     /* Native will not emit an error if max_iterations has been reached with an
      * explicit limit. It also will not insert a loop if there are iterations left
      * i.e [unroll(4)] for (i = 0; i < 8; ++i)) */
-    if (!loop->unroll_limit && i == max_iterations)
+    if (!unroll_limit && i == max_iterations)
     {
         if (loop->unroll_type == HLSL_LOOP_FORCE_UNROLL)
             hlsl_error(ctx, &loop->node.loc, VKD3D_SHADER_ERROR_HLSL_FAILED_FORCED_UNROLL,
@@ -14606,6 +14610,7 @@ fail:
 static bool unroll_loops(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, void *context)
 {
     struct hlsl_block *program = context;
+    unsigned int unroll_limit = 0;
     struct hlsl_ir_loop *loop;
 
     if (node->type != HLSL_IR_LOOP)
@@ -14616,7 +14621,23 @@ static bool unroll_loops(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, void *
     if (loop->unroll_type != HLSL_LOOP_UNROLL && loop->unroll_type != HLSL_LOOP_FORCE_UNROLL)
         return true;
 
-    if (!loop_unrolling_unroll_loop(ctx, program, loop))
+    if (loop->unroll_limit.node)
+    {
+        struct hlsl_ir_constant *c;
+
+        if (loop->unroll_limit.node->type != HLSL_IR_CONSTANT)
+        {
+            hlsl_error(ctx, &loop->unroll_limit.node->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
+                    "Unable to evaluate the unroll limit to a constant.");
+            return false;
+        }
+
+        c = hlsl_ir_constant(loop->unroll_limit.node);
+        VKD3D_ASSERT(c->node.data_type->e.numeric.type == HLSL_TYPE_UINT);
+        unroll_limit = c->value.u[0].u;
+    }
+
+    if (!loop_unrolling_unroll_loop(ctx, program, loop, unroll_limit))
         loop->unroll_type = HLSL_LOOP_FORCE_LOOP;
 
     return true;
@@ -14722,6 +14743,8 @@ static void loop_unrolling_execute(struct hlsl_ctx *ctx, struct hlsl_block *bloc
     /* These are required by copy propagation, which in turn is required for
      * unrolling. */
     split_copies(ctx, block);
+
+    hlsl_run_folding_passes(ctx, block);
 
     hlsl_transform_ir(ctx, unroll_loops, block, block);
     resolve_continues(ctx, block, NULL);
