@@ -614,6 +614,7 @@ enum dxil_well_known_structs
     WELL_KNOWN_SPLITDOUBLE,
     WELL_KNOWN_FOURI32,
     WELL_KNOWN_RESRET_F32,
+    WELL_KNOWN_RESRET_I32,
 };
 
 struct sm6_struct_info
@@ -2119,6 +2120,7 @@ static const struct sm6_type *sm6_type_get_pointer_to_type(const struct sm6_type
 
 static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6_struct_info *info)
 {
+    static const char resret_prefix[] = "dx.types.ResRet.";
     static const char prefix[] = "dx.types.";
     unsigned int i;
 
@@ -2187,20 +2189,39 @@ static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6
         return;
     }
 
-    if (!strcmp(info->name, "dx.types.ResRet.f32"))
+    if (!strncmp(info->name, resret_prefix, ARRAY_SIZE(resret_prefix) - 1))
     {
-        if (info->elem_count != 5)
-            goto error;
-        for (i = 0; i < 4; ++i)
-        {
-            if (!sm6_type_is_float(info->elem_types[i]))
-                goto error;
-        }
-        if (!sm6_type_is_i32(info->elem_types[4]))
-            goto error;
-        info->well_known = WELL_KNOWN_RESRET_F32;
+        enum dxil_well_known_structs target_well_known = WELL_KNOWN_NONE;
+        bool (*field_checker)(const struct sm6_type *) = NULL;
+        const char *suffix;
 
-        return;
+        suffix = &info->name[ARRAY_SIZE(resret_prefix) - 1];
+        if (!strcmp(suffix, "f32"))
+        {
+            target_well_known = WELL_KNOWN_RESRET_F32;
+            field_checker = sm6_type_is_float;
+        }
+        else if (!strcmp(suffix, "i32"))
+        {
+            target_well_known = WELL_KNOWN_RESRET_I32;
+            field_checker = sm6_type_is_i32;
+        }
+
+        if (target_well_known != WELL_KNOWN_NONE)
+        {
+            if (info->elem_count != 5)
+                goto error;
+            for (i = 0; i < 4; ++i)
+            {
+                if (!field_checker(info->elem_types[i]))
+                    goto error;
+            }
+            if (!sm6_type_is_i32(info->elem_types[4]))
+                goto error;
+            info->well_known = target_well_known;
+
+            return;
+        }
     }
 
     vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_UNKNOWN_TYPE,
