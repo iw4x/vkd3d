@@ -2118,11 +2118,15 @@ static const struct sm6_type *sm6_type_get_pointer_to_type(const struct sm6_type
 
 static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6_struct_info *info)
 {
+    static const char prefix[] = "dx.types.";
     unsigned int i;
 
     info->well_known = WELL_KNOWN_NONE;
 
     if (!info->name)
+        return;
+
+    if (strncmp(info->name, prefix, ARRAY_SIZE(prefix) - 1))
         return;
 
     if (!strcmp(info->name, "dx.types.Dimensions"))
@@ -2182,6 +2186,8 @@ static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6
         return;
     }
 
+    vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_UNKNOWN_TYPE,
+            "Encountered unrecognised structure type `%s'.", info->name);
     return;
 
 error:
