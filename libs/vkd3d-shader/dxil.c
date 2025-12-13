@@ -617,6 +617,7 @@ enum dxil_well_known_structs
     WELL_KNOWN_RESRET_F32,
     WELL_KNOWN_RESRET_I32,
     WELL_KNOWN_CBUFRET_F32,
+    WELL_KNOWN_CBUFRET_F64,
     WELL_KNOWN_CBUFRET_I32,
 };
 
@@ -2230,6 +2231,7 @@ static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6
     {
         enum dxil_well_known_structs target_well_known = WELL_KNOWN_NONE;
         bool (*field_checker)(const struct sm6_type *) = NULL;
+        unsigned int field_count = 0;
         const char *suffix;
 
         suffix = &info->name[ARRAY_SIZE(cbufret_prefix) - 1];
@@ -2237,18 +2239,26 @@ static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6
         {
             target_well_known = WELL_KNOWN_CBUFRET_F32;
             field_checker = sm6_type_is_float;
+            field_count = 4;
+        }
+        else if (!strcmp(suffix, "f64"))
+        {
+            target_well_known = WELL_KNOWN_CBUFRET_F64;
+            field_checker = sm6_type_is_double;
+            field_count = 2;
         }
         else if (!strcmp(suffix, "i32"))
         {
             target_well_known = WELL_KNOWN_CBUFRET_I32;
             field_checker = sm6_type_is_i32;
+            field_count = 4;
         }
 
         if (target_well_known != WELL_KNOWN_NONE)
         {
-            if (info->elem_count != 4)
+            if (info->elem_count != field_count)
                 goto error;
-            for (i = 0; i < 4; ++i)
+            for (i = 0; i < field_count; ++i)
             {
                 if (!field_checker(info->elem_types[i]))
                     goto error;
