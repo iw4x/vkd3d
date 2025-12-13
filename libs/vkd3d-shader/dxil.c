@@ -616,6 +616,7 @@ enum dxil_well_known_structs
     WELL_KNOWN_FOURI32,
     WELL_KNOWN_RESRET_F32,
     WELL_KNOWN_RESRET_I32,
+    WELL_KNOWN_CBUFRET_F16,
     WELL_KNOWN_CBUFRET_F32,
     WELL_KNOWN_CBUFRET_F64,
     WELL_KNOWN_CBUFRET_I16,
@@ -2027,6 +2028,11 @@ static inline bool sm6_type_is_i64(const struct sm6_type *type)
     return type->class == TYPE_CLASS_INTEGER && type->u.width == 64;
 }
 
+static bool sm6_type_is_f16(const struct sm6_type *type)
+{
+    return type->class == TYPE_CLASS_FLOAT && type->u.width == 16;
+}
+
 static bool sm6_type_is_float(const struct sm6_type *type)
 {
     return type->class == TYPE_CLASS_FLOAT && type->u.width == 32;
@@ -2247,7 +2253,13 @@ static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6
         const char *suffix;
 
         suffix = &info->name[ARRAY_SIZE(cbufret_prefix) - 1];
-        if (!strcmp(suffix, "f32"))
+        if (!strcmp(suffix, "f16"))
+        {
+            target_well_known = WELL_KNOWN_CBUFRET_F16;
+            field_checker = sm6_type_is_f16;
+            field_count = 4;
+        }
+        else if (!strcmp(suffix, "f32"))
         {
             target_well_known = WELL_KNOWN_CBUFRET_F32;
             field_checker = sm6_type_is_float;
