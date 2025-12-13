@@ -616,6 +616,7 @@ enum dxil_well_known_structs
     WELL_KNOWN_FOURI32,
     WELL_KNOWN_RESRET_F16,
     WELL_KNOWN_RESRET_F32,
+    WELL_KNOWN_RESRET_I16,
     WELL_KNOWN_RESRET_I32,
     WELL_KNOWN_CBUFRET_F16,
     WELL_KNOWN_CBUFRET_F32,
@@ -2227,6 +2228,11 @@ static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6
         {
             target_well_known = WELL_KNOWN_RESRET_F32;
             field_checker = sm6_type_is_float;
+        }
+        else if (!strcmp(suffix, "i16"))
+        {
+            target_well_known = WELL_KNOWN_RESRET_I16;
+            field_checker = sm6_type_is_i16;
         }
         else if (!strcmp(suffix, "i32"))
         {
