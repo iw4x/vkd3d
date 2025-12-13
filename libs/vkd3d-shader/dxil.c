@@ -616,6 +616,7 @@ enum dxil_well_known_structs
     WELL_KNOWN_SPLITDOUBLE,
     WELL_KNOWN_FOURI32,
     WELL_KNOWN_RESBIND,
+    WELL_KNOWN_RESOURCE_PROPERTIES,
     WELL_KNOWN_RESRET_F16,
     WELL_KNOWN_RESRET_F32,
     WELL_KNOWN_RESRET_I16,
@@ -2196,6 +2197,20 @@ static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6
         if (info->elem_types[0]->u.pointer.addr_space != ADDRESS_SPACE_DEFAULT)
             goto error;
         info->well_known = WELL_KNOWN_HANDLE;
+
+        return;
+    }
+
+    if (!strcmp(info->name, "dx.types.ResourceProperties"))
+    {
+        if (info->elem_count != 2)
+            goto error;
+        for (i = 0; i < 2; ++i)
+        {
+            if (!sm6_type_is_i32(info->elem_types[i]))
+                goto error;
+        }
+        info->well_known = WELL_KNOWN_RESOURCE_PROPERTIES;
 
         return;
     }
