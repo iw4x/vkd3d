@@ -612,6 +612,7 @@ enum dxil_well_known_structs
     WELL_KNOWN_NONE = 0,
     WELL_KNOWN_HANDLE,
     WELL_KNOWN_DIMENSIONS,
+    WELL_KNOWN_SAMPLEPOS,
     WELL_KNOWN_SPLITDOUBLE,
     WELL_KNOWN_FOURI32,
     WELL_KNOWN_RESRET_F16,
@@ -2194,6 +2195,20 @@ static void dxil_recognise_well_known_struct(struct sm6_parser *dxil, struct sm6
         if (info->elem_types[0]->u.pointer.addr_space != ADDRESS_SPACE_DEFAULT)
             goto error;
         info->well_known = WELL_KNOWN_HANDLE;
+
+        return;
+    }
+
+    if (!strcmp(info->name, "dx.types.SamplePos"))
+    {
+        if (info->elem_count != 2)
+            goto error;
+        for (i = 0; i < 2; ++i)
+        {
+            if (!sm6_type_is_float(info->elem_types[i]))
+                goto error;
+        }
+        info->well_known = WELL_KNOWN_SAMPLEPOS;
 
         return;
     }
