@@ -2353,6 +2353,11 @@ static bool resource_kind_is_texture(enum dxil_resource_kind kind)
     return kind >= RESOURCE_KIND_TEXTURE1D && kind <= RESOURCE_KIND_TEXTURECUBEARRAY;
 }
 
+static bool resource_kind_is_buffer(enum dxil_resource_kind kind)
+{
+    return kind >= RESOURCE_KIND_TYPEDBUFFER && kind <= RESOURCE_KIND_STRUCTUREDBUFFER;
+}
+
 static bool resource_kind_is_multisampled(enum dxil_resource_kind kind)
 {
     return kind == RESOURCE_KIND_TEXTURE2DMS || kind == RESOURCE_KIND_TEXTURE2DMSARRAY;
@@ -9683,15 +9688,10 @@ static enum vkd3d_shader_resource_type shader_resource_type_from_dxil_resource_k
     if (resource_kind_is_texture(kind))
         return kind + 1;
 
-    switch (kind)
-    {
-        case RESOURCE_KIND_TYPEDBUFFER:
-        case RESOURCE_KIND_RAWBUFFER:
-        case RESOURCE_KIND_STRUCTUREDBUFFER:
-            return VKD3D_SHADER_RESOURCE_BUFFER;
-        default:
-            return VKD3D_SHADER_RESOURCE_NONE;
-    }
+    if (resource_kind_is_buffer(kind))
+        return VKD3D_SHADER_RESOURCE_BUFFER;
+
+    return VKD3D_SHADER_RESOURCE_NONE;
 }
 
 static const enum vsir_data_type data_type_table[] =
