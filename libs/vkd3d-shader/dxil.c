@@ -5527,7 +5527,6 @@ static void sm6_parser_emit_dx_atomic_binop(struct sm6_parser *sm6, enum dx_intr
         const struct sm6_value **operands, struct function_emission_state *state)
 {
     struct sm6_value *dst = sm6_parser_get_current_value(sm6);
-    enum vkd3d_shader_resource_type resource_type;
     bool is_cmp_xchg = op == DX_ATOMIC_CMP_XCHG;
     unsigned int i, coord_idx, coord_count = 1;
     struct vkd3d_shader_instruction *ins;
@@ -5536,6 +5535,7 @@ static void sm6_parser_emit_dx_atomic_binop(struct sm6_parser *sm6, enum dx_intr
     const struct sm6_value *resource;
     struct vkd3d_shader_register reg;
     enum vkd3d_shader_opcode opcode;
+    enum dxil_resource_kind kind;
 
     resource = operands[0];
     if (!sm6_value_validate_is_handle(resource, sm6))
@@ -5547,10 +5547,10 @@ static void sm6_parser_emit_dx_atomic_binop(struct sm6_parser *sm6, enum dx_intr
         return;
 
     coord_idx = 2 - is_cmp_xchg;
-    resource_type = resource->u.handle.d->resource_type;
-    if (resource_type != VKD3D_SHADER_RESOURCE_BUFFER || resource->u.handle.d->kind == RESOURCE_KIND_STRUCTUREDBUFFER)
+    kind = resource->u.handle.d->kind;
+    if (resource_kind_is_texture(kind) || kind == RESOURCE_KIND_STRUCTUREDBUFFER)
     {
-        coord_count = 2 + (resource_type != VKD3D_SHADER_RESOURCE_BUFFER);
+        coord_count = 2 + resource_kind_is_texture(kind);
         if (!sm6_parser_emit_coordinate_construct(sm6, &operands[coord_idx], coord_count, NULL, state, &reg))
             return;
     }
