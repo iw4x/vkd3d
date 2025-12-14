@@ -250,6 +250,8 @@ static bool match_tag(struct shader_runner *runner, enum shader_runner_tag tag, 
             break;
     }
 
+    if (!value->present)
+        return false;
     comparison_result = compare_versions(value->major, value->minor, value->patch, major, minor, patch);
 
     switch (comparison[0])
