@@ -3194,7 +3194,7 @@ static bool sm6_value_validate_is_texture_handle(const struct sm6_value *value, 
         return false;
 
     kind = value->u.handle.d->kind;
-    if (kind < RESOURCE_KIND_TEXTURE1D || kind > RESOURCE_KIND_TEXTURECUBEARRAY)
+    if (!resource_kind_is_texture(kind))
     {
         WARN("Resource kind %u for op %u is not a texture.\n", kind, op);
         vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_RESOURCE_HANDLE,
