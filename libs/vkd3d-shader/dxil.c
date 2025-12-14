@@ -6110,8 +6110,8 @@ static void sm6_parser_emit_dx_get_dimensions(struct sm6_parser *sm6, enum dx_in
     resource = operands[0];
     if (!sm6_value_validate_is_handle(resource, sm6))
         return;
-    is_texture = resource->u.handle.d->resource_type != VKD3D_SHADER_RESOURCE_BUFFER;
     resource_kind = resource->u.handle.d->kind;
+    is_texture = resource_kind_is_texture(resource_kind);
 
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
