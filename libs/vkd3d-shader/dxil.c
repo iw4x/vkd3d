@@ -863,7 +863,6 @@ struct sm6_descriptor_info
     enum vkd3d_shader_resource_type resource_type;
     enum dxil_resource_kind kind;
     enum vsir_data_type resource_data_type;
-    enum vkd3d_shader_register_type reg_type;
     enum vsir_data_type reg_data_type;
 };
 
@@ -3010,7 +3009,31 @@ static void register_index_address_init(struct vkd3d_shader_register_index *idx,
 static void sm6_register_from_handle(struct sm6_parser *sm6,
         const struct sm6_handle_data *handle, struct vkd3d_shader_register *reg)
 {
-    vsir_register_init(reg, handle->d->reg_type, handle->d->reg_data_type, 2);
+    enum vkd3d_shader_register_type reg_type;
+
+    switch (handle->d->type)
+    {
+        case VKD3D_SHADER_DESCRIPTOR_TYPE_SRV:
+            reg_type = VKD3DSPR_RESOURCE;
+            break;
+
+        case VKD3D_SHADER_DESCRIPTOR_TYPE_UAV:
+            reg_type = VKD3DSPR_UAV;
+            break;
+
+        case VKD3D_SHADER_DESCRIPTOR_TYPE_CBV:
+            reg_type = VKD3DSPR_CONSTBUFFER;
+            break;
+
+        case VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER:
+            reg_type = VKD3DSPR_SAMPLER;
+            break;
+
+        default:
+            vkd3d_unreachable();
+    }
+
+    vsir_register_init(reg, reg_type, handle->d->reg_data_type, 2);
     reg->dimension = VSIR_DIMENSION_VEC4;
     reg->idx[0].offset = handle->d->id;
     register_index_address_init(&reg->idx[1], handle->index, sm6);
@@ -9928,7 +9951,6 @@ static enum vkd3d_result sm6_parser_resources_load_srv(struct sm6_parser *sm6,
 
     d->resource_type = ins->resource_type;
     d->kind = kind;
-    d->reg_type = VKD3DSPR_RESOURCE;
     d->reg_data_type = VSIR_DATA_UNUSED;
     d->resource_data_type = (ins->opcode == VSIR_OP_DCL)
             ? ins->declaration.semantic.resource_data_type[0] : VSIR_DATA_UNUSED;
@@ -10002,7 +10024,6 @@ static enum vkd3d_result sm6_parser_resources_load_uav(struct sm6_parser *sm6,
 
     d->resource_type = ins->resource_type;
     d->kind = values[0];
-    d->reg_type = VKD3DSPR_UAV;
     d->reg_data_type = VSIR_DATA_UNUSED;
     d->resource_data_type = (ins->opcode == VSIR_OP_DCL_UAV_TYPED)
             ? ins->declaration.semantic.resource_data_type[0] : VSIR_DATA_UNUSED;
@@ -10054,7 +10075,6 @@ static enum vkd3d_result sm6_parser_resources_load_cbv(struct sm6_parser *sm6,
 
     ins->declaration.cb.range = d->range;
 
-    d->reg_type = VKD3DSPR_CONSTBUFFER;
     d->reg_data_type = VSIR_DATA_F32;
     d->resource_data_type = VSIR_DATA_F32;
 
@@ -10118,7 +10138,6 @@ static enum vkd3d_result sm6_parser_resources_load_sampler(struct sm6_parser *sm
 
     d->resource_type = ins->resource_type;
     d->kind = RESOURCE_KIND_SAMPLER;
-    d->reg_type = VKD3DSPR_SAMPLER;
     d->reg_data_type = VSIR_DATA_UNUSED;
     d->resource_data_type = VSIR_DATA_UNUSED;
 
