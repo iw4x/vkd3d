@@ -7166,7 +7166,6 @@ static void sm6_parser_emit_dx_texture_load(struct sm6_parser *sm6, enum dx_intr
         const struct sm6_value **operands, struct function_emission_state *state)
 {
     const struct sm6_value *resource, *mip_level_or_sample_count;
-    enum vkd3d_shader_resource_type resource_type;
     struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     struct vkd3d_shader_register coord;
@@ -7178,12 +7177,11 @@ static void sm6_parser_emit_dx_texture_load(struct sm6_parser *sm6, enum dx_intr
     if (!sm6_value_validate_is_texture_handle(resource, op, sm6))
         return;
 
-    resource_type = resource->u.handle.d->resource_type;
     kind = resource->u.handle.d->kind;
     is_multisample = resource_kind_is_multisampled(kind);
     is_uav = resource->u.handle.d->type == VKD3D_SHADER_DESCRIPTOR_TYPE_UAV;
 
-    mip_level_or_sample_count = (resource_type != VKD3D_SHADER_RESOURCE_BUFFER) ? operands[1] : NULL;
+    mip_level_or_sample_count = resource_kind_is_texture(kind) ? operands[1] : NULL;
     if (!sm6_parser_emit_coordinate_construct(sm6, &operands[2], 3,
             is_multisample ? NULL : mip_level_or_sample_count, state, &coord))
     {
