@@ -861,7 +861,6 @@ struct sm6_descriptor_info
     enum vkd3d_shader_descriptor_type type;
     unsigned int id;
     struct vkd3d_shader_register_range range;
-    enum vkd3d_shader_resource_type resource_type;
     enum dxil_resource_kind kind;
     enum vsir_data_type resource_data_type;
 };
@@ -2365,6 +2364,17 @@ static bool resource_kind_is_multisampled(enum dxil_resource_kind kind)
     return kind == RESOURCE_KIND_TEXTURE2DMS || kind == RESOURCE_KIND_TEXTURE2DMSARRAY;
 }
 
+static enum vkd3d_shader_resource_type shader_resource_type_from_dxil_resource_kind(enum dxil_resource_kind kind)
+{
+    if (resource_kind_is_texture(kind))
+        return kind + 1;
+
+    if (resource_kind_is_buffer(kind))
+        return VKD3D_SHADER_RESOURCE_BUFFER;
+
+    return VKD3D_SHADER_RESOURCE_NONE;
+}
+
 static int global_symbol_compare(const void *a, const void *b)
 {
     return vkd3d_u32_compare(((const struct sm6_symbol *)a)->id, ((const struct sm6_symbol *)b)->id);
@@ -2657,10 +2667,12 @@ static unsigned int sm6_parser_alloc_ssa_id(struct sm6_parser *sm6)
 static void instruction_init_with_resource(struct vkd3d_shader_instruction *ins,
         enum vkd3d_shader_opcode opcode, const struct sm6_value *resource, struct sm6_parser *dxil)
 {
+    enum dxil_resource_kind kind = resource->u.handle.d->kind;
+
     vsir_instruction_init(ins, &dxil->p.location, opcode);
-    ins->resource_type = resource->u.handle.d->resource_type;
-    ins->raw = resource->u.handle.d->kind == RESOURCE_KIND_RAWBUFFER;
-    ins->structured = resource->u.handle.d->kind == RESOURCE_KIND_STRUCTUREDBUFFER;
+    ins->resource_type = shader_resource_type_from_dxil_resource_kind(kind);
+    ins->raw = kind == RESOURCE_KIND_RAWBUFFER;
+    ins->structured = kind == RESOURCE_KIND_STRUCTUREDBUFFER;
 }
 
 static struct vsir_src_operand *instruction_src_params_alloc(struct vkd3d_shader_instruction *ins,
@@ -9832,17 +9844,6 @@ static bool sm6_parser_resources_load_register_range(struct sm6_parser *sm6,
     return true;
 }
 
-static enum vkd3d_shader_resource_type shader_resource_type_from_dxil_resource_kind(enum dxil_resource_kind kind)
-{
-    if (resource_kind_is_texture(kind))
-        return kind + 1;
-
-    if (resource_kind_is_buffer(kind))
-        return VKD3D_SHADER_RESOURCE_BUFFER;
-
-    return VKD3D_SHADER_RESOURCE_NONE;
-}
-
 static const enum vsir_data_type data_type_table[] =
 {
     [COMPONENT_TYPE_INVALID]     = VSIR_DATA_UNUSED,
@@ -10102,7 +10103,6 @@ static enum vkd3d_result sm6_parser_resources_load_srv(struct sm6_parser *sm6,
         return VKD3D_ERROR_INVALID_SHADER;
     }
 
-    d->resource_type = ins->resource_type;
     d->kind = kind;
     d->resource_data_type = (ins->opcode == VSIR_OP_DCL)
             ? ins->declaration.semantic.resource_data_type[0] : VSIR_DATA_UNUSED;
@@ -10174,7 +10174,6 @@ static enum vkd3d_result sm6_parser_resources_load_uav(struct sm6_parser *sm6,
         return VKD3D_ERROR_INVALID_SHADER;
     }
 
-    d->resource_type = ins->resource_type;
     d->kind = values[0];
     d->resource_data_type = (ins->opcode == VSIR_OP_DCL_UAV_TYPED)
             ? ins->declaration.semantic.resource_data_type[0] : VSIR_DATA_UNUSED;
@@ -10286,7 +10285,6 @@ static enum vkd3d_result sm6_parser_resources_load_sampler(struct sm6_parser *sm
 
     ins->declaration.sampler.range = d->range;
 
-    d->resource_type = ins->resource_type;
     d->kind = RESOURCE_KIND_SAMPLER;
     d->resource_data_type = VSIR_DATA_UNUSED;
 
