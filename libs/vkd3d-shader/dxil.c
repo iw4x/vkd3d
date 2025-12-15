@@ -7170,6 +7170,7 @@ static void sm6_parser_emit_dx_texture_load(struct sm6_parser *sm6, enum dx_intr
     struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     struct vkd3d_shader_register coord;
+    enum dxil_resource_kind kind;
     bool is_multisample, is_uav;
     unsigned int i;
 
@@ -7178,8 +7179,8 @@ static void sm6_parser_emit_dx_texture_load(struct sm6_parser *sm6, enum dx_intr
         return;
 
     resource_type = resource->u.handle.d->resource_type;
-    is_multisample = resource_type == VKD3D_SHADER_RESOURCE_TEXTURE_2DMS
-            || resource_type == VKD3D_SHADER_RESOURCE_TEXTURE_2DMSARRAY;
+    kind = resource->u.handle.d->kind;
+    is_multisample = resource_kind_is_multisampled(kind);
     is_uav = resource->u.handle.d->type == VKD3D_SHADER_DESCRIPTOR_TYPE_UAV;
 
     mip_level_or_sample_count = (resource_type != VKD3D_SHADER_RESOURCE_BUFFER) ? operands[1] : NULL;
