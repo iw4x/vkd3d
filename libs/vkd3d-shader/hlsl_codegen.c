@@ -4022,6 +4022,18 @@ static bool split_matrix_copies(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr
     return true;
 }
 
+static void split_copies(struct hlsl_ctx *ctx, struct hlsl_block *block)
+{
+    bool progress;
+
+    do
+    {
+        progress = hlsl_transform_ir(ctx, split_array_copies, block, NULL);
+        progress |= hlsl_transform_ir(ctx, split_struct_copies, block, NULL);
+    } while (progress);
+    hlsl_transform_ir(ctx, split_matrix_copies, block, NULL);
+}
+
 static struct hlsl_ir_node *lower_narrowing_casts(struct hlsl_ctx *ctx,
         struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
@@ -8991,20 +9003,12 @@ static void hlsl_run_folding_passes(struct hlsl_ctx *ctx, struct hlsl_block *bod
 
 void hlsl_run_const_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
 {
-    bool progress;
-
     replace_ir(ctx, lower_complex_casts, body);
     replace_ir(ctx, lower_matrix_swizzles, body);
 
     replace_ir(ctx, lower_broadcasts, body);
     while (replace_ir(ctx, fold_redundant_casts, body));
-    do
-    {
-        progress = hlsl_transform_ir(ctx, split_array_copies, body, NULL);
-        progress |= hlsl_transform_ir(ctx, split_struct_copies, body, NULL);
-    }
-    while (progress);
-    hlsl_transform_ir(ctx, split_matrix_copies, body, NULL);
+    split_copies(ctx, body);
 
     replace_ir(ctx, lower_narrowing_casts, body);
     replace_ir(ctx, lower_int_dot, body);
@@ -14692,16 +14696,9 @@ static void resolve_continues(struct hlsl_ctx *ctx, struct hlsl_block *block, st
 
 static void loop_unrolling_execute(struct hlsl_ctx *ctx, struct hlsl_block *block)
 {
-    bool progress;
-
     /* These are required by copy propagation, which in turn is required for
      * unrolling. */
-    do
-    {
-        progress = hlsl_transform_ir(ctx, split_array_copies, block, NULL);
-        progress |= hlsl_transform_ir(ctx, split_struct_copies, block, NULL);
-    } while (progress);
-    hlsl_transform_ir(ctx, split_matrix_copies, block, NULL);
+    split_copies(ctx, block);
 
     hlsl_transform_ir(ctx, unroll_loops, block, block);
     resolve_continues(ctx, block, NULL);
