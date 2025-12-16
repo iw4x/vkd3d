@@ -274,6 +274,7 @@ struct shader_runner
     uint32_t compile_model_mask;
     bool require_shader_caps[SHADER_CAP_COUNT];
     uint32_t require_format_caps[DXGI_FORMAT_COUNT];
+    bool skip_directives;
 
     bool last_render_failed;
 

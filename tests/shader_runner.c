@@ -297,6 +297,71 @@ static bool match_tag(struct shader_runner *runner, enum shader_runner_tag tag, 
     }
 }
 
+static bool match_shader_runner_tag(struct shader_runner *runner,
+        const char *line, const char **const rest, bool *holds)
+{
+    bool negate = false, match = false;
+
+    if (*line == '!')
+    {
+        negate = true;
+        ++line;
+    }
+
+    /* Iterate backwards to avoid matching prefixes of other tags
+     * (e.g., matching the "llvm" prefix of "llvmpipe"). */
+    for (unsigned int i = ARRAY_SIZE(shader_runner_tag_names) - 1; i != UINT_MAX; --i)
+    {
+        const char *tag_name = shader_runner_tag_names[i];
+        size_t tag_len = strlen(tag_name);
+        bool tag_match;
+
+        if (strncmp(line, tag_name, tag_len))
+            continue;
+
+        line += tag_len;
+        tag_match = match_tag(runner, i, &line);
+        *holds &= negate ? !tag_match : tag_match;
+        match = true;
+        break;
+    }
+
+    *rest = line;
+    return match;
+}
+
+static bool check_required_tags(struct shader_runner *runner, const char *line, bool *has_tag)
+{
+    *has_tag = false;
+
+    while (*line)
+    {
+        bool holds = true;
+
+        while (*line && *line != '|')
+        {
+            while (isspace(*line))
+                ++line;
+
+            if (!match_shader_runner_tag(runner, line, &line, &holds))
+                return false;
+
+            while (isspace(*line))
+                ++line;
+
+            if (*line == '&')
+                ++line;
+        }
+
+        if (*line == '|')
+            ++line;
+
+        *has_tag |= holds;
+    }
+
+    return true;
+}
+
 static bool check_qualifier_args_conjunction(struct shader_runner *runner,
         const char *line, const char **const rest, uint32_t *model_mask)
 {
@@ -332,31 +397,7 @@ static bool check_qualifier_args_conjunction(struct shader_runner *runner,
         }
         else
         {
-            bool negate = false;
-
-            if (*line == '!')
-            {
-                negate = true;
-                ++line;
-            }
-
-            /* Iterate backwards to avoid matching prefixes of other tags
-             * (e.g., matching the "llvm" prefix of "llvmpipe"). */
-            for (unsigned int i = ARRAY_SIZE(shader_runner_tag_names) - 1; i != UINT_MAX; --i)
-            {
-                const char *tag_name = shader_runner_tag_names[i];
-                size_t tag_len = strlen(tag_name);
-                bool tag_match;
-
-                if (strncmp(line, tag_name, tag_len))
-                    continue;
-
-                match = true;
-                line += tag_len;
-                tag_match = match_tag(runner, i, &line);
-                holds &= negate ? !tag_match : tag_match;
-                break;
-            }
+            match = match_shader_runner_tag(runner, line, &line, &holds);
         }
 
         while (isspace(*line))
@@ -556,6 +597,7 @@ static void parse_require_directive(struct shader_runner *runner, const char *li
     enum shader_cap shader_cap;
     bool less_than = false;
     bool equal = false;
+    bool holds = true;
     unsigned int i;
 
     if (match_string(line, "shader model >=", &line)
@@ -638,6 +680,10 @@ static void parse_require_directive(struct shader_runner *runner, const char *li
     else if (match_shader_cap_string(line, &shader_cap))
     {
         runner->require_shader_caps[shader_cap] = true;
+    }
+    else if (check_required_tags(runner, line, &holds))
+    {
+        runner->skip_directives |= !holds;
     }
     else
     {
@@ -2757,12 +2803,12 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                 case STATE_TEST:
                     if (test_action == TEST_ACTION_SKIP_EXECUTION
                             && runner->minimum_shader_model <= runner->maximum_shader_model)
-                        skip("Missing capabilities.\n");
+                        skip("Missing capabilities/tags.\n");
                     break;
 
                 case STATE_REQUIRE:
                     if (runner->maximum_shader_model < runner->minimum_shader_model
-                            || !check_capabilities(runner, caps))
+                            || runner->skip_directives || !check_capabilities(runner, caps))
                         test_action = TEST_ACTION_SKIP_EXECUTION;
                     break;
 
@@ -2918,6 +2964,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                 memset(runner->require_shader_caps, 0, sizeof(runner->require_shader_caps));
                 memset(runner->require_format_caps, 0, sizeof(runner->require_format_caps));
                 runner->compile_options = 0;
+                runner->skip_directives = false;
                 test_action = ops ? TEST_ACTION_RUN : TEST_ACTION_COMPILE;
             }
             else if (match_string(line, "[pixel shader", &line))
