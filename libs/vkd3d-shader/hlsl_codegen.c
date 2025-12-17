@@ -3916,62 +3916,6 @@ static bool split_struct_copies(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr
     return true;
 }
 
-struct stream_append_ctx
-{
-    struct list *semantic_vars;
-    bool created[VKD3D_MAX_STREAM_COUNT];
-};
-
-static bool lower_stream_appends(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
-{
-    struct stream_append_ctx *append_ctx = context;
-    struct hlsl_ir_resource_store *store;
-    struct hlsl_semantic semantic_copy;
-    const struct hlsl_ir_node *rhs;
-    const struct hlsl_type *type;
-    struct hlsl_ir_var *var;
-    struct hlsl_block block;
-    uint32_t stream_index;
-
-    if (instr->type != HLSL_IR_RESOURCE_STORE)
-        return false;
-
-    store = hlsl_ir_resource_store(instr);
-    if (store->store_type != HLSL_RESOURCE_STREAM_APPEND)
-        return false;
-
-    rhs = store->value.node;
-    var = store->resource.var;
-    type = hlsl_get_stream_output_type(var->data_type);
-
-    if (rhs->type != HLSL_IR_LOAD)
-    {
-        hlsl_fixme(ctx, &instr->loc, "Stream append rhs is not HLSL_IR_LOAD. Broadcast may be missing.");
-        return false;
-    }
-
-    VKD3D_ASSERT(var->regs[HLSL_REGSET_STREAM_OUTPUTS].allocated);
-    stream_index = var->regs[HLSL_REGSET_STREAM_OUTPUTS].index;
-
-    VKD3D_ASSERT(stream_index < ARRAY_SIZE(append_ctx->created));
-
-    hlsl_block_init(&block);
-
-    if (!hlsl_clone_semantic(ctx, &semantic_copy, &var->semantic))
-        return false;
-    append_output_copy_recurse(ctx, &block, append_ctx->semantic_vars, type->e.so.type, hlsl_ir_load(rhs),
-            var->storage_modifiers, &semantic_copy, var->regs[HLSL_REGSET_STREAM_OUTPUTS].index,
-            false, !append_ctx->created[stream_index]);
-    hlsl_cleanup_semantic(&semantic_copy);
-
-    append_ctx->created[stream_index] = true;
-
-    list_move_before(&instr->entry, &block.instrs);
-    hlsl_src_remove(&store->value);
-
-    return true;
-}
-
 static bool split_matrix_copies(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
 {
     const struct hlsl_ir_node *rhs;
@@ -4032,6 +3976,76 @@ static void split_copies(struct hlsl_ctx *ctx, struct hlsl_block *block)
         progress |= hlsl_transform_ir(ctx, split_struct_copies, block, NULL);
     } while (progress);
     hlsl_transform_ir(ctx, split_matrix_copies, block, NULL);
+}
+
+struct stream_append_ctx
+{
+    struct list *semantic_vars;
+    bool created[VKD3D_MAX_STREAM_COUNT];
+};
+
+static bool lower_stream_appends(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
+{
+    struct stream_append_ctx *append_ctx = context;
+    struct hlsl_ir_resource_store *store;
+    struct hlsl_semantic semantic_copy;
+    const struct hlsl_type *type;
+    struct hlsl_ir_node *rhs;
+    struct hlsl_ir_var *var;
+    struct hlsl_block block;
+    uint32_t stream_index;
+    bool progress = false;
+
+    if (instr->type != HLSL_IR_RESOURCE_STORE)
+        return false;
+
+    store = hlsl_ir_resource_store(instr);
+    if (store->store_type != HLSL_RESOURCE_STREAM_APPEND)
+        return false;
+
+    rhs = store->value.node;
+    var = store->resource.var;
+    type = hlsl_get_stream_output_type(var->data_type);
+
+    VKD3D_ASSERT(var->regs[HLSL_REGSET_STREAM_OUTPUTS].allocated);
+    stream_index = var->regs[HLSL_REGSET_STREAM_OUTPUTS].index;
+
+    VKD3D_ASSERT(stream_index < ARRAY_SIZE(append_ctx->created));
+
+    if (!hlsl_clone_semantic(ctx, &semantic_copy, &var->semantic))
+        return false;
+
+    hlsl_block_init(&block);
+
+    if (rhs->type != HLSL_IR_LOAD)
+    {
+        struct hlsl_ir_var *tmp_var;
+
+        VKD3D_ASSERT(rhs->data_type);
+
+        /* Copy the RHS to a temporary variable, and split this copy if necessary. */
+        if (!(tmp_var = hlsl_new_synthetic_var(ctx, "stream-append", rhs->data_type, &instr->loc)))
+            goto done;
+        hlsl_block_add_simple_store(ctx, &block, tmp_var, rhs);
+        split_copies(ctx, &block);
+        rhs = hlsl_block_add_simple_load(ctx, &block, tmp_var, &instr->loc);
+    }
+
+    append_output_copy_recurse(ctx, &block, append_ctx->semantic_vars, type->e.so.type, hlsl_ir_load(rhs),
+            var->storage_modifiers, &semantic_copy, var->regs[HLSL_REGSET_STREAM_OUTPUTS].index,
+            false, !append_ctx->created[stream_index]);
+
+    append_ctx->created[stream_index] = true;
+
+    list_move_before(&instr->entry, &block.instrs);
+    hlsl_src_remove(&store->value);
+
+    progress = true;
+
+done:
+    hlsl_cleanup_semantic(&semantic_copy);
+    hlsl_block_cleanup(&block);
+    return progress;
 }
 
 static struct hlsl_ir_node *lower_narrowing_casts(struct hlsl_ctx *ctx,
