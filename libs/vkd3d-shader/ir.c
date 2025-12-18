@@ -76,6 +76,21 @@ const char *vsir_data_type_get_name(enum vsir_data_type t, const char *error)
     return error;
 }
 
+const char *vsir_denorm_mode_get_name(enum vsir_denorm_mode m, const char *error)
+{
+    static const char * const names[] =
+    {
+        [VSIR_DENORM_ANY]           = "any",
+        [VSIR_DENORM_PRESERVE]      = "preserve",
+        [VSIR_DENORM_FLUSH_TO_ZERO] = "ftz",
+    };
+
+    if ((size_t)m < ARRAY_SIZE(names))
+        return names[m] ? names[m] : error;
+
+    return error;
+}
+
 const char *vsir_opcode_get_name(enum vkd3d_shader_opcode op, const char *error)
 {
     static const char * const names[] =

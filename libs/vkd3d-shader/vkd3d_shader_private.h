@@ -1620,6 +1620,8 @@ enum vsir_denorm_mode
     VSIR_DENORM_FLUSH_TO_ZERO,
 };
 
+const char *vsir_denorm_mode_get_name(enum vsir_denorm_mode m, const char *error);
+
 struct vkd3d_shader_descriptor_info1
 {
     enum vkd3d_shader_descriptor_type type;
@@ -1799,6 +1801,7 @@ enum vsir_asm_flags
     VSIR_ASM_FLAG_DUMP_SIGNATURES = 0x4,
     VSIR_ASM_FLAG_DUMP_DESCRIPTORS = 0x8,
     VSIR_ASM_FLAG_ALLOCATE_TEMPS = 0x10,
+    VSIR_ASM_FLAG_DUMP_DENORM_MODES = 0x20,
 };
 
 enum vkd3d_result d3d_asm_compile(struct vsir_program *program,
