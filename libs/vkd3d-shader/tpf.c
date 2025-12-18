@@ -1201,6 +1201,10 @@ static void shader_sm4_read_dcl_global_flags(struct vkd3d_shader_instruction *in
 {
     ins->declaration.global_flags = (opcode_token & VKD3D_SM4_GLOBAL_FLAGS_MASK) >> VKD3D_SM4_GLOBAL_FLAGS_SHIFT;
     sm4->program->global_flags = ins->declaration.global_flags;
+
+    if (sm4->program->global_flags & (VKD3DSGF_ENABLE_DOUBLE_PRECISION_FLOAT_OPS
+            | VKD3DSGF_ENABLE_11_1_DOUBLE_EXTENSIONS))
+        sm4->program->f64_denorm_mode = VSIR_DENORM_PRESERVE;
 }
 
 static void shader_sm5_read_fcall(struct vkd3d_shader_instruction *ins, uint32_t opcode, uint32_t opcode_token,
