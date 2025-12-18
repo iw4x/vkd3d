@@ -1701,6 +1701,7 @@ struct vsir_program
     struct vkd3d_shader_param_allocator src_operands;
     struct vkd3d_shader_param_allocator dst_operands;
 
+    enum vsir_denorm_mode f16_denorm_mode;
     enum vsir_denorm_mode f32_denorm_mode;
     enum vsir_denorm_mode f64_denorm_mode;
 };
