@@ -3155,6 +3155,9 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
             case VKD3D_SHADER_COMPILE_OPTION_CHILD_EFFECT:
             case VKD3D_SHADER_COMPILE_OPTION_WARN_IMPLICIT_TRUNCATION:
             case VKD3D_SHADER_COMPILE_OPTION_INCLUDE_EMPTY_BUFFERS_IN_EFFECTS:
+            case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16:
+            case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32:
+            case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64:
                 /* Explicitly ignored for this target. */
                 break;
 

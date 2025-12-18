@@ -878,6 +878,7 @@ static enum vkd3d_result vsir_parse(const struct vkd3d_shader_compile_info *comp
     struct vkd3d_shader_compile_info preprocessed_info;
     struct vkd3d_shader_code preprocessed;
     enum vkd3d_result ret;
+    unsigned int i;
 
     switch (compile_info->source_type)
     {
@@ -916,6 +917,29 @@ static enum vkd3d_result vsir_parse(const struct vkd3d_shader_compile_info *comp
     {
         WARN("Failed to parse shader.\n");
         return ret;
+    }
+
+    for (i = 0; i < compile_info->option_count; ++i)
+    {
+        const struct vkd3d_shader_compile_option *option = &compile_info->options[i];
+
+        switch (option->name)
+        {
+            case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16:
+                program->f16_denormal_mode = option->value;
+                break;
+
+            case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32:
+                program->f32_denormal_mode = option->value;
+                break;
+
+            case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64:
+                program->f64_denormal_mode = option->value;
+                break;
+
+            default:
+                break;
+        }
     }
 
     if ((ret = vsir_program_validate(program, config_flags, compile_info->source_name, message_context)) < 0)

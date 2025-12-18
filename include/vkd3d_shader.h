@@ -387,6 +387,27 @@ enum vkd3d_shader_compile_option_name
      * \since 1.12
      */
     VKD3D_SHADER_COMPILE_OPTION_INCLUDE_EMPTY_BUFFERS_IN_EFFECTS = 0x0000000d,
+    /**
+     * Override the denormal mode for f16 (half) numbers. \a value is a member
+     * of enum vkd3d_shader_denormal_mode.
+     *
+     * \since 2.0
+     */
+    VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16 = 0x0000000e,
+    /**
+     * Override the denormal mode for f32 (float) numbers. \a value is a member
+     * of enum vkd3d_shader_denormal_mode.
+     *
+     * \since 2.0
+     */
+    VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32 = 0x0000000f,
+    /**
+     * Override the denormal mode for f64 (double) numbers. \a value is a member
+     * of enum vkd3d_shader_denormal_mode.
+     *
+     * \since 2.0
+     */
+    VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64 = 0x00000010,
 
     VKD3D_FORCE_32_BIT_ENUM(VKD3D_SHADER_COMPILE_OPTION_NAME),
 };
