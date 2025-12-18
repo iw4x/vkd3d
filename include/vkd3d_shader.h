@@ -132,6 +132,11 @@ enum vkd3d_shader_structure_type
      * \since 1.18
      */
     VKD3D_SHADER_STRUCTURE_TYPE_D3DBC_SOURCE_INFO,
+    /**
+     * The structure is a vkd3d_shader_scan_denormal_mode_info structure.
+     * \since 2.0
+     */
+    VKD3D_SHADER_STRUCTURE_TYPE_SCAN_DENORMAL_MODE_INFO,
 
     VKD3D_FORCE_32_BIT_ENUM(VKD3D_SHADER_STRUCTURE_TYPE),
 };
@@ -2416,6 +2421,46 @@ struct vkd3d_shader_scan_thread_group_size_info
 };
 
 /**
+ * Specifies how denormal floating-point numbers should be treated.
+ *
+ * \since 2.0
+ */
+enum vkd3d_shader_denormal_mode
+{
+    /** No particular denormal mode is requested. */
+    VKD3D_SHADER_DENORMAL_MODE_ANY = 0,
+    /** Denormal values should be preserved. */
+    VKD3D_SHADER_DENORMAL_MODE_PRESERVE = 1,
+    /** Denormal values should be flushed to zero. */
+    VKD3D_SHADER_DENORMAL_MODE_FLUSH_TO_ZERO = 2,
+
+    VKD3D_FORCE_32_BIT_ENUM(VKD3D_SHADER_DENORMAL_MODE),
+};
+
+/**
+ * A chained structure describing how a shader expects denormal floating-point
+ * values to be handled.
+ *
+ * This structure extends vkd3d_shader_compile_info.
+ *
+ * \since 2.0
+ */
+struct vkd3d_shader_scan_denormal_mode_info
+{
+    /** Must be set to VKD3D_SHADER_STRUCTURE_TYPE_SCAN_DENORMAL_MODE_INFO. */
+    enum vkd3d_shader_structure_type type;
+    /** Optional pointer to a structure containing further parameters. */
+    const void *next;
+
+    /** The denormal mode for f16 (half) numbers. */
+    enum vkd3d_shader_denormal_mode f16_denormal_mode;
+    /** The denormal mode for f32 (float) numbers. */
+    enum vkd3d_shader_denormal_mode f32_denormal_mode;
+    /** The denormal mode for f64 (double) numbers. */
+    enum vkd3d_shader_denormal_mode f64_denormal_mode;
+};
+
+/**
  * A chained structure containing legacy Direct3D bytecode compilation parameters.
  * This structure specifies some information about the source environment that
  * is not specified in the source shader format, but may be necessary for the
@@ -2970,6 +3015,7 @@ VKD3D_SHADER_API const enum vkd3d_shader_target_type *vkd3d_shader_get_supported
  * - vkd3d_shader_parameter_info
  * - vkd3d_shader_preprocess_info
  * - vkd3d_shader_scan_combined_resource_sampler_info
+ * - vkd3d_shader_scan_denormal_mode_info
  * - vkd3d_shader_scan_descriptor_info
  * - vkd3d_shader_scan_hull_shader_tessellation_info
  * - vkd3d_shader_scan_signature_info
@@ -3169,6 +3215,7 @@ VKD3D_SHADER_API int vkd3d_shader_convert_root_signature(struct vkd3d_shader_ver
  * - vkd3d_shader_parameter_info
  * - vkd3d_shader_preprocess_info
  * - vkd3d_shader_scan_combined_resource_sampler_info
+ * - vkd3d_shader_scan_denormal_mode_info
  * - vkd3d_shader_scan_descriptor_info
  * - vkd3d_shader_scan_hull_shader_tessellation_info
  * - vkd3d_shader_scan_signature_info

@@ -76,13 +76,13 @@ const char *vsir_data_type_get_name(enum vsir_data_type t, const char *error)
     return error;
 }
 
-const char *vsir_denorm_mode_get_name(enum vsir_denorm_mode m, const char *error)
+const char *vsir_denorm_mode_get_name(enum vkd3d_shader_denormal_mode m, const char *error)
 {
     static const char * const names[] =
     {
-        [VSIR_DENORM_ANY]           = "any",
-        [VSIR_DENORM_PRESERVE]      = "preserve",
-        [VSIR_DENORM_FLUSH_TO_ZERO] = "ftz",
+        [VKD3D_SHADER_DENORMAL_MODE_ANY]           = "any",
+        [VKD3D_SHADER_DENORMAL_MODE_PRESERVE]      = "preserve",
+        [VKD3D_SHADER_DENORMAL_MODE_FLUSH_TO_ZERO] = "ftz",
     };
 
     if ((size_t)m < ARRAY_SIZE(names))

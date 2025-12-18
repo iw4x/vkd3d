@@ -1638,14 +1638,7 @@ enum vsir_normalisation_level
     VSIR_NORMALISED_SM6,
 };
 
-enum vsir_denorm_mode
-{
-    VSIR_DENORM_ANY = 0,
-    VSIR_DENORM_PRESERVE,
-    VSIR_DENORM_FLUSH_TO_ZERO,
-};
-
-const char *vsir_denorm_mode_get_name(enum vsir_denorm_mode m, const char *error);
+const char *vsir_denorm_mode_get_name(enum vkd3d_shader_denormal_mode m, const char *error);
 
 struct vkd3d_shader_descriptor_info1
 {
@@ -1726,9 +1719,9 @@ struct vsir_program
     struct vkd3d_shader_param_allocator src_operands;
     struct vkd3d_shader_param_allocator dst_operands;
 
-    enum vsir_denorm_mode f16_denorm_mode;
-    enum vsir_denorm_mode f32_denorm_mode;
-    enum vsir_denorm_mode f64_denorm_mode;
+    enum vkd3d_shader_denormal_mode f16_denormal_mode;
+    enum vkd3d_shader_denormal_mode f32_denormal_mode;
+    enum vkd3d_shader_denormal_mode f64_denormal_mode;
 };
 
 enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,

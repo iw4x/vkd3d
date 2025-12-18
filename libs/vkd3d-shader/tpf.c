@@ -1204,7 +1204,7 @@ static void shader_sm4_read_dcl_global_flags(struct vkd3d_shader_instruction *in
 
     if (sm4->program->global_flags & (VKD3DSGF_ENABLE_DOUBLE_PRECISION_FLOAT_OPS
             | VKD3DSGF_ENABLE_11_1_DOUBLE_EXTENSIONS))
-        sm4->program->f64_denorm_mode = VSIR_DENORM_PRESERVE;
+        sm4->program->f64_denormal_mode = VKD3D_SHADER_DENORMAL_MODE_PRESERVE;
 }
 
 static void shader_sm5_read_fcall(struct vkd3d_shader_instruction *ins, uint32_t opcode, uint32_t opcode_token,
@@ -2799,7 +2799,7 @@ static bool shader_sm4_init(struct vkd3d_shader_sm4_parser *sm4, struct vsir_pro
             &version, token_count / 7u + 20, VSIR_CF_STRUCTURED, VSIR_NORMALISED_SM4))
         return false;
 
-    program->f32_denorm_mode = VSIR_DENORM_FLUSH_TO_ZERO;
+    program->f32_denormal_mode = VKD3D_SHADER_DENORMAL_MODE_FLUSH_TO_ZERO;
 
     vkd3d_shader_parser_init(&sm4->p, message_context, compile_info->source_name);
     sm4->ptr = sm4->start;
