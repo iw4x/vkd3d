@@ -2587,6 +2587,9 @@ static bool vkd3d_spirv_compile_module(struct vkd3d_spirv_builder *builder,
         vkd3d_spirv_build_op_extension(&stream, "SPV_EXT_shader_stencil_export");
     if (vkd3d_spirv_capability_is_enabled(builder, SpvCapabilityShaderViewportIndexLayerEXT))
         vkd3d_spirv_build_op_extension(&stream, "SPV_EXT_shader_viewport_index_layer");
+    if (vkd3d_spirv_capability_is_enabled(builder, SpvCapabilityDenormPreserve)
+            || vkd3d_spirv_capability_is_enabled(builder, SpvCapabilityDenormFlushToZero))
+        vkd3d_spirv_build_op_extension(&stream, "SPV_KHR_float_controls");
 
     if (builder->ext_instr_set_glsl_450)
         vkd3d_spirv_build_op_ext_inst_import(&stream, builder->ext_instr_set_glsl_450, "GLSL.std.450");
@@ -6159,6 +6162,40 @@ static size_t spirv_compiler_get_current_function_location(struct spirv_compiler
     return builder->main_function_location;
 }
 
+static void spirv_compiler_emit_denormal_mode(struct spirv_compiler *compiler,
+        unsigned int bit_width, enum vkd3d_shader_denormal_mode mode)
+{
+    if (mode == VKD3D_SHADER_DENORMAL_MODE_ANY)
+        return;
+
+    if (!spirv_compiler_is_target_extension_supported(compiler,
+            VKD3D_SHADER_SPIRV_EXTENSION_KHR_FLOAT_CONTROLS))
+    {
+        /* Float controls is not understood by vkd3d-shader <= 1.19. */
+        if (compiler->api_version <= VKD3D_SHADER_API_VERSION_1_19)
+            spirv_compiler_warning(compiler, VKD3D_SHADER_WARNING_SPV_UNSUPPORTED_FEATURE,
+                    "Cannot emit denormal mode for %u-bit floats. "
+                    "The target environment does not support float controls.", bit_width);
+        else
+            spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_UNSUPPORTED_FEATURE,
+                    "Cannot emit denormal mode for %u-bit floats. "
+                    "The target environment does not support float controls.", bit_width);
+
+        return;
+    }
+
+    if (compiler->program->f16_denormal_mode == VKD3D_SHADER_DENORMAL_MODE_PRESERVE)
+    {
+        vkd3d_spirv_enable_capability(&compiler->spirv_builder, SpvCapabilityDenormPreserve);
+        spirv_compiler_emit_execution_mode(compiler, SpvExecutionModeDenormPreserve, &bit_width, 1);
+    }
+    else if (compiler->program->f16_denormal_mode == VKD3D_SHADER_DENORMAL_MODE_FLUSH_TO_ZERO)
+    {
+        vkd3d_spirv_enable_capability(&compiler->spirv_builder, SpvCapabilityDenormFlushToZero);
+        spirv_compiler_emit_execution_mode(compiler, SpvExecutionModeDenormFlushToZero, &bit_width, 1);
+    }
+}
+
 static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, enum vsir_global_flags flags)
 {
     if (flags & VKD3DSGF_FORCE_EARLY_DEPTH_STENCIL)
@@ -6167,11 +6204,14 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
         flags &= ~VKD3DSGF_FORCE_EARLY_DEPTH_STENCIL;
     }
 
+    spirv_compiler_emit_denormal_mode(compiler, 32, compiler->program->f32_denormal_mode);
+
     if (flags & (VKD3DSGF_ENABLE_DOUBLE_PRECISION_FLOAT_OPS | VKD3DSGF_ENABLE_11_1_DOUBLE_EXTENSIONS))
     {
         if (compiler->features & VKD3D_SHADER_COMPILE_OPTION_FEATURE_FLOAT64)
         {
             vkd3d_spirv_enable_capability(&compiler->spirv_builder, SpvCapabilityFloat64);
+            spirv_compiler_emit_denormal_mode(compiler, 64, compiler->program->f64_denormal_mode);
         }
         else
         {

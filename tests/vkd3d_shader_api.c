@@ -2052,6 +2052,13 @@ static void test_parameters(void)
         "    return GetRenderTargetSampleCount();\n"
         "}";
 
+    static const struct vkd3d_shader_compile_option options[] =
+    {
+        {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16, VKD3D_SHADER_DENORMAL_MODE_ANY},
+        {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32, VKD3D_SHADER_DENORMAL_MODE_ANY},
+        {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64, VKD3D_SHADER_DENORMAL_MODE_ANY},
+    };
+
     if (!init_gl_test_context(&context))
         return;
 
@@ -2059,6 +2066,8 @@ static void test_parameters(void)
     info.source_type = VKD3D_SHADER_SOURCE_HLSL;
     info.target_type = VKD3D_SHADER_TARGET_SPIRV_BINARY;
     info.log_level = VKD3D_SHADER_LOG_WARNING;
+    info.options = options;
+    info.option_count = ARRAY_SIZE(options);
 
     hlsl_info.next = &spirv_info;
     hlsl_info.entry_point = "main";
