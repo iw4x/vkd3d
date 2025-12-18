@@ -2092,7 +2092,7 @@ enum vkd3d_result d3d_asm_compile(struct vsir_program *program, const struct vkd
         vkd3d_string_buffer_printf(buffer, ".denorm %s, %s, %s\n",
                 vsir_denorm_mode_get_name(VSIR_DENORM_ANY, "??"),
                 vsir_denorm_mode_get_name(program->f32_denorm_mode, "??"),
-                vsir_denorm_mode_get_name(VSIR_DENORM_ANY, "??"));
+                vsir_denorm_mode_get_name(program->f64_denorm_mode, "??"));
 
     if (compiler.flags & VSIR_ASM_FLAG_DUMP_SIGNATURES
             && (result = dump_dxbc_signatures(&compiler, program)) < 0)

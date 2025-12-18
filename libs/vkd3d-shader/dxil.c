@@ -1788,6 +1788,7 @@ static enum vkd3d_result sm6_parser_type_table_init(struct sm6_parser *sm6)
                 break;
 
             case TYPE_CODE_DOUBLE:
+                sm6->program->f64_denorm_mode = VSIR_DENORM_PRESERVE;
                 dxil_record_validate_operand_max_count(record, 0, sm6);
                 type->class = TYPE_CLASS_FLOAT;
                 type->u.width = 64;
