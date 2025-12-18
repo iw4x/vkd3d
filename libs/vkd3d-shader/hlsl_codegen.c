@@ -8998,11 +8998,11 @@ static bool simplify_exprs(struct hlsl_ctx *ctx, struct hlsl_block *block)
     return any_progress;
 }
 
-static void hlsl_run_folding_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
+static bool hlsl_run_folding_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
 {
-    bool progress;
+    bool progress, any_progress;
 
-    replace_ir(ctx, fold_redundant_casts, body);
+    any_progress = replace_ir(ctx, fold_redundant_casts, body);
     do
     {
         progress = simplify_exprs(ctx, body);
@@ -9010,13 +9010,18 @@ static void hlsl_run_folding_passes(struct hlsl_ctx *ctx, struct hlsl_block *bod
         progress |= replace_ir(ctx, fold_swizzle_chains, body);
         progress |= replace_ir(ctx, fold_trivial_swizzles, body);
         progress |= hlsl_transform_ir(ctx, remove_trivial_conditional_branches, body, NULL);
-        progress |= hlsl_transform_ir(ctx, flatten_conditional_branches, body, NULL);
+
+        any_progress |= progress;
     } while (progress);
-    replace_ir(ctx, fold_redundant_casts, body);
+    any_progress |= replace_ir(ctx, fold_redundant_casts, body);
+
+    return any_progress;
 }
 
 void hlsl_run_const_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
 {
+    bool progress;
+
     replace_ir(ctx, lower_complex_casts, body);
     replace_ir(ctx, lower_matrix_swizzles, body);
 
@@ -9035,7 +9040,11 @@ void hlsl_run_const_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
     replace_ir(ctx, lower_casts_to_bool, body);
     replace_ir(ctx, lower_float_modulus, body);
 
-    hlsl_run_folding_passes(ctx, body);
+    do
+    {
+        progress = hlsl_run_folding_passes(ctx, body);
+        progress |= hlsl_transform_ir(ctx, flatten_conditional_branches, body, NULL);
+    } while (progress);
 }
 
 static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *program,
