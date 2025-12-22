@@ -4825,10 +4825,11 @@ static bool intrinsic_tanh(struct hlsl_ctx *ctx,
 }
 
 static bool intrinsic_tex(struct hlsl_ctx *ctx, const struct parse_initializer *params,
-        const struct vkd3d_shader_location *loc, const char *name, enum hlsl_sampler_dim dim)
+        const struct vkd3d_shader_location *loc, const char *name,
+        enum hlsl_sampler_dim dim, enum hlsl_resource_load_type type)
 {
+    struct hlsl_resource_load_params load_params = {.type = type};
     unsigned int sampler_dim = hlsl_sampler_dim_count(dim);
-    struct hlsl_resource_load_params load_params = { 0 };
     const struct hlsl_type *sampler_type;
     struct hlsl_ir_node *coords;
 
@@ -4852,16 +4853,9 @@ static bool intrinsic_tex(struct hlsl_ctx *ctx, const struct parse_initializer *
         hlsl_release_string_buffer(ctx, string);
     }
 
-    if (!strcmp(name, "tex2Dbias")
-            || !strcmp(name, "tex2Dlod")
-            || !strcmp(name, "texCUBEbias"))
+    if (type == HLSL_RESOURCE_SAMPLE_LOD || type == HLSL_RESOURCE_SAMPLE_LOD_BIAS)
     {
         struct hlsl_ir_node *lod, *c;
-
-        if (!strcmp(name, "tex2Dlod"))
-            load_params.type = HLSL_RESOURCE_SAMPLE_LOD;
-        else
-            load_params.type = HLSL_RESOURCE_SAMPLE_LOD_BIAS;
 
         c = hlsl_block_add_swizzle(ctx, params->instrs, HLSL_SWIZZLE(X, Y, Z, W), sampler_dim, params->args[1], loc);
         coords = add_implicit_conversion(ctx, params->instrs, c,
@@ -4871,9 +4865,7 @@ static bool intrinsic_tex(struct hlsl_ctx *ctx, const struct parse_initializer *
         load_params.lod = add_implicit_conversion(ctx, params->instrs, lod,
                 hlsl_get_scalar_type(ctx, HLSL_TYPE_FLOAT), loc);
     }
-    else if (!strcmp(name, "tex2Dproj")
-            || !strcmp(name, "tex3Dproj")
-            || !strcmp(name, "texCUBEproj"))
+    else if (type == HLSL_RESOURCE_SAMPLE_PROJ)
     {
         coords = add_implicit_conversion(ctx, params->instrs, params->args[1],
                 hlsl_get_vector_type(ctx, HLSL_TYPE_FLOAT, 4), loc);
@@ -4890,12 +4882,8 @@ static bool intrinsic_tex(struct hlsl_ctx *ctx, const struct parse_initializer *
 
             load_params.type = HLSL_RESOURCE_SAMPLE;
         }
-        else
-        {
-            load_params.type = HLSL_RESOURCE_SAMPLE_PROJ;
-        }
     }
-    else if (params->args_count == 4) /* Gradient sampling. */
+    else if (type == HLSL_RESOURCE_SAMPLE_GRAD)
     {
         coords = add_implicit_conversion(ctx, params->instrs, params->args[1],
                 hlsl_get_vector_type(ctx, HLSL_TYPE_FLOAT, sampler_dim), loc);
@@ -4903,11 +4891,9 @@ static bool intrinsic_tex(struct hlsl_ctx *ctx, const struct parse_initializer *
                 hlsl_get_vector_type(ctx, HLSL_TYPE_FLOAT, sampler_dim), loc);
         load_params.ddy = add_implicit_conversion(ctx, params->instrs, params->args[3],
                 hlsl_get_vector_type(ctx, HLSL_TYPE_FLOAT, sampler_dim), loc);
-        load_params.type = HLSL_RESOURCE_SAMPLE_GRAD;
     }
     else
     {
-        load_params.type = HLSL_RESOURCE_SAMPLE;
         coords = add_implicit_conversion(ctx, params->instrs, params->args[1],
                 hlsl_get_vector_type(ctx, HLSL_TYPE_FLOAT, sampler_dim), loc);
     }
@@ -4943,85 +4929,89 @@ static bool intrinsic_tex(struct hlsl_ctx *ctx, const struct parse_initializer *
 static bool intrinsic_tex1D(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "tex1D", HLSL_SAMPLER_DIM_1D);
+    return intrinsic_tex(ctx, params, loc, "tex1D", HLSL_SAMPLER_DIM_1D,
+            params->args_count == 4 ? HLSL_RESOURCE_SAMPLE_GRAD : HLSL_RESOURCE_SAMPLE);
 }
 
 static bool intrinsic_tex1Dgrad(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "tex1Dgrad", HLSL_SAMPLER_DIM_1D);
+    return intrinsic_tex(ctx, params, loc, "tex1Dgrad", HLSL_SAMPLER_DIM_1D, HLSL_RESOURCE_SAMPLE_GRAD);
 }
 
 static bool intrinsic_tex2D(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "tex2D", HLSL_SAMPLER_DIM_2D);
+    return intrinsic_tex(ctx, params, loc, "tex2D", HLSL_SAMPLER_DIM_2D,
+            params->args_count == 4 ? HLSL_RESOURCE_SAMPLE_GRAD : HLSL_RESOURCE_SAMPLE);
 }
 
 static bool intrinsic_tex2Dbias(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "tex2Dbias", HLSL_SAMPLER_DIM_2D);
+    return intrinsic_tex(ctx, params, loc, "tex2Dbias", HLSL_SAMPLER_DIM_2D, HLSL_RESOURCE_SAMPLE_LOD_BIAS);
 }
 
 static bool intrinsic_tex2Dgrad(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "tex2Dgrad", HLSL_SAMPLER_DIM_2D);
+    return intrinsic_tex(ctx, params, loc, "tex2Dgrad", HLSL_SAMPLER_DIM_2D, HLSL_RESOURCE_SAMPLE_GRAD);
 }
 
 static bool intrinsic_tex2Dlod(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "tex2Dlod", HLSL_SAMPLER_DIM_2D);
+    return intrinsic_tex(ctx, params, loc, "tex2Dlod", HLSL_SAMPLER_DIM_2D, HLSL_RESOURCE_SAMPLE_LOD);
 }
 
 static bool intrinsic_tex2Dproj(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "tex2Dproj", HLSL_SAMPLER_DIM_2D);
+    return intrinsic_tex(ctx, params, loc, "tex2Dproj", HLSL_SAMPLER_DIM_2D, HLSL_RESOURCE_SAMPLE_PROJ);
 }
 
 static bool intrinsic_tex3D(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "tex3D", HLSL_SAMPLER_DIM_3D);
+    return intrinsic_tex(ctx, params, loc, "tex3D", HLSL_SAMPLER_DIM_3D,
+            params->args_count == 4 ? HLSL_RESOURCE_SAMPLE_GRAD : HLSL_RESOURCE_SAMPLE);
 }
 
 static bool intrinsic_tex3Dgrad(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "tex3Dgrad", HLSL_SAMPLER_DIM_3D);
+    return intrinsic_tex(ctx, params, loc, "tex3Dgrad", HLSL_SAMPLER_DIM_3D, HLSL_RESOURCE_SAMPLE_GRAD);
 }
 
 static bool intrinsic_tex3Dproj(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "tex3Dproj", HLSL_SAMPLER_DIM_3D);
+    return intrinsic_tex(ctx, params, loc, "tex3Dproj", HLSL_SAMPLER_DIM_3D, HLSL_RESOURCE_SAMPLE_PROJ);
 }
 
 static bool intrinsic_texCUBE(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "texCUBE", HLSL_SAMPLER_DIM_CUBE);
+    return intrinsic_tex(ctx, params, loc, "texCUBE", HLSL_SAMPLER_DIM_CUBE,
+            params->args_count == 4 ? HLSL_RESOURCE_SAMPLE_GRAD : HLSL_RESOURCE_SAMPLE);
 }
 
 static bool intrinsic_texCUBEbias(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "texCUBEbias", HLSL_SAMPLER_DIM_CUBE);
+    return intrinsic_tex(ctx, params, loc, "texCUBEbias", HLSL_SAMPLER_DIM_CUBE, HLSL_RESOURCE_SAMPLE_LOD_BIAS);
 }
 
 static bool intrinsic_texCUBEgrad(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "texCUBEgrad", HLSL_SAMPLER_DIM_CUBE);
+    return intrinsic_tex(ctx, params, loc, "texCUBEgrad", HLSL_SAMPLER_DIM_CUBE, HLSL_RESOURCE_SAMPLE_GRAD);
 }
 
 static bool intrinsic_texCUBEproj(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_tex(ctx, params, loc, "texCUBEproj", HLSL_SAMPLER_DIM_CUBE);
+    return intrinsic_tex(ctx, params, loc, "texCUBEproj", HLSL_SAMPLER_DIM_CUBE, HLSL_RESOURCE_SAMPLE_PROJ);
 }
 
 static bool intrinsic_transpose(struct hlsl_ctx *ctx,
