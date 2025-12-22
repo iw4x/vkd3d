@@ -5020,6 +5020,12 @@ static bool intrinsic_texCUBEgrad(struct hlsl_ctx *ctx,
     return intrinsic_tex(ctx, params, loc, "texCUBEgrad", HLSL_SAMPLER_DIM_CUBE, HLSL_RESOURCE_SAMPLE_GRAD);
 }
 
+static bool intrinsic_texCUBElod(struct hlsl_ctx *ctx,
+        const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
+{
+    return intrinsic_tex(ctx, params, loc, "texCUBElod", HLSL_SAMPLER_DIM_CUBE, HLSL_RESOURCE_SAMPLE_LOD);
+}
+
 static bool intrinsic_texCUBEproj(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
@@ -5613,6 +5619,7 @@ intrinsic_functions[] =
     {"texCUBE",                            -1, false, intrinsic_texCUBE},
     {"texCUBEbias",                         2, false, intrinsic_texCUBEbias},
     {"texCUBEgrad",                         4, false, intrinsic_texCUBEgrad},
+    {"texCUBElod",                          2, false, intrinsic_texCUBElod},
     {"texCUBEproj",                         2, false, intrinsic_texCUBEproj},
     {"transpose",                           1, true,  intrinsic_transpose},
     {"trunc",                               1, true,  intrinsic_trunc},
