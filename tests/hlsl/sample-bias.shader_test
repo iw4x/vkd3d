@@ -71,6 +71,75 @@ uniform 0 float4 8.5 0.0 0.0 0.0
 draw quad
 probe (0,0) rgba(0.0, 0.0, 10.0, 0.0)
 
+% 3D
+
+[require]
+% Reset requirements
+
+[srv 0]
+size (3d, 2, 2, 1)
+levels 2
+
+0.0 1.0 0.0 0.0     0.0 1.0 0.0 0.0
+0.0 1.0 0.0 0.0     0.0 1.0 0.0 0.0
+
+1.0 1.0 0.0 0.0
+
+[pixel shader]
+sampler s;
+Texture3D t;
+uniform float bias;
+
+float4 main(float2 coord : texcoord) : sv_target
+{
+    /* Choice of initial mipmap level is hardware-dependent, and in practice
+     * varies too much to be reasonably covered by ULPS. Quantize instead. */
+    return floor(t.SampleBias(s, float3(coord, 1), bias) * 10);
+}
+
+[test]
+write cbv-0 (0) f32(6.5)
+draw quad
+probe (0, 0) f32(0.0, 10.0, 0.0, 0.0)
+
+write cbv-0 (0) f32(7.46)
+draw quad
+probe (0, 0) f32(5.0, 10.0, 0.0, 0.0)
+
+write cbv-0 (0) f32(8.5)
+draw quad
+probe (0, 0) f32(10.0, 10.0, 0.0, 0.0)
+
+[require]
+shader model >= 3.0
+options: backcompat
+
+[pixel shader fail(sm>=5.1) todo(sm>=5.1)]
+sampler s;
+float bias;
+
+float4 main(float2 coord : texcoord) : sv_target
+{
+    /* Choice of initial mipmap level is hardware-dependent, and in practice
+     * varies too much to be reasonably covered by ULPS. Quantize instead. */
+    return floor(tex3Dbias(s, float4(coord, 0, bias)) * 10);
+}
+
+[test]
+write cbv-0 (0) f32(6.5)
+draw quad
+probe (0, 0) f32(0.0, 10.0, 0.0, 0.0)
+
+write cbv-0 (0) f32(7.46)
+draw quad
+probe (0, 0) f32(5.0, 10.0, 0.0, 0.0)
+
+write cbv-0 (0) f32(8.5)
+draw quad
+probe (0, 0) f32(10.0, 10.0, 0.0, 0.0)
+
+% Cube
+
 [require]
 % Reset requirements
 
