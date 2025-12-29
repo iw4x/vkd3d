@@ -7764,7 +7764,7 @@ func_prototype_no_attrs:
             /* Functions are unconditionally inlined. */
             modifiers &= ~HLSL_MODIFIER_INLINE;
 
-            if (modifiers & ~(HLSL_MODIFIERS_MAJORITY_MASK | HLSL_MODIFIER_EXPORT | HLSL_STORAGE_STATIC))
+            if (modifiers & ~(HLSL_MODIFIERS_MAJORITY_MASK | HLSL_STORAGE_EXPORT | HLSL_STORAGE_STATIC))
                 hlsl_error(ctx, &@1, VKD3D_SHADER_ERROR_HLSL_INVALID_MODIFIER,
                         "Unexpected modifier used on a function.");
             if (!(type = apply_type_modifiers(ctx, $2, &modifiers, true, &@1)))
@@ -9092,7 +9092,7 @@ var_modifiers:
         }
     | KW_EXPORT var_modifiers
         {
-            $$ = add_modifiers(ctx, $2, HLSL_MODIFIER_EXPORT, &@1);
+            $$ = add_modifiers(ctx, $2, HLSL_STORAGE_EXPORT, &@1);
         }
     | KW_UNORM var_modifiers
         {

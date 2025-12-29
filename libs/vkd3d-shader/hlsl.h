@@ -425,7 +425,7 @@ struct hlsl_attribute
 #define HLSL_STORAGE_NOPERSPECTIVE       0x00008000
 #define HLSL_STORAGE_LINEAR              0x00010000
 #define HLSL_MODIFIER_SINGLE             0x00020000
-#define HLSL_MODIFIER_EXPORT             0x00040000
+#define HLSL_STORAGE_EXPORT              0x00040000
 #define HLSL_STORAGE_ANNOTATION          0x00080000
 #define HLSL_MODIFIER_UNORM              0x00100000
 #define HLSL_MODIFIER_SNORM              0x00200000
