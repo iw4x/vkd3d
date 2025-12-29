@@ -637,6 +637,9 @@ struct hlsl_ir_function_decl
     /* Item entry in hlsl_ir_function.overloads. */
     struct list entry;
 
+    /* Storage modifiers (HLSL_STORAGE_*). */
+    uint32_t storage_modifiers;
+
     /* Function to which this declaration corresponds. */
     struct hlsl_ir_function *func;
 
@@ -1709,7 +1712,7 @@ struct hlsl_ir_node *hlsl_new_cast(struct hlsl_ctx *ctx, struct hlsl_ir_node *no
 struct hlsl_ir_node *hlsl_new_constant(struct hlsl_ctx *ctx, struct hlsl_type *type,
         const struct hlsl_constant_value *value, const struct vkd3d_shader_location *loc);
 struct hlsl_ir_node *hlsl_new_copy(struct hlsl_ctx *ctx, struct hlsl_ir_node *node);
-struct hlsl_ir_function_decl *hlsl_new_func_decl(struct hlsl_ctx *ctx,
+struct hlsl_ir_function_decl *hlsl_new_func_decl(struct hlsl_ctx *ctx, uint32_t storage_modifiers,
         struct hlsl_type *return_type, const struct hlsl_func_parameters *parameters,
         const struct hlsl_semantic *semantic, const struct vkd3d_shader_location *loc);
 struct hlsl_ir_node *hlsl_new_if(struct hlsl_ctx *ctx, struct hlsl_ir_node *condition, struct hlsl_block *then_block,

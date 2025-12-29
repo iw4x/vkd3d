@@ -3131,7 +3131,7 @@ struct hlsl_ir_node *hlsl_clone_instr(struct hlsl_ctx *ctx, const struct hlsl_ir
     return ret;
 }
 
-struct hlsl_ir_function_decl *hlsl_new_func_decl(struct hlsl_ctx *ctx,
+struct hlsl_ir_function_decl *hlsl_new_func_decl(struct hlsl_ctx *ctx, uint32_t storage_modifiers,
         struct hlsl_type *return_type, const struct hlsl_func_parameters *parameters,
         const struct hlsl_semantic *semantic, const struct vkd3d_shader_location *loc)
 {
@@ -3141,6 +3141,7 @@ struct hlsl_ir_function_decl *hlsl_new_func_decl(struct hlsl_ctx *ctx,
     if (!(decl = hlsl_alloc(ctx, sizeof(*decl))))
         return NULL;
     hlsl_block_init(&decl->body);
+    decl->storage_modifiers = storage_modifiers;
     decl->return_type = return_type;
     decl->parameters = *parameters;
     decl->loc = *loc;
@@ -5320,6 +5321,8 @@ int hlsl_parse(const struct vkd3d_shader_compile_info *compile_info,
         LIST_FOR_EACH_ENTRY(decl, &func->overloads, struct hlsl_ir_function_decl, entry)
         {
             if (!decl->has_body)
+                continue;
+            if (decl->storage_modifiers & HLSL_STORAGE_STATIC)
                 continue;
             if (entry_func)
             {
