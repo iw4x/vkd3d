@@ -334,18 +334,6 @@ inline float4 main() : sv_target
 draw quad
 probe (0, 0) rgba (2.0, 3.0, 6.0, 7.0)
 
-% Export modifier
-
-[pixel shader]
-export float4 main() : sv_target
-{
-    return float4(1.0, 2.0, 3.0, 4.0);
-}
-
-[test]
-draw quad
-probe (0, 0) rgba (1.0, 2.0, 3.0, 4.0)
-
 % Default parameter values
 
 [pixel shader]
