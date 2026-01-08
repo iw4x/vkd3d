@@ -2370,6 +2370,10 @@ struct hlsl_ir_node *hlsl_new_compile(struct hlsl_ctx *ctx, const struct hlsl_pr
             type = hlsl_get_type(ctx->cur_scope, "GeometryShader", true, true);
             break;
 
+        case VKD3D_SHADER_TYPE_COMPUTE:
+            type = hlsl_get_type(ctx->cur_scope, "ComputeShader", true, true);
+            break;
+
         default:
             hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_PROFILE, "Invalid profile \"%s\".", profile->name);
             return NULL;
