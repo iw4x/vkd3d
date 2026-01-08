@@ -1270,9 +1270,11 @@ static const char * get_fx_4_type_name(const struct hlsl_type *type)
             return "SamplerState";
 
         case HLSL_CLASS_TEXTURE:
+            VKD3D_ASSERT(type->sampler_dim < ARRAY_SIZE(texture_type_names));
             return texture_type_names[type->sampler_dim];
 
         case HLSL_CLASS_UAV:
+            VKD3D_ASSERT(type->sampler_dim < ARRAY_SIZE(uav_type_names));
             return uav_type_names[type->sampler_dim];
 
         case HLSL_CLASS_DEPTH_STENCIL_STATE:
@@ -1448,6 +1450,7 @@ static uint32_t write_fx_4_type(const struct type_entry *type, struct fx_write_c
             [HLSL_SAMPLER_DIM_CUBEARRAY] = FX_4_OBJECT_TYPE_TEXTURE_CUBEARRAY,
         };
 
+        VKD3D_ASSERT(element_type->sampler_dim < ARRAY_SIZE(texture_type));
         put_u32_unaligned(buffer, texture_type[element_type->sampler_dim]);
     }
     else if (element_type->class == HLSL_CLASS_SAMPLER)
@@ -1468,6 +1471,7 @@ static uint32_t write_fx_4_type(const struct type_entry *type, struct fx_write_c
             [HLSL_SAMPLER_DIM_RAW_BUFFER]        = FX_5_OBJECT_TYPE_UAV_RAW_BUFFER,
         };
 
+        VKD3D_ASSERT(element_type->sampler_dim < ARRAY_SIZE(uav_type));
         put_u32_unaligned(buffer, uav_type[element_type->sampler_dim]);
     }
     else if (element_type->class == HLSL_CLASS_DEPTH_STENCIL_VIEW)
