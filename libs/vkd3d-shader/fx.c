@@ -1241,16 +1241,19 @@ static const char * get_fx_4_type_name(const struct hlsl_type *type)
 {
     static const char * const texture_type_names[] =
     {
-        [HLSL_SAMPLER_DIM_GENERIC]   = "texture",
-        [HLSL_SAMPLER_DIM_1D]        = "Texture1D",
-        [HLSL_SAMPLER_DIM_1DARRAY]   = "Texture1DArray",
-        [HLSL_SAMPLER_DIM_2D]        = "Texture2D",
-        [HLSL_SAMPLER_DIM_2DARRAY]   = "Texture2DArray",
-        [HLSL_SAMPLER_DIM_2DMS]      = "Texture2DMS",
-        [HLSL_SAMPLER_DIM_2DMSARRAY] = "Texture2DMSArray",
-        [HLSL_SAMPLER_DIM_3D]        = "Texture3D",
-        [HLSL_SAMPLER_DIM_CUBE]      = "TextureCube",
-        [HLSL_SAMPLER_DIM_CUBEARRAY] = "TextureCubeArray",
+        [HLSL_SAMPLER_DIM_GENERIC]           = "texture",
+        [HLSL_SAMPLER_DIM_1D]                = "Texture1D",
+        [HLSL_SAMPLER_DIM_1DARRAY]           = "Texture1DArray",
+        [HLSL_SAMPLER_DIM_2D]                = "Texture2D",
+        [HLSL_SAMPLER_DIM_2DARRAY]           = "Texture2DArray",
+        [HLSL_SAMPLER_DIM_2DMS]              = "Texture2DMS",
+        [HLSL_SAMPLER_DIM_2DMSARRAY]         = "Texture2DMSArray",
+        [HLSL_SAMPLER_DIM_3D]                = "Texture3D",
+        [HLSL_SAMPLER_DIM_CUBE]              = "TextureCube",
+        [HLSL_SAMPLER_DIM_CUBEARRAY]         = "TextureCubeArray",
+        [HLSL_SAMPLER_DIM_BUFFER]            = "Buffer",
+        [HLSL_SAMPLER_DIM_STRUCTURED_BUFFER] = "StructuredBuffer",
+        [HLSL_SAMPLER_DIM_RAW_BUFFER]        = "ByteAddressBuffer",
     };
     static const char * const uav_type_names[] =
     {
