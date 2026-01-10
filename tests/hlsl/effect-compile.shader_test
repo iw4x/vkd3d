@@ -342,3 +342,74 @@ technique10 t0
         SetVertexShader(v[1]);
     }
 }
+
+[require]
+shader model >= 5.0
+shader model < 6.0
+
+[effect todo]
+Buffer<float4> buffer;
+RWTexture2D<float4> u;
+
+    [numthreads(1, 1, 1)]
+void cs()
+{
+    GroupMemoryBarrierWithGroupSync();
+    u[uint2(0, 0)] = buffer[1];
+}
+
+ComputeShader c = CompileShader( cs_5_0, cs() );
+
+technique10 t0
+{
+    pass
+    {
+        SetComputeShader(c);
+    }
+}
+
+[effect fail]
+Buffer<float4> buffer;
+RWTexture2D<float4> u;
+
+float4 ps( float4 pos : SV_POSITION ) : SV_Target
+{
+    GroupMemoryBarrierWithGroupSync();
+    u[uint2(0, 0)] = buffer[1];
+    return 0;
+}
+
+PixelShader p = CompileShader( ps_5_0, ps() );
+
+technique10 t0
+{
+    pass
+    {
+        SetPixelShader(p);
+    }
+}
+
+[effect]
+Buffer<uint> buffer;
+groupshared uint m;
+
+    [numthreads(1, 1, 1)]
+void cs()
+{
+    m = buffer[1];
+}
+
+float4 ps( float4 pos : SV_POSITION ) : SV_Target
+{
+    m = buffer[1];
+    return m;
+}
+
+technique10 t0
+{
+    pass
+    {
+        SetComputeShader( CompileShader( cs_5_0, cs() ) );
+        SetPixelShader( CompileShader( ps_5_0, ps() ) );
+    }
+}
