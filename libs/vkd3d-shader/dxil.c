@@ -8336,8 +8336,8 @@ static void sm6_parser_emit_cmpxchg(struct sm6_parser *dxil, struct function_emi
 static void sm6_parser_emit_extractval(struct sm6_parser *dxil, struct function_emission_state *state)
 {
     struct sm6_value *dst = sm6_parser_get_current_value(dxil);
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_param;
     const struct sm6_type *type;
     const struct sm6_value *src;
@@ -8380,14 +8380,24 @@ static void sm6_parser_emit_extractval(struct sm6_parser *dxil, struct function_
     }
     dst->type = type;
 
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
 
     if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
+
     vsir_register_from_dxil_value(&src_param->reg, src, 0, dxil);
     src_param_init_scalar(src_param, elem_idx);
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, dxil);
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, dxil))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static void sm6_parser_emit_gep(struct sm6_parser *sm6, const struct dxil_record *record,
