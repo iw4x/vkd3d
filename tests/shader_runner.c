@@ -63,6 +63,30 @@ typedef int HRESULT;
 #include "vkd3d_test.h"
 #include "shader_runner.h"
 
+struct literal
+{
+    enum
+    {
+        DATA_F32,
+        DATA_F64,
+        DATA_I32,
+        DATA_I64,
+        DATA_U32,
+        DATA_U64,
+    } data_type;
+    unsigned int element_count;
+    unsigned int u32_count;
+    union
+    {
+        struct dvec2 f64;
+        struct vec4 f32;
+        struct i64vec2 i64;
+        struct ivec4 i32;
+        struct u64vec2 u64;
+        struct uvec4 u32;
+    } v;
+};
+
 struct test_options test_options = {0};
 
 static struct shader_test_options
@@ -1108,6 +1132,171 @@ static struct resource *parse_resource_reference(struct shader_runner *runner, c
     return shader_runner_get_resource(runner, type, slot);
 }
 
+static void read_literal(const char **line, struct literal *l)
+{
+    bool is_signed = false;
+
+    l->element_count = 0;
+
+    if (match_string(*line, "f32", line) || match_string(*line, "rgba", line))
+    {
+        if (**line != '(')
+            fatal_error("Malformed literal '%s'.\n", *line);
+        ++*line;
+
+        l->data_type = DATA_F32;
+        read_f32(line, &l->v.f32.x);
+        ++l->element_count;
+
+        while (isspace(**line))
+            ++*line;
+        if (**line == ',')
+        {
+            ++*line;
+            read_f32(line, &l->v.f32.y);
+            ++l->element_count;
+
+            while (isspace(**line))
+                ++*line;
+            if (**line == ',')
+            {
+                ++*line;
+                read_f32(line, &l->v.f32.z);
+                ++l->element_count;
+
+                while (isspace(**line))
+                    ++*line;
+                if (**line != ',')
+                    fatal_error("Malformed literal '%s'.\n", *line);
+                ++*line;
+                read_f32(line, &l->v.f32.w);
+                ++l->element_count;
+            }
+        }
+
+        *line = close_parentheses(*line);
+        ++*line;
+        l->u32_count = l->element_count;
+
+        return;
+    }
+
+    if (match_string(*line, "f64", line))
+    {
+        if (**line != '(')
+            fatal_error("Malformed literal '%s'.\n", *line);
+        ++*line;
+
+        l->data_type = DATA_F64;
+        read_f64(line, &l->v.f64.x);
+        ++l->element_count;
+
+        while (isspace(**line))
+            ++*line;
+        if (**line == ',')
+        {
+            ++*line;
+            read_f64(line, &l->v.f64.y);
+            ++l->element_count;
+        }
+
+        *line = close_parentheses(*line);
+        ++*line;
+        l->u32_count = l->element_count * 2;
+
+        return;
+    }
+
+    if (match_string(*line, "u32", line) || (is_signed = match_string(*line, "i32", line)))
+    {
+        if (**line != '(')
+            fatal_error("Malformed literal '%s'.\n", *line);
+        ++*line;
+
+        l->data_type = is_signed ? DATA_I32 : DATA_U32;
+        if (is_signed)
+            read_int(line, &l->v.i32.x, false);
+        else
+            read_uint(line, &l->v.u32.x, false);
+        ++l->element_count;
+
+        while (isspace(**line))
+            ++*line;
+        if (**line == ',')
+        {
+            ++*line;
+            if (is_signed)
+                read_int(line, &l->v.i32.y, false);
+            else
+                read_uint(line, &l->v.u32.y, false);
+            ++l->element_count;
+
+            while (isspace(**line))
+                ++*line;
+            if (**line == ',')
+            {
+                ++*line;
+                if (is_signed)
+                    read_int(line, &l->v.i32.z, false);
+                else
+                    read_uint(line, &l->v.u32.z, false);
+                ++l->element_count;
+
+                while (isspace(**line))
+                    ++*line;
+                if (**line != ',')
+                    fatal_error("Malformed literal '%s'.\n", *line);
+                ++*line;
+                if (is_signed)
+                    read_int(line, &l->v.i32.w, false);
+                else
+                    read_uint(line, &l->v.u32.w, false);
+                ++l->element_count;
+            }
+        }
+
+        *line = close_parentheses(*line);
+        ++*line;
+        l->u32_count = l->element_count;
+
+        return;
+    }
+
+    if (match_string(*line, "u64", line) || (is_signed = match_string(*line, "i64", line)))
+    {
+        if (**line != '(')
+            fatal_error("Malformed literal '%s'.\n", *line);
+        ++*line;
+
+        l->data_type = is_signed ? DATA_I64 : DATA_U64;
+        if (is_signed)
+            read_int64(line, &l->v.i64.x, false);
+        else
+            read_uint64(line, &l->v.u64.x, false);
+        ++l->element_count;
+
+        while (isspace(**line))
+            ++*line;
+        if (**line == ',')
+        {
+            ++*line;
+            if (is_signed)
+                read_int64(line, &l->v.i64.y, false);
+            else
+                read_uint64(line, &l->v.u64.y, false);
+            ++l->element_count;
+        }
+
+        *line = close_parentheses(*line);
+        ++*line;
+        l->u32_count = l->element_count * 2;
+
+        return;
+    }
+
+    fatal_error("Malformed literal '%s'.\n", *line);
+}
+
 static void parse_test_directive(struct shader_runner *runner, const char *line)
 {
     bool skip_directive = false;
@@ -1364,7 +1553,7 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         unsigned int left, top, right, bottom, ulps, slot, array_layer = 0;
         struct resource_readback *rb;
         struct resource *resource;
-        bool is_signed = false;
+        struct literal l;
         D3D12_BOX box;
         RECT rect;
         int len;
@@ -1435,174 +1624,90 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         box.front = 0;
         box.back = 1;
 
-        if (match_string(line, "u64", &line) || (is_signed = match_string(line, "i64", &line)))
+        read_literal(&line, &l);
+        switch (l.data_type)
         {
-            struct u64vec2 v;
-
-            if (*line != '(')
-                fatal_error("Malformed probe arguments '%s'.\n", line);
-            ++line;
-
-            if (is_signed)
-                read_int64(&line, (int64_t *)&v.x, false);
-            else
-                read_uint64(&line, &v.x, false);
-
-            while (isspace(*line))
-                ++line;
-            if (*line == ',')
-            {
-                ++line;
-                if (is_signed)
-                    read_int64(&line, (int64_t *)&v.y, false);
-                else
-                    read_uint64(&line, &v.y, false);
-                line = close_parentheses(line);
-                todo_if(runner->is_todo) bug_if(runner->is_bug)
-                check_readback_data_u64vec2(rb, &rect, &v);
-            }
-            else
-            {
-                line = close_parentheses(line);
-                todo_if(runner->is_todo) bug_if(runner->is_bug)
-                check_readback_data_uint64(rb, &box, v.x, 0);
-            }
-        }
-        else if (match_string(line, "f64", &line))
-        {
-            struct dvec2 v;
-
-            if (*line != '(')
-                fatal_error("Malformed probe arguments '%s'.\n", line);
-            ++line;
-
-            read_f64(&line, &v.x);
-            while (isspace(*line))
-                ++line;
-            if (*line == ',')
-            {
-                ++line;
-                read_f64(&line, &v.y);
-                if (sscanf(line, " ) %u", &ulps) < 1)
+            case DATA_F64:
+                if (sscanf(line, " %u", &ulps) < 1)
                     ulps = 0;
-                todo_if(runner->is_todo) bug_if(runner->is_bug)
-                check_readback_data_dvec2(rb, &rect, &v, ulps);
-            }
-            else
-            {
-                if (sscanf(line, " ) %u", &ulps) < 1)
-                    ulps = 0;
-                todo_if(runner->is_todo) bug_if(runner->is_bug)
-                check_readback_data_double(rb, &rect, v.x, ulps);
-            }
-        }
-        else if (match_string(line, "u32", &line) || (is_signed = match_string(line, "i32", &line)))
-        {
-            struct uvec4 v;
-
-            if (*line != '(')
-                fatal_error("Malformed probe arguments '%s'.\n", line);
-            ++line;
-
-            if (is_signed)
-                read_int(&line, (int32_t *)&v.x, false);
-            else
-                read_uint(&line, &v.x, false);
-
-            while (isspace(*line))
-                ++line;
-            if (*line == ',')
-            {
-                ++line;
-                if (is_signed)
-                    read_int(&line, (int32_t *)&v.y, false);
-                else
-                    read_uint(&line, &v.y, false);
-
-                while (isspace(*line))
-                    ++line;
-                if (*line != ',')
-                    fatal_error("Malformed probe arguments '%s'.\n", line);
-                ++line;
-                if (is_signed)
-                    read_int(&line, (int32_t *)&v.z, false);
-                else
-                    read_uint(&line, &v.z, false);
-
-                while (isspace(*line))
-                    ++line;
-                if (*line != ',')
-                    fatal_error("Malformed probe arguments '%s'.\n", line);
-                ++line;
-                if (is_signed)
-                    read_int(&line, (int32_t *)&v.w, false);
-                else
-                    read_uint(&line, &v.w, false);
-
-                line = close_parentheses(line);
-                todo_if(runner->is_todo) bug_if(runner->is_bug)
-                check_readback_data_uvec4(rb, &rect, &v);
-            }
-            else
-            {
-                line = close_parentheses(line);
-                todo_if(runner->is_todo) bug_if(runner->is_bug)
-                check_readback_data_uint(rb, &box, v.x, 0);
-            }
-        }
-        else if (match_string(line, "f32", &line) || match_string(line, "rgba", &line))
-        {
-            struct vec4 v;
-
-            if (*line != '(')
-                fatal_error("Malformed probe arguments '%s'.\n", line);
-            ++line;
-
-            read_f32(&line, &v.x);
-            while (isspace(*line))
-                ++line;
-            if (*line == ',')
-            {
-                ++line;
-                read_f32(&line, &v.y);
-                while (isspace(*line))
-                    ++line;
-                if (*line == ',')
+                if (l.element_count == 1)
                 {
-                    ++line;
-                    read_f32(&line, &v.z);
-
-                    while (isspace(*line))
-                        ++line;
-                    if (*line != ',')
-                        fatal_error("Malformed probe arguments '%s'.\n", line);
-                    ++line;
-                    read_f32(&line, &v.w);
-
-                    if (sscanf(line, " ) %u", &ulps) < 1)
-                        ulps = 0;
                     todo_if(runner->is_todo) bug_if(runner->is_bug)
-                    check_readback_data_vec4(rb, &rect, &v, ulps);
+                    check_readback_data_double(rb, &rect, l.v.f64.x, ulps);
+                }
+                else if (l.element_count == 2)
+                {
+                    todo_if(runner->is_todo) bug_if(runner->is_bug)
+                    check_readback_data_dvec2(rb, &rect, &l.v.f64, ulps);
                 }
                 else
                 {
-                    if (sscanf(line, " ) %u", &ulps) < 1)
-                        ulps = 0;
-                    todo_if(runner->is_todo) bug_if(runner->is_bug)
-                    check_readback_data_vec2(rb, &rect, &v, ulps);
+                    fatal_error("Unhandled f64 element count %u.\n", l.element_count);
                 }
-            }
-            else
-            {
-                if (sscanf(line, " ) %u", &ulps) < 1)
+                break;
+
+            case DATA_F32:
+                if (sscanf(line, " %u", &ulps) < 1)
                     ulps = 0;
-                todo_if(runner->is_todo) bug_if(runner->is_bug)
-                check_readback_data_float(rb, &rect, v.x, ulps);
-            }
-        }
-        else
-        {
-            fatal_error("Malformed probe arguments '%s'.\n", line);
+                if (l.element_count == 1)
+                {
+                    todo_if(runner->is_todo) bug_if(runner->is_bug)
+                    check_readback_data_float(rb, &rect, l.v.f32.x, ulps);
+                }
+                else if (l.element_count == 2)
+                {
+                    todo_if(runner->is_todo) bug_if(runner->is_bug)
+                    check_readback_data_vec2(rb, &rect, &l.v.f32, ulps);
+                }
+                else if (l.element_count == 4)
+                {
+                    todo_if(runner->is_todo) bug_if(runner->is_bug)
+                    check_readback_data_vec4(rb, &rect, &l.v.f32, ulps);
+                }
+                else
+                {
+                    fatal_error("Unhandled f32 element count %u.\n", l.element_count);
+                }
+                break;
+
+            case DATA_I32:
+            case DATA_U32:
+                if (l.element_count == 1)
+                {
+                    todo_if(runner->is_todo) bug_if(runner->is_bug)
+                    check_readback_data_uint(rb, &box, l.v.u32.x, 0);
+                }
+                else if (l.element_count == 4)
+                {
+                    todo_if(runner->is_todo) bug_if(runner->is_bug)
+                    check_readback_data_uvec4(rb, &rect, &l.v.u32);
+                }
+                else
+                {
+                    fatal_error("Unhandled i32/u32 element count %u.\n", l.element_count);
+                }
+                break;
+
+            case DATA_I64:
+            case DATA_U64:
+                if (l.element_count == 1)
+                {
+                    todo_if(runner->is_todo) bug_if(runner->is_bug)
+                    check_readback_data_uint64(rb, &box, l.v.u64.x, 0);
+                }
+                else if (l.element_count == 2)
+                {
+                    todo_if(runner->is_todo) bug_if(runner->is_bug)
+                    check_readback_data_u64vec2(rb, &rect, &l.v.u64);
+                }
+                else
+                {
+                    fatal_error("Unhandled i64/u64 element count %u.\n", l.element_count);
+                }
+                break;
+
+            default:
+                fatal_error("Unhandled literal data type %#x.\n", l.data_type);
         }
 
         runner->ops->release_readback(runner, rb);
