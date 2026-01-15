@@ -8238,10 +8238,10 @@ static void sm6_parser_emit_cmp2(struct sm6_parser *dxil, struct function_emissi
 static void sm6_parser_emit_cmpxchg(struct sm6_parser *dxil, struct function_emission_state *state)
 {
     struct sm6_value *dst = sm6_parser_get_current_value(dxil);
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
     uint64_t success_ordering, failure_ordering;
     const struct sm6_value *ptr, *cmp, *new;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     struct vsir_dst_operand *dst_params;
     struct vkd3d_shader_register reg;
@@ -8301,11 +8301,20 @@ static void sm6_parser_emit_cmpxchg(struct sm6_parser *dxil, struct function_emi
     if (record->operand_count > i && record->operands[i])
         FIXME("Ignoring weak cmpxchg.\n");
 
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_IMM_ATOMIC_CMP_EXCH);
     ins->flags = is_volatile ? VKD3DARF_VOLATILE : 0;
 
     if (!(src_params = instruction_src_params_alloc(ins, 3, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
+
     src_param_make_constant_uint(&src_params[0], 0);
     src_param_init_from_value(&src_params[1], cmp, 0, dxil);
     src_param_init_from_value(&src_params[2], new, 0, dxil);
@@ -8313,7 +8322,11 @@ static void sm6_parser_emit_cmpxchg(struct sm6_parser *dxil, struct function_emi
     sm6_parser_init_ssa_value(dxil, dst);
 
     if (!(dst_params = instruction_dst_params_alloc(ins, 2, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
+
     vsir_register_from_dxil_value(&dst_params[0].reg, dst, 0, dxil);
     dst_param_init(&dst_params[0]);
     dst_params[1].reg = reg;
