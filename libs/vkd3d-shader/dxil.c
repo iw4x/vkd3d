@@ -8400,9 +8400,11 @@ static void sm6_parser_emit_extractval(struct sm6_parser *dxil, struct function_
         vkd3d_shader_instruction_make_nop(ins);
 }
 
-static void sm6_parser_emit_gep(struct sm6_parser *sm6, const struct dxil_record *record,
-        struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
+static void sm6_parser_emit_gep(struct sm6_parser *dxil, struct function_emission_state *state)
 {
+    struct sm6_value *dst = sm6_parser_get_current_value(dxil);
+    struct vkd3d_shader_instruction *ins = state->ins;
+    const struct dxil_record *record = state->record;
     const struct sm6_type *type, *pointee_type;
     unsigned int elem_idx, operand_idx = 2;
     enum bitcode_address_space addr_space;
@@ -8410,85 +8412,73 @@ static void sm6_parser_emit_gep(struct sm6_parser *sm6, const struct dxil_record
     const struct sm6_value *src;
     struct sm6_index *index;
 
-    if (!dxil_record_validate_operand_min_count(record, 5, sm6)
-            || !(type = sm6_parser_get_type(sm6, record->operands[1]))
-            || !(src = sm6_parser_get_value_by_ref(sm6, record, NULL, &operand_idx))
-            || !sm6_value_validate_is_register(src, sm6)
-            || !sm6_value_validate_is_pointer(src, sm6)
-            || !dxil_record_validate_operand_min_count(record, operand_idx + 2, sm6))
-    {
+    if (!dxil_record_validate_operand_min_count(record, 5, dxil)
+            || !(type = sm6_parser_get_type(dxil, record->operands[1]))
+            || !(src = sm6_parser_get_value_by_ref(dxil, record, NULL, &operand_idx))
+            || !sm6_value_validate_is_register(src, dxil)
+            || !sm6_value_validate_is_pointer(src, dxil)
+            || !dxil_record_validate_operand_min_count(record, operand_idx + 2, dxil))
         return;
-    }
 
     *dst = *src;
-    index = sm6_get_value_index(sm6, dst);
+    index = sm6_get_value_index(dxil, dst);
 
     if (!index)
         return;
 
     if (index->index)
     {
-        WARN("Unsupported stacked GEP.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "A GEP instruction on the result of a previous GEP is unsupported.");
         return;
     }
 
     if ((pointee_type = src->type->u.pointer.type) != type)
-    {
-        WARN("Type mismatch, type %u width %u vs type %u width %u.\n", type->class,
-                type->u.width, pointee_type->class, pointee_type->u.width);
-        vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
+        vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
                 "Type mismatch in GEP operation arguments.");
-    }
     addr_space = src->type->u.pointer.addr_space;
 
-    if (!(elem_value = sm6_parser_get_value_by_ref(sm6, record, NULL, &operand_idx)))
+    if (!(elem_value = sm6_parser_get_value_by_ref(dxil, record, NULL, &operand_idx)))
         return;
 
     /* The first index is always zero, to form a simple pointer dereference. */
-    if (sm6_value_get_constant_uint(elem_value, sm6))
+    if (sm6_value_get_constant_uint(elem_value, dxil))
     {
-        WARN("Expected constant zero.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "The pointer dereference index for a GEP instruction is not constant zero.");
         return;
     }
 
     if (!sm6_type_is_array(pointee_type))
     {
-        WARN("Invalid GEP on type class %u.\n", pointee_type->class);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Source type for index 1 of a GEP instruction is not an array.");
         return;
     }
 
-    if (!(elem_value = sm6_parser_get_value_by_ref(sm6, record, NULL, &operand_idx)))
+    if (!(elem_value = sm6_parser_get_value_by_ref(dxil, record, NULL, &operand_idx)))
         return;
 
     /* If indexing is dynamic, just get the type at offset zero. */
-    elem_idx = sm6_value_is_constant(elem_value) ? sm6_value_get_constant_uint(elem_value, sm6) : 0;
+    elem_idx = sm6_value_is_constant(elem_value) ? sm6_value_get_constant_uint(elem_value, dxil) : 0;
     type = sm6_type_get_element_type_at_index(pointee_type, elem_idx);
     if (!type)
     {
-        WARN("Invalid element index %u.\n", elem_idx);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Element index %u for a GEP instruction is out of bounds.", elem_idx);
         return;
     }
 
     if (operand_idx < record->operand_count)
     {
-        FIXME("Multiple element indices are not implemented.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Multi-dimensional addressing in GEP instructions is not supported.");
         return;
     }
 
-    if (!(dst->type = sm6_type_get_pointer_to_type(type, addr_space, sm6)))
+    if (!(dst->type = sm6_type_get_pointer_to_type(type, addr_space, dxil)))
     {
-        WARN("Failed to get pointer type for type %u.\n", type->class);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_MODULE,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_MODULE,
                 "Module does not define a pointer type for a GEP instruction.");
         return;
     }
@@ -9321,7 +9311,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 sm6_parser_emit_extractval(sm6, &state);
                 break;
             case FUNC_CODE_INST_GEP:
-                sm6_parser_emit_gep(sm6, record, ins, dst);
+                sm6_parser_emit_gep(sm6, &state);
                 break;
             case FUNC_CODE_INST_LOAD:
                 sm6_parser_emit_load(sm6, record, ins, dst);
