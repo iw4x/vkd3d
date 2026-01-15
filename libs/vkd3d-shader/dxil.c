@@ -8333,25 +8333,26 @@ static void sm6_parser_emit_cmpxchg(struct sm6_parser *dxil, struct function_emi
     dst_param_init(&dst_params[1]);
 }
 
-static void sm6_parser_emit_extractval(struct sm6_parser *sm6, const struct dxil_record *record,
-        struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
+static void sm6_parser_emit_extractval(struct sm6_parser *dxil, struct function_emission_state *state)
 {
+    struct sm6_value *dst = sm6_parser_get_current_value(dxil);
+    struct vkd3d_shader_instruction *ins = state->ins;
+    const struct dxil_record *record = state->record;
     struct vsir_src_operand *src_param;
     const struct sm6_type *type;
     const struct sm6_value *src;
     unsigned int i = 0;
     uint64_t elem_idx;
 
-    if (!(src = sm6_parser_get_value_by_ref(sm6, record, NULL, &i)))
+    if (!(src = sm6_parser_get_value_by_ref(dxil, record, NULL, &i)))
         return;
 
-    if (!dxil_record_validate_operand_min_count(record, i + 1, sm6))
+    if (!dxil_record_validate_operand_min_count(record, i + 1, dxil))
         return;
 
     if (record->operand_count > i + 1)
     {
-        FIXME("Unhandled multiple indices.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Multiple extractval indices are not supported.");
         return;
     }
@@ -8359,8 +8360,7 @@ static void sm6_parser_emit_extractval(struct sm6_parser *sm6, const struct dxil
     type = src->type;
     if (!sm6_type_is_aggregate(type))
     {
-        WARN("Invalid extraction from non-aggregate.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Source type of an extractval instruction is not an aggregate.");
         return;
     }
@@ -8368,28 +8368,26 @@ static void sm6_parser_emit_extractval(struct sm6_parser *sm6, const struct dxil
     elem_idx = record->operands[i];
     if (!(type = sm6_type_get_element_type_at_index(type, elem_idx)))
     {
-        WARN("Invalid element index %"PRIu64".\n", elem_idx);
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Element index %"PRIu64" for an extractval instruction is out of bounds.", elem_idx);
         return;
     }
     if (!sm6_type_is_scalar(type))
     {
-        FIXME("Nested extraction is not supported.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "Extraction from nested aggregates is not supported.");
         return;
     }
     dst->type = type;
 
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
+    vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
 
-    if (!(src_param = instruction_src_params_alloc(ins, 1, sm6)))
+    if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
         return;
-    vsir_register_from_dxil_value(&src_param->reg, src, 0, sm6);
+    vsir_register_from_dxil_value(&src_param->reg, src, 0, dxil);
     src_param_init_scalar(src_param, elem_idx);
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    instruction_dst_param_init_ssa_scalar(ins, 0, dxil);
 }
 
 static void sm6_parser_emit_gep(struct sm6_parser *sm6, const struct dxil_record *record,
@@ -9310,7 +9308,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 sm6_parser_emit_cmpxchg(sm6, &state);
                 break;
             case FUNC_CODE_INST_EXTRACTVAL:
-                sm6_parser_emit_extractval(sm6, record, ins, dst);
+                sm6_parser_emit_extractval(sm6, &state);
                 break;
             case FUNC_CODE_INST_GEP:
                 sm6_parser_emit_gep(sm6, record, ins, dst);
