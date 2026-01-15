@@ -8403,7 +8403,6 @@ static void sm6_parser_emit_extractval(struct sm6_parser *dxil, struct function_
 static void sm6_parser_emit_gep(struct sm6_parser *dxil, struct function_emission_state *state)
 {
     struct sm6_value *dst = sm6_parser_get_current_value(dxil);
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
     const struct sm6_type *type, *pointee_type;
     unsigned int elem_idx, operand_idx = 2;
@@ -8486,7 +8485,10 @@ static void sm6_parser_emit_gep(struct sm6_parser *dxil, struct function_emissio
     index->index = elem_value;
     index->is_in_bounds = record->operands[0];
 
-    ins->opcode = VSIR_OP_NOP;
+    /* Well, not really, but the point here is that we pushed all the
+     * instructions we had to (i.e., none), and sm6_parser_function_init()
+     * doesn't have to do it for us. */
+    state->pushed_instruction = true;
 }
 
 static void sm6_parser_emit_load(struct sm6_parser *sm6, const struct dxil_record *record,
