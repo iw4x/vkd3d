@@ -8235,9 +8235,11 @@ static void sm6_parser_emit_cmp2(struct sm6_parser *dxil, struct function_emissi
         vkd3d_shader_instruction_make_nop(ins);
 }
 
-static void sm6_parser_emit_cmpxchg(struct sm6_parser *sm6, const struct dxil_record *record,
-        struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
+static void sm6_parser_emit_cmpxchg(struct sm6_parser *dxil, struct function_emission_state *state)
 {
+    struct sm6_value *dst = sm6_parser_get_current_value(dxil);
+    struct vkd3d_shader_instruction *ins = state->ins;
+    const struct dxil_record *record = state->record;
     uint64_t success_ordering, failure_ordering;
     const struct sm6_value *ptr, *cmp, *new;
     struct vsir_src_operand *src_params;
@@ -8247,42 +8249,38 @@ static void sm6_parser_emit_cmpxchg(struct sm6_parser *sm6, const struct dxil_re
     bool is_volatile;
     uint64_t code;
 
-    if (!(ptr = sm6_parser_get_value_by_ref(sm6, record, NULL, &i))
-            || !sm6_value_validate_is_pointer_to_i32(ptr, sm6)
-            || !sm6_value_validate_is_backward_ref(ptr, sm6))
+    if (!(ptr = sm6_parser_get_value_by_ref(dxil, record, NULL, &i))
+            || !sm6_value_validate_is_pointer_to_i32(ptr, dxil)
+            || !sm6_value_validate_is_backward_ref(ptr, dxil))
         return;
 
-    vsir_register_from_dxil_value(&reg, ptr, 0, sm6);
+    vsir_register_from_dxil_value(&reg, ptr, 0, dxil);
 
     if (reg.type != VKD3DSPR_GROUPSHAREDMEM)
     {
-        WARN("Register is not groupshared.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                 "The destination register for a cmpxchg instruction is not groupshared memory.");
         return;
     }
 
-    if (!(dst->type = sm6_type_get_cmpxchg_result_struct(sm6)))
+    if (!(dst->type = sm6_type_get_cmpxchg_result_struct(dxil)))
     {
-        WARN("Failed to find result struct.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_MODULE,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_MODULE,
                 "Module does not define a result struct type for a cmpxchg instruction.");
         return;
     }
 
     /* Forward-referenced comparands are stored as value/type pairs, even
      * though in principle we could use the destination type. */
-    cmp = sm6_parser_get_value_by_ref(sm6, record, NULL, &i);
-    new = sm6_parser_get_value_by_ref(sm6, record, ptr->type->u.pointer.type, &i);
+    cmp = sm6_parser_get_value_by_ref(dxil, record, NULL, &i);
+    new = sm6_parser_get_value_by_ref(dxil, record, ptr->type->u.pointer.type, &i);
     if (!cmp || !new)
         return;
 
-    if (!sm6_value_validate_is_i32(cmp, sm6)
-            || !sm6_value_validate_is_i32(new, sm6)
-            || !dxil_record_validate_operand_count(record, i + 3, i + 5, sm6))
-    {
+    if (!sm6_value_validate_is_i32(cmp, dxil)
+            || !sm6_value_validate_is_i32(new, dxil)
+            || !dxil_record_validate_operand_count(record, i + 3, i + 5, dxil))
         return;
-    }
 
     is_volatile = record->operands[i++];
     success_ordering = record->operands[i++];
@@ -8303,20 +8301,20 @@ static void sm6_parser_emit_cmpxchg(struct sm6_parser *sm6, const struct dxil_re
     if (record->operand_count > i && record->operands[i])
         FIXME("Ignoring weak cmpxchg.\n");
 
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_IMM_ATOMIC_CMP_EXCH);
+    vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_IMM_ATOMIC_CMP_EXCH);
     ins->flags = is_volatile ? VKD3DARF_VOLATILE : 0;
 
-    if (!(src_params = instruction_src_params_alloc(ins, 3, sm6)))
+    if (!(src_params = instruction_src_params_alloc(ins, 3, dxil)))
         return;
     src_param_make_constant_uint(&src_params[0], 0);
-    src_param_init_from_value(&src_params[1], cmp, 0, sm6);
-    src_param_init_from_value(&src_params[2], new, 0, sm6);
+    src_param_init_from_value(&src_params[1], cmp, 0, dxil);
+    src_param_init_from_value(&src_params[2], new, 0, dxil);
 
-    sm6_parser_init_ssa_value(sm6, dst);
+    sm6_parser_init_ssa_value(dxil, dst);
 
-    if (!(dst_params = instruction_dst_params_alloc(ins, 2, sm6)))
+    if (!(dst_params = instruction_dst_params_alloc(ins, 2, dxil)))
         return;
-    vsir_register_from_dxil_value(&dst_params[0].reg, dst, 0, sm6);
+    vsir_register_from_dxil_value(&dst_params[0].reg, dst, 0, dxil);
     dst_param_init(&dst_params[0]);
     dst_params[1].reg = reg;
     dst_param_init(&dst_params[1]);
@@ -9296,7 +9294,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 sm6_parser_emit_cmp2(sm6, &state);
                 break;
             case FUNC_CODE_INST_CMPXCHG:
-                sm6_parser_emit_cmpxchg(sm6, record, ins, dst);
+                sm6_parser_emit_cmpxchg(sm6, &state);
                 break;
             case FUNC_CODE_INST_EXTRACTVAL:
                 sm6_parser_emit_extractval(sm6, record, ins, dst);
