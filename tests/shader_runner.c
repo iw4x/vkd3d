@@ -974,14 +974,14 @@ static void set_default_target(struct shader_runner *runner)
 
 static void set_uniforms(struct shader_runner *runner, size_t offset, size_t count, const void *uniforms)
 {
-    size_t initial_count = runner->uniform_count;
+    struct uniform_buffer *u = &runner->uniform_buffers[VKD3D_SHADER_D3DBC_FLOAT_CONSTANT_REGISTER];
+    size_t initial_count;
 
-    runner->uniform_count = align(max(runner->uniform_count, offset + count), 4);
-    vkd3d_array_reserve((void **)&runner->uniforms, &runner->uniform_capacity,
-            runner->uniform_count, sizeof(*runner->uniforms));
-    memset(runner->uniforms + initial_count, 127,
-            (runner->uniform_count - initial_count) * sizeof(*runner->uniforms));
-    memcpy(runner->uniforms + offset, uniforms, count * sizeof(*runner->uniforms));
+    initial_count = u->count;
+    u->count = align(max(initial_count, offset + count), 4);
+    vkd3d_array_reserve((void **)&u->elements, &u->capacity, u->count, sizeof(*u->elements));
+    memset(&u->elements[initial_count], 0x7f, (u->count - initial_count) * sizeof(*u->elements));
+    memcpy(&u->elements[offset], uniforms, count * sizeof(*u->elements));
 }
 
 static void read_int(const char **line, int *i, bool is_uniform)
@@ -3077,7 +3077,10 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
     input_layout_cleanup(&runner->input);
     for (i = 0; i < SHADER_TYPE_COUNT; ++i)
         free(runner->shader_source[i]);
-    free(runner->uniforms);
+    for (i = 0; i < ARRAY_SIZE(runner->uniform_buffers); ++i)
+    {
+        free(runner->uniform_buffers[i].elements);
+    }
     for (i = 0; i < runner->resource_count; ++i)
     {
         if (runner->resources[i])

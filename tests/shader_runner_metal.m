@@ -385,8 +385,8 @@ static void metal_runner_destroy_resource(struct shader_runner *r, struct resour
 static bool compile_shader(struct metal_runner *runner, enum shader_type type, struct vkd3d_shader_code *out)
 {
     struct vkd3d_shader_interface_info interface_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_INTERFACE_INFO};
+    struct vkd3d_shader_resource_binding bindings[MAX_DESCRIPTORS + MAX_SAMPLERS + MAX_UNIFORM_BUFFERS];
     struct vkd3d_shader_compile_info info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO};
-    struct vkd3d_shader_resource_binding bindings[MAX_DESCRIPTORS + MAX_SAMPLERS + 1 /* CBV */];
     struct vkd3d_shader_resource_binding *binding;
     unsigned int i, binding_idx = 0;
     char *messages;
@@ -413,12 +413,17 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
     info.option_count = ARRAY_SIZE(options);
     info.log_level = VKD3D_SHADER_LOG_WARNING;
 
-    if (runner->r.uniform_count)
+    for (i = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
     {
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        if (!u->count)
+            continue;
+
         binding = &bindings[interface_info.binding_count];
         binding->type = VKD3D_SHADER_DESCRIPTOR_TYPE_CBV;
         binding->register_space = 0;
-        binding->register_index = 0;
+        binding->register_index = i;
         binding->shader_visibility = VKD3D_SHADER_VISIBILITY_ALL;
         binding->flags = VKD3D_SHADER_BINDING_FLAG_BUFFER;
         binding->binding.set = 0;
@@ -542,11 +547,16 @@ static bool encode_argument_buffer(struct metal_runner *runner, id<MTLCommandEnc
 
     argument_descriptors = [[[NSMutableArray alloc] init] autorelease];
 
-    if (runner->r.uniform_count)
+    for (i = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
     {
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        if (!u->count)
+            continue;
+
         arg_desc = [MTLArgumentDescriptor argumentDescriptor];
         arg_desc.dataType = MTLDataTypePointer;
-        arg_desc.index = 0;
+        arg_desc.index = [argument_descriptors count];
         arg_desc.access = MTLBindingAccessReadOnly;
         [argument_descriptors addObject:arg_desc];
     }
@@ -589,12 +599,15 @@ static bool encode_argument_buffer(struct metal_runner *runner, id<MTLCommandEnc
             options:DEFAULT_BUFFER_RESOURCE_OPTIONS | MTLResourceStorageModeManaged];
     [encoder setArgumentBuffer:*argument_buffer offset:0];
 
-    if (runner->r.uniform_count)
+    for (i = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
     {
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
         id<MTLBuffer> cb;
 
-        cb = [[device newBufferWithBytes:runner->r.uniforms
-                length:runner->r.uniform_count * sizeof(*runner->r.uniforms)
+        if (!u->count)
+            continue;
+
+        cb = [[device newBufferWithBytes:u->elements length:u->count * sizeof(*u->elements)
                 options:DEFAULT_BUFFER_RESOURCE_OPTIONS | MTLResourceStorageModeManaged] autorelease];
         [encoder setBuffer:cb offset:0 atIndex:index++];
         use_resource(command_encoder, cb, MTLResourceUsageRead);

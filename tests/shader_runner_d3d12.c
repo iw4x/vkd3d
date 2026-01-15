@@ -259,7 +259,7 @@ static const D3D12_DESCRIPTOR_RANGE_TYPE range_types[] =
 
 static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shader_runner *runner,
         ID3D12CommandQueue *queue, ID3D12CommandAllocator *allocator,
-        ID3D12GraphicsCommandList *command_list, unsigned int *uniform_index)
+        ID3D12GraphicsCommandList *command_list, unsigned int *uniform_base)
 {
     D3D12_ROOT_SIGNATURE_DESC root_signature_desc = {0};
     D3D12_DESCRIPTOR_RANGE root_ranges[MAX_DESCRIPTORS];
@@ -303,14 +303,19 @@ static ID3D12RootSignature *d3d12_runner_create_root_signature(struct d3d12_shad
         }
     }
 
-    if (runner->r.uniform_count)
+    *uniform_base = root_signature_desc.NumParameters;
+    for (i = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
     {
-        *uniform_index = root_signature_desc.NumParameters++;
-        root_param = &root_params[*uniform_index];
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        if (!u->count)
+            continue;
+
+        root_param = &root_params[root_signature_desc.NumParameters++];
         root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-        root_param->Constants.ShaderRegister = 0;
+        root_param->Constants.ShaderRegister = i;
         root_param->Constants.RegisterSpace = 0;
-        root_param->Constants.Num32BitValues = runner->r.uniform_count;
+        root_param->Constants.Num32BitValues = u->count;
         root_param->ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     }
 
@@ -453,7 +458,7 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
     ID3D12CommandQueue *queue = runner->compute_queue;
     ID3D12Device *device = test_context->device;
     ID3D12RootSignature *root_signature;
-    unsigned int uniform_index;
+    unsigned int uniform_index, i;
     ID3D12PipelineState *pso;
     D3D12_SHADER_BYTECODE cs;
     ID3D10Blob *cs_code;
@@ -483,9 +488,16 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
     /* With dynamic resources descriptor heaps must be set before the root signature. */
     ID3D12GraphicsCommandList_SetDescriptorHeaps(command_list, 1, &runner->heap);
     ID3D12GraphicsCommandList_SetComputeRootSignature(command_list, root_signature);
-    if (runner->r.uniform_count)
-        ID3D12GraphicsCommandList_SetComputeRoot32BitConstants(command_list, uniform_index,
-                runner->r.uniform_count, runner->r.uniforms, 0);
+    for (i = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
+    {
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        if (!u->count)
+            continue;
+
+        ID3D12GraphicsCommandList_SetComputeRoot32BitConstants(command_list,
+                uniform_index++, u->count, u->elements, 0);
+    }
 
     if (r->descriptor_count)
         ID3D12GraphicsCommandList_SetComputeRootDescriptorTable(command_list, 0,
@@ -910,9 +922,18 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
     /* With dynamic resources descriptor heaps must be set before the root signature. */
     ID3D12GraphicsCommandList_SetDescriptorHeaps(command_list, 1, &runner->heap);
     ID3D12GraphicsCommandList_SetGraphicsRootSignature(command_list, test_context->root_signature);
-    if (runner->r.uniform_count)
-        ID3D12GraphicsCommandList_SetGraphicsRoot32BitConstants(command_list, uniform_index,
-                runner->r.uniform_count, runner->r.uniforms, 0);
+
+    for (i = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
+    {
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        if (!u->count)
+            continue;
+
+        ID3D12GraphicsCommandList_SetGraphicsRoot32BitConstants(command_list,
+                uniform_index++, u->count, u->elements, 0);
+    }
+
     for (i = 0; i < runner->r.resource_count; ++i)
     {
         struct d3d12_resource *resource = d3d12_resource(runner->r.resources[i]);

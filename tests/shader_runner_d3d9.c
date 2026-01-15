@@ -447,6 +447,7 @@ static bool d3d9_runner_draw(struct shader_runner *r,
     IDirect3DDevice9 *device = runner->device;
     unsigned int fb_width, fb_height, i, j;
     D3DVERTEXELEMENT9 *decl_elements;
+    const struct uniform_buffer *u;
     ID3D10Blob *vs_code, *ps_code;
     IDirect3DVertexShader9 *vs;
     IDirect3DPixelShader9 *ps;
@@ -467,14 +468,12 @@ static bool d3d9_runner_draw(struct shader_runner *r,
         return false;
     }
 
-    if (runner->r.uniform_count)
+    u = &runner->r.uniform_buffers[VKD3D_SHADER_D3DBC_FLOAT_CONSTANT_REGISTER];
+    if (u->count)
     {
-        hr = IDirect3DDevice9_SetVertexShaderConstantF(device, 0,
-                (const float *)runner->r.uniforms, runner->r.uniform_count / 4);
+        hr = IDirect3DDevice9_SetVertexShaderConstantF(device, 0, (const float *)u->elements, u->count / 4);
         ok(hr == D3D_OK, "Failed to set uniforms, hr %#lx.\n", hr);
-
-        hr = IDirect3DDevice9_SetPixelShaderConstantF(device, 0,
-                (const float *)runner->r.uniforms, runner->r.uniform_count / 4);
+        hr = IDirect3DDevice9_SetPixelShaderConstantF(device, 0, (const float *)u->elements, u->count / 4);
         ok(hr == D3D_OK, "Failed to set uniforms, hr %#lx.\n", hr);
     }
 

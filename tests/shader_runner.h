@@ -142,6 +142,7 @@ struct viewport
     float height;
 };
 
+#define MAX_UNIFORM_BUFFERS 1
 #define MAX_DESCRIPTORS 32
 #define MAX_RESOURCES 32
 #define MAX_SAMPLERS 32
@@ -248,6 +249,12 @@ struct descriptor_mapping
     unsigned int target_idx;
 };
 
+struct uniform_buffer
+{
+    uint32_t *elements;
+    size_t count, capacity;
+};
+
 struct shader_runner
 {
     const struct shader_runner_ops *ops;
@@ -268,10 +275,9 @@ struct shader_runner
 
     bool last_render_failed;
 
-    uint32_t *uniforms;
-    size_t uniform_count, uniform_capacity;
-
     uint32_t sample_mask;
+
+    struct uniform_buffer uniform_buffers[MAX_UNIFORM_BUFFERS];
 
     struct resource *resources[MAX_RESOURCES];
     size_t resource_count;

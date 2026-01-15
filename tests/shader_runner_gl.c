@@ -675,7 +675,7 @@ static bool compile_shader(struct gl_runner *runner, enum shader_type shader_typ
     struct vkd3d_shader_spirv_target_info spirv_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_SPIRV_TARGET_INFO};
     struct vkd3d_shader_interface_info interface_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_INTERFACE_INFO};
     struct vkd3d_shader_compile_info info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO};
-    struct vkd3d_shader_resource_binding bindings[MAX_RESOURCES + 1 /* CBV */];
+    struct vkd3d_shader_resource_binding bindings[MAX_RESOURCES + MAX_UNIFORM_BUFFERS];
     struct vkd3d_shader_scan_combined_resource_sampler_info combined_sampler_info;
     struct vkd3d_shader_scan_hull_shader_tessellation_info tessellation_info;
     struct vkd3d_shader_spirv_domain_shader_target_info domain_info;
@@ -779,16 +779,21 @@ static bool compile_shader(struct gl_runner *runner, enum shader_type shader_typ
         domain_info.partitioning = runner->partitioning;
     }
 
-    if (runner->r.uniform_count)
+    for (i = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
     {
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        if (!u->count)
+            continue;
+
         binding = &bindings[interface_info.binding_count++];
         binding->type = VKD3D_SHADER_DESCRIPTOR_TYPE_CBV;
         binding->register_space = 0;
-        binding->register_index = 0;
+        binding->register_index = i;
         binding->shader_visibility = VKD3D_SHADER_VISIBILITY_ALL;
         binding->flags = VKD3D_SHADER_BINDING_FLAG_BUFFER;
         binding->binding.set = 0;
-        binding->binding.binding = 0;
+        binding->binding.binding = i;
         binding->binding.count = 1;
     }
 
@@ -976,9 +981,9 @@ static GLuint compile_compute_shader_program(struct gl_runner *runner)
 
 static bool gl_runner_dispatch(struct shader_runner *r, unsigned int x, unsigned int y, unsigned int z)
 {
+    GLuint program_id, ubo_id[MAX_UNIFORM_BUFFERS];
     struct gl_runner *runner = gl_runner(r);
-    GLuint program_id, ubo_id = 0;
-    unsigned int i;
+    unsigned int ubo_count, i;
 
     program_id = compile_compute_shader_program(runner);
     todo_if(runner->r.is_todo) ok(program_id, "Failed to compile shader program.\n");
@@ -986,12 +991,17 @@ static bool gl_runner_dispatch(struct shader_runner *r, unsigned int x, unsigned
         return false;
     glUseProgram(program_id);
 
-    if (runner->r.uniform_count)
+    for (i = 0, ubo_count = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
     {
-        glGenBuffers(1, &ubo_id);
-        glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo_id);
-        glBufferData(GL_UNIFORM_BUFFER, runner->r.uniform_count * sizeof(*runner->r.uniforms),
-                runner->r.uniforms, GL_STATIC_DRAW);
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        if (!u->count)
+            continue;
+
+        glGenBuffers(1, &ubo_id[ubo_count]);
+        glBindBufferBase(GL_UNIFORM_BUFFER, i, ubo_id[ubo_count]);
+        glBufferData(GL_UNIFORM_BUFFER, u->count * sizeof(*u->elements), u->elements, GL_STATIC_DRAW);
+        ++ubo_count;
     }
 
     for (i = 0; i < runner->r.resource_count; ++i)
@@ -1019,7 +1029,8 @@ static bool gl_runner_dispatch(struct shader_runner *r, unsigned int x, unsigned
 
     glDispatchCompute(x, y, z);
 
-    glDeleteBuffers(1, &ubo_id);
+    if (ubo_count)
+        glDeleteBuffers(ubo_count, ubo_id);
     glDeleteProgram(program_id);
 
     return true;
@@ -1271,8 +1282,9 @@ static void gl_runner_clear(struct shader_runner *r, struct resource *res, const
 static bool gl_runner_draw(struct shader_runner *r,
         D3D_PRIMITIVE_TOPOLOGY topology, unsigned int vertex_count, unsigned int instance_count)
 {
-    unsigned int attribute_idx, fb_width, fb_height, rt_count, i, j;
+    unsigned int attribute_idx, fb_width, fb_height, rt_count, ubo_count, i, j;
     struct vkd3d_shader_signature vs_input_signature;
+    GLuint program_id, ubo_id[MAX_UNIFORM_BUFFERS];
     struct gl_runner *runner = gl_runner(r);
     struct vkd3d_shader_code vs_dxbc;
     uint32_t clip_distance_mask, map;
@@ -1283,7 +1295,6 @@ static bool gl_runner_draw(struct shader_runner *r,
         GLsizei stride;
     } vbo_info[MAX_RESOURCES];
     GLint max_clip_distance_count;
-    GLuint program_id, ubo_id = 0;
     ID3D10Blob *vs_blob;
     int ret;
     struct
@@ -1298,12 +1309,17 @@ static bool gl_runner_draw(struct shader_runner *r,
         return false;
     glUseProgram(program_id);
 
-    if (runner->r.uniform_count)
+    for (i = 0, ubo_count = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
     {
-        glGenBuffers(1, &ubo_id);
-        glBindBufferBase(GL_UNIFORM_BUFFER, 0, ubo_id);
-        glBufferData(GL_UNIFORM_BUFFER, runner->r.uniform_count * sizeof(*runner->r.uniforms),
-                runner->r.uniforms, GL_STATIC_DRAW);
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        if (!u->count)
+            continue;
+
+        glGenBuffers(1, &ubo_id[ubo_count]);
+        glBindBufferBase(GL_UNIFORM_BUFFER, i, ubo_id[ubo_count]);
+        glBufferData(GL_UNIFORM_BUFFER, u->count * sizeof(*u->elements), u->elements, GL_STATIC_DRAW);
+        ++ubo_count;
     }
 
     if (!runner->fbo_id)
@@ -1520,7 +1536,8 @@ static bool gl_runner_draw(struct shader_runner *r,
     {
         glDeleteSamplers(1, &sampler_info[i].id);
     }
-    glDeleteBuffers(1, &ubo_id);
+    if (ubo_count)
+        glDeleteBuffers(ubo_count, ubo_id);
 
     ID3D10Blob_Release(vs_blob);
     glDeleteProgram(program_id);

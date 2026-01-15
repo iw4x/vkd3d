@@ -413,13 +413,14 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     struct vkd3d_shader_interface_info interface_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_INTERFACE_INFO};
     struct vkd3d_shader_parameter_info parameter_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_PARAMETER_INFO};
     struct vkd3d_shader_compile_info info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO};
+    struct vkd3d_shader_push_constant_buffer push_constants[MAX_UNIFORM_BUFFERS];
     struct vkd3d_shader_resource_binding bindings[MAX_RESOURCES + MAX_SAMPLERS];
-    struct vkd3d_shader_push_constant_buffer push_constants;
     enum vkd3d_shader_spirv_extension spirv_extensions[3];
     struct vkd3d_shader_varying_map varying_map[12];
     struct vkd3d_shader_resource_binding *binding;
     struct vkd3d_shader_compile_option options[2];
     struct vkd3d_shader_parameter1 parameters[41];
+    uint32_t offset, size;
     unsigned int i;
     char *messages;
     int ret;
@@ -487,11 +488,19 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     if (runner->demote_to_helper_invocation)
         spirv_extensions[spirv_info.extension_count++] = VKD3D_SHADER_SPIRV_EXTENSION_EXT_DEMOTE_TO_HELPER_INVOCATION;
 
-    push_constants.register_space = 0;
-    push_constants.register_index = 0;
-    push_constants.shader_visibility = VKD3D_SHADER_VISIBILITY_ALL;
-    push_constants.offset = 0;
-    push_constants.size = runner->r.uniform_count * sizeof(*runner->r.uniforms);
+    for (i = 0, offset = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
+    {
+        struct vkd3d_shader_push_constant_buffer *p = &push_constants[i];
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        size = u->count * sizeof(*u->elements);
+        p->register_space = 0;
+        p->register_index = i;
+        p->shader_visibility = VKD3D_SHADER_VISIBILITY_ALL;
+        p->offset = offset;
+        p->size = size;
+        offset += size;
+    }
 
     for (i = 0; i < runner->r.descriptor_count; ++i)
     {
@@ -525,8 +534,8 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     interface_info.next = &parameter_info;
     interface_info.bindings = bindings;
 
-    interface_info.push_constant_buffer_count = 1;
-    interface_info.push_constant_buffers = &push_constants;
+    interface_info.push_constant_buffer_count = ARRAY_SIZE(push_constants);
+    interface_info.push_constant_buffers = push_constants;
 
     parameters[0].name = VKD3D_SHADER_PARAMETER_NAME_RASTERIZER_SAMPLE_COUNT;
     parameters[0].type = VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT;
@@ -713,18 +722,26 @@ static VkPipelineLayout create_pipeline_layout(const struct vulkan_shader_runner
     const struct vulkan_test_context *context = &runner->context;
     VkPushConstantRange push_constant_range;
     VkPipelineLayout pipeline_layout;
+    size_t size, i;
 
     layout_desc.setLayoutCount = 1;
     layout_desc.pSetLayouts = &set_layout;
 
-    if (runner->r.uniform_count)
+    for (i = 0, size = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
+    {
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        size += u->count * sizeof(*u->elements);
+    }
+
+    if (size)
     {
         layout_desc.pushConstantRangeCount = 1;
         layout_desc.pPushConstantRanges = &push_constant_range;
 
         push_constant_range.stageFlags = VK_SHADER_STAGE_ALL;
         push_constant_range.offset = 0;
-        push_constant_range.size = runner->r.uniform_count * sizeof(*runner->r.uniforms);
+        push_constant_range.size = size;
     }
 
     VK_CALL(vkCreatePipelineLayout(context->device, &layout_desc, NULL, &pipeline_layout));
@@ -1138,6 +1155,7 @@ static void bind_resources(struct vulkan_shader_runner *runner, VkPipelineBindPo
     const struct vulkan_test_context *context = &runner->context;
     VkCommandBuffer cmd_buffer = context->cmd_buffer;
     VkDescriptorSet descriptor_set;
+    uint32_t offset, size;
     unsigned int i, j;
 
     set_desc.descriptorPool = context->descriptor_pool;
@@ -1224,9 +1242,17 @@ static void bind_resources(struct vulkan_shader_runner *runner, VkPipelineBindPo
 
     VK_CALL(vkCmdBindDescriptorSets(cmd_buffer, bind_point, pipeline_layout, 0, 1, &descriptor_set, 0, NULL));
 
-    if (runner->r.uniform_count)
-        VK_CALL(vkCmdPushConstants(cmd_buffer, pipeline_layout, VK_SHADER_STAGE_ALL, 0,
-                runner->r.uniform_count * sizeof(*runner->r.uniforms), runner->r.uniforms));
+    for (i = 0, offset = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
+    {
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        if (!u->count)
+            continue;
+
+        size = u->count * sizeof(*u->elements);
+        VK_CALL(vkCmdPushConstants(cmd_buffer, pipeline_layout, VK_SHADER_STAGE_ALL, offset, size, u->elements));
+        offset += size;
+    }
 
     /* The descriptor set will be freed by resetting the descriptor pool. */
 }

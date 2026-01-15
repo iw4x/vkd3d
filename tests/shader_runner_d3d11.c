@@ -722,6 +722,7 @@ static bool d3d11_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
     ID3D11Device *device = runner->device;
     ID3D11ComputeShader *cs;
     ID3D10Blob *cs_code;
+    ID3D11Buffer *cb;
     HRESULT hr;
     size_t i;
 
@@ -732,13 +733,16 @@ static bool d3d11_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
             ID3D10Blob_GetBufferSize(cs_code), NULL, &cs);
     ok(hr == S_OK, "Failed to create compute shader, hr %#lx.\n", hr);
 
-    if (runner->r.uniform_count)
+    for (i = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
     {
-        ID3D11Buffer *cb;
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        if (!u->count)
+            continue;
 
         cb = create_buffer(device, D3D11_BIND_CONSTANT_BUFFER,
-                runner->r.uniform_count * sizeof(*runner->r.uniforms), false, 0, runner->r.uniforms);
-        ID3D11DeviceContext_CSSetConstantBuffers(context, 0, 1, &cb);
+                u->count * sizeof(*u->elements), false, 0, u->elements);
+        ID3D11DeviceContext_CSSetConstantBuffers(context, i, 1, &cb);
         ID3D11Buffer_Release(cb);
     }
 
@@ -896,18 +900,24 @@ static bool d3d11_runner_draw(struct shader_runner *r,
     if (gs_code)
         ID3D10Blob_Release(gs_code);
 
-    if (runner->r.uniform_count)
+    for (i = 0; i < ARRAY_SIZE(runner->r.uniform_buffers); ++i)
     {
+        const struct uniform_buffer *u = &runner->r.uniform_buffers[i];
+
+        if (!u->count)
+            continue;
+
         cb = create_buffer(device, D3D11_BIND_CONSTANT_BUFFER,
-                runner->r.uniform_count * sizeof(*runner->r.uniforms), false, 0, runner->r.uniforms);
-        ID3D11DeviceContext_VSSetConstantBuffers(context, 0, 1, &cb);
-        ID3D11DeviceContext_PSSetConstantBuffers(context, 0, 1, &cb);
+                u->count * sizeof(*u->elements), false, 0, u->elements);
+        ID3D11DeviceContext_VSSetConstantBuffers(context, i, 1, &cb);
+        ID3D11DeviceContext_PSSetConstantBuffers(context, i, 1, &cb);
         if (hs_code)
-            ID3D11DeviceContext_HSSetConstantBuffers(context, 0, 1, &cb);
+            ID3D11DeviceContext_HSSetConstantBuffers(context, i, 1, &cb);
         if (ds_code)
-            ID3D11DeviceContext_DSSetConstantBuffers(context, 0, 1, &cb);
+            ID3D11DeviceContext_DSSetConstantBuffers(context, i, 1, &cb);
         if (gs_code)
-            ID3D11DeviceContext_GSSetConstantBuffers(context, 0, 1, &cb);
+            ID3D11DeviceContext_GSSetConstantBuffers(context, i, 1, &cb);
+        ID3D11Buffer_Release(cb);
     }
 
     fb_width = ~0u;
@@ -1039,8 +1049,6 @@ static bool d3d11_runner_draw(struct shader_runner *r,
         ID3D11DomainShader_Release(ds);
     if (gs_code)
         ID3D11GeometryShader_Release(gs);
-    if (cb)
-        ID3D11Buffer_Release(cb);
     if (ds_state)
         ID3D11DepthStencilState_Release(ds_state);
 
