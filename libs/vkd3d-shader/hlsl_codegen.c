@@ -13061,6 +13061,19 @@ static bool sm4_generate_vsir_instr_sync(struct hlsl_ctx *ctx,
     const struct hlsl_ir_node *instr = &sync->node;
     struct vkd3d_shader_instruction *ins;
 
+    if (sync->sync_flags == VKD3DSSF_GLOBAL_UAV)
+    {
+       if (ctx->profile->type != VKD3D_SHADER_TYPE_COMPUTE && ctx->profile->type != VKD3D_SHADER_TYPE_PIXEL)
+           hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INCOMPATIBLE_PROFILE,
+                   "DeviceMemoryBarrier() can only be used in compute and pixel shaders.");
+    }
+    else
+    {
+        if (ctx->profile->type != VKD3D_SHADER_TYPE_COMPUTE)
+            hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INCOMPATIBLE_PROFILE,
+                    "Group barriers can only be used in compute shaders.");
+    }
+
     if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_SYNC, 0, 0)))
         return false;
     ins->flags = sync->sync_flags;

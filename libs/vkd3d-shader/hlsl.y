@@ -5324,19 +5324,9 @@ static bool intrinsic_InterlockedXor(struct hlsl_ctx *ctx,
     return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_XOR, params, loc, "InterlockedXor");
 }
 
-static void validate_group_barrier_profile(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc)
-{
-    if (ctx->profile->type != VKD3D_SHADER_TYPE_COMPUTE)
-    {
-        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INCOMPATIBLE_PROFILE,
-                "Group barriers can only be used in compute shaders.");
-    }
-}
-
 static bool intrinsic_AllMemoryBarrier(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    validate_group_barrier_profile(ctx, loc);
     return !!hlsl_block_add_sync(ctx, params->instrs, VKD3DSSF_GLOBAL_UAV
             | VKD3DSSF_GROUP_SHARED_MEMORY, loc);
 }
@@ -5344,7 +5334,6 @@ static bool intrinsic_AllMemoryBarrier(struct hlsl_ctx *ctx,
 static bool intrinsic_AllMemoryBarrierWithGroupSync(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    validate_group_barrier_profile(ctx, loc);
     return !!hlsl_block_add_sync(ctx, params->instrs, VKD3DSSF_GLOBAL_UAV
             | VKD3DSSF_GROUP_SHARED_MEMORY | VKD3DSSF_THREAD_GROUP, loc);
 }
@@ -5466,19 +5455,12 @@ static bool intrinsic_ConstructGSWithSO(struct hlsl_ctx *ctx,
 static bool intrinsic_DeviceMemoryBarrier(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    if ((ctx->profile->type != VKD3D_SHADER_TYPE_COMPUTE && ctx->profile->type != VKD3D_SHADER_TYPE_PIXEL)
-            || hlsl_version_lt(ctx, 4, 0))
-    {
-        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INCOMPATIBLE_PROFILE,
-                "DeviceMemoryBarrier() can only be used in compute and pixel shaders 4.0 or higher.");
-    }
     return !!hlsl_block_add_sync(ctx, params->instrs, VKD3DSSF_GLOBAL_UAV, loc);
 }
 
 static bool intrinsic_DeviceMemoryBarrierWithGroupSync(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    validate_group_barrier_profile(ctx, loc);
     return !!hlsl_block_add_sync(ctx, params->instrs, VKD3DSSF_GLOBAL_UAV
             | VKD3DSSF_THREAD_GROUP, loc);
 }
@@ -5486,7 +5468,6 @@ static bool intrinsic_DeviceMemoryBarrierWithGroupSync(struct hlsl_ctx *ctx,
 static bool intrinsic_GroupMemoryBarrier(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    validate_group_barrier_profile(ctx, loc);
     return !!hlsl_block_add_sync(ctx, params->instrs,
             VKD3DSSF_GROUP_SHARED_MEMORY, loc);
 }
@@ -5494,7 +5475,6 @@ static bool intrinsic_GroupMemoryBarrier(struct hlsl_ctx *ctx,
 static bool intrinsic_GroupMemoryBarrierWithGroupSync(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    validate_group_barrier_profile(ctx, loc);
     return !!hlsl_block_add_sync(ctx, params->instrs,
             VKD3DSSF_GROUP_SHARED_MEMORY | VKD3DSSF_THREAD_GROUP, loc);
 }

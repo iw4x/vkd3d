@@ -347,7 +347,7 @@ technique10 t0
 shader model >= 5.0
 shader model < 6.0
 
-[effect todo]
+[effect]
 Buffer<float4> buffer;
 RWTexture2D<float4> u;
 
