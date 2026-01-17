@@ -400,6 +400,9 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
     {
         {VKD3D_SHADER_COMPILE_OPTION_API_VERSION, VKD3D_SHADER_API_VERSION_CURRENT},
         {VKD3D_SHADER_COMPILE_OPTION_FEATURE, shader_runner_caps_get_feature_flags(&runner->caps)},
+        {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16, VKD3D_SHADER_DENORMAL_MODE_ANY},
+        {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32, VKD3D_SHADER_DENORMAL_MODE_ANY},
+        {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64, VKD3D_SHADER_DENORMAL_MODE_ANY},
     };
 
     if (!(runner->d3d_blobs[type] = compile_hlsl(&runner->r, type)))
