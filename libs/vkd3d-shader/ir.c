@@ -892,6 +892,12 @@ void vsir_src_operand_init(struct vsir_src_operand *src, enum vkd3d_shader_regis
     src->modifiers = VKD3DSPSM_NONE;
 }
 
+static void vsir_src_operand_init_const_f32(struct vsir_src_operand *src, float value)
+{
+    vsir_src_operand_init(src, VKD3DSPR_IMMCONST, VSIR_DATA_F32, 0);
+    src->reg.u.immconst_f32[0] = value;
+}
+
 static void vsir_src_operand_init_const_u32(struct vsir_src_operand *src, uint32_t value)
 {
     vsir_src_operand_init(src, VKD3DSPR_IMMCONST, VSIR_DATA_U32, 0);
@@ -1476,6 +1482,78 @@ static enum vkd3d_result vsir_program_lower_nrm(struct vsir_program *program, st
 
 fail:
     vsir_program_iterator_nop_range(&it, nrm, &location);
+
+    return VKD3D_ERROR_OUT_OF_MEMORY;
+}
+
+static enum vkd3d_result vsir_program_lower_pow(struct vsir_program *program, struct vsir_program_iterator *pow)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(pow);
+    const struct vkd3d_shader_location location = ins->location;
+    unsigned int abs_id, log_id, ne_id, movc_id, mul_id;
+    const struct vsir_src_operand *src = ins->src;
+    const struct vsir_dst_operand *dst = ins->dst;
+    struct vsir_program_iterator it;
+
+    /* pow DST, SRC0, SRC1
+     *      ->
+     * abs srABS, SRC0.x
+     * log srLOG, srABS
+     * ne srNE, SRC1.x, l(0.0f)
+     * movc srMOVC, srNE, srLOG, srABS
+     * mul srMUL, srMOVC, SRC1.x
+     * exp DST, srMUL */
+
+    if (!(ins = vsir_program_iterator_insert_before(pow, &it, 5)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_ABS, 1, 1))
+        goto fail;
+    abs_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], abs_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
+    ins->src[0] = src[0];
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_LOG, 1, 1))
+        goto fail;
+    log_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], log_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
+    vsir_src_operand_init_ssa(&ins->src[0], abs_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_NEU, 1, 2))
+        goto fail;
+    ne_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], ne_id, VSIR_DATA_U32, VSIR_DIMENSION_SCALAR);
+    ins->src[0] = src[1];
+    vsir_src_operand_init_const_f32(&ins->src[1], 0.0f);
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MOVC, 1, 3))
+        goto fail;
+    movc_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], movc_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
+    vsir_src_operand_init_ssa(&ins->src[0], ne_id, VSIR_DATA_U32, VSIR_DIMENSION_SCALAR);
+    vsir_src_operand_init_ssa(&ins->src[1], log_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
+    vsir_src_operand_init_ssa(&ins->src[2], abs_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MUL, 1, 2))
+        goto fail;
+    mul_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], mul_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
+    vsir_src_operand_init_ssa(&ins->src[0], movc_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
+    ins->src[1] = src[1];
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_EXP, 1, 1))
+        goto fail;
+    ins->dst[0] = dst[0];
+    vsir_src_operand_init_ssa(&ins->src[0], mul_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
+
+    return VKD3D_OK;
+
+fail:
+    vsir_program_iterator_nop_range(&it, pow, &location);
 
     return VKD3D_ERROR_OUT_OF_MEMORY;
 }
@@ -2619,6 +2697,10 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_NRM:
                 ret = vsir_program_lower_nrm(program, &it);
+                break;
+
+            case VSIR_OP_POW:
+                ret = vsir_program_lower_pow(program, &it);
                 break;
 
             case VSIR_OP_SINCOS:
