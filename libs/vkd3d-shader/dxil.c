@@ -8589,9 +8589,12 @@ static int phi_incoming_compare(const void *a, const void *b)
     return vkd3d_u32_compare(incoming_a->block_idx, incoming_b->block_idx);
 }
 
-static void sm6_parser_emit_phi(struct sm6_parser *dxil, const struct dxil_record *record,
-        struct sm6_function *function, struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
+static void sm6_parser_emit_phi(struct sm6_parser *dxil, struct function_emission_state *state)
 {
+    struct sm6_value *dst = sm6_parser_get_current_value(dxil);
+    struct vkd3d_shader_instruction *ins = state->ins;
+    const struct dxil_record *record = state->record;
+    struct sm6_function *function = state->function;
     struct vsir_src_operand *src_params;
     unsigned int i, j, incoming_count;
     struct incoming_value *incoming;
@@ -9330,7 +9333,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 sm6_parser_emit_load(sm6, &state);
                 break;
             case FUNC_CODE_INST_PHI:
-                sm6_parser_emit_phi(sm6, record, function, ins, dst);
+                sm6_parser_emit_phi(sm6, &state);
                 break;
             case FUNC_CODE_INST_RET:
                 sm6_parser_emit_ret(sm6, record, ins);
