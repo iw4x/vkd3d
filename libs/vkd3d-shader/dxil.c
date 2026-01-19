@@ -4780,11 +4780,6 @@ struct function_emission_state
     const struct dxil_record *record;
     struct vkd3d_shader_instruction *ins;
     unsigned int temp_idx;
-
-    /* Keep track of whether the helper below sm6_parser_function_init()
-     * already incremented the instruction count or not. Excepected to be
-     * removed once all helpers increment the count. */
-    bool pushed_instruction;
 };
 
 static struct vkd3d_shader_instruction *sm6_parser_add_function_instruction(struct sm6_parser *sm6,
@@ -4878,7 +4873,6 @@ static void sm6_parser_emit_alloca(struct sm6_parser *sm6, struct function_emiss
 
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
-    state->pushed_instruction = true;
 
     sm6_parser_declare_indexable_temp(sm6, elem_type, type[0]->u.array.count, alignment, true, 0, ins, dst);
 }
@@ -4980,7 +4974,6 @@ static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, struct function_em
 
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &sm6->p.location, op);
     ins->flags = is_volatile ? VKD3DARF_VOLATILE : 0;
@@ -5164,8 +5157,6 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, struct function_emissi
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &sm6->p.location, opcode);
 
     flags = (record->operand_count > i) ? record->operands[i] : 0;
@@ -5282,8 +5273,6 @@ static void sm6_parser_emit_br(struct sm6_parser *dxil, struct function_emission
         if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
             return;
 
-        state->pushed_instruction = true;
-
         vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_BRANCH);
         if (!(src_params = instruction_src_params_alloc(ins, 1, dxil)))
         {
@@ -5312,8 +5301,6 @@ static void sm6_parser_emit_br(struct sm6_parser *dxil, struct function_emission
 
         if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
             return;
-
-        state->pushed_instruction = true;
 
         vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_BRANCH);
         if (!(src_params = instruction_src_params_alloc(ins, 3, dxil)))
@@ -5443,8 +5430,6 @@ static void sm6_parser_emit_dx_void(struct sm6_parser *dxil, enum dx_intrinsic_o
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, sm6_dx_map_void_op(op));
 
     if (!instruction_dst_param_init_ssa_scalar(ins, 0, dxil))
@@ -5545,8 +5530,6 @@ static void sm6_parser_emit_dx_unary(struct sm6_parser *dxil, enum dx_intrinsic_
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, map_dx_unary_op(op));
     if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
     {
@@ -5598,8 +5581,6 @@ static void sm6_parser_emit_dx_binary(struct sm6_parser *dxil, enum dx_intrinsic
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, map_dx_binary_op(op, operands[0]->type, &type_flags));
 
@@ -5698,8 +5679,6 @@ static void sm6_parser_emit_dx_atomic_binop(struct sm6_parser *sm6, enum dx_intr
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &sm6->p.location, opcode);
 
     if (!(src_params = instruction_src_params_alloc(ins, 2 + is_cmp_xchg, sm6)))
@@ -5735,8 +5714,6 @@ static void sm6_parser_emit_dx_barrier(struct sm6_parser *dxil, enum dx_intrinsi
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_SYNC);
     flags = sm6_value_get_constant_uint(operands[0], dxil);
@@ -5778,8 +5755,6 @@ static void sm6_parser_emit_dx_buffer_update_counter(struct sm6_parser *sm6, enu
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &sm6->p.location, (inc < 0) ? VSIR_OP_IMM_ATOMIC_CONSUME : VSIR_OP_IMM_ATOMIC_ALLOC);
 
     if (!(src_params = instruction_src_params_alloc(ins, 1, sm6)))
@@ -5817,8 +5792,6 @@ static void sm6_parser_emit_dx_calculate_lod(struct sm6_parser *sm6, enum dx_int
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_LOD);
 
     if (!(src_params = instruction_src_params_alloc(ins, 3, sm6)))
@@ -5851,8 +5824,6 @@ static void sm6_parser_emit_dx_cbuffer_load(struct sm6_parser *sm6, enum dx_intr
 
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
 
@@ -5905,8 +5876,6 @@ static void sm6_parser_emit_dx_input_register_mov(struct sm6_parser *dxil, struc
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
 
@@ -5979,11 +5948,6 @@ static void sm6_parser_emit_dx_create_handle(struct sm6_parser *sm6, enum dx_int
     dst->u.handle.d = d;
     dst->u.handle.index = operands[2];
     dst->u.handle.non_uniform = !!sm6_value_get_constant_uint(operands[3], sm6);
-
-    /* Well, not really, but the point here is that we pushed all the
-     * instructions we had to (i.e., none), and sm6_parser_function_init()
-     * doesn't have to do it for us. */
-    state->pushed_instruction = true;
 }
 
 static void sm6_parser_emit_dx_stream(struct sm6_parser *dxil, enum dx_intrinsic_opcode op,
@@ -5995,8 +5959,6 @@ static void sm6_parser_emit_dx_stream(struct sm6_parser *dxil, enum dx_intrinsic
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, (op == DX_CUT_STREAM) ? VSIR_OP_CUT_STREAM : VSIR_OP_EMIT_STREAM);
 
@@ -6027,8 +5989,6 @@ static void sm6_parser_emit_dx_discard(struct sm6_parser *dxil, enum dx_intrinsi
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_DISCARD);
 
     if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
@@ -6049,8 +6009,6 @@ static void sm6_parser_emit_dx_domain_location(struct sm6_parser *dxil, enum dx_
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
 
@@ -6111,8 +6069,6 @@ static void sm6_parser_emit_dx_dot(struct sm6_parser *dxil, enum dx_intrinsic_op
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, opcode);
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, dxil)))
@@ -6159,8 +6115,6 @@ static void sm6_parser_emit_dx_eval_attrib(struct sm6_parser *sm6, enum dx_intri
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &sm6->p.location, (op == DX_EVAL_CENTROID)
             ? VSIR_OP_EVAL_CENTROID : VSIR_OP_EVAL_SAMPLE_INDEX);
 
@@ -6190,8 +6144,6 @@ static void sm6_parser_emit_dx_fabs(struct sm6_parser *dxil, enum dx_intrinsic_o
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_ABS);
 
@@ -6239,8 +6191,6 @@ static void sm6_parser_emit_dx_compute_builtin(struct sm6_parser *dxil, enum dx_
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
 
     if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
@@ -6285,8 +6235,6 @@ static void sm6_parser_emit_dx_ma(struct sm6_parser *dxil, enum dx_intrinsic_opc
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, sm6_dx_map_ma_op(op, operands[0]->type));
 
     if (!(src_params = instruction_src_params_alloc(ins, 3, dxil)))
@@ -6322,8 +6270,6 @@ static void sm6_parser_emit_dx_get_dimensions(struct sm6_parser *sm6, enum dx_in
 
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
-
-    state->pushed_instruction = true;
 
     instruction_init_with_resource(ins, is_texture ? VSIR_OP_RESINFO : VSIR_OP_BUFINFO, resource, sm6);
 
@@ -6428,8 +6374,6 @@ static void sm6_parser_emit_dx_tertiary(struct sm6_parser *dxil, enum dx_intrins
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, sm6_dx_map_tertiary_op(op));
 
     if (!(src_params = instruction_src_params_alloc(ins, 3, dxil)))
@@ -6494,8 +6438,6 @@ static void sm6_parser_emit_dx_load_input(struct sm6_parser *sm6, enum dx_intrin
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
 
     if (!(src_param = instruction_src_params_alloc(ins, 1, sm6)))
@@ -6533,8 +6475,6 @@ static void sm6_parser_emit_dx_make_double(struct sm6_parser *dxil, enum dx_intr
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
 
@@ -6597,8 +6537,6 @@ static void sm6_parser_emit_dx_quad_op(struct sm6_parser *dxil, enum dx_intrinsi
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, opcode);
 
     if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
@@ -6646,8 +6584,6 @@ static void sm6_parser_emit_dx_raw_buffer_load(struct sm6_parser *sm6, enum dx_i
 
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
-
-    state->pushed_instruction = true;
 
     instruction_init_with_resource(ins, raw ? VSIR_OP_LD_RAW : VSIR_OP_LD_STRUCTURED, resource, sm6);
     operand_count = 2 + !raw;
@@ -6714,8 +6650,6 @@ static void sm6_parser_emit_dx_raw_buffer_store(struct sm6_parser *sm6, enum dx_
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &sm6->p.location, raw ? VSIR_OP_STORE_RAW : VSIR_OP_STORE_STRUCTURED);
     operand_count = 2 + !raw;
 
@@ -6761,8 +6695,6 @@ static void sm6_parser_emit_dx_buffer_load(struct sm6_parser *sm6, enum dx_intri
 
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
-
-    state->pushed_instruction = true;
 
     instruction_init_with_resource(ins, (resource->u.handle.d->type == VKD3D_SHADER_DESCRIPTOR_TYPE_UAV)
             ? VSIR_OP_LD_UAV_TYPED : VSIR_OP_LD, resource, sm6);
@@ -6829,8 +6761,6 @@ static void sm6_parser_emit_dx_buffer_store(struct sm6_parser *sm6, enum dx_intr
     if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_STORE_UAV_TYPED);
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
@@ -6865,8 +6795,6 @@ static void sm6_parser_emit_dx_get_sample_count(struct sm6_parser *dxil, enum dx
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_SAMPLE_INFO);
     ins->flags = VKD3DSI_SAMPLE_INFO_UINT;
@@ -6906,8 +6834,6 @@ static void sm6_parser_emit_dx_get_sample_pos(struct sm6_parser *dxil, enum dx_i
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_SAMPLE_POS);
 
@@ -6980,8 +6906,6 @@ static void sm6_parser_emit_dx_sample(struct sm6_parser *dxil, enum dx_intrinsic
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     switch (op)
     {
@@ -7081,8 +7005,6 @@ static void sm6_parser_emit_dx_sample_index(struct sm6_parser *dxil, enum dx_int
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
 
     if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
@@ -7107,8 +7029,6 @@ static void sm6_parser_emit_dx_saturate(struct sm6_parser *dxil, enum dx_intrins
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_SATURATE);
 
     if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
@@ -7131,8 +7051,6 @@ static void sm6_parser_emit_dx_split_double(struct sm6_parser *dxil, enum dx_int
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
 
@@ -7192,8 +7110,6 @@ static void sm6_parser_emit_dx_store_output(struct sm6_parser *dxil, enum dx_int
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
 
     if (!(dst_param = instruction_dst_params_alloc(ins, 1, dxil)))
@@ -7250,8 +7166,6 @@ static void sm6_parser_emit_dx_texture_gather(struct sm6_parser *dxil, enum dx_i
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     if (op == DX_TEXTURE_GATHER)
     {
@@ -7321,8 +7235,6 @@ static void sm6_parser_emit_dx_texture_load(struct sm6_parser *dxil, enum dx_int
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     instruction_init_with_resource(ins, is_uav ? VSIR_OP_LD_UAV_TYPED
             : is_multisample ? VSIR_OP_LD2DMS : VSIR_OP_LD, resource, dxil);
     instruction_set_texel_offset(ins, &operands[5], 3, dxil);
@@ -7383,8 +7295,6 @@ static void sm6_parser_emit_dx_texture_store(struct sm6_parser *dxil, enum dx_in
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_STORE_UAV_TYPED);
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, dxil)))
@@ -7414,8 +7324,6 @@ static void sm6_parser_emit_dx_wave_active_ballot(struct sm6_parser *dxil, enum 
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_WAVE_ACTIVE_BALLOT);
 
@@ -7465,8 +7373,6 @@ static void sm6_parser_emit_dx_wave_active_bit(struct sm6_parser *dxil, enum dx_
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, opcode);
 
@@ -7525,8 +7431,6 @@ static void sm6_parser_emit_dx_wave_op(struct sm6_parser *dxil, enum dx_intrinsi
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, opcode);
     ins->flags = (op == DX_WAVE_PREFIX_OP) ? VKD3DSI_WAVE_PREFIX : 0;
@@ -8049,8 +7953,6 @@ static void sm6_parser_emit_cast(struct sm6_parser *dxil, struct function_emissi
 
     dst->type = type;
 
-    state->pushed_instruction = true;
-
     if (sm6_type_is_pointer(type))
     {
         *dst = *value;
@@ -8171,8 +8073,6 @@ static void sm6_parser_emit_cmp2(struct sm6_parser *dxil, struct function_emissi
     is_fp = sm6_type_is_floating_point(type_a);
 
     code = record->operands[i++];
-
-    state->pushed_instruction = true;
 
     /* dxcompiler occasionally emits bool not-equal-to-false, which is a no-op. Bool comparisons
      * do not otherwise occur, so deleting these avoids the need for backend support. */
@@ -8304,8 +8204,6 @@ static void sm6_parser_emit_cmpxchg(struct sm6_parser *dxil, struct function_emi
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_IMM_ATOMIC_CMP_EXCH);
     ins->flags = is_volatile ? VKD3DARF_VOLATILE : 0;
 
@@ -8382,8 +8280,6 @@ static void sm6_parser_emit_extractval(struct sm6_parser *dxil, struct function_
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOV);
 
@@ -8484,11 +8380,6 @@ static void sm6_parser_emit_gep(struct sm6_parser *dxil, struct function_emissio
 
     index->index = elem_value;
     index->is_in_bounds = record->operands[0];
-
-    /* Well, not really, but the point here is that we pushed all the
-     * instructions we had to (i.e., none), and sm6_parser_function_init()
-     * doesn't have to do it for us. */
-    state->pushed_instruction = true;
 }
 
 static void sm6_parser_emit_load(struct sm6_parser *dxil, struct function_emission_state *state)
@@ -8536,8 +8427,6 @@ static void sm6_parser_emit_load(struct sm6_parser *dxil, struct function_emissi
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     if (ptr->structure_stride)
     {
@@ -8676,8 +8565,6 @@ static void sm6_parser_emit_phi(struct sm6_parser *dxil, struct function_emissio
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_PHI);
 
     if (!(src_params = instruction_src_params_alloc(ins, incoming_count * 2u, dxil)))
@@ -8714,8 +8601,6 @@ static void sm6_parser_emit_ret(struct sm6_parser *dxil, struct function_emissio
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_RET);
 }
@@ -8762,8 +8647,6 @@ static void sm6_parser_emit_store(struct sm6_parser *dxil, struct function_emiss
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     if (ptr->structure_stride)
     {
@@ -8857,8 +8740,6 @@ static void sm6_parser_emit_switch(struct sm6_parser *dxil, struct function_emis
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    state->pushed_instruction = true;
-
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_SWITCH_MONOLITHIC);
 
     if (!(src_params = instruction_src_params_alloc(ins, record->operand_count, dxil)))
@@ -8945,8 +8826,6 @@ static void sm6_parser_emit_vselect(struct sm6_parser *dxil, struct function_emi
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
-
-    state->pushed_instruction = true;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOVC);
 
@@ -9412,9 +9291,6 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
 
         if (record->attachment)
             metadata_attachment_record_apply(record->attachment, record->code, ins, dst, sm6);
-
-        if (!state.pushed_instruction)
-            function->instructions.count += ins->opcode != VSIR_OP_NOP;
 
         if (is_terminator)
         {
