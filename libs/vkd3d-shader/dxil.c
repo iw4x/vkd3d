@@ -8722,9 +8722,9 @@ static void sm6_parser_emit_ret(struct sm6_parser *dxil, struct function_emissio
 
 static void sm6_parser_emit_store(struct sm6_parser *dxil, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
     unsigned int i = 0, alignment, operand_count;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     struct vsir_dst_operand *dst_param;
     const struct sm6_value *ptr, *src;
@@ -8760,13 +8760,22 @@ static void sm6_parser_emit_store(struct sm6_parser *dxil, struct function_emiss
 
     vsir_register_from_dxil_value(&reg, ptr, 0, dxil);
 
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     if (ptr->structure_stride)
     {
         VKD3D_ASSERT(reg.type == VKD3DSPR_GROUPSHAREDMEM);
         vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_STORE_STRUCTURED);
 
         if (!(src_params = instruction_src_params_alloc(ins, 3, dxil)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
             return;
+        }
+
         if (reg.idx[1].rel_addr)
             src_params[0] = *reg.idx[1].rel_addr;
         else
@@ -8781,13 +8790,22 @@ static void sm6_parser_emit_store(struct sm6_parser *dxil, struct function_emiss
         vsir_instruction_init(ins, &dxil->p.location, (operand_count > 1) ? VSIR_OP_STORE_RAW : VSIR_OP_MOV);
 
         if (!(src_params = instruction_src_params_alloc(ins, operand_count, dxil)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
             return;
+        }
+
         if (operand_count > 1)
             src_param_make_constant_uint(&src_params[0], 0);
         src_param_init_from_value(&src_params[operand_count - 1], src, 0, dxil);
     }
 
-    dst_param = instruction_dst_params_alloc(ins, 1, dxil);
+    if (!(dst_param = instruction_dst_params_alloc(ins, 1, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
+
     dst_param_init(dst_param);
     dst_param->reg = reg;
     dst_param->reg.alignment = alignment;
