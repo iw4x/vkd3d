@@ -8919,8 +8919,8 @@ static void sm6_parser_emit_switch(struct sm6_parser *dxil, struct function_emis
 static void sm6_parser_emit_vselect(struct sm6_parser *dxil, struct function_emission_state *state)
 {
     struct sm6_value *dst = sm6_parser_get_current_value(dxil);
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     const struct sm6_value *src[3];
     unsigned int i = 0;
@@ -8943,16 +8943,26 @@ static void sm6_parser_emit_vselect(struct sm6_parser *dxil, struct function_emi
     if (!sm6_value_validate_is_bool(src[0], dxil))
         return;
 
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOVC);
 
     if (!(src_params = instruction_src_params_alloc(ins, 3, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         return;
+    }
+
     for (i = 0; i < 3; ++i)
     {
         src_param_init_from_value(&src_params[i], src[i], 0, dxil);
     }
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, dxil);
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, dxil))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static bool sm6_metadata_value_is_node(const struct sm6_metadata_value *m)
