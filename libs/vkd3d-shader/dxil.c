@@ -8495,9 +8495,9 @@ static void sm6_parser_emit_load(struct sm6_parser *dxil, struct function_emissi
 {
     struct sm6_value *dst = sm6_parser_get_current_value(dxil);
     const struct sm6_type *elem_type = NULL, *pointee_type;
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
     unsigned int alignment, operand_count, i = 0;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     struct vkd3d_shader_register reg;
     const struct sm6_value *ptr;
@@ -8534,13 +8534,22 @@ static void sm6_parser_emit_load(struct sm6_parser *dxil, struct function_emissi
 
     vsir_register_from_dxil_value(&reg, ptr, 0, dxil);
 
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     if (ptr->structure_stride)
     {
         VKD3D_ASSERT(reg.type == VKD3DSPR_GROUPSHAREDMEM);
         vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_LD_STRUCTURED);
 
         if (!(src_params = instruction_src_params_alloc(ins, 3, dxil)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
             return;
+        }
+
         if (reg.idx[1].rel_addr)
             src_params[0] = *reg.idx[1].rel_addr;
         else
@@ -8558,14 +8567,19 @@ static void sm6_parser_emit_load(struct sm6_parser *dxil, struct function_emissi
         vsir_instruction_init(ins, &dxil->p.location, (operand_count > 1) ? VSIR_OP_LD_RAW : VSIR_OP_MOV);
 
         if (!(src_params = instruction_src_params_alloc(ins, operand_count, dxil)))
+        {
+            vkd3d_shader_instruction_make_nop(ins);
             return;
+        }
+
         if (operand_count > 1)
             src_param_make_constant_uint(&src_params[0], 0);
         src_param_init_from_value(&src_params[operand_count - 1], ptr, 0, dxil);
         src_params[operand_count - 1].reg.alignment = alignment;
     }
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, dxil);
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, dxil))
+        vkd3d_shader_instruction_make_nop(ins);
 }
 
 static int phi_incoming_compare(const void *a, const void *b)
