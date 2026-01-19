@@ -8700,9 +8700,11 @@ done:
     vkd3d_free(incoming);
 }
 
-static void sm6_parser_emit_ret(struct sm6_parser *dxil,
-        const struct dxil_record *record, struct vkd3d_shader_instruction *ins)
+static void sm6_parser_emit_ret(struct sm6_parser *dxil, struct function_emission_state *state)
 {
+    struct vkd3d_shader_instruction *ins = state->ins;
+    const struct dxil_record *record = state->record;
+
     if (!dxil_record_validate_operand_count(record, 0, 1, dxil))
         return;
 
@@ -9346,7 +9348,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 sm6_parser_emit_phi(sm6, &state);
                 break;
             case FUNC_CODE_INST_RET:
-                sm6_parser_emit_ret(sm6, record, ins);
+                sm6_parser_emit_ret(sm6, &state);
                 is_terminator = true;
                 ret_found = true;
                 break;
