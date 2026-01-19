@@ -8592,9 +8592,9 @@ static int phi_incoming_compare(const void *a, const void *b)
 static void sm6_parser_emit_phi(struct sm6_parser *dxil, struct function_emission_state *state)
 {
     struct sm6_value *dst = sm6_parser_get_current_value(dxil);
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
     struct sm6_function *function = state->function;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     unsigned int i, j, incoming_count;
     struct incoming_value *incoming;
@@ -8673,9 +8673,18 @@ static void sm6_parser_emit_phi(struct sm6_parser *dxil, struct function_emissio
     }
     incoming_count = j;
 
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_PHI);
+
     if (!(src_params = instruction_src_params_alloc(ins, incoming_count * 2u, dxil)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
         goto done;
+    }
 
     for (i = 0; i < incoming_count; ++i)
     {
@@ -8684,7 +8693,8 @@ static void sm6_parser_emit_phi(struct sm6_parser *dxil, struct function_emissio
         vsir_src_operand_init_label(&src_params[j + 1], incoming[i].block_idx + 1);
     }
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, dxil);
+    if (!instruction_dst_param_init_ssa_scalar(ins, 0, dxil))
+        vkd3d_shader_instruction_make_nop(ins);
 
 done:
     vkd3d_free(incoming);
