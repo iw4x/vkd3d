@@ -8816,9 +8816,9 @@ static void sm6_parser_emit_store(struct sm6_parser *dxil, struct function_emiss
 
 static void sm6_parser_emit_switch(struct sm6_parser *dxil, struct function_emission_state *state)
 {
-    struct vkd3d_shader_instruction *ins = state->ins;
     const struct dxil_record *record = state->record;
     struct sm6_function *function = state->function;
+    struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_params;
     const struct sm6_type *type;
     const struct sm6_value *src;
@@ -8854,7 +8854,13 @@ static void sm6_parser_emit_switch(struct sm6_parser *dxil, struct function_emis
     if (!sm6_function_validate_block_index(function, record->operands[2], dxil))
         return;
 
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
+
+    state->pushed_instruction = true;
+
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_SWITCH_MONOLITHIC);
+
     if (!(src_params = instruction_src_params_alloc(ins, record->operand_count, dxil)))
     {
         vkd3d_shader_instruction_make_nop(ins);
