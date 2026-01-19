@@ -8916,42 +8916,43 @@ static void sm6_parser_emit_switch(struct sm6_parser *dxil, struct function_emis
     }
 }
 
-static void sm6_parser_emit_vselect(struct sm6_parser *sm6, const struct dxil_record *record,
-        struct vkd3d_shader_instruction *ins, struct sm6_value *dst)
+static void sm6_parser_emit_vselect(struct sm6_parser *dxil, struct function_emission_state *state)
 {
+    struct sm6_value *dst = sm6_parser_get_current_value(dxil);
+    struct vkd3d_shader_instruction *ins = state->ins;
+    const struct dxil_record *record = state->record;
     struct vsir_src_operand *src_params;
     const struct sm6_value *src[3];
     unsigned int i = 0;
 
-    if (!(src[1] = sm6_parser_get_value_by_ref(sm6, record, NULL, &i))
-            || !(src[2] = sm6_parser_get_value_by_ref(sm6, record, src[1]->type, &i))
-            || !(src[0] = sm6_parser_get_value_by_ref(sm6, record, NULL, &i)))
-    {
+    if (!(src[1] = sm6_parser_get_value_by_ref(dxil, record, NULL, &i))
+            || !(src[2] = sm6_parser_get_value_by_ref(dxil, record, src[1]->type, &i))
+            || !(src[0] = sm6_parser_get_value_by_ref(dxil, record, NULL, &i)))
         return;
-    }
-    dxil_record_validate_operand_max_count(record, i, sm6);
+
+    dxil_record_validate_operand_max_count(record, i, dxil);
 
     for (i = 0; i < 3; ++i)
     {
-        if (!sm6_value_validate_is_register(src[i], sm6))
+        if (!sm6_value_validate_is_register(src[i], dxil))
             return;
     }
 
     dst->type = src[1]->type;
 
-    if (!sm6_value_validate_is_bool(src[0], sm6))
+    if (!sm6_value_validate_is_bool(src[0], dxil))
         return;
 
-    vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOVC);
+    vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_MOVC);
 
-    if (!(src_params = instruction_src_params_alloc(ins, 3, sm6)))
+    if (!(src_params = instruction_src_params_alloc(ins, 3, dxil)))
         return;
     for (i = 0; i < 3; ++i)
     {
-        src_param_init_from_value(&src_params[i], src[i], 0, sm6);
+        src_param_init_from_value(&src_params[i], src[i], 0, dxil);
     }
 
-    instruction_dst_param_init_ssa_scalar(ins, 0, sm6);
+    instruction_dst_param_init_ssa_scalar(ins, 0, dxil);
 }
 
 static bool sm6_metadata_value_is_node(const struct sm6_metadata_value *m)
@@ -9387,7 +9388,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
                 is_terminator = true;
                 break;
             case FUNC_CODE_INST_VSELECT:
-                sm6_parser_emit_vselect(sm6, record, ins, dst);
+                sm6_parser_emit_vselect(sm6, &state);
                 break;
             default:
                 FIXME("Unhandled dxil instruction %u.\n", record->code);
