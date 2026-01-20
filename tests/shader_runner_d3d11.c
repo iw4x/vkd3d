@@ -674,6 +674,9 @@ static struct resource *d3d11_runner_create_resource(struct shader_runner *r, co
                     params->stride, params->data);
             resource->resource = (ID3D11Resource *)resource->buffer;
             break;
+
+        case RESOURCE_TYPE_UNIFORM_BUFFER:
+            fatal_error("Uniform buffer resource creation not implemented.\n");
     }
 
     return &resource->r;
@@ -763,6 +766,7 @@ static bool d3d11_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
             case RESOURCE_TYPE_RENDER_TARGET:
             case RESOURCE_TYPE_DEPTH_STENCIL:
             case RESOURCE_TYPE_VERTEX_BUFFER:
+            case RESOURCE_TYPE_UNIFORM_BUFFER:
                 break;
         }
     }
@@ -966,6 +970,9 @@ static bool d3d11_runner_draw(struct shader_runner *r,
                 ID3D11DeviceContext_IASetVertexBuffers(context, resource->r.desc.slot, 1,
                         (ID3D11Buffer **)&resource->resource, &stride, &offset);
                 break;
+
+            case RESOURCE_TYPE_UNIFORM_BUFFER:
+                break;
         }
     }
 
@@ -1144,6 +1151,7 @@ static struct resource_readback *d3d11_runner_get_resource_readback(struct shade
 
         case RESOURCE_TYPE_VERTEX_BUFFER:
         case RESOURCE_TYPE_TEXTURE:
+        case RESOURCE_TYPE_UNIFORM_BUFFER:
             assert(0);
     }
 

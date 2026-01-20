@@ -972,10 +972,8 @@ static void set_default_target(struct shader_runner *runner)
     set_resource(runner, &params);
 }
 
-static void write_cbv(struct shader_runner *runner, unsigned int slot,
-        size_t offset, size_t count, const void *data)
+static void uniform_buffer_write(struct uniform_buffer *u, size_t offset, size_t count, const void *data)
 {
-    struct uniform_buffer *u = &runner->uniform_buffers[slot];
     size_t initial_count;
 
     initial_count = u->count;
@@ -1112,6 +1110,27 @@ static void read_uint64_t2(const char **line, struct u64vec2 *v)
 static bool parse_resource_reference(const char **const line, enum resource_type *type, unsigned int *slot)
 {
     int len;
+
+    if (match_string(*line, "cbv-f32", line))
+    {
+        *type = RESOURCE_TYPE_UNIFORM_BUFFER;
+        *slot = VKD3D_SHADER_D3DBC_FLOAT_CONSTANT_REGISTER;
+        return true;
+    }
+
+    if (match_string(*line, "cbv-i32", line))
+    {
+        *type = RESOURCE_TYPE_UNIFORM_BUFFER;
+        *slot = VKD3D_SHADER_D3DBC_INT_CONSTANT_REGISTER;
+        return true;
+    }
+
+    if (sscanf(*line, " cbv-%u%n", slot, &len) == 1)
+    {
+        *type = RESOURCE_TYPE_UNIFORM_BUFFER;
+        *line += len;
+        return true;
+    }
 
     if (match_string(*line, "dsv", line))
     {
@@ -1714,28 +1733,29 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
     else if (match_string(line, "write", &line))
     {
         unsigned int slot, offset;
+        struct uniform_buffer *u;
+        enum resource_type type;
         struct literal l;
         int len;
 
-        if (match_string(line, "cbv-0", &line))
-            slot = 0;
-        else if (match_string(line, "cbv-f32", &line))
-            slot = VKD3D_SHADER_D3DBC_FLOAT_CONSTANT_REGISTER;
-        else if (match_string(line, "cbv-i32", &line))
-            slot = VKD3D_SHADER_D3DBC_INT_CONSTANT_REGISTER;
-        else
-            fatal_error("Malformed write arguments '%s'.\n", line);
+        if (!parse_resource_reference(&line, &type, &slot))
+            fatal_error("Malformed resource reference '%s'.\n", line);
+        if (type != RESOURCE_TYPE_UNIFORM_BUFFER)
+            fatal_error("Unhandled resource type %#x.\n", type);
+        if (slot >= ARRAY_SIZE(runner->uniform_buffers))
+            fatal_error("Undefined resource.\n");
+        u = &runner->uniform_buffers[slot];
 
         if (sscanf(line, " ( %u )%n", &offset, &len) != 1)
             fatal_error("Malformed write arguments '%s'.\n", line);
         line += len;
 
         read_literal(&line, &l);
-        write_cbv(runner, slot, offset, l.u32_count, &l.v.u32);
+        uniform_buffer_write(u, offset, l.u32_count, &l.v.u32);
     }
     else if (match_string(line, "uniform", &line))
     {
-        unsigned int slot = VKD3D_SHADER_D3DBC_FLOAT_CONSTANT_REGISTER;
+        struct uniform_buffer *u = &runner->uniform_buffers[VKD3D_SHADER_D3DBC_FLOAT_CONSTANT_REGISTER];
         unsigned int offset;
 
         if (!sscanf(line, "%u", &offset))
@@ -1750,14 +1770,14 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
             read_f32(&line, &v.y);
             read_f32(&line, &v.z);
             read_f32(&line, &v.w);
-            write_cbv(runner, slot, offset, 4, &v);
+            uniform_buffer_write(u, offset, 4, &v);
         }
         else if (match_string(line, "float", &line))
         {
             float f;
 
             read_f32(&line, &f);
-            write_cbv(runner, slot, offset, 1, &f);
+            uniform_buffer_write(u, offset, 1, &f);
         }
         else if (match_string(line, "double2", &line))
         {
@@ -1765,49 +1785,49 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
 
             read_f64(&line, &v.x);
             read_f64(&line, &v.y);
-            write_cbv(runner, slot, offset, 4, &v);
+            uniform_buffer_write(u, offset, 4, &v);
         }
         else if (match_string(line, "int4", &line))
         {
             struct ivec4 v;
 
             read_int4(&line, &v);
-            write_cbv(runner, slot, offset, 4, &v);
+            uniform_buffer_write(u, offset, 4, &v);
         }
         else if (match_string(line, "uint4", &line))
         {
             struct uvec4 v;
 
             read_uint4(&line, &v);
-            write_cbv(runner, slot, offset, 4, &v);
+            uniform_buffer_write(u, offset, 4, &v);
         }
         else if (match_string(line, "int", &line))
         {
             int i;
 
             read_int(&line, &i, true);
-            write_cbv(runner, slot, offset, 1, &i);
+            uniform_buffer_write(u, offset, 1, &i);
         }
         else if (match_string(line, "uint", &line))
         {
-            unsigned int u;
+            unsigned int v;
 
-            read_uint(&line, &u, true);
-            write_cbv(runner, slot, offset, 1, &u);
+            read_uint(&line, &v, true);
+            uniform_buffer_write(u, offset, 1, &v);
         }
         else if (match_string(line, "int64_t2", &line))
         {
             struct i64vec2 v;
 
             read_int64_t2(&line, &v);
-            write_cbv(runner, slot, offset, 4, &v);
+            uniform_buffer_write(u, offset, 4, &v);
         }
         else if (match_string(line, "uint64_t2", &line))
         {
             struct u64vec2 v;
 
             read_uint64_t2(&line, &v);
-            write_cbv(runner, slot, offset, 4, &v);
+            uniform_buffer_write(u, offset, 4, &v);
         }
         else
         {
@@ -2648,6 +2668,7 @@ static void set_default_descriptor_mapping(struct shader_runner *runner)
             case RESOURCE_TYPE_RENDER_TARGET:
             case RESOURCE_TYPE_DEPTH_STENCIL:
             case RESOURCE_TYPE_VERTEX_BUFFER:
+            case RESOURCE_TYPE_UNIFORM_BUFFER:
                 break;
         }
     }

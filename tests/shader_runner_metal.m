@@ -298,6 +298,7 @@ static void init_resource_texture(struct metal_runner *runner,
             break;
 
         case RESOURCE_TYPE_VERTEX_BUFFER:
+        case RESOURCE_TYPE_UNIFORM_BUFFER:
             break;
     }
 
@@ -368,6 +369,9 @@ static struct resource *metal_runner_create_resource(struct shader_runner *r, co
         case RESOURCE_TYPE_VERTEX_BUFFER:
             init_resource_buffer(runner, resource, params);
             break;
+
+        case RESOURCE_TYPE_UNIFORM_BUFFER:
+            fatal_error("Uniform buffer resource creation not implemented.\n");
     }
 
     return &resource->r;

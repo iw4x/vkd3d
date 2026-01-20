@@ -235,6 +235,9 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
         case RESOURCE_TYPE_VERTEX_BUFFER:
             resource->resource = create_upload_buffer(device, params->data_size, params->data);
             break;
+
+        case RESOURCE_TYPE_UNIFORM_BUFFER:
+            fatal_error("Uniform buffer resource creation not implemented.\n");
     }
 
     free(resource_data);
@@ -968,6 +971,7 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
 
             case RESOURCE_TYPE_TEXTURE:
             case RESOURCE_TYPE_UAV:
+            case RESOURCE_TYPE_UNIFORM_BUFFER:
                 break;
         }
     }

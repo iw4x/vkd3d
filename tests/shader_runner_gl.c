@@ -616,6 +616,9 @@ static struct resource *gl_runner_create_resource(struct shader_runner *r, const
             glBindBuffer(GL_ARRAY_BUFFER, resource->id);
             glBufferData(GL_ARRAY_BUFFER, params->data_size, params->data, GL_STATIC_DRAW);
             break;
+
+        case RESOURCE_TYPE_UNIFORM_BUFFER:
+            fatal_error("Uniform buffer resource creation not implemented.\n");
     }
 
     return &resource->r;
@@ -644,6 +647,9 @@ static void gl_runner_destroy_resource(struct shader_runner *r, struct resource 
 
         case RESOURCE_TYPE_VERTEX_BUFFER:
             glDeleteBuffers(1, &resource->id);
+            break;
+
+        case RESOURCE_TYPE_UNIFORM_BUFFER:
             break;
     }
 
@@ -1014,6 +1020,7 @@ static bool gl_runner_dispatch(struct shader_runner *r, unsigned int x, unsigned
             case RESOURCE_TYPE_DEPTH_STENCIL:
             case RESOURCE_TYPE_VERTEX_BUFFER:
             case RESOURCE_TYPE_TEXTURE:
+            case RESOURCE_TYPE_UNIFORM_BUFFER:
                 break;
 
             case RESOURCE_TYPE_UAV:
@@ -1413,6 +1420,7 @@ static bool gl_runner_draw(struct shader_runner *r,
                 break;
 
             case RESOURCE_TYPE_TEXTURE:
+            case RESOURCE_TYPE_UNIFORM_BUFFER:
                 break;
 
             case RESOURCE_TYPE_UAV:

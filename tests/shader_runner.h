@@ -80,6 +80,7 @@ enum resource_type
     RESOURCE_TYPE_TEXTURE,
     RESOURCE_TYPE_UAV,
     RESOURCE_TYPE_VERTEX_BUFFER,
+    RESOURCE_TYPE_UNIFORM_BUFFER,
 };
 
 enum resource_dimension

@@ -364,6 +364,9 @@ static struct resource *d3d9_runner_create_resource(struct shader_runner *r, con
             hr = IDirect3DVertexBuffer9_Unlock(resource->vb);
             ok(hr == D3D_OK, "Failed to unmap texture, hr %#lx.\n", hr);
             break;
+
+        case RESOURCE_TYPE_UNIFORM_BUFFER:
+            fatal_error("Uniform buffer resource creation not implemented.\n");
     }
 
     return &resource->r;
@@ -553,6 +556,9 @@ static bool d3d9_runner_draw(struct shader_runner *r,
 
                 hr = IDirect3DDevice9_SetStreamSource(device, resource->r.desc.slot, resource->vb, 0, stride);
                 ok(hr == D3D_OK, "Failed to set vertex buffer, hr %#lx.\n", hr);
+                break;
+
+            case RESOURCE_TYPE_UNIFORM_BUFFER:
                 break;
         }
     }

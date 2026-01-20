@@ -266,6 +266,9 @@ static struct resource *vulkan_runner_create_resource(struct shader_runner *r, c
             memcpy(data, params->data, params->data_size);
             VK_CALL(vkUnmapMemory(device, resource->memory));
             break;
+
+        case RESOURCE_TYPE_UNIFORM_BUFFER:
+            fatal_error("Uniform buffer resource creation not implemented.\n");
     }
 
     return &resource->r;
@@ -876,6 +879,7 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
         {
             case RESOURCE_TYPE_TEXTURE:
             case RESOURCE_TYPE_UAV:
+            case RESOURCE_TYPE_UNIFORM_BUFFER:
                 break;
 
             case RESOURCE_TYPE_RENDER_TARGET:
@@ -1236,6 +1240,7 @@ static void bind_resources(struct vulkan_shader_runner *runner, VkPipelineBindPo
             case RESOURCE_TYPE_UAV:
             case RESOURCE_TYPE_RENDER_TARGET:
             case RESOURCE_TYPE_DEPTH_STENCIL:
+            case RESOURCE_TYPE_UNIFORM_BUFFER:
                 break;
         }
     }
