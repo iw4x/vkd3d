@@ -48,7 +48,7 @@ float4 main(float4 tex : texcoord) : color
 
 [test]
 draw quad
-copy rtv 0 srv 1
+copy rtv-0 srv-1
 
 [vertex shader]
 void main(inout float4 pos : position, out float4 tex0 : texcoord, out float4 tex1 : texcoord1)

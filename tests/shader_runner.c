@@ -1111,23 +1111,44 @@ static void read_uint64_t2(const char **line, struct u64vec2 *v)
 
 static bool parse_resource_reference(const char **const line, enum resource_type *type, unsigned int *slot)
 {
+    int len;
+
     if (match_string(*line, "dsv", line))
+    {
         *type = RESOURCE_TYPE_DEPTH_STENCIL;
-    else if (match_string(*line, "rtv", line))
+        *slot = 0;
+        return true;
+    }
+
+    if (sscanf(*line, " rtv-%u%n", slot, &len) == 1)
+    {
         *type = RESOURCE_TYPE_RENDER_TARGET;
-    else if (match_string(*line, "srv", line))
+        *line += len;
+        return true;
+    }
+
+    if (sscanf(*line, " srv-%u%n", slot, &len) == 1)
+    {
         *type = RESOURCE_TYPE_TEXTURE;
-    else if (match_string(*line, "uav", line))
+        *line += len;
+        return true;
+    }
+
+    if (sscanf(*line, " uav-%u%n", slot, &len) == 1)
+    {
         *type = RESOURCE_TYPE_UAV;
-    else if (match_string(*line, "vb", line))
+        *line += len;
+        return true;
+    }
+
+    if (sscanf(*line, " vb-%u%n", slot, &len) == 1)
+    {
         *type = RESOURCE_TYPE_VERTEX_BUFFER;
-    else
-        return false;
+        *line += len;
+        return true;
+    }
 
-    if (*type != RESOURCE_TYPE_DEPTH_STENCIL)
-        read_uint(line, slot, false);
-
-    return true;
+    return false;
 }
 
 static void read_literal(const char **line, struct literal *l)
