@@ -90,6 +90,8 @@ enum vkd3d_shader_error
     VKD3D_SHADER_ERROR_TPF_INVALID_REGISTER_DIMENSION   = 1008,
     VKD3D_SHADER_ERROR_TPF_INVALID_REGISTER_SWIZZLE     = 1009,
     VKD3D_SHADER_ERROR_TPF_INVALID_REGISTER_DCL         = 1010,
+    VKD3D_SHADER_ERROR_TPF_INTERNAL                     = 1011,
+    VKD3D_SHADER_ERROR_TPF_NOT_IMPLEMENTED              = 1012,
 
     VKD3D_SHADER_WARNING_TPF_MASK_NOT_CONTIGUOUS        = 1300,
     VKD3D_SHADER_WARNING_TPF_UNHANDLED_INDEX_RANGE_MASK = 1301,
@@ -290,6 +292,22 @@ enum vkd3d_shader_error
     VKD3D_SHADER_ERROR_FX_INVALID_SIZE                  = 11003,
     VKD3D_SHADER_ERROR_FX_OUT_OF_MEMORY                 = 11004,
 };
+
+static inline enum vkd3d_result vkd3d_result_from_shader_error(enum vkd3d_shader_error e)
+{
+    if (!e)
+        return VKD3D_OK;
+
+    switch (e)
+    {
+        case VKD3D_SHADER_ERROR_TPF_OUT_OF_MEMORY:
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        case VKD3D_SHADER_ERROR_TPF_NOT_IMPLEMENTED:
+            return VKD3D_ERROR_NOT_IMPLEMENTED;
+        default:
+            return VKD3D_ERROR_INVALID_SHADER;
+    }
+}
 
 enum vkd3d_shader_opcode
 {
