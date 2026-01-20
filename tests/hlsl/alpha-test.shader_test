@@ -22,57 +22,57 @@ float4 main(float alpha : texcoord) : sv_target
 [test]
 
 alpha test always
-clear rtv 0  1 0 0 1
+clear rtv-0 f32(1, 0, 0, 1)
 draw quad
-probe (160, 0) rgba (0, 1, 0, 0.5)
-probe (320, 0) rgba (0, 1, 0, 1.0)
-probe (480, 0) rgba (0, 1, 0, 1.5)
+probe (160, 0) f32(0, 1, 0, 0.5)
+probe (320, 0) f32(0, 1, 0, 1.0)
+probe (480, 0) f32(0, 1, 0, 1.5)
 
 alpha test equal 1.0
-clear rtv 0  1 0 0 1
+clear rtv-0 f32(1, 0, 0, 1)
 draw quad
-probe (160, 0) rgba (1, 0, 0, 1)
-probe (320, 0) rgba (0, 1, 0, 1.0)
-probe (480, 0) rgba (1, 0, 0, 1)
+probe (160, 0) f32(1, 0, 0, 1)
+probe (320, 0) f32(0, 1, 0, 1.0)
+probe (480, 0) f32(1, 0, 0, 1)
 
 alpha test not equal 1.0
-clear rtv 0  1 0 0 1
+clear rtv-0 f32(1, 0, 0, 1)
 draw quad
-probe (160, 0) rgba (0, 1, 0, 0.5)
-probe (320, 0) rgba (1, 0, 0, 1)
-probe (480, 0) rgba (0, 1, 0, 1.5)
+probe (160, 0) f32(0, 1, 0, 0.5)
+probe (320, 0) f32(1, 0, 0, 1)
+probe (480, 0) f32(0, 1, 0, 1.5)
 
 alpha test greater 1.0
-clear rtv 0  1 0 0 1
+clear rtv-0 f32(1, 0, 0, 1)
 draw quad
-probe (160, 0) rgba (1, 0, 0, 1)
-probe (320, 0) rgba (1, 0, 0, 1)
-probe (480, 0) rgba (0, 1, 0, 1.5)
+probe (160, 0) f32(1, 0, 0, 1)
+probe (320, 0) f32(1, 0, 0, 1)
+probe (480, 0) f32(0, 1, 0, 1.5)
 
 alpha test greater equal 1.0
-clear rtv 0  1 0 0 1
+clear rtv-0 f32(1, 0, 0, 1)
 draw quad
-probe (160, 0) rgba (1, 0, 0, 1)
-probe (320, 0) rgba (0, 1, 0, 1.0)
-probe (480, 0) rgba (0, 1, 0, 1.5)
+probe (160, 0) f32(1, 0, 0, 1)
+probe (320, 0) f32(0, 1, 0, 1.0)
+probe (480, 0) f32(0, 1, 0, 1.5)
 
 alpha test less equal 1.0
-clear rtv 0  1 0 0 1
+clear rtv-0 f32(1, 0, 0, 1)
 draw quad
-probe (160, 0) rgba (0, 1, 0, 0.5)
-probe (320, 0) rgba (0, 1, 0, 1.0)
-probe (480, 0) rgba (1, 0, 0, 1)
+probe (160, 0) f32(0, 1, 0, 0.5)
+probe (320, 0) f32(0, 1, 0, 1.0)
+probe (480, 0) f32(1, 0, 0, 1)
 
 alpha test less 1.0
-clear rtv 0  1 0 0 1
+clear rtv-0 f32(1, 0, 0, 1)
 draw quad
-probe (160, 0) rgba (0, 1, 0, 0.5)
-probe (320, 0) rgba (1, 0, 0, 1)
-probe (480, 0) rgba (1, 0, 0, 1)
+probe (160, 0) f32(0, 1, 0, 0.5)
+probe (320, 0) f32(1, 0, 0, 1)
+probe (480, 0) f32(1, 0, 0, 1)
 
 alpha test never
-clear rtv 0  1 0 0 1
+clear rtv-0 f32(1, 0, 0, 1)
 draw quad
-probe (160, 0) rgba (1, 0, 0, 1)
-probe (320, 0) rgba (1, 0, 0, 1)
-probe (480, 0) rgba (1, 0, 0, 1)
+probe (160, 0) f32(1, 0, 0, 1)
+probe (320, 0) f32(1, 0, 0, 1)
+probe (480, 0) f32(1, 0, 0, 1)

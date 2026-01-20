@@ -13,14 +13,13 @@ float4 main(out uint sample_mask : SV_Coverage) : SV_Target
 }
 
 [test]
-clear rtv 0 0.0 0.0 0.0 0.0
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 draw quad
-probe (0, 0) rgba (0.5, 0.5, 0.5, 0.5)
+probe (0, 0) f32(0.5, 0.5, 0.5, 0.5)
 sample mask 0x0b
-clear rtv 0 0.0 0.0 0.0 0.0
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 draw quad
-probe (0, 0) rgba (0.25, 0.25, 0.25, 0.25)
-
+probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
 
 [require]
 shader model >= 5.0
@@ -45,7 +44,7 @@ float4 main(float4 position : SV_Position, uint coverage : SV_Coverage) : SV_Tar
 
 [test]
 sample mask 0x01
-clear rtv 0 0.0 0.0 0.0 0.0
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 todo(sm<6 | msl) draw quad
 probe (0, 0) f32(0.0, 0.25, 0.0, 0.25)
 probe uav 1 (0, 0, 4, 4) u32(0x01)
@@ -67,7 +66,7 @@ size (2d, 4, 4)
 0   0   0   0
 
 [test]
-clear rtv 0 0.0 0.0 0.0 0.0
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 sample mask 0x09
 todo(sm<6 | msl) draw quad
 probe (0, 0) f32(0.0, 0.5, 0.0, 0.5)

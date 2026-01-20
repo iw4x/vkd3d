@@ -37,7 +37,7 @@ float4 main(float2 t : TEXCOORD0) : SV_Target
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 draw triangle list 3
 probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)
@@ -59,7 +59,7 @@ float4 main(centroid float2 t : TEXCOORD0) : SV_Target
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 draw triangle list 3
 probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)
@@ -80,7 +80,7 @@ float4 main(float2 t : TEXCOORD0_centRoid) : SV_Target
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 draw triangle list 3
 probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)
@@ -106,7 +106,7 @@ float4 main(ps_in data) : SV_Target
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 draw triangle list 3
 probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)
@@ -128,7 +128,7 @@ float4 main(centroid float2 t : TEXCOORD0_centroid) : SV_Target
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 draw triangle list 3
 probe (1, 1) f32(0.5, 0.5, 0.5, 0.5)
 probe (638, 1) f32(0.0, 0.0, 0.0, 0.0)

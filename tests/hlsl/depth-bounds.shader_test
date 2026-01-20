@@ -34,32 +34,32 @@ float4 main() : sv_target
 depth-bounds 0.3 0.6
 depth greater equal
 
-clear rtv 0 0.0 0.0 0.0 0.0
-clear dsv 0.0
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+clear dsv f32(0.0)
 draw quad
 probe (0, 0) f32(0, 0, 0, 0)
 probe uav 1 (0) f32(0.0)
 
-clear rtv 0 0.0 0.0 0.0 0.0
-clear dsv 0.3
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+clear dsv f32(0.3)
 draw quad
 probe (0, 0) f32(1, 1, 1, 1)
 probe uav 1 (0) f32(1.0)
 
-clear rtv 0 0.0 0.0 0.0 0.0
-clear dsv 0.5
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+clear dsv f32(0.5)
 draw quad
 probe (0, 0) f32(1, 1, 1, 1)
 probe uav 1 (0) f32(1.0)
 
-clear rtv 0 0.0 0.0 0.0 0.0
-clear dsv 0.6
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+clear dsv f32(0.6)
 draw quad
 probe (0, 0) f32(1, 1, 1, 1)
 probe uav 1 (0) f32(1.0)
 
-clear rtv 0 0.0 0.0 0.0 0.0
-clear dsv 1.0
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+clear dsv f32(1.0)
 draw quad
 probe (0, 0) f32(0, 0, 0, 0)
 probe uav 1 (0) f32(0.0)

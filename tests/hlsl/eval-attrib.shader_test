@@ -49,7 +49,7 @@ float4 main(float4 pos : SV_Position, uint sample_idx : SV_SampleIndex) : SV_Tar
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(msl & sm>=6) draw triangle list 3
 todo(vulkan | opengl & llvmpipe | d3d12) probe (  0,   0) f32(0.25, 0.25, 0.25, 0.25)
 todo(vulkan | opengl & llvmpipe | d3d12) probe (639,   0) f32(0.0, 0.0, 0.0, 0.0)
@@ -100,7 +100,7 @@ float4 main(centroid float4 pos : SV_Position, uint sample_idx : SV_SampleIndex)
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(glsl | msl & sm>=6) draw triangle list 3
 todo probe (  0,   0) f32(0.25, 0.25, 0.25, 0.25)
 todo(vulkan | opengl & llvmpipe | d3d12) probe (638,   0) f32(0.0, 0.0, 0.0, 0.0)
@@ -126,12 +126,12 @@ float4 main(sample float4 pos : SV_Position, uint sample_idx : SV_SampleIndex) :
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(sm<6 | msl) draw triangle list 3
-probe (  0,   0) rgba(0.25, 0.25, 0.25, 0.25)
-probe (639,   0) rgba(0.0, 0.0, 0.0, 0.0)
-probe (  0, 479) rgba(0.25, 0.25, 0.25, 0.25)
-probe (639, 479) rgba(0.0, 0.0, 0.0, 0.0)
+probe (  0,   0) f32(0.25, 0.25, 0.25, 0.25)
+probe (639,   0) f32(0.0, 0.0, 0.0, 0.0)
+probe (  0, 479) f32(0.25, 0.25, 0.25, 0.25)
+probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % Same tests with a non-SV semantic: pixel center interpolation.
 
@@ -145,12 +145,12 @@ float4 main(float4 pos : SV_Position, float2 attr : ATTR, uint sample_idx : SV_S
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(msl & sm>=6) draw triangle list 3
-probe (  0,   0) rgba(0.25, 0.25, 0.25, 0.25)
-probe (639,   0) rgba(0.0, 0.0, 0.0, 0.0)
-probe (  0, 479) rgba(0.25, 0.25, 0.25, 0.25)
-probe (639, 479) rgba(0.0, 0.0, 0.0, 0.0)
+probe (  0,   0) f32(0.25, 0.25, 0.25, 0.25)
+probe (639,   0) f32(0.0, 0.0, 0.0, 0.0)
+probe (  0, 479) f32(0.25, 0.25, 0.25, 0.25)
+probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % Centroid interpolation, which means the pixel center if all samples are
 % covered and the first covered sample if a least a sample is not covered (in
@@ -183,12 +183,12 @@ float4 main(float4 pos : SV_Position, centroid float2 attr : ATTR,
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(glsl | msl) draw triangle list 3
-todo(llvmpipe) probe (0, 0) rgba(0.25, 0.25, 0.25, 0.25)
-probe (638, 0) rgba(0.0, 0.0, 0.0, 0.0)
-probe (0, 478) rgba(0.25, 0.25, 0.25, 0.25)
-todo(llvmpipe) probe (639, 479) rgba(0.0, 0.0, 0.0, 0.0)
+todo(llvmpipe) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
+probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
+probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
+todo(llvmpipe) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 [pixel shader]
 static const float2 positions[4] =
@@ -214,7 +214,7 @@ float4 main(float4 pos : SV_Position, float2 attr : ATTR_centRoid,
 % leaving names unchanged.
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 if(sm<6) todo(msl | glsl) draw triangle list 3
 if(sm<6) todo(llvmpipe) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
 if(sm<6) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
@@ -247,7 +247,7 @@ float4 main(float4 pos : SV_Position, centroid float2 attr : ATTR_centRoid,
 % leaving names unchanged.
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 if(sm<6) todo(msl | glsl) draw triangle list 3
 if(sm<6) todo(llvmpipe) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
 if(sm<6) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
@@ -284,7 +284,7 @@ float4 main(ps_in data) : SV_Target
 % leaving names unchanged.
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 if(sm<6) todo(msl | glsl) draw triangle list 3
 if(sm<6) todo(llvmpipe) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
 if(sm<6) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
@@ -303,7 +303,7 @@ float4 main(float4 pos : SV_Position, float2 attr : ATTR, float2 attr2 : ATTR_ce
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(msl & sm>=6) draw triangle list 3
 probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
 probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
@@ -318,7 +318,7 @@ float4 main(float4 pos : SV_Position, float2 attr : ATTR, float2 attr2 : ATTR_ce
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 % This test causes the GPU to hang with MVK.
 if(sm<6 & !mvk) todo(msl | glsl) draw triangle list 3
 if(sm<6 & !mvk) todo probe (0, 0) f32(1.0, 1.75, 0.25, 0.25)
@@ -344,12 +344,12 @@ float4 main(float4 pos : SV_Position, sample float2 attr : ATTR,
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(sm<6 | msl) draw triangle list 3
-probe (  0,   0) rgba(0.25, 0.25, 0.25, 0.25)
-probe (639,   0) rgba(0.0, 0.0, 0.0, 0.0)
-probe (  0, 479) rgba(0.25, 0.25, 0.25, 0.25)
-probe (639, 479) rgba(0.0, 0.0, 0.0, 0.0)
+probe (  0,   0) f32(0.25, 0.25, 0.25, 0.25)
+probe (639,   0) f32(0.0, 0.0, 0.0, 0.0)
+probe (  0, 479) f32(0.25, 0.25, 0.25, 0.25)
+probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % Using EvaluateAttributeCentroid().
 
@@ -374,12 +374,12 @@ float4 main(float4 pos : SV_Position, float2 attr : ATTR,
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(sm<6 | msl) draw triangle list 3
-todo(llvmpipe) probe (  0,   0) rgba(0.25, 0.25, 0.25, 0.25)
-probe (638,   0) rgba(0.0, 0.0, 0.0, 0.0)
-probe (  0, 478) rgba(0.25, 0.25, 0.25, 0.25)
-todo(llvmpipe) probe (639, 479) rgba(0.0, 0.0, 0.0, 0.0)
+todo(llvmpipe) probe (  0,   0) f32(0.25, 0.25, 0.25, 0.25)
+probe (638,   0) f32(0.0, 0.0, 0.0, 0.0)
+probe (  0, 478) f32(0.25, 0.25, 0.25, 0.25)
+todo(llvmpipe) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % Using EvaluateAttributeAtSample().
 
@@ -415,12 +415,12 @@ float4 main(float4 pos : SV_Position, float2 attr : ATTR,
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(sm<6 | msl) draw triangle list 3
-probe (  0,   0) rgba(0.25, 0.25, 0.25, 0.25)
-probe (639,   0) rgba(0.0, 0.0, 0.0, 0.0)
-probe (  0, 479) rgba(0.25, 0.25, 0.25, 0.25)
-probe (639, 479) rgba(0.0, 0.0, 0.0, 0.0)
+probe (  0,   0) f32(0.25, 0.25, 0.25, 0.25)
+probe (639,   0) f32(0.0, 0.0, 0.0, 0.0)
+probe (  0, 479) f32(0.25, 0.25, 0.25, 0.25)
+probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 [require]
 shader model >= 6.0
@@ -441,7 +441,7 @@ float4 main(float4 pos : SV_Position, float2 attr : ATTR,
 }
 
 [test]
-clear rtv 0 1.0 1.0 1.0 1.0
+clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(glsl | msl) draw triangle list 3
 probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
 probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)

@@ -166,7 +166,7 @@ float4 main(uint id : sv_sampleindex) : sv_target
 }
 
 [test]
-clear rtv 0 0.0 0.0 0.0 0.0
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 draw quad
 todo(msl & sm>=6) probe (32, 32) f32(3.75, 0.25, 0.5, 1.0)
 copy rtv-0 srv-0

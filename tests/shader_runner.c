@@ -1389,32 +1389,24 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         todo_if(runner->is_todo) bug_if(runner->is_bug)
         ok(!runner->last_render_failed, "Dispatch failed.\n");
     }
-    else if (match_string(line, "clear rtv", &line))
+    else if (match_string(line, "clear", &line))
     {
         struct resource *resource;
+        enum resource_type type;
         unsigned int slot;
-        struct vec4 v;
+        struct literal l;
 
-        if (sscanf(line, "%u %f %f %f %f", &slot, &v.x, &v.y, &v.z, &v.w) < 5)
-            fatal_error("Malformed rtv clear arguments '%s'.\n", line);
+        if (!parse_resource_reference(&line, &type, &slot))
+            fatal_error("Malformed resource reference '%s'.\n", line);
+        if (type == RESOURCE_TYPE_RENDER_TARGET)
+            set_default_target(runner);
+        if (!(resource = shader_runner_get_resource(runner, type, slot)))
+            fatal_error("Undefined resource.\n");
+        read_literal(&line, &l);
+        if (l.data_type != DATA_F32)
+            fatal_error("Unhandled literal data type %#x.\n", l.data_type);
 
-        set_default_target(runner);
-
-        if (!(resource = shader_runner_get_resource(runner, RESOURCE_TYPE_RENDER_TARGET, slot)))
-            fatal_error("Resource not found.\n");
-        runner->ops->clear(runner, resource, &v);
-    }
-    else if (match_string(line, "clear dsv", &line))
-    {
-        struct resource *resource;
-        struct vec4 v = {0};
-
-        if (!sscanf(line, "%f", &v.x))
-            fatal_error("Malformed dsv clear arguments '%s'.\n", line);
-
-        if (!(resource = shader_runner_get_resource(runner, RESOURCE_TYPE_DEPTH_STENCIL, 0)))
-            fatal_error("Resource not found.\n");
-        runner->ops->clear(runner, resource, &v);
+        runner->ops->clear(runner, resource, &l.v.f32);
     }
     else if (match_string(line, "depth-bounds", &line))
     {

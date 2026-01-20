@@ -60,7 +60,7 @@ float4 main(struct ps_data ps_input) : SV_Target
 }
 
 [test]
-clear rtv 0 0.0 0.0 0.0 0.0
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 todo(glsl) draw point list 1
 probe rtv 0 (320, 190) f32(0.0, 0.0, 0.0, 0.0)
 probe rtv 0 (255, 240) f32(0.0, 0.0, 0.0, 0.0)
@@ -102,7 +102,7 @@ void main(point struct gs_data vin[1], inout TriangleStream<gs_data> vout,
 }
 
 [test]
-clear rtv 0 0.0 0.0 0.0 0.0
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 todo draw point list 1
 probe rtv 0 (320, 190) f32(0.0, 0.0, 0.0, 0.0)
 probe rtv 0 (255, 240) f32(0.0, 0.0, 0.0, 0.0)
