@@ -2764,6 +2764,11 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                         vsir_opcode_get_name(ins->opcode, "<unknown>"), ins->opcode);
                 return VKD3D_ERROR_NOT_IMPLEMENTED;
 
+            case VSIR_OP_LOOP:
+                vkd3d_shader_error(ctx->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+                        "Aborting due to unimplemented feature: Lower SM1 loops.");
+                return VKD3D_ERROR_NOT_IMPLEMENTED;
+
             default:
                 ret = VKD3D_OK;
                 break;
@@ -13997,7 +14002,7 @@ static void vsir_validate_label(struct validation_context *ctx, const struct vkd
 static void vsir_validate_loop(struct validation_context *ctx, const struct vkd3d_shader_instruction *instruction)
 {
     vsir_validate_cf_type(ctx, instruction, VSIR_CF_STRUCTURED);
-    vsir_validate_src_count(ctx, instruction, ctx->program->shader_version.major <= 3 ? 2 : 0);
+    vsir_validate_src_count(ctx, instruction, ctx->program->normalisation_level >= VSIR_NORMALISED_SM4 ? 0 : 2);
     vsir_validator_push_block(ctx, VSIR_OP_LOOP);
 }
 
