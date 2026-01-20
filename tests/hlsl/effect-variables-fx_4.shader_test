@@ -74,3 +74,6 @@ BlendState bs
 {
     SrcBlend[0] = one;
 };
+
+[effect]
+Buffer<float4> b1;

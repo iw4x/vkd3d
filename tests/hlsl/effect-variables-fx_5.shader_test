@@ -81,3 +81,14 @@ BlendState bs
     DestBlendAlpha = src1_alpha;
     BlendOpAlpha = add;
 };
+
+[effect]
+struct s
+{
+    float x;
+    uint y;
+};
+
+Buffer<float4> b1;
+StructuredBuffer<s> b2;
+ByteAddressBuffer b3;
