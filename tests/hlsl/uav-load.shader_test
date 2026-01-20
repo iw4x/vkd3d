@@ -25,7 +25,7 @@ void main()
 
 [test]
 todo(msl) dispatch 1 1 1
-probe uav 0 (0, 0) f32(0.6)
-probe uav 0 (1, 0) f32(0.6)
-probe uav 0 (2, 0) f32(0.6)
-probe uav 1 (0, 0) f32(0.5)
+probe uav-0 (0, 0) f32(0.6)
+probe uav-0 (1, 0) f32(0.6)
+probe uav-0 (2, 0) f32(0.6)
+probe uav-1 (0, 0) f32(0.5)

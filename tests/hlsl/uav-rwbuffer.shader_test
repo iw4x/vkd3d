@@ -185,8 +185,8 @@ float4 main() : sv_target
 
 [test]
 draw quad
-probe uav 1 (0) i32(11, -12, 13, -14)
-probe uav 1 (1) i32(-15, 16, -17, 18)
+probe uav-1 (0) i32(11, -12, 13, -14)
+probe uav-1 (1) i32(-15, 16, -17, 18)
 
 [uav 2]
 format r32g32b32a32-float
@@ -204,7 +204,7 @@ float4 main() : sv_target1
 
 [test]
 draw quad
-probe uav 2 (0) f32(11.1, 12.2, 13.3, 14.4)
+probe uav-2 (0) f32(11.1, 12.2, 13.3, 14.4)
 
 [require]
 shader model >= 6.2
@@ -228,7 +228,7 @@ void main()
 [test]
 uniform 0 uint4 0x4a204990 0x4b404ab0 0 0
 dispatch 1 1 1
-probe uav 1 (0) f32(11.125, 12.25, 13.375, 14.5)
+probe uav-1 (0) f32(11.125, 12.25, 13.375, 14.5)
 
 [compute shader]
 uniform half4 h;
@@ -243,7 +243,7 @@ void main()
 [test]
 uniform 0 uint4 0x4a204990 0x4b404ab0 0 0
 dispatch 1 1 1
-probe uav 1 (0) f32(11.125, 12.25, 13.375, 14.5)
+probe uav-1 (0) f32(11.125, 12.25, 13.375, 14.5)
 
 [compute shader]
 uniform half h;
@@ -258,7 +258,7 @@ void main()
 [test]
 uniform 0 uint 0x4990
 dispatch 1 1 1
-probe uav 1 (0) f32(11.125)
+probe uav-1 (0) f32(11.125)
 
 [uav 1]
 format r32g32b32a32-uint
@@ -280,7 +280,7 @@ void main()
 % NVIDIA zero-extend, while AMD sign-extends; therefore we test neither.
 uniform 0 uint4 0x7ff4000b 0xe7ff3 0 0
 dispatch 1 1 1
-probe uav 1 (0) u32(0xb, 0x7ff4, 0x7ff3, 0xe)
+probe uav-1 (0) u32(0xb, 0x7ff4, 0x7ff3, 0xe)
 
 [uav 1]
 format r32g32b32a32-sint
@@ -301,7 +301,7 @@ void main()
 % Again, implementations behave inconsistently for negative numbers.
 uniform 0 uint4 0x7ff4000b 0xe7ff3 0 0
 dispatch 1 1 1
-probe uav 1 (0) i32(11, 0x7ff4, 0x7ff3, 14)
+probe uav-1 (0) i32(11, 0x7ff4, 0x7ff3, 14)
 
 [uav 1]
 format r32g32b32a32-sint

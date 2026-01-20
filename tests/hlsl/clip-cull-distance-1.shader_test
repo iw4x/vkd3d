@@ -74,16 +74,16 @@ float4 main(const in float4 position : SV_Position) : SV_Target
 [test]
 clear rtv-0 f32(0.0, 0.0, 0.0, 1.0)
 todo(sm<6) draw triangle list 27
-probe rtv 0 (160, 120) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (160, 240) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (160, 360) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (320, 120) f32(1.0, 1.0, 1.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(1.0, 1.0, 1.0, 1.0)
-probe rtv 0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (320, 239) f32(1.0, 1.0, 1.0, 1.0)
+probe rtv-0 (160, 120) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (160, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (160, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (320, 120) f32(1.0, 1.0, 1.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(1.0, 1.0, 1.0, 1.0)
+probe rtv-0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (320, 239) f32(1.0, 1.0, 1.0, 1.0)
 
 [require]
 shader model >= 4.0
@@ -123,16 +123,16 @@ float4 main(const in float4 position : SV_Position) : SV_Target
 [test]
 clear rtv-0 f32(0.0, 0.0, 0.0, 1.0)
 todo(glsl) draw triangle list 27
-probe rtv 0 (160, 120) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (160, 240) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (160, 360) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (320, 120) f32(1.0, 1.0, 1.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(1.0, 1.0, 1.0, 1.0)
-probe rtv 0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (320, 239) f32(1.0, 1.0, 1.0, 1.0)
+probe rtv-0 (160, 120) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (160, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (160, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (320, 120) f32(1.0, 1.0, 1.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(1.0, 1.0, 1.0, 1.0)
+probe rtv-0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (320, 239) f32(1.0, 1.0, 1.0, 1.0)
 
 [require]
 shader model >= 4.0
@@ -175,15 +175,15 @@ float4 main(struct vertex_data vertex) : SV_Target
 [test]
 clear rtv-0 f32(0.0, 0.0, 0.0, 1.0)
 todo(sm<6) draw triangle list 27
-probe rtv 0 (160, 120) f32(10.0, 30.0, 50.0, 4984)
-probe rtv 0 (160, 240) f32(10.0, 30.0, 50.0, 4984)
-probe rtv 0 (160, 360) f32(10.0, 30.0, 50.0, 4984)
-probe rtv 0 (320, 120) f32(10.0, 30.0, 50.0, -16)
-probe rtv 0 (320, 240) f32(10.0, 30.0, 50.0, -16)
-probe rtv 0 (320, 360) f32(10.0, 30.0, 50.0, -16)
-probe rtv 0 (480, 120) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (160, 120) f32(10.0, 30.0, 50.0, 4984)
+probe rtv-0 (160, 240) f32(10.0, 30.0, 50.0, 4984)
+probe rtv-0 (160, 360) f32(10.0, 30.0, 50.0, 4984)
+probe rtv-0 (320, 120) f32(10.0, 30.0, 50.0, -16)
+probe rtv-0 (320, 240) f32(10.0, 30.0, 50.0, -16)
+probe rtv-0 (320, 360) f32(10.0, 30.0, 50.0, -16)
+probe rtv-0 (480, 120) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
 
 [vertex shader fail(sm<6)]
 struct vertex_data
@@ -222,18 +222,18 @@ float4 main(struct vertex_data vertex) : SV_Target
 [test]
 clear rtv-0 f32(0.0, 0.0, 0.0, 1.0)
 todo(sm<6) draw triangle list 27
-probe rtv 0 (160, 120) f32(30.0, 50.0, 1.0, 4984)
-probe rtv 0 (160, 240) f32(30.0, 50.0, 1.0, 4984)
-probe rtv 0 (160, 360) f32(30.0, 50.0, 1.0, 4984)
-probe rtv 0 (319, 120) f32(30.0, 50.0, 1.0, 16)
-probe rtv 0 (319, 240) f32(30.0, 50.0, 1.0, 16)
-probe rtv 0 (319, 360) f32(30.0, 50.0, 1.0, 16)
-probe rtv 0 (320, 120) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (160, 120) f32(30.0, 50.0, 1.0, 4984)
+probe rtv-0 (160, 240) f32(30.0, 50.0, 1.0, 4984)
+probe rtv-0 (160, 360) f32(30.0, 50.0, 1.0, 4984)
+probe rtv-0 (319, 120) f32(30.0, 50.0, 1.0, 16)
+probe rtv-0 (319, 240) f32(30.0, 50.0, 1.0, 16)
+probe rtv-0 (319, 360) f32(30.0, 50.0, 1.0, 16)
+probe rtv-0 (320, 120) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
 
 [require]
 shader model >= 4.0
@@ -319,8 +319,8 @@ probe (0, 0, 640, 480) f32(1.0, 1.0, 1.0, 1.0)
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(sm<6 | msl) draw triangle strip 4
-probe rtv 0 (160, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(1.0, 1.0, 1.0, 1.0)
+probe rtv-0 (160, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(1.0, 1.0, 1.0, 1.0)
 
 [vb 1]
 -1.0
@@ -331,8 +331,8 @@ probe rtv 0 (480, 240) f32(1.0, 1.0, 1.0, 1.0)
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(sm<6 | msl) draw triangle strip 4
-probe rtv 0 (320, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(1.0, 1.0, 1.0, 1.0)
+probe rtv-0 (320, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(1.0, 1.0, 1.0, 1.0)
 
 % A single clip distance.
 
@@ -360,15 +360,15 @@ void main(uint id : SV_VertexID, out vs_out o)
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
 todo(sm<6 | msl) draw triangle strip 4
-probe rtv 0 (160, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % A single clip distance, disguised as an array.
 
@@ -396,15 +396,15 @@ void main(uint id : SV_VertexID, out vs_out o)
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
 todo(sm<6 | msl) draw triangle strip 4
-probe rtv 0 (160, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % Two clip distances.
 
@@ -433,15 +433,15 @@ void main(uint id : SV_VertexID, out vs_out o)
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
 todo(sm<6 | msl) draw triangle strip 4
-probe rtv 0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % Five clip distances.
 
@@ -474,15 +474,15 @@ void main(uint id : SV_VertexID, out vs_out o)
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
 todo(sm<6 | msl) draw triangle strip 4
-probe rtv 0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
 
 [require]
 shader model >= 4.0
@@ -526,15 +526,15 @@ void main(uint id : SV_VertexID, out vs_out o)
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
 todo(sm<6) draw triangle strip 4
-probe rtv 0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
 
 [require]
 shader model >= 4.0
@@ -569,15 +569,15 @@ void main(triangle vs_out input[3], inout TriangleStream<vs_out> stream)
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
 todo(sm<6) draw triangle strip 4
-probe rtv 0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
 
 % Generate clip and cull distances in the geometry shader.
 
@@ -647,15 +647,15 @@ void main(triangle vs_out input[3], inout TriangleStream<gs_out> stream)
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
 todo(sm<6) draw triangle strip 4
-probe rtv 0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
 
 % Now let's test cull distances for real: we remove the clip distances they
 % duplicate and use the geometry shader to create many little triangles around
@@ -721,15 +721,15 @@ void main(triangle vs_out input[3], inout TriangleStream<gs_out> stream)
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
 todo(sm<6) draw triangle strip 4
-probe rtv 0 (160, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 360) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 360) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % Then we add clipping and culling: at first only a few distances.
 
@@ -794,15 +794,15 @@ void main(triangle vs_out input[3], inout TriangleStream<gs_out> stream)
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
 todo(sm<6) draw triangle strip 4
-probe rtv 0 (160, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 120) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 120) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % Then enough to get rid of nearly all test points.
 
@@ -867,12 +867,12 @@ void main(triangle vs_out input[3], inout TriangleStream<gs_out> stream)
 [test]
 clear rtv-0 f32(1.0, 1.0, 0.0, 1.0)
 todo(sm<6) draw triangle strip 4
-probe rtv 0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
-probe rtv 0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
-probe rtv 0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
-bug(mesa<23.3) probe rtv 0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 240) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (160, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 240) f32(0.0, 1.0, 0.0, 1.0)
+probe rtv-0 (320, 360) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 120) f32(1.0, 1.0, 0.0, 1.0)
+probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
+bug(mesa<23.3) probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)

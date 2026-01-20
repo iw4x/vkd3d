@@ -39,11 +39,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) u32(1, 0, 0, 1)
-probe uav 1 (1) u32(1, 0, 0, 1)
-probe uav 1 (2) u32(1, 0, 0, 1)
-probe uav 1 (3) u32(1, 0, 0, 1)
-
+probe uav-1 (0) u32(1, 0, 0, 1)
+probe uav-1 (1) u32(1, 0, 0, 1)
+probe uav-1 (2) u32(1, 0, 0, 1)
+probe uav-1 (3) u32(1, 0, 0, 1)
 
 [compute shader]
 RWBuffer<float4> u0;
@@ -61,15 +60,14 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) u32(1, 1, 0, 0)
-probe uav 1 (1) u32(1, 1, 0, 0)
-probe uav 1 (2) u32(1, 1, 0, 0)
-probe uav 1 (3) u32(1, 1, 0, 0)
-probe uav 1 (4) u32(0, 1, 0, 0)
-probe uav 1 (5) u32(0, 1, 0, 0)
-probe uav 1 (6) u32(0, 1, 0, 0)
-probe uav 1 (7) u32(0, 1, 0, 0)
-
+probe uav-1 (0) u32(1, 1, 0, 0)
+probe uav-1 (1) u32(1, 1, 0, 0)
+probe uav-1 (2) u32(1, 1, 0, 0)
+probe uav-1 (3) u32(1, 1, 0, 0)
+probe uav-1 (4) u32(0, 1, 0, 0)
+probe uav-1 (5) u32(0, 1, 0, 0)
+probe uav-1 (6) u32(0, 1, 0, 0)
+probe uav-1 (7) u32(0, 1, 0, 0)
 
 [compute shader]
 RWBuffer<float4> u0;
@@ -84,8 +82,7 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) u32(0xb, 0, 0, 0)
-
+probe uav-1 (0) u32(0xb, 0, 0, 0)
 
 [uav 1]
 format r32g32b32a32-float
@@ -114,15 +111,14 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) rgba (7.0, 2.0, 8.0, 5.0)
-probe uav 1 (1) rgba (7.0, 2.0, 8.0, 5.0)
-probe uav 1 (2) rgba (7.0, 2.0, 8.0, 5.0)
-probe uav 1 (3) rgba (7.0, 2.0, 8.0, 5.0)
-probe uav 1 (4) rgba (7.0, 2.5, 8.5, 5.0)
-probe uav 1 (5) rgba (7.0, 2.5, 8.5, 5.0)
-probe uav 1 (6) rgba (7.0, 2.5, 8.5, 5.0)
-probe uav 1 (7) rgba (7.0, 2.5, 8.5, 5.0)
-
+probe uav-1 (0) f32(7.0, 2.0, 8.0, 5.0)
+probe uav-1 (1) f32(7.0, 2.0, 8.0, 5.0)
+probe uav-1 (2) f32(7.0, 2.0, 8.0, 5.0)
+probe uav-1 (3) f32(7.0, 2.0, 8.0, 5.0)
+probe uav-1 (4) f32(7.0, 2.5, 8.5, 5.0)
+probe uav-1 (5) f32(7.0, 2.5, 8.5, 5.0)
+probe uav-1 (6) f32(7.0, 2.5, 8.5, 5.0)
+probe uav-1 (7) f32(7.0, 2.5, 8.5, 5.0)
 
 [compute shader]
 RWBuffer<float4> u0;
@@ -136,11 +132,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) rgba (14.0, 4.5, 16.5, 10.0)
-probe uav 1 (1) rgba (14.0, 4.5, 16.5, 10.0)
-probe uav 1 (2) rgba (14.0, 4.5, 16.5, 10.0)
-probe uav 1 (3) rgba (14.0, 4.5, 16.5, 10.0)
-
+probe uav-1 (0) f32(14.0, 4.5, 16.5, 10.0)
+probe uav-1 (1) f32(14.0, 4.5, 16.5, 10.0)
+probe uav-1 (2) f32(14.0, 4.5, 16.5, 10.0)
+probe uav-1 (3) f32(14.0, 4.5, 16.5, 10.0)
 
 [compute shader]
 RWBuffer<float4> u0;
@@ -154,11 +149,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) rgba (150.0625, 1.5, 288.0, 39.0625)
-probe uav 1 (1) rgba (150.0625, 1.5, 288.0, 39.0625)
-probe uav 1 (2) rgba (150.0625, 1.5, 288.0, 39.0625)
-probe uav 1 (3) rgba (150.0625, 1.5, 288.0, 39.0625)
-
+probe uav-1 (0) f32(150.0625, 1.5, 288.0, 39.0625)
+probe uav-1 (1) f32(150.0625, 1.5, 288.0, 39.0625)
+probe uav-1 (2) f32(150.0625, 1.5, 288.0, 39.0625)
+probe uav-1 (3) f32(150.0625, 1.5, 288.0, 39.0625)
 
 [compute shader]
 RWBuffer<float4> u0;
@@ -172,11 +166,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) rgba (3.5, 1.0, 4.0, 2.5)
-probe uav 1 (1) rgba (3.5, 1.0, 4.0, 2.5)
-probe uav 1 (2) rgba (3.5, 1.0, 4.0, 2.5)
-probe uav 1 (3) rgba (3.5, 1.0, 4.0, 2.5)
-
+probe uav-1 (0) f32(3.5, 1.0, 4.0, 2.5)
+probe uav-1 (1) f32(3.5, 1.0, 4.0, 2.5)
+probe uav-1 (2) f32(3.5, 1.0, 4.0, 2.5)
+probe uav-1 (3) f32(3.5, 1.0, 4.0, 2.5)
 
 [compute shader]
 RWBuffer<float4> u0;
@@ -190,11 +183,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) rgba (3.5, 1.5, 4.5, 2.5)
-probe uav 1 (1) rgba (3.5, 1.5, 4.5, 2.5)
-probe uav 1 (2) rgba (3.5, 1.5, 4.5, 2.5)
-probe uav 1 (3) rgba (3.5, 1.5, 4.5, 2.5)
-
+probe uav-1 (0) f32(3.5, 1.5, 4.5, 2.5)
+probe uav-1 (1) f32(3.5, 1.5, 4.5, 2.5)
+probe uav-1 (2) f32(3.5, 1.5, 4.5, 2.5)
+probe uav-1 (3) f32(3.5, 1.5, 4.5, 2.5)
 
 [compute shader]
 RWBuffer<float4> u0;
@@ -208,11 +200,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) rgba (0.0, 0.0, 0.0, 0.0)
-probe uav 1 (1) rgba (3.5, 1.0, 4.0, 2.5)
-probe uav 1 (2) rgba (7.0, 2.0, 8.0, 5.0)
-probe uav 1 (3) rgba (10.5, 3.5, 12.0, 7.5)
-
+probe uav-1 (0) f32(0.0, 0.0, 0.0, 0.0)
+probe uav-1 (1) f32(3.5, 1.0, 4.0, 2.5)
+probe uav-1 (2) f32(7.0, 2.0, 8.0, 5.0)
+probe uav-1 (3) f32(10.5, 3.5, 12.0, 7.5)
 
 [compute shader]
 RWBuffer<float4> u0;
@@ -226,11 +217,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) rgba (1.0, 1.0, 1.0, 1.0)
-probe uav 1 (1) rgba (3.5, 1.0, 4.0, 2.5)
-probe uav 1 (2) rgba (12.25, 1.0, 16.0, 6.25)
-probe uav 1 (3) rgba (42.875, 1.5, 64.0, 15.625)
-
+probe uav-1 (0) f32(1.0, 1.0, 1.0, 1.0)
+probe uav-1 (1) f32(3.5, 1.0, 4.0, 2.5)
+probe uav-1 (2) f32(12.25, 1.0, 16.0, 6.25)
+probe uav-1 (3) f32(42.875, 1.5, 64.0, 15.625)
 
 [uav 0]
 format r32g32b32a32-float
@@ -255,11 +245,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) rgba (0.5, 0.25, 1.0, 0.75)
-probe uav 1 (1) rgba (0.25, 0.5, 0.75, 1.0)
-probe uav 1 (2) rgba (1.0, 0.75, 0.25, 0.5)
-probe uav 1 (3) rgba (0.75, 1.0, 0.5, 0.25)
-
+probe uav-1 (0) f32(0.5, 0.25, 1.0, 0.75)
+probe uav-1 (1) f32(0.25, 0.5, 0.75, 1.0)
+probe uav-1 (2) f32(1.0, 0.75, 0.25, 0.5)
+probe uav-1 (3) f32(0.75, 1.0, 0.5, 0.25)
 
 [compute shader]
 RWBuffer<float4> u0;
@@ -276,11 +265,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) rgba (0.75, 1.0, 0.5, 0.25)
-probe uav 1 (1) rgba (0.75, 1.0, 0.5, 0.25)
-probe uav 1 (2) rgba (0.75, 1.0, 0.5, 0.25)
-probe uav 1 (3) rgba (0.75, 1.0, 0.5, 0.25)
-
+probe uav-1 (0) f32(0.75, 1.0, 0.5, 0.25)
+probe uav-1 (1) f32(0.75, 1.0, 0.5, 0.25)
+probe uav-1 (2) f32(0.75, 1.0, 0.5, 0.25)
+probe uav-1 (3) f32(0.75, 1.0, 0.5, 0.25)
 
 [pixel shader]
 RWBuffer<float4> u0;
@@ -296,15 +284,14 @@ float4 main(float4 pos : SV_Position) : SV_Target
 
 [test]
 draw quad
-probe rtv 0 (0, 0) rgba (0.25, 0.5, 0.75, 1.0)
-probe rtv 0 (1, 0) rgba (0.5, 0.25, 1.0, 0.75)
-probe rtv 0 (0, 1) rgba (0.75, 1.0, 0.5, 0.25)
-probe rtv 0 (1, 1) rgba (1.0, 0.75, 0.25, 0.5)
-probe uav 1 (0) rgba (0.5, 0.25, 1.0, 0.75)
-probe uav 1 (1) rgba (0.25, 0.5, 0.75, 1.0)
-probe uav 1 (2) rgba (1.0, 0.75, 0.25, 0.5)
-probe uav 1 (3) rgba (0.75, 1.0, 0.5, 0.25)
-
+probe rtv-0 (0, 0) f32(0.25, 0.5, 0.75, 1.0)
+probe rtv-0 (1, 0) f32(0.5, 0.25, 1.0, 0.75)
+probe rtv-0 (0, 1) f32(0.75, 1.0, 0.5, 0.25)
+probe rtv-0 (1, 1) f32(1.0, 0.75, 0.25, 0.5)
+probe uav-1 (0) f32(0.5, 0.25, 1.0, 0.75)
+probe uav-1 (1) f32(0.25, 0.5, 0.75, 1.0)
+probe uav-1 (2) f32(1.0, 0.75, 0.25, 0.5)
+probe uav-1 (3) f32(0.75, 1.0, 0.5, 0.25)
 
 [pixel shader]
 RWBuffer<float4> u0;
@@ -320,11 +307,10 @@ float4 main(float4 pos : SV_Position) : SV_Target
 
 [test]
 draw quad
-probe uav 1 (0) rgba (0.75, 1.0, 0.5, 0.25)
-probe uav 1 (1) rgba (1.0, 0.75, 0.25, 0.5)
-probe uav 1 (2) rgba (0.25, 0.5, 0.75, 1.0)
-probe uav 1 (3) rgba (0.5, 0.25, 1.0, 0.75)
-
+probe uav-1 (0) f32(0.75, 1.0, 0.5, 0.25)
+probe uav-1 (1) f32(1.0, 0.75, 0.25, 0.5)
+probe uav-1 (2) f32(0.25, 0.5, 0.75, 1.0)
+probe uav-1 (3) f32(0.5, 0.25, 1.0, 0.75)
 
 [pixel shader]
 RWBuffer<float4> u0;
@@ -340,11 +326,10 @@ float4 main(float4 pos : SV_Position) : SV_Target
 
 [test]
 draw quad
-probe uav 1 (0) rgba (1.0, 0.75, 0.25, 0.5)
-probe uav 1 (1) rgba (0.75, 1.0, 0.5, 0.25)
-probe uav 1 (2) rgba (0.5, 0.25, 1.0, 0.75)
-probe uav 1 (3) rgba (0.25, 0.5, 0.75, 1.0)
-
+probe uav-1 (0) f32(1.0, 0.75, 0.25, 0.5)
+probe uav-1 (1) f32(0.75, 1.0, 0.5, 0.25)
+probe uav-1 (2) f32(0.5, 0.25, 1.0, 0.75)
+probe uav-1 (3) f32(0.25, 0.5, 0.75, 1.0)
 
 % Values in helper lanes are undefined for all wave ops except the quad ops.
 [pixel shader]
@@ -363,15 +348,14 @@ float4 main(float4 pos : SV_Position) : SV_Target
 
 [test]
 draw quad
-probe rtv 0 (0, 0) rgba (1.0, 0.0, 0.0, 1.0)
-probe rtv 0 (1, 0) rgba (1.0, 0.0, 0.0, 1.0)
-probe rtv 0 (0, 1) rgba (0.75, 1.0, 0.5, 0.25)
-probe rtv 0 (1, 1) rgba (1.0, 0.75, 0.25, 0.5)
-probe uav 1 (0) rgba (1.0, 0.75, 0.25, 0.5)
-probe uav 1 (1) rgba (0.75, 1.0, 0.5, 0.25)
-probe uav 1 (2) rgba (0.5, 0.25, 1.0, 0.75)
-probe uav 1 (3) rgba (0.25, 0.5, 0.75, 1.0)
-
+probe rtv-0 (0, 0) f32(1.0, 0.0, 0.0, 1.0)
+probe rtv-0 (1, 0) f32(1.0, 0.0, 0.0, 1.0)
+probe rtv-0 (0, 1) f32(0.75, 1.0, 0.5, 0.25)
+probe rtv-0 (1, 1) f32(1.0, 0.75, 0.25, 0.5)
+probe uav-1 (0) f32(1.0, 0.75, 0.25, 0.5)
+probe uav-1 (1) f32(0.75, 1.0, 0.5, 0.25)
+probe uav-1 (2) f32(0.5, 0.25, 1.0, 0.75)
+probe uav-1 (3) f32(0.25, 0.5, 0.75, 1.0)
 
 [pixel shader]
 RWBuffer<float4> u0;
@@ -388,11 +372,10 @@ float4 main(float4 pos : SV_Position) : SV_Target
 
 [test]
 draw quad
-probe uav 1 (0) rgba (0.5, 0.25, 1.0, 0.75)
-probe uav 1 (1) rgba (0.5, 0.25, 1.0, 0.75)
-probe uav 1 (2) rgba (0.5, 0.25, 1.0, 0.75)
-probe uav 1 (3) rgba (0.5, 0.25, 1.0, 0.75)
-
+probe uav-1 (0) f32(0.5, 0.25, 1.0, 0.75)
+probe uav-1 (1) f32(0.5, 0.25, 1.0, 0.75)
+probe uav-1 (2) f32(0.5, 0.25, 1.0, 0.75)
+probe uav-1 (3) f32(0.5, 0.25, 1.0, 0.75)
 
 [pixel shader]
 uniform uint id;
@@ -412,29 +395,28 @@ float4 main(float4 pos : SV_Position) : SV_Target
 [test]
 uniform 0 uint 0
 todo draw quad
-probe uav 1 (0) rgba (0.25, 0.5, 0.75, 1.0)
-probe uav 1 (1) rgba (0.25, 0.5, 0.75, 1.0)
-probe uav 1 (2) rgba (0.25, 0.5, 0.75, 1.0)
-probe uav 1 (3) rgba (0.25, 0.5, 0.75, 1.0)
+probe uav-1 (0) f32(0.25, 0.5, 0.75, 1.0)
+probe uav-1 (1) f32(0.25, 0.5, 0.75, 1.0)
+probe uav-1 (2) f32(0.25, 0.5, 0.75, 1.0)
+probe uav-1 (3) f32(0.25, 0.5, 0.75, 1.0)
 uniform 0 uint 1
 todo draw quad
-probe uav 1 (0) rgba (0.5, 0.25, 1.0, 0.75)
-probe uav 1 (1) rgba (0.5, 0.25, 1.0, 0.75)
-probe uav 1 (2) rgba (0.5, 0.25, 1.0, 0.75)
-probe uav 1 (3) rgba (0.5, 0.25, 1.0, 0.75)
+probe uav-1 (0) f32(0.5, 0.25, 1.0, 0.75)
+probe uav-1 (1) f32(0.5, 0.25, 1.0, 0.75)
+probe uav-1 (2) f32(0.5, 0.25, 1.0, 0.75)
+probe uav-1 (3) f32(0.5, 0.25, 1.0, 0.75)
 uniform 0 uint 2
 todo draw quad
-probe uav 1 (0) rgba (0.75, 1.0, 0.5, 0.25)
-probe uav 1 (1) rgba (0.75, 1.0, 0.5, 0.25)
-probe uav 1 (2) rgba (0.75, 1.0, 0.5, 0.25)
-probe uav 1 (3) rgba (0.75, 1.0, 0.5, 0.25)
+probe uav-1 (0) f32(0.75, 1.0, 0.5, 0.25)
+probe uav-1 (1) f32(0.75, 1.0, 0.5, 0.25)
+probe uav-1 (2) f32(0.75, 1.0, 0.5, 0.25)
+probe uav-1 (3) f32(0.75, 1.0, 0.5, 0.25)
 uniform 0 uint 3
 todo draw quad
-probe uav 1 (0) rgba (1.0, 0.75, 0.25, 0.5)
-probe uav 1 (1) rgba (1.0, 0.75, 0.25, 0.5)
-probe uav 1 (2) rgba (1.0, 0.75, 0.25, 0.5)
-probe uav 1 (3) rgba (1.0, 0.75, 0.25, 0.5)
-
+probe uav-1 (0) f32(1.0, 0.75, 0.25, 0.5)
+probe uav-1 (1) f32(1.0, 0.75, 0.25, 0.5)
+probe uav-1 (2) f32(1.0, 0.75, 0.25, 0.5)
+probe uav-1 (3) f32(1.0, 0.75, 0.25, 0.5)
 
 [pixel shader]
 RWBuffer<float4> u0;
@@ -454,13 +436,13 @@ float4 main(float4 pos : SV_Position) : SV_Target
 [test]
 clear rtv-0 f32(0.25, 0.5, 0.75, 1.0)
 draw quad
-probe rtv 0 (0, 0) f32(0.25, 0.5, 0.75, 1.0)
-probe rtv 0 (1, 0) f32(1.0, 0.0, 0.0, 1.0)
-probe rtv 0 (0, 1) f32(1.0, 0.0, 0.0, 1.0)
-probe rtv 0 (1, 1) f32(1.0, 0.0, 0.0, 1.0)
-bug(mvk) probe uav 1 (1) f32(0.5, 0.25, 1.0, 0.75)
-bug(mvk) probe uav 1 (2) f32(0.5, 0.25, 1.0, 0.75)
-bug(mvk) probe uav 1 (3) f32(0.5, 0.25, 1.0, 0.75)
+probe rtv-0 (0, 0) f32(0.25, 0.5, 0.75, 1.0)
+probe rtv-0 (1, 0) f32(1.0, 0.0, 0.0, 1.0)
+probe rtv-0 (0, 1) f32(1.0, 0.0, 0.0, 1.0)
+probe rtv-0 (1, 1) f32(1.0, 0.0, 0.0, 1.0)
+bug(mvk) probe uav-1 (1) f32(0.5, 0.25, 1.0, 0.75)
+bug(mvk) probe uav-1 (2) f32(0.5, 0.25, 1.0, 0.75)
+bug(mvk) probe uav-1 (3) f32(0.5, 0.25, 1.0, 0.75)
 
 [require]
 shader model >= 6.0
@@ -505,11 +487,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) u32(1, 0, 0, 0)
-probe uav 1 (1) u32(1, 0, 0, 0)
-probe uav 1 (2) u32(1, 0, 0, 0)
-probe uav 1 (3) u32(1, 0, 0, 0)
-
+probe uav-1 (0) u32(1, 0, 0, 0)
+probe uav-1 (1) u32(1, 0, 0, 0)
+probe uav-1 (2) u32(1, 0, 0, 0)
+probe uav-1 (3) u32(1, 0, 0, 0)
 
 [compute shader]
 RWBuffer<float2> u0;
@@ -525,15 +506,14 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) f64(7.0, 2.0)
-probe uav 1 (1) f64(7.0, 2.0)
-probe uav 1 (2) f64(7.0, 2.0)
-probe uav 1 (3) f64(7.0, 2.0)
-probe uav 1 (4) f64(7.0, 2.5)
-probe uav 1 (5) f64(7.0, 2.5)
-probe uav 1 (6) f64(7.0, 2.5)
-probe uav 1 (7) f64(7.0, 2.5)
-
+probe uav-1 (0) f64(7.0, 2.0)
+probe uav-1 (1) f64(7.0, 2.0)
+probe uav-1 (2) f64(7.0, 2.0)
+probe uav-1 (3) f64(7.0, 2.0)
+probe uav-1 (4) f64(7.0, 2.5)
+probe uav-1 (5) f64(7.0, 2.5)
+probe uav-1 (6) f64(7.0, 2.5)
+probe uav-1 (7) f64(7.0, 2.5)
 
 [compute shader]
 RWBuffer<float2> u0;
@@ -548,11 +528,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) f64(14.0, 4.5)
-probe uav 1 (1) f64(14.0, 4.5)
-probe uav 1 (2) f64(14.0, 4.5)
-probe uav 1 (3) f64(14.0, 4.5)
-
+probe uav-1 (0) f64(14.0, 4.5)
+probe uav-1 (1) f64(14.0, 4.5)
+probe uav-1 (2) f64(14.0, 4.5)
+probe uav-1 (3) f64(14.0, 4.5)
 
 [compute shader]
 RWBuffer<float2> u0;
@@ -567,11 +546,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) f64(150.0625, 1.5)
-probe uav 1 (1) f64(150.0625, 1.5)
-probe uav 1 (2) f64(150.0625, 1.5)
-probe uav 1 (3) f64(150.0625, 1.5)
-
+probe uav-1 (0) f64(150.0625, 1.5)
+probe uav-1 (1) f64(150.0625, 1.5)
+probe uav-1 (2) f64(150.0625, 1.5)
+probe uav-1 (3) f64(150.0625, 1.5)
 
 [compute shader]
 RWBuffer<float2> u0;
@@ -586,11 +564,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) f64(3.5, 1.0)
-probe uav 1 (1) f64(3.5, 1.0)
-probe uav 1 (2) f64(3.5, 1.0)
-probe uav 1 (3) f64(3.5, 1.0)
-
+probe uav-1 (0) f64(3.5, 1.0)
+probe uav-1 (1) f64(3.5, 1.0)
+probe uav-1 (2) f64(3.5, 1.0)
+probe uav-1 (3) f64(3.5, 1.0)
 
 [compute shader]
 RWBuffer<float2> u0;
@@ -605,11 +582,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) f64(3.5, 1.5)
-probe uav 1 (1) f64(3.5, 1.5)
-probe uav 1 (2) f64(3.5, 1.5)
-probe uav 1 (3) f64(3.5, 1.5)
-
+probe uav-1 (0) f64(3.5, 1.5)
+probe uav-1 (1) f64(3.5, 1.5)
+probe uav-1 (2) f64(3.5, 1.5)
+probe uav-1 (3) f64(3.5, 1.5)
 
 [compute shader]
 RWBuffer<float2> u0;
@@ -624,11 +600,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) f64(0.0, 0.0)
-probe uav 1 (1) f64(3.5, 1.0)
-probe uav 1 (2) f64(7.0, 2.0)
-probe uav 1 (3) f64(10.5, 3.5)
-
+probe uav-1 (0) f64(0.0, 0.0)
+probe uav-1 (1) f64(3.5, 1.0)
+probe uav-1 (2) f64(7.0, 2.0)
+probe uav-1 (3) f64(10.5, 3.5)
 
 [compute shader]
 RWBuffer<float2> u0;
@@ -643,11 +618,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) f64(1.0, 1.0)
-probe uav 1 (1) f64(3.5, 1.0)
-probe uav 1 (2) f64(12.25, 1.0)
-probe uav 1 (3) f64(42.875, 1.5)
-
+probe uav-1 (0) f64(1.0, 1.0)
+probe uav-1 (1) f64(3.5, 1.0)
+probe uav-1 (2) f64(12.25, 1.0)
+probe uav-1 (3) f64(42.875, 1.5)
 
 [uav 0]
 format r32g32b32a32-float
@@ -672,11 +646,10 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) f64(0.5, 0.25)
-probe uav 1 (1) f64(0.25, 0.5)
-probe uav 1 (2) f64(1.0, 0.75)
-probe uav 1 (3) f64(0.75, 1.0)
-
+probe uav-1 (0) f64(0.5, 0.25)
+probe uav-1 (1) f64(0.25, 0.5)
+probe uav-1 (2) f64(1.0, 0.75)
+probe uav-1 (3) f64(0.75, 1.0)
 
 [compute shader]
 RWBuffer<float2> u0;
@@ -692,7 +665,7 @@ void main(uint id : SV_GroupIndex)
 
 [test]
 dispatch 4 1 1
-probe uav 1 (0) f64(0.75, 1.0)
-probe uav 1 (1) f64(0.75, 1.0)
-probe uav 1 (2) f64(0.75, 1.0)
-probe uav 1 (3) f64(0.75, 1.0)
+probe uav-1 (0) f64(0.75, 1.0)
+probe uav-1 (1) f64(0.75, 1.0)
+probe uav-1 (2) f64(0.75, 1.0)
+probe uav-1 (3) f64(0.75, 1.0)

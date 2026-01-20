@@ -1571,6 +1571,7 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         unsigned int left, top, right, bottom, ulps, slot, array_layer = 0;
         struct resource_readback *rb;
         struct resource *resource;
+        enum resource_type type;
         struct literal l;
         D3D12_BOX box;
         RECT rect;
@@ -1579,34 +1580,14 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         if (runner->last_render_failed)
             return;
 
-        if (match_string(line, "uav", &line))
+        if (!parse_resource_reference(&line, &type, &slot))
         {
-            slot = strtoul(line, &rest, 10);
-
-            if (rest == line)
-                fatal_error("Malformed UAV index '%s'.\n", line);
-            line = rest;
-
-            resource = shader_runner_get_resource(runner, RESOURCE_TYPE_UAV, slot);
+            type = RESOURCE_TYPE_RENDER_TARGET;
+            slot = 0;
         }
-        else if (match_string(line, "rtv", &line))
-        {
-            slot = strtoul(line, &rest, 10);
 
-            if (rest == line)
-                fatal_error("Malformed render target index '%s'.\n", line);
-            line = rest;
-
-            resource = shader_runner_get_resource(runner, RESOURCE_TYPE_RENDER_TARGET, slot);
-        }
-        else if (match_string(line, "dsv", &line))
-        {
-            resource = shader_runner_get_resource(runner, RESOURCE_TYPE_DEPTH_STENCIL, 0);
-        }
-        else
-        {
-            resource = shader_runner_get_resource(runner, RESOURCE_TYPE_RENDER_TARGET, 0);
-        }
+        if (!(resource = shader_runner_get_resource(runner, type, slot)))
+            fatal_error("Undefined resource.\n");
 
         if (sscanf(line, " ( %d , %d , %d , %d )%n", &left, &top, &right, &bottom, &len) == 4)
         {

@@ -38,28 +38,28 @@ clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 clear dsv f32(0.0)
 draw quad
 probe (0, 0) f32(0, 0, 0, 0)
-probe uav 1 (0) f32(0.0)
+probe uav-1 (0) f32(0.0)
 
 clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 clear dsv f32(0.3)
 draw quad
 probe (0, 0) f32(1, 1, 1, 1)
-probe uav 1 (0) f32(1.0)
+probe uav-1 (0) f32(1.0)
 
 clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 clear dsv f32(0.5)
 draw quad
 probe (0, 0) f32(1, 1, 1, 1)
-probe uav 1 (0) f32(1.0)
+probe uav-1 (0) f32(1.0)
 
 clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 clear dsv f32(0.6)
 draw quad
 probe (0, 0) f32(1, 1, 1, 1)
-probe uav 1 (0) f32(1.0)
+probe uav-1 (0) f32(1.0)
 
 clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 clear dsv f32(1.0)
 draw quad
 probe (0, 0) f32(0, 0, 0, 0)
-probe uav 1 (0) f32(0.0)
+probe uav-1 (0) f32(0.0)
