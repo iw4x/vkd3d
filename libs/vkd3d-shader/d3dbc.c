@@ -582,6 +582,11 @@ static void d3dbc_parse_register(struct vkd3d_shader_sm1_parser *d3dbc,
         reg->dimension = VSIR_DIMENSION_SCALAR;
     else
         reg->dimension = VSIR_DIMENSION_VEC4;
+
+    if (reg->type == VKD3DSPR_CONSTINT)
+        reg->data_type = VSIR_DATA_U32;
+    else if (reg->type == VKD3DSPR_CONSTBOOL)
+        reg->data_type = VSIR_DATA_BOOL;
 }
 
 static void d3dbc_parse_src_operand(struct vkd3d_shader_sm1_parser *d3dbc,
