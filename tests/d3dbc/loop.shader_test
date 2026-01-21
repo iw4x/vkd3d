@@ -141,8 +141,8 @@ write cbv-f32 (20) f32(16, 16, 16, 1)
 write cbv-f32 (24) f32(32, 32, 32, 1)
 write cbv-f32 (28) f32(64, 64, 64, 1)
 write cbv-i32 (0) i32(6, 0, 1, 0)
-todo draw quad
+draw quad
 probe (320, 240) f32(0.63, 0.63, 0.63, 0.07)
 write cbv-i32 (0) i32(3, 1, 2, 0)
-todo draw quad
+draw quad
 probe (320, 240) f32(0.42, 0.42, 0.42, 0.04)

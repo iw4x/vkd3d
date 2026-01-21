@@ -2515,6 +2515,145 @@ fail:
     return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
+static bool vsir_register_replace_loop_register_with_temp(
+        struct vsir_program *program, struct vkd3d_shader_register *reg, unsigned int temp_id)
+{
+    if (reg->type == VKD3DSPR_LOOP)
+    {
+        reg->type = VKD3DSPR_TEMP;
+        reg->idx_count = 1;
+        reg->idx[0].offset = temp_id;
+        reg->idx[0].rel_addr = NULL;
+        return true;
+    }
+
+    if (reg->idx[0].rel_addr && reg->idx[0].rel_addr->reg.type == VKD3DSPR_LOOP)
+    {
+        if (!shader_register_clone_relative_addresses(reg, program))
+            return false;
+        vsir_src_operand_init_temp_u32(reg->idx[0].rel_addr, temp_id);
+    }
+
+    return true;
+}
+
+static enum vkd3d_result vsir_program_lower_loop(struct vsir_program *program, struct vsir_program_iterator *loop)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(loop);
+    struct vkd3d_shader_location location = ins->location;
+    const struct vsir_src_operand *src = ins->src;
+    unsigned int iter_id, neg_id, val_id;
+    struct vsir_program_iterator it;
+    unsigned int depth = 1;
+    unsigned int i;
+
+    /* loop aL, SRC1
+     *   <instructions using aL>
+     * endloop
+     *      ->
+     * mov rITER.x, SRC1.x
+     * ineg srNEG, SRC1.z
+     * iadd rVAL.x, SRC1.y, srNEG
+     * loop
+     *     breakp_z rITER.x
+     *     iadd rITER.x, rITER.x, -1
+     *     iadd rVAL.x, rVAL.x, SRC1.z
+     *     <instructions using rVAL.x>
+     * endloop
+     */
+
+    VKD3D_ASSERT(ins->src_count == 2);
+
+    if (!(ins = vsir_program_iterator_insert_before(loop, &it, 6)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MOV, 1, 1))
+        goto fail;
+    iter_id = program->temp_count++;
+    vsir_dst_operand_init_temp_u32(&ins->dst[0], iter_id);
+    ins->src[0] = src[1];
+    ins->src[0].swizzle = vsir_combine_swizzles(src[1].swizzle, VKD3D_SHADER_SWIZZLE(X, X, X, X));
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_INEG, 1, 1))
+        goto fail;
+    neg_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa_scalar(&ins->dst[0], neg_id, src[1].reg.data_type);
+    ins->src[0] = src[1];
+    ins->src[0].swizzle = vsir_combine_swizzles(src[1].swizzle, VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z));
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_IADD, 1, 2))
+        goto fail;
+    val_id = program->temp_count++;
+    vsir_dst_operand_init_temp_u32(&ins->dst[0], val_id);
+    ins->src[0] = src[1];
+    ins->src[0].swizzle = vsir_combine_swizzles(src[1].swizzle, VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y));
+    vsir_src_operand_init_ssa_scalar(&ins->src[1], neg_id, src[1].reg.data_type);
+
+    ins = vsir_program_iterator_next(&it);
+    vsir_instruction_init(ins, &location, VSIR_OP_LOOP);
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_BREAKP, 0, 1))
+        goto fail;
+    ins->flags = VKD3D_SHADER_CONDITIONAL_OP_Z;
+    vsir_src_operand_init_temp_u32(&ins->src[0], iter_id);
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_IADD, 1, 2))
+        goto fail;
+    vsir_dst_operand_init_temp_u32(&ins->dst[0], iter_id);
+    vsir_src_operand_init_temp_u32(&ins->src[0], iter_id);
+    vsir_src_operand_init_const_u32(&ins->src[1], ~0u);
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_IADD, 1, 2))
+        goto fail;
+    vsir_dst_operand_init_temp_u32(&ins->dst[0], val_id);
+    vsir_src_operand_init_temp_u32(&ins->src[0], val_id);
+    ins->src[1] = src[1];
+    ins->src[1].swizzle = vsir_combine_swizzles(src[1].swizzle, VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z));
+
+    for (ins = vsir_program_iterator_next(&it); ins; ins = vsir_program_iterator_next(&it))
+    {
+        if (ins->opcode == VSIR_OP_LOOP)
+        {
+            ++depth;
+            continue;
+        }
+
+        if (ins->opcode == VSIR_OP_ENDLOOP)
+        {
+            --depth;
+            if (!depth)
+                break;
+            continue;
+        }
+
+        if (depth != 1)
+            continue;
+
+        for (i = 0; i < ins->dst_count; ++i)
+        {
+            if (!vsir_register_replace_loop_register_with_temp(program, &ins->dst[i].reg, val_id))
+                return VKD3D_ERROR_OUT_OF_MEMORY;
+        }
+
+        for (i = 0; i < ins->src_count; ++i)
+        {
+            if (!vsir_register_replace_loop_register_with_temp(program, &ins->src[i].reg, val_id))
+                return VKD3D_ERROR_OUT_OF_MEMORY;
+        }
+    }
+
+    return VKD3D_OK;
+
+fail:
+    vsir_program_iterator_nop_range(&it, loop, &location);
+
+    return VKD3D_ERROR_OUT_OF_MEMORY;
+}
+
 static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
         struct vsir_program_iterator *it, struct vkd3d_shader_message_context *message_context)
 {
@@ -2748,6 +2887,10 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 ret = vsir_program_lower_ifc(program, &it, &tmp_idx, message_context);
                 break;
 
+            case VSIR_OP_LOOP:
+                ret = vsir_program_lower_loop(program, &it);
+                break;
+
             case VSIR_OP_LRP:
                 ret = vsir_program_lower_lrp(program, &it);
                 break;
@@ -2819,11 +2962,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 vkd3d_shader_error(ctx->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
                         "Aborting due to unimplemented feature: Combined sampler instruction \"%s\" (%#x).",
                         vsir_opcode_get_name(ins->opcode, "<unknown>"), ins->opcode);
-                return VKD3D_ERROR_NOT_IMPLEMENTED;
-
-            case VSIR_OP_LOOP:
-                vkd3d_shader_error(ctx->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
-                        "Aborting due to unimplemented feature: Lower SM1 loops.");
                 return VKD3D_ERROR_NOT_IMPLEMENTED;
 
             default:
