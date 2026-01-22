@@ -9719,6 +9719,7 @@ static enum vkd3d_result vsir_program_add_fog_input(struct vsir_program *program
         struct vsir_transformation_context *ctx)
 {
     struct shader_signature *signature = &program->input_signature;
+    struct signature_element *e;
     uint32_t register_idx = 0;
 
     if (program->shader_version.type != VKD3D_SHADER_TYPE_PIXEL)
@@ -9736,7 +9737,10 @@ static enum vkd3d_result vsir_program_add_fog_input(struct vsir_program *program
         return VKD3D_OK;
 
     for (unsigned int i = 0; i < signature->element_count; ++i)
-        register_idx = max(register_idx, signature->elements[i].register_index + 1);
+    {
+        e = &signature->elements[i];
+        register_idx = max(register_idx, e->register_index + e->register_count);
+    }
 
     if (!add_signature_element(signature, "FOG", 0, VKD3DSP_WRITEMASK_0, register_idx, VKD3DSIM_LINEAR))
         return VKD3D_ERROR_OUT_OF_MEMORY;
