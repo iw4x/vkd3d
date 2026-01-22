@@ -1863,13 +1863,16 @@ static void get_physical_device_info(struct vulkan_shader_runner *runner, struct
         runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX] = false;
 }
 
-static uint32_t get_format_support(const struct vulkan_test_context *context, enum DXGI_FORMAT format)
+static uint32_t get_format_support(const struct vulkan_test_context *context,
+        const struct physical_device_info *device_info, enum DXGI_FORMAT format)
 {
     VkFormatProperties properties;
     uint32_t ret = 0;
 
     VK_CALL(vkGetPhysicalDeviceFormatProperties(context->phys_device, vkd3d_get_vk_format(format), &properties));
-    if ((properties.linearTilingFeatures | properties.optimalTilingFeatures) & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT)
+    if (((properties.linearTilingFeatures | properties.optimalTilingFeatures) & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT)
+            && ((format == DXGI_FORMAT_R32_FLOAT || format == DXGI_FORMAT_R32_UINT || format == DXGI_FORMAT_R32_SINT)
+            || device_info->features2.features.shaderStorageImageReadWithoutFormat))
         ret |= FORMAT_CAP_UAV_LOAD;
 
     return ret;
@@ -2066,7 +2069,7 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
         runner->caps.format_caps[DXGI_FORMAT_UNKNOWN] |= FORMAT_CAP_UAV_LOAD;
     for (unsigned int i = 0; i < ARRAY_SIZE(formats); ++i)
     {
-        runner->caps.format_caps[formats[i]] = get_format_support(context, formats[i]);
+        runner->caps.format_caps[formats[i]] = get_format_support(context, &device_info, formats[i]);
     }
 
     b = vulkan_test_context_init_device(context, &device_desc, graphics_index, MAX_RESOURCES, MAX_SAMPLERS);
