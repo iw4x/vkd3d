@@ -2120,6 +2120,12 @@ static bool add_assignment(struct hlsl_ctx *ctx, struct hlsl_block *block, struc
             return false;
         }
 
+        if (rhs->data_type->class == HLSL_CLASS_MATRIX)
+        {
+            hlsl_fixme(ctx, &lhs->loc, "Matrix structured stores.");
+            return false;
+        }
+
         if (!hlsl_index_is_resource_access(hlsl_ir_index(lhs)))
         {
             hlsl_fixme(ctx, &lhs->loc, "Non-direct structured resource store.");
