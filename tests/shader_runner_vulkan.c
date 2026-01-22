@@ -796,16 +796,17 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
             .width = runner->rt_size.width, .height = -(float)runner->rt_size.height, .maxDepth = 1}};
     VkRect2D scissor_rects[ARRAY_SIZE(runner->r.viewports)] = {{.extent = runner->rt_size}};
     VkPipelineColorBlendAttachmentState attachment_desc[MAX_RESOURCES] = {0};
+    VkVertexInputBindingDescription input_bindings[MAX_INPUT_BINDINGS];
     const struct vulkan_test_context *context = &runner->context;
     VkPipelineTessellationStateCreateInfo tessellation_info;
     VkVertexInputAttributeDescription input_attributes[32];
     VkPipelineDepthStencilStateCreateInfo ds_desc = {0};
-    VkVertexInputBindingDescription input_bindings[32];
+    unsigned int strides[MAX_INPUT_BINDINGS] = {0};
     VkPipelineShaderStageCreateInfo stage_desc[5];
     unsigned int stage_count = 0, viewport_count;
     VkDevice device = context->device;
     VkPipeline pipeline;
-    unsigned int i, j;
+    unsigned int i;
     VkResult vr;
     int ret;
 
@@ -853,23 +854,28 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
 
     for (i = 0; i < runner->r.input.element_count; ++i)
     {
-        VkVertexInputAttributeDescription *attribute = &input_attributes[i];
         const struct input_element *element = &runner->r.input.elements[i];
         const struct vkd3d_shader_signature_element *signature_element;
+        VkVertexInputAttributeDescription *attribute;
+        unsigned int offset;
 
-        signature_element = vkd3d_shader_find_signature_element(
-                &runner->signatures[SHADER_TYPE_VS].input, element->name, element->index, 0);
-        ok(signature_element, "Cannot find signature element %s%u.\n", element->name, element->index);
-        if (!signature_element)
+        if (element->slot >= ARRAY_SIZE(strides))
+            fatal_error("Unsupported input slot %u.\n", element->slot);
+
+        offset = strides[element->slot];
+        strides[element->slot] += element->texel_size;
+
+        if (!(signature_element = vkd3d_shader_find_signature_element(
+                &runner->signatures[SHADER_TYPE_VS].input, element->name, element->index, 0)))
             continue;
 
+        attribute = &input_attributes[input_desc.vertexAttributeDescriptionCount++];
         attribute->location = signature_element->register_index;
         attribute->binding = element->slot;
         attribute->format = vkd3d_get_vk_format(element->format);
-        /* The offset will be filled below. */
+        attribute->offset = offset;
     }
 
-    input_desc.vertexAttributeDescriptionCount = runner->r.input.element_count;
     input_desc.pVertexAttributeDescriptions = input_attributes;
     input_desc.pVertexBindingDescriptions = input_bindings;
 
@@ -912,17 +918,8 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
                 VkVertexInputBindingDescription *binding = &input_bindings[input_desc.vertexBindingDescriptionCount++];
 
                 binding->binding = resource->r.desc.slot;
-                binding->stride = 0;
+                binding->stride = strides[binding->binding];
                 binding->inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-                for (j = 0; j < runner->r.input.element_count; ++j)
-                {
-                    if (runner->r.input.elements[j].slot == resource->r.desc.slot)
-                    {
-                        input_attributes[j].offset = binding->stride;
-                        binding->stride += runner->r.input.elements[j].texel_size;
-                    }
-                }
                 break;
             }
         }

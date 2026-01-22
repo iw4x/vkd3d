@@ -144,6 +144,7 @@ struct viewport
 };
 
 #define MAX_UNIFORM_BUFFERS 2
+#define MAX_INPUT_BINDINGS 32
 #define MAX_DESCRIPTORS 32
 #define MAX_RESOURCES 32
 #define MAX_SAMPLERS 32
