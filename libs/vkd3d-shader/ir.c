@@ -14641,6 +14641,8 @@ static void vsir_transform_(
     if ((ctx->result = step(ctx->program, ctx)) < 0)
     {
         WARN("Transformation \"%s\" failed with result %d.\n", step_name, ctx->result);
+        if (TRACE_ON())
+            vsir_program_trace(ctx->program);
         return;
     }
 
@@ -14648,6 +14650,8 @@ static void vsir_transform_(
             ctx->compile_info->source_name, ctx->message_context)) < 0)
     {
         WARN("Validation failed with result %d after transformation \"%s\".\n", ctx->result, step_name);
+        if (TRACE_ON())
+            vsir_program_trace(ctx->program);
         return;
     }
 }
@@ -15306,7 +15310,7 @@ enum vkd3d_result vsir_program_optimize(struct vsir_program *program, uint64_t c
     vsir_transformation_context_init(&ctx, program, config_flags, compile_info, message_context);
     vsir_optimize(&ctx);
 
-    if (TRACE_ON())
+    if (TRACE_ON() && ctx.result >= 0)
         vsir_program_trace(program);
 
     return ctx.result;
@@ -15354,7 +15358,7 @@ enum vkd3d_result vsir_program_lower_d3dbc(struct vsir_program *program, uint64_
         vsir_transform(&ctx, vsir_program_normalise_ps1_output);
     }
 
-    if (TRACE_ON())
+    if (TRACE_ON() && ctx.result >= 0)
         vsir_program_trace(program);
 
     return ctx.result;
@@ -15422,7 +15426,7 @@ enum vkd3d_result vsir_program_transform(struct vsir_program *program, uint64_t 
     vsir_transform(&ctx, vsir_program_insert_fragment_fog);
     vsir_transform(&ctx, vsir_program_insert_vertex_fog);
 
-    if (TRACE_ON())
+    if (TRACE_ON() && ctx.result >= 0)
         vsir_program_trace(program);
 
     return ctx.result;
