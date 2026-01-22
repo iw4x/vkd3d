@@ -387,8 +387,10 @@ static bool compile_hlsl_and_scan(struct vulkan_shader_runner *runner, enum shad
     info.source.size = ID3D10Blob_GetBufferSize(runner->d3d_blobs[type]);
     if (runner->r.minimum_shader_model < SHADER_MODEL_4_0)
         info.source_type = VKD3D_SHADER_SOURCE_D3D_BYTECODE;
-    else
+    else if (runner->r.minimum_shader_model < SHADER_MODEL_6_0)
         info.source_type = VKD3D_SHADER_SOURCE_DXBC_TPF;
+    else
+        info.source_type = VKD3D_SHADER_SOURCE_DXBC_DXIL;
     info.target_type = VKD3D_SHADER_TARGET_SPIRV_BINARY;
 
     parameter_info.next = &runner->signatures[type];
@@ -443,8 +445,10 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     info.source.size = ID3D10Blob_GetBufferSize(runner->d3d_blobs[type]);
     if (runner->r.minimum_shader_model < SHADER_MODEL_4_0)
         info.source_type = VKD3D_SHADER_SOURCE_D3D_BYTECODE;
-    else
+    else if (runner->r.minimum_shader_model < SHADER_MODEL_6_0)
         info.source_type = VKD3D_SHADER_SOURCE_DXBC_TPF;
+    else
+        info.source_type = VKD3D_SHADER_SOURCE_DXBC_DXIL;
     info.target_type = VKD3D_SHADER_TARGET_SPIRV_BINARY;
     info.log_level = VKD3D_SHADER_LOG_WARNING;
     info.option_count = ARRAY_SIZE(options);
@@ -1006,6 +1010,7 @@ static VkPipeline create_compute_pipeline(struct vulkan_shader_runner *runner, V
     VkComputePipelineCreateInfo pipeline_desc = {.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
     const struct vulkan_test_context *context = &runner->context;
     VkPipeline pipeline;
+    VkResult vr;
     bool ret;
 
     ret = compile_hlsl_and_scan(runner, SHADER_TYPE_CS);
@@ -1016,14 +1021,17 @@ static VkPipeline create_compute_pipeline(struct vulkan_shader_runner *runner, V
     }
 
     ret = create_shader_stage(runner, &pipeline_desc.stage, SHADER_TYPE_CS, VK_SHADER_STAGE_COMPUTE_BIT);
-    todo_if(runner->r.is_todo) bug_if(runner->r.is_bug)
-    ok(ret, "Failed to compile SPIR-V shader.\n");
     if (!ret)
+    {
+        trace("Failed to compile SPIR-V shader.\n");
         return VK_NULL_HANDLE;
+    }
 
     pipeline_desc.layout = pipeline_layout;
 
-    VK_CALL(vkCreateComputePipelines(context->device, VK_NULL_HANDLE, 1, &pipeline_desc, NULL, &pipeline));
+    vr = VK_CALL(vkCreateComputePipelines(context->device, VK_NULL_HANDLE, 1, &pipeline_desc, NULL, &pipeline));
+    todo_if(runner->r.is_todo) bug_if(runner->r.is_bug)
+    ok(vr == VK_SUCCESS, "Failed to create compute pipeline, vr %d.\n", vr);
 
     VK_CALL(vkDestroyShaderModule(context->device, pipeline_desc.stage.module, NULL));
 
@@ -1967,6 +1975,9 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
     if (device_info.driver_properties.driverID == VK_DRIVER_ID_MESA_LLVMPIPE)
         runner->caps.tags[SHADER_RUNNER_TAG_LLVMPIPE].present = true;
 
+    if (device_info.driver_properties.driverID == VK_DRIVER_ID_MESA_RADV_KHR)
+        runner->caps.tags[SHADER_RUNNER_TAG_RADV].present = true;
+
     if (device_info.driver_properties.driverID == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
         runner->caps.tags[SHADER_RUNNER_TAG_INTEL].present = true;
 
@@ -2080,13 +2091,14 @@ out_destroy_context:
     return false;
 };
 
-void run_shader_tests_vulkan(void)
+void run_shader_tests_vulkan(void *dxc_compiler)
 {
     struct vulkan_shader_runner runner = {0};
     bool skip_sm2 = test_skipping_execution("Vulkan", HLSL_COMPILER, SHADER_MODEL_2_0, SHADER_MODEL_3_0);
     bool skip_sm4 = test_skipping_execution("Vulkan", HLSL_COMPILER, SHADER_MODEL_4_0, SHADER_MODEL_5_1);
+    bool skip_sm6 = test_skipping_execution("Vulkan", "dxcompiler", SHADER_MODEL_6_0, SHADER_MODEL_MAX);
 
-    if (skip_sm2 && skip_sm4)
+    if (skip_sm2 && skip_sm4 && (skip_sm6 || !dxc_compiler))
         return;
 
     if (!init_vulkan_runner(&runner))
@@ -2099,14 +2111,22 @@ void run_shader_tests_vulkan(void)
         run_shader_tests(&runner.r, &runner.caps, &vulkan_runner_ops, NULL);
     }
 
+    /* Fog requires remapping, which is only correct for sm1. */
+    runner.caps.shader_caps[SHADER_CAP_FOG] = false;
+
     if (!skip_sm4)
     {
-        /* Fog requires remapping, which is only correct for sm1. */
-        runner.caps.shader_caps[SHADER_CAP_FOG] = false;
-
         runner.caps.minimum_shader_model = SHADER_MODEL_4_0;
         runner.caps.maximum_shader_model = SHADER_MODEL_5_1;
         run_shader_tests(&runner.r, &runner.caps, &vulkan_runner_ops, NULL);
+    }
+
+    if (dxc_compiler && !skip_sm6)
+    {
+        runner.caps.compiler = "dxcompiler";
+        runner.caps.minimum_shader_model = SHADER_MODEL_6_0;
+        runner.caps.maximum_shader_model = SHADER_MODEL_MAX;
+        run_shader_tests(&runner.r, &runner.caps, &vulkan_runner_ops, dxc_compiler);
     }
 
     vulkan_test_context_destroy(&runner.context);

@@ -537,6 +537,9 @@ probe rtv-0 (480, 240) f32(1.0, 1.0, 0.0, 1.0)
 probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
 
 [require]
+% RADV from Mesa < 25.1.5 crashes on these tests, fixed by
+% https://gitlab.freedesktop.org/mesa/mesa/-/commit/30ccd97cd22e08292751ff0d665e1a8d5635dd8c
+mesa>=25.1.5 | !radv
 shader model >= 4.0
 cull-distance
 geometry-shader

@@ -189,6 +189,7 @@ enum shader_runner_tag
     SHADER_RUNNER_TAG_MVK,
     SHADER_RUNNER_TAG_NVIDIA,
     SHADER_RUNNER_TAG_OPENGL,
+    SHADER_RUNNER_TAG_RADV,
     SHADER_RUNNER_TAG_VULKAN,
     SHADER_RUNNER_TAG_WARP,
     SHADER_RUNNER_TAG_WINDOWS,
@@ -372,6 +373,6 @@ void run_shader_tests_d3d11(void);
 #else
 void run_shader_tests_gl(void);
 void run_shader_tests_metal(void *dxc_compiler);
-void run_shader_tests_vulkan(void);
+void run_shader_tests_vulkan(void *dxc_compiler);
 #endif
 void run_shader_tests_d3d12(void *dxc_compiler);

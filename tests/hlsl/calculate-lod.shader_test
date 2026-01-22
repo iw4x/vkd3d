@@ -33,9 +33,8 @@ float4 main(float4 pos : sv_position) : sv_target
 }
 
 [test]
-todo(sm<6 | msl & sm>=6) draw quad
-bug(mvk<1.2.11) probe (0, 0, 640, 480) rgba (2.0, 1.0, 0.0, 14.0)
-
+todo(sm<6 | msl | vulkan & mvk<1.2.11) draw quad
+bug(mvk<1.2.11) probe (0, 0, 640, 480) f32(2.0, 1.0, 0.0, 14.0)
 
 [pixel shader todo]
 sampler s;
@@ -50,9 +49,8 @@ float4 main(float4 pos : sv_position) : sv_target
 }
 
 [test]
-todo(sm<6 | msl & sm>=6) draw quad
-bug(mvk<1.2.11) probe (0, 0, 640, 480) rgba (2.0, 2.0, 0.0, 0.0)
-
+todo(sm<6 | msl | vulkan & mvk<1.2.11) draw quad
+bug(mvk<1.2.11) probe (0, 0, 640, 480) f32(2.0, 2.0, 0.0, 0.0)
 
 [pixel shader todo]
 sampler s;
@@ -67,9 +65,8 @@ float4 main(float4 pos : sv_position) : sv_target
 }
 
 [test]
-todo(sm<6 | msl & sm>=6) draw quad
-bug(mvk<1.2.11) probe (0, 0, 640, 480) rgba (2.0, 1.0, 0.0, 14.0)
-
+todo(sm<6 | msl | vulkan & mvk<1.2.11) draw quad
+bug(mvk<1.2.11) probe (0, 0, 640, 480) f32(2.0, 1.0, 0.0, 14.0)
 
 [pixel shader todo]
 sampler s;
@@ -84,5 +81,5 @@ float4 main(float4 pos : sv_position) : sv_target
 }
 
 [test]
-todo(sm<6 | msl & sm>=6) draw quad
+todo(sm<6 | msl | vulkan & mvk<1.2.11) draw quad
 bug(mvk<1.2.11) probe (0, 0, 640, 480) rgba (45.0, 50.0, -14.0, -47.0)

@@ -126,7 +126,7 @@ build-mac:
   # why, but the Metal paravirtualized driver is not very reliable in general).
   # We use a shorter timeout to prevent the runner from being unavailable for a
   # full hour.
-  timeout: 10 minutes
+  timeout: 15 minutes
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   image: winehq-sonoma-pristine

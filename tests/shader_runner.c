@@ -203,6 +203,7 @@ static const char * const shader_runner_tag_names[SHADER_RUNNER_TAG_COUNT] =
     [SHADER_RUNNER_TAG_MVK]      = "mvk",
     [SHADER_RUNNER_TAG_NVIDIA]   = "nvidia",
     [SHADER_RUNNER_TAG_OPENGL]   = "opengl",
+    [SHADER_RUNNER_TAG_RADV]     = "radv",
     [SHADER_RUNNER_TAG_VULKAN]   = "vulkan",
     [SHADER_RUNNER_TAG_WARP]     = "warp",
     [SHADER_RUNNER_TAG_WINDOWS]  = "windows",
@@ -3358,7 +3359,7 @@ START_TEST(shader_runner)
 # ifdef HAVE_METAL
     run_shader_tests_metal(dxc);
 # endif
-    run_shader_tests_vulkan();
+    run_shader_tests_vulkan(dxc);
     run_shader_tests_d3d12(dxc);
 #endif
 

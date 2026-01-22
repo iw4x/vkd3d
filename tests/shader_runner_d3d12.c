@@ -1178,6 +1178,9 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     if (is_llvmpipe_device(device))
         runner->caps.tags[SHADER_RUNNER_TAG_LLVMPIPE].present = true;
 
+    if (is_radv_device(device))
+        runner->caps.tags[SHADER_RUNNER_TAG_RADV].present = true;
+
     if (is_intel_device(device))
         runner->caps.tags[SHADER_RUNNER_TAG_INTEL].present = true;
 

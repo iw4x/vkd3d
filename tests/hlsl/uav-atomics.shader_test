@@ -192,7 +192,7 @@ void main()
 [test]
 uniform 0 uint  0xffffffff
 uniform 1 float 0x80000000
-todo(glsl | msl) dispatch 1 1 1
+todo(glsl | msl | vulkan & mvk<1.4.0) dispatch 1 1 1
 probe uav-1 (0) u32(0xffffffff)
 probe uav-1 (1) u32(1)
 probe uav-1 (2) u32(0x7fffffff)
@@ -242,7 +242,7 @@ void main()
 [test]
 uniform 0 uint  0xffffffff
 uniform 1 float -1
-todo(glsl | msl) dispatch 1 1 1
+todo(glsl | msl | vulkan & mvk<1.4.0) dispatch 1 1 1
 if(sm<6)  probe uav-1 (0) u32(0xffffffff)
 if(sm>=6) probe uav-1 (0) u32(0xfffffffd)
 probe uav-1 (1) u32(0)
