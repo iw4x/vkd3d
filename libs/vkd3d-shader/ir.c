@@ -19,6 +19,7 @@
 
 #include "vkd3d_shader_private.h"
 #include "vkd3d_types.h"
+#include "rbtree.h"
 
 struct vsir_transformation_context
 {
@@ -15769,7 +15770,6 @@ static bool is_read_only(const struct vsir_program *program, enum vkd3d_shader_r
         /* Not applicable since they're not numeric or can't be sources. */
         case VKD3DSPR_ATTROUT:
         case VKD3DSPR_COLOROUT:
-        case VKD3DSPR_COMBINED_SAMPLER:
         case VKD3DSPR_COUNT:
         case VKD3DSPR_DEPTHOUT:
         case VKD3DSPR_DEPTHOUTGE:
@@ -15785,13 +15785,12 @@ static bool is_read_only(const struct vsir_program *program, enum vkd3d_shader_r
         case VKD3DSPR_PREDICATE:
         case VKD3DSPR_RASTERIZER:
         case VKD3DSPR_RASTOUT:
-        case VKD3DSPR_RESOURCE:
-        case VKD3DSPR_SAMPLER:
         case VKD3DSPR_STREAM:
         case VKD3DSPR_TEXCRDOUT:
         case VKD3DSPR_UAV:
             return false;
 
+        case VKD3DSPR_COMBINED_SAMPLER:
         case VKD3DSPR_CONST:
         case VKD3DSPR_CONSTBOOL:
         case VKD3DSPR_CONSTBUFFER:
@@ -15814,7 +15813,9 @@ static bool is_read_only(const struct vsir_program *program, enum vkd3d_shader_r
         case VKD3DSPR_PATCHCONST:
         case VKD3DSPR_POINT_COORD:
         case VKD3DSPR_PRIMID:
+        case VKD3DSPR_RESOURCE:
         case VKD3DSPR_SAMPLEMASK:
+        case VKD3DSPR_SAMPLER:
         case VKD3DSPR_SSA:
         case VKD3DSPR_TESSCOORD:
         case VKD3DSPR_THREADGROUPID:
@@ -15976,12 +15977,394 @@ static enum vkd3d_result vsir_program_copy_propagation(struct vsir_program *prog
     return VKD3D_OK;
 }
 
+static bool vsir_operand_has_rel_addr(const struct vsir_operand *reg)
+{
+    for (unsigned int i = 0; i < reg->idx_count; ++i)
+    {
+        if (reg->idx[i].rel_addr)
+            return true;
+    }
+    return false;
+}
+
+static bool vsir_instruction_is_pure(const struct vsir_program *program, const struct vkd3d_shader_instruction *ins)
+{
+    if (vsir_instruction_has_side_effects(ins))
+        return false;
+
+    for (unsigned int i = 0; i < ins->src_count; ++i)
+    {
+        const struct vsir_operand *reg = &ins->src[i].reg;
+
+        if (!is_read_only(program, reg->type))
+            return false;
+        if (vsir_operand_has_rel_addr(reg))
+            return false;
+
+    }
+
+    for (unsigned int i = 0; i < ins->dst_count; ++i)
+    {
+        if (vsir_operand_has_rel_addr(&ins->dst[i].reg))
+            return false;
+    }
+
+    return true;
+}
+
+static bool vsir_op_is_commutative(enum vkd3d_shader_opcode opcode)
+{
+    switch (opcode)
+    {
+        case VSIR_OP_AND:
+        case VSIR_OP_EQO:
+        case VSIR_OP_EQU:
+        case VSIR_OP_IADD:
+        case VSIR_OP_IEQ:
+        case VSIR_OP_IMAX:
+        case VSIR_OP_IMIN:
+        case VSIR_OP_IMUL:
+        case VSIR_OP_INE:
+        case VSIR_OP_MAX:
+        case VSIR_OP_MIN:
+        case VSIR_OP_NEO:
+        case VSIR_OP_NEU:
+        case VSIR_OP_OR:
+        case VSIR_OP_UMAX:
+        case VSIR_OP_UMIN:
+        case VSIR_OP_XOR:
+            return true;
+
+        default:
+            return false;
+    }
+}
+
+struct vsir_cse_expr
+{
+    struct rb_entry entry;
+
+    struct vkd3d_shader_instruction ins;
+    unsigned int ins_index;
+};
+
+static int vkd3d_shader_register_index_compare(const struct vkd3d_shader_register_index *a,
+        const struct vkd3d_shader_register_index *b)
+{
+    int ret;
+
+    if ((ret = vkd3d_ptr_compare(a->rel_addr, b->rel_addr)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->offset, b->offset)))
+        return ret;
+    return vkd3d_u32_compare(!!a->is_in_bounds, !!b->is_in_bounds);
+}
+
+static int vsir_operand_compare(const struct vsir_operand *a, const struct vsir_operand *b)
+{
+    int ret;
+
+    if ((ret = vkd3d_u32_compare(a->type, b->type)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->precision, b->precision)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(!!a->non_uniform, !!b->non_uniform)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->data_type, b->data_type)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->idx_count, b->idx_count)))
+        return ret;
+    for (unsigned int i = 0; i < a->idx_count; ++i)
+    {
+        if ((ret = vkd3d_shader_register_index_compare(&a->idx[i], &b->idx[i])))
+            return ret;
+    }
+    if ((ret = vkd3d_u32_compare(a->dimension, b->dimension)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->alignment, b->alignment)))
+        return ret;
+
+    if (a->type == VKD3DSPR_IMMCONST)
+    {
+        unsigned int count;
+
+        VKD3D_ASSERT(a->dimension == VSIR_DIMENSION_SCALAR || a->dimension == VSIR_DIMENSION_VEC4);
+        count = a->dimension == VSIR_DIMENSION_VEC4 ? 4 : 1;
+
+        switch (a->data_type)
+        {
+            case VSIR_DATA_F32:
+                return memcmp(a->u.immconst_f32, b->u.immconst_f32, sizeof(a->u.immconst_f32[0]) * count);
+
+            case VSIR_DATA_I32:
+            case VSIR_DATA_U32:
+                return memcmp(a->u.immconst_u32, b->u.immconst_u32, sizeof(a->u.immconst_u32[0]) * count);
+
+            default:
+                vkd3d_unreachable();
+        }
+    }
+    else if (a->type == VKD3DSPR_IMMCONST64)
+    {
+        unsigned int count;
+
+        VKD3D_ASSERT(a->dimension == VSIR_DIMENSION_SCALAR || a->dimension == VSIR_DIMENSION_VEC4);
+        count = a->dimension == VSIR_DIMENSION_VEC4 ? 2 : 1;
+
+        switch (a->data_type)
+        {
+            case VSIR_DATA_F64:
+                return memcmp(a->u.immconst_f64, b->u.immconst_f64, sizeof(a->u.immconst_f64[0]) * count);
+
+            case VSIR_DATA_I64:
+            case VSIR_DATA_U64:
+                return memcmp(a->u.immconst_u64, b->u.immconst_u64, sizeof(a->u.immconst_u64[0]) * count);
+
+            default:
+                vkd3d_unreachable();
+        }
+    }
+
+    return 0;
+}
+
+static int vsir_src_operand_compare(const struct vsir_src_operand *a, const struct vsir_src_operand *b)
+{
+    int ret;
+
+    if ((ret = vkd3d_u32_compare(a->swizzle, b->swizzle)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->modifiers, b->modifiers)))
+        return ret;
+    return vsir_operand_compare(&a->reg, &b->reg);
+}
+
+static int vsir_cse_expr_key_compare(const void *key, const struct rb_entry *e)
+{
+    const struct vkd3d_shader_instruction *a = &((struct vsir_cse_expr *)key)->ins;
+    const struct vkd3d_shader_instruction *b = &RB_ENTRY_VALUE(e, struct vsir_cse_expr, entry)->ins;
+    int ret;
+
+    if ((ret = vkd3d_u32_compare(a->opcode, b->opcode)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->flags, b->flags)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->dst->write_mask, b->dst->write_mask)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->dst->modifiers, b->dst->modifiers)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->dst->shift, b->dst->shift)))
+        return ret;
+
+    VKD3D_ASSERT(a->src_count == b->src_count);
+    for (unsigned int i = 0; i < a->src_count; ++i)
+    {
+        if ((ret = vsir_src_operand_compare(&a->src[i], &b->src[i])))
+            return ret;
+    }
+
+    if ((ret = vkd3d_u32_compare(a->texel_offset.u, b->texel_offset.u)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->texel_offset.v, b->texel_offset.v)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->texel_offset.w, b->texel_offset.w)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->resource_type, b->resource_type)))
+        return ret;
+    if ((ret = vkd3d_u32_compare(a->resource_stride, b->resource_stride)))
+        return ret;
+    return memcmp(a->resource_data_type, b->resource_data_type, sizeof(a->resource_data_type));
+}
+
+static void vsir_cse_expr_free(struct rb_entry *e, void *context)
+{
+    struct vsir_cse_expr *expr = RB_ENTRY_VALUE(e, struct vsir_cse_expr, entry);
+
+    vkd3d_free(expr->ins.src);
+    vkd3d_free(expr);
+}
+
+static struct vsir_cse_expr *vsir_cse_make_expr(const struct vkd3d_shader_instruction *ins, unsigned int ins_index)
+{
+    struct vsir_cse_expr *expr;
+
+    if (!(expr = vkd3d_calloc(sizeof(*expr), 1)))
+        return NULL;
+
+    expr->ins.opcode = ins->opcode;
+    expr->ins.flags = ins->flags;
+
+    VKD3D_ASSERT(ins->dst_count == 1);
+    expr->ins.dst_count = 1;
+    expr->ins.dst = ins->dst;
+
+    expr->ins.src_count = ins->src_count;
+
+    if (!(expr->ins.src = vkd3d_malloc(sizeof(*expr->ins.src) * ins->src_count)))
+    {
+        vkd3d_free(expr);
+        return NULL;
+    }
+
+    if (vsir_op_is_commutative(ins->opcode))
+    {
+        /* Normalize operand order for commutative operations. */
+        if (vsir_src_operand_compare(&ins->src[0], &ins->src[1]) <= 0)
+        {
+            expr->ins.src[0] = ins->src[0];
+            expr->ins.src[1] = ins->src[1];
+        }
+        else
+        {
+            expr->ins.src[0] = ins->src[1];
+            expr->ins.src[1] = ins->src[0];
+        }
+    }
+    else
+    {
+        memcpy(expr->ins.src, ins->src, expr->ins.src_count * sizeof(expr->ins.src[0]));
+    }
+
+    expr->ins.texel_offset = ins->texel_offset;
+
+    expr->ins.resource_type = ins->resource_type;
+    expr->ins.resource_stride = ins->resource_stride;
+    memcpy(expr->ins.resource_data_type, ins->resource_data_type, sizeof(expr->ins.resource_data_type));
+
+    expr->ins_index = ins_index;
+
+    return expr;
+}
+
+struct vsir_cse_state
+{
+    struct rb_tree *expr_tables;
+    size_t capacity;
+    unsigned int depth;
+};
+
+static struct vsir_cse_expr *vsir_cse_find_expr(struct vsir_cse_state *state, const struct vsir_cse_expr *key)
+{
+    for (int i = state->depth; i >= 0; --i)
+    {
+        struct rb_entry *entry = rb_get(&state->expr_tables[i], key);
+
+        if (entry)
+            return RB_ENTRY_VALUE(entry, struct vsir_cse_expr, entry);
+    }
+    return NULL;
+}
+
+static enum vkd3d_result vsir_program_cse(struct vsir_program *program,
+        struct vsir_transformation_context *ctx)
+{
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
+    struct vkd3d_shader_instruction *ins;
+    struct vsir_cse_state state = {0};
+    unsigned int ins_idx;
+
+    if (!vkd3d_array_reserve((void **)&state.expr_tables, &state.capacity, 1, sizeof(*state.expr_tables)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    rb_init(state.expr_tables, vsir_cse_expr_key_compare);
+
+    for (ins = vsir_program_iterator_head(&it), ins_idx = 0; ins; ins = vsir_program_iterator_next(&it), ++ins_idx)
+    {
+        struct vsir_cse_expr *expr, *prev_expr;
+
+        switch (ins->opcode)
+        {
+            case VSIR_OP_IF:
+            case VSIR_OP_IFC:
+            case VSIR_OP_LOOP:
+            case VSIR_OP_SWITCH:
+                ++state.depth;
+                if (!vkd3d_array_reserve((void **)&state.expr_tables, &state.capacity,
+                        state.depth + 1, sizeof(*state.expr_tables)))
+                    return VKD3D_ERROR_OUT_OF_MEMORY;
+                rb_init(&state.expr_tables[state.depth], vsir_cse_expr_key_compare);
+                continue;
+
+            case VSIR_OP_ENDIF:
+            case VSIR_OP_ENDLOOP:
+            case VSIR_OP_ENDSWITCH:
+                rb_destroy(&state.expr_tables[state.depth], vsir_cse_expr_free, NULL);
+                --state.depth;
+                continue;
+
+            case VSIR_OP_ELSE:
+            case VSIR_OP_CASE:
+            case VSIR_OP_DEFAULT:
+            case VSIR_OP_HS_CONTROL_POINT_PHASE:
+            case VSIR_OP_HS_FORK_PHASE:
+            case VSIR_OP_HS_JOIN_PHASE:
+                rb_destroy(&state.expr_tables[state.depth], vsir_cse_expr_free, NULL);
+                rb_init(&state.expr_tables[state.depth], vsir_cse_expr_key_compare);
+                continue;
+
+            case VSIR_OP_MOV:
+                continue;
+
+            default:
+                break;
+        }
+
+        if (ins->dst_count != 1)
+            continue;
+        if (!ins->src_count)
+            continue;
+        if (!vsir_instruction_is_pure(program, ins))
+            continue;
+
+        if (!(expr = vsir_cse_make_expr(ins, ins_idx)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+
+        if ((prev_expr = vsir_cse_find_expr(&state, expr)))
+        {
+            struct vkd3d_shader_instruction *mov;
+
+            /* Replace the current instruction with a MOV from the existing SSA. */
+            if (!vsir_program_iterator_insert_after(&it, 1))
+                return VKD3D_ERROR_OUT_OF_MEMORY;
+            ins = vsir_program_iterator_current(&it);
+            mov = vsir_program_iterator_next(&it);
+
+            if (!(vsir_instruction_init_with_params(program, mov, &ins->location, VSIR_OP_MOV, 1, 1)))
+                return VKD3D_ERROR_OUT_OF_MEMORY;
+
+            mov->dst[0] = ins->dst[0];
+
+            VKD3D_ASSERT(prev_expr->ins.dst->reg.type == VKD3DSPR_SSA);
+            vsir_src_operand_init_ssa(&mov->src[0], prev_expr->ins.dst->reg.idx[0].offset,
+                prev_expr->ins.dst->reg.data_type, prev_expr->ins.dst->reg.dimension);
+            mov->src[0].swizzle = vsir_swizzle_from_writemask(prev_expr->ins.dst->write_mask);
+
+            vkd3d_shader_instruction_make_nop(ins);
+            vkd3d_free(expr);
+            ctx->progress = true;
+
+            TRACE("Replaced @%u with a mov from @%u.\n", ins_idx, prev_expr->ins_index);
+        }
+        else if (ins->dst[0].reg.type == VKD3DSPR_SSA)
+        {
+            if (rb_put(&state.expr_tables[state.depth], expr, &expr->entry) == -1)
+                return VKD3D_ERROR_OUT_OF_MEMORY;
+        }
+    }
+
+    VKD3D_ASSERT(state.depth == 0);
+    rb_destroy(&state.expr_tables[0], vsir_cse_expr_free, NULL);
+    vkd3d_free(state.expr_tables);
+
+    return VKD3D_OK;
+}
+
 static void vsir_optimize(struct vsir_transformation_context *ctx)
 {
     do
     {
         ctx->progress = false;
         vsir_transform(ctx, vsir_program_copy_propagation);
+        vsir_transform(ctx, vsir_program_cse);
         vsir_transform(ctx, vsir_program_dce);
     }
     while (ctx->progress);

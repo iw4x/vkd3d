@@ -1036,6 +1036,8 @@ struct vkd3d_shader_indexable_temp
     const struct vkd3d_shader_immediate_constant_buffer *initialiser;
 };
 
+/* This structure is used by vkd3d_shader_register_index_compare(); changes to
+ * the structure should be reflected by the comparison function as well. */
 struct vkd3d_shader_register_index
 {
     struct vsir_src_operand *rel_addr;
@@ -1044,6 +1046,8 @@ struct vkd3d_shader_register_index
     bool is_in_bounds;
 };
 
+/* This structure is used by vsir_operand_compare(); changes to the structure
+ * should be reflected by the comparison function as well. */
 struct vsir_operand
 {
     enum vkd3d_shader_register_type type;
@@ -1122,6 +1126,8 @@ static inline enum vkd3d_shader_register_type vsir_register_type_from_sysval_inp
     }
 }
 
+/* This structure is used by vsir_cse_expr_key_compare(); changes to the
+ * structure should be reflected by that function as well. */
 struct vsir_dst_operand
 {
     struct vsir_operand reg;
@@ -1134,6 +1140,8 @@ void vsir_dst_operand_init(struct vsir_dst_operand *dst, enum vkd3d_shader_regis
         enum vsir_data_type data_type, unsigned int idx_count);
 void vsir_dst_operand_init_null(struct vsir_dst_operand *dst);
 
+/* This structure is used by vsir_src_operand_compare(); changes to the
+ * structure should be reflected by the comparison function as well. */
 struct vsir_src_operand
 {
     struct vsir_operand reg;
@@ -1411,6 +1419,8 @@ struct vkd3d_shader_location
     unsigned int line, column;
 };
 
+/* This structure is used by vsir_cse_expr_key_compare(); changes to the
+ * structure should be reflected by that function as well. */
 struct vkd3d_shader_instruction
 {
     struct vkd3d_shader_location location;
