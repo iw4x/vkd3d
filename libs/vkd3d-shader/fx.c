@@ -2476,8 +2476,6 @@ static uint32_t write_fx_shader(enum fx_shader_type type, const struct hlsl_ir_c
             break;
     }
 
-    ++fx->inline_shader_count;
-
     return ret;
 }
 
@@ -2591,6 +2589,8 @@ static void write_fx_4_state_assignment(const struct hlsl_ir_var *var, struct hl
             }
 
             value_offset = write_fx_shader(shader_type, hlsl_ir_compile(value), unstructured, fx);
+            ++fx->inline_shader_count;
+            ++fx->shader_count;
             break;
         }
         default:
