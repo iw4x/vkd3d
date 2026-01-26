@@ -43,6 +43,7 @@ struct vulkan_test_context
     VkCommandBuffer cmd_buffer;
     VkDescriptorPool descriptor_pool;
 
+    uint32_t vk_api_version;
     DECLARE_VK_PFN(vkCreateInstance);
     DECLARE_VK_PFN(vkEnumerateInstanceExtensionProperties);
 #define VK_INSTANCE_PFN   DECLARE_VK_PFN
@@ -276,8 +277,11 @@ static inline bool vulkan_test_context_init_instance(struct vulkan_test_context 
         const char **instance_extensions, size_t instance_extension_count)
 {
     VkInstanceCreateInfo instance_desc = {.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+    VkApplicationInfo application_info = {.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO};
+    PFN_vkEnumerateInstanceVersion vkEnumerateInstanceVersion;
     struct vulkan_extension_list enabled_extensions;
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
+    uint32_t vk_api_version;
     void *libvulkan;
     uint32_t count;
     VkResult vr;
@@ -294,7 +298,16 @@ static inline bool vulkan_test_context_init_instance(struct vulkan_test_context 
     context->vkCreateInstance = (void *)vkGetInstanceProcAddr(NULL, "vkCreateInstance");
     context->vkEnumerateInstanceExtensionProperties = (void *)vkGetInstanceProcAddr(NULL,
             "vkEnumerateInstanceExtensionProperties");
+    vkEnumerateInstanceVersion = (void *)vkGetInstanceProcAddr(NULL, "vkEnumerateInstanceVersion");
 
+    if (vkEnumerateInstanceVersion && vkEnumerateInstanceVersion(&vk_api_version) >= 0
+            && vk_api_version >= VK_API_VERSION_1_1)
+        application_info.apiVersion = VK_API_VERSION_1_1;
+    else
+        application_info.apiVersion = VK_API_VERSION_1_0;
+    context->vk_api_version = application_info.apiVersion;
+
+    instance_desc.pApplicationInfo = &application_info;
     check_instance_extensions(context, instance_extensions, instance_extension_count, &enabled_extensions);
     instance_desc.ppEnabledExtensionNames = enabled_extensions.names;
     instance_desc.enabledExtensionCount = enabled_extensions.count;

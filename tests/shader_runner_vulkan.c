@@ -74,9 +74,11 @@ struct physical_device_info
     VkPhysicalDeviceFeatures2 features2;
     VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT interlock_features;
     VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT demote_to_helper_invocation_features;
+
     VkPhysicalDeviceProperties2 properties2;
     VkPhysicalDeviceDriverPropertiesKHR driver_properties;
     VkPhysicalDeviceSamplerFilterMinmaxPropertiesEXT filter_minmax_properties;
+    VkPhysicalDeviceSubgroupProperties subgroup_properties;
 };
 
 static struct vulkan_shader_runner *vulkan_shader_runner(struct shader_runner *r)
@@ -489,7 +491,10 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     }
 
     spirv_info.next = &interface_info;
-    spirv_info.environment = VKD3D_SHADER_SPIRV_ENVIRONMENT_VULKAN_1_0;
+    if (runner->context.vk_api_version >= VK_API_VERSION_1_1)
+        spirv_info.environment = VKD3D_SHADER_SPIRV_ENVIRONMENT_VULKAN_1_1;
+    else
+        spirv_info.environment = VKD3D_SHADER_SPIRV_ENVIRONMENT_VULKAN_1_0;
     spirv_info.extensions = spirv_extensions;
     spirv_info.extension_count = 0;
 
@@ -1857,6 +1862,13 @@ static void get_physical_device_info(struct vulkan_shader_runner *runner, struct
         info->properties2.pNext = &info->filter_minmax_properties;
     }
 
+    if (context->vk_api_version >= VK_API_VERSION_1_1)
+    {
+        info->subgroup_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
+        info->subgroup_properties.pNext = info->properties2.pNext;
+        info->properties2.pNext = &info->subgroup_properties;
+    }
+
     if (context->vkGetPhysicalDeviceFeatures2KHR)
         VK_CALL(vkGetPhysicalDeviceProperties2KHR(context->phys_device, &info->properties2));
     else
@@ -1889,6 +1901,7 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
     VkDeviceQueueCreateInfo queue_desc = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
     VkDeviceCreateInfo device_desc = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
     VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT interlock_features;
+    const VkPhysicalDeviceSubgroupProperties *subgroup_properties;
     struct vulkan_test_context *context = &runner->context;
     struct vulkan_extension_list enabled_extensions;
     const VkPhysicalDeviceFeatures *ret_features;
@@ -1924,6 +1937,13 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
         DXGI_FORMAT_R8_UINT,
         DXGI_FORMAT_R8_SINT,
     };
+    static const VkSubgroupFeatureFlags required_subgroup_features = VK_SUBGROUP_FEATURE_ARITHMETIC_BIT
+            | VK_SUBGROUP_FEATURE_BASIC_BIT
+            | VK_SUBGROUP_FEATURE_BALLOT_BIT
+            | VK_SUBGROUP_FEATURE_SHUFFLE_BIT
+            | VK_SUBGROUP_FEATURE_QUAD_BIT
+            | VK_SUBGROUP_FEATURE_VOTE_BIT;
+    static const VkSubgroupFeatureFlags required_stages = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     if (!vulkan_test_context_init_instance(context, instance_extensions, ARRAY_SIZE(instance_extensions)))
         return false;
@@ -1984,6 +2004,12 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
     runner->caps.shader_caps[SHADER_CAP_CLIP_PLANES] = true;
     runner->caps.shader_caps[SHADER_CAP_FOG] = true;
     runner->caps.shader_caps[SHADER_CAP_POINT_SIZE] = true;
+
+    subgroup_properties = &device_info.subgroup_properties;
+    if (subgroup_properties->subgroupSize >= 4
+            && (subgroup_properties->supportedOperations & required_subgroup_features) == required_subgroup_features
+            && (subgroup_properties->supportedStages & required_stages) == required_stages)
+        runner->caps.shader_caps[SHADER_CAP_WAVE_OPS] = true;
 
     device_desc.pEnabledFeatures = &features;
     memset(&features, 0, sizeof(features));

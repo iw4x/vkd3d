@@ -222,6 +222,8 @@ static inline unsigned int shader_runner_caps_get_feature_flags(const struct sha
         flags |= VKD3D_SHADER_COMPILE_OPTION_FEATURE_INT64;
     if (caps->shader_caps[SHADER_CAP_FLOAT64])
         flags |= VKD3D_SHADER_COMPILE_OPTION_FEATURE_FLOAT64;
+    if (caps->shader_caps[SHADER_CAP_WAVE_OPS])
+        flags |= VKD3D_SHADER_COMPILE_OPTION_FEATURE_WAVE_OPS;
 
     return flags;
 }
