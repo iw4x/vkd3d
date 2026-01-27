@@ -8924,8 +8924,8 @@ static unsigned int vsir_program_get_idxtemp_count(struct vsir_program *program)
     {
         if (ins->opcode != VSIR_OP_DCL_INDEXABLE_TEMP)
             continue;
-        if (count < ins->declaration.indexable_temp.register_idx)
-            count = ins->declaration.indexable_temp.register_idx;
+        if (count < ins->declaration.indexable_temp.register_idx + 1)
+            count = ins->declaration.indexable_temp.register_idx + 1;
     }
 
     return count;
@@ -9292,7 +9292,7 @@ static enum vkd3d_result vsir_program_normalise_sysval_array(struct vsir_transfo
 
         if (declarations && !vsir_instruction_is_dcl(ins) && ins->opcode != VSIR_OP_NOP)
         {
-            unsigned int idxtemp_idx = vsir_program_get_idxtemp_count(program) + 1;
+            unsigned int idxtemp_idx = vsir_program_get_idxtemp_count(program);
 
             declarations = false;
 
