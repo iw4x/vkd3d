@@ -9276,9 +9276,6 @@ static enum vkd3d_result vsir_program_normalise_sysval_array(struct vsir_transfo
     if (!output && program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX)
         return VKD3D_OK;
 
-    if (TRACE_ON())
-        vsir_program_trace(program);
-
     it = vsir_program_iterator(&program->instructions);
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
@@ -9323,8 +9320,6 @@ static enum vkd3d_result vsir_program_normalise_sysval_array(struct vsir_transfo
         }
     }
     VKD3D_ASSERT(!declarations);
-    if (TRACE_ON())
-        vsir_program_trace(program);
     sysval_array_normaliser_remove_old_signature_elements(&normaliser);
 
     return VKD3D_OK;
