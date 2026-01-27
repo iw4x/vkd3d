@@ -39,16 +39,16 @@ ffff0300                                                % ps_3_0
 % respectively.
 [test]
 write cbv-i32 (0) i32(2, 0, 1, 0)
-todo draw quad
+draw quad
 probe (320, 240) f32(12, 12, 12, 12)
 write cbv-i32 (0) i32(3, 1, 1, 0)
-todo draw quad
+draw quad
 probe (320, 240) f32(234, 234, 234, 234)
 write cbv-i32 (0) i32(2, 1, 2, 0)
-todo draw quad
+draw quad
 probe (320, 240) f32(24, 24, 24, 24)
 write cbv-i32 (0) i32(3, 3, -1, 0)
-todo draw quad
+draw quad
 probe (320, 240) f32(432, 432, 432, 432)
 
 
@@ -76,11 +76,11 @@ ffff0300                                                % ps_3_0
 [test]
 write cbv-i32 (0) i32(2, 0, 1, 0)
 write cbv-i32 (4) i32(2, 2, 1, 0)
-todo draw quad
+draw quad
 probe (320, 240) f32(12, 3434, 0, 0)
 write cbv-i32 (0) i32(2, 1, 2, 0)
 write cbv-i32 (4) i32(3, 0, 1, 0)
-todo draw quad
+draw quad
 probe (320, 240) f32(24, 123123, 0, 0)
 
 
@@ -103,10 +103,10 @@ ffff0300                                                % ps_3_0
 
 [test]
 write cbv-i32 (0) i32(6, 0, 1, 0)
-todo draw quad
+draw quad
 probe (320, 240) f32(123456, 123456, 123456, 123456)
 write cbv-i32 (0) i32(3, 1, 2, 0)
-todo draw quad
+draw quad
 probe (320, 240) f32(246, 246, 246, 246)
 
 [require]

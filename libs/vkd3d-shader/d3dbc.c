@@ -762,6 +762,7 @@ static bool add_signature_element_from_register(struct vkd3d_shader_sm1_parser *
 {
     const struct vkd3d_shader_version *version = &sm1->program->shader_version;
     unsigned int register_index = reg->idx_count > 0 ? reg->idx[0].offset : 0;
+    struct signature_element *e;
 
     switch (reg->type)
     {
@@ -774,13 +775,23 @@ static bool add_signature_element_from_register(struct vkd3d_shader_sm1_parser *
         case VKD3DSPR_INPUT:
             /* For vertex shaders or sm3 pixel shaders, we should have already
              * had a DCL instruction. Otherwise, this is a colour input. */
-            if (version->type == VKD3D_SHADER_TYPE_VERTEX || version->major == 3)
+            if (version->type == VKD3D_SHADER_TYPE_PIXEL && version->major < 3)
+                return add_signature_element(sm1, false, "COLOR", register_index,
+                        VKD3D_SHADER_SV_NONE, SM1_COLOR_REGISTER_OFFSET + register_index, is_dcl, mask, dst_modifiers);
+
+            if (reg->idx_count > 0 && reg->idx[0].rel_addr)
             {
-                add_signature_mask(sm1, false, register_index, mask);
+                WARN("Indirect addressing detected, adding used_mask %#x to all input elements.\n", mask);
+                for (unsigned int i = 0; i < sm1->program->input_signature.element_count; ++i)
+                {
+                    e = &sm1->program->input_signature.elements[i];
+                    e->used_mask |= mask & e->mask;
+                }
                 return true;
             }
-            return add_signature_element(sm1, false, "COLOR", register_index,
-                    VKD3D_SHADER_SV_NONE, SM1_COLOR_REGISTER_OFFSET + register_index, is_dcl, mask, dst_modifiers);
+
+            add_signature_mask(sm1, false, register_index, mask);
+            return true;
 
         case VKD3DSPR_TEXTURE:
             return add_signature_element(sm1, false, "TEXCOORD", register_index,
