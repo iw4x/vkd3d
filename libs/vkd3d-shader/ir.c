@@ -4213,7 +4213,7 @@ static enum vkd3d_result shader_signature_merge(struct io_normaliser *normaliser
                     e->interpolation_mode = f->interpolation_mode;
             }
 
-            vkd3d_free((void *)f->semantic_name);
+            vsir_signature_element_cleanup(f);
         }
     }
     element_count = new_count;
@@ -4242,7 +4242,7 @@ static enum vkd3d_result shader_signature_merge(struct io_normaliser *normaliser
         {
             TRACE("Register %u mask %#x semantic %s%u has already been merged, dropping it.\n",
                     e->register_index, e->mask, e->semantic_name, e->semantic_index);
-            vkd3d_free((void *)e->semantic_name);
+            vsir_signature_element_cleanup(e);
             continue;
         }
 
@@ -9232,6 +9232,7 @@ static void vsir_program_remove_signature_element(struct vsir_program *program,
             shader_register_remove_signature_element(&ins->src[i].reg, type, index);
     }
 
+    vsir_signature_element_cleanup(&signature->elements[index]);
     memmove(&signature->elements[index], &signature->elements[index + 1],
             sizeof(*signature->elements) * (signature->element_count - 1 - index));
     --signature->element_count;

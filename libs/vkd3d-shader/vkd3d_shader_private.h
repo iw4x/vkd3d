@@ -1229,6 +1229,11 @@ struct signature_element
     unsigned int target_location;
 };
 
+static inline void vsir_signature_element_cleanup(struct signature_element *e)
+{
+    vkd3d_free((void *)e->semantic_name);
+}
+
 static inline bool vsir_signature_element_is_array(const struct signature_element *element,
         const struct vsir_normalisation_flags *flags)
 {

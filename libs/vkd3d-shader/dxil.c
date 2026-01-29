@@ -10927,7 +10927,7 @@ static enum vkd3d_result sm6_parser_read_signature(struct sm6_parser *sm6, const
                 "Failed to allocate signature element semantic name.");
         for (j = 0; j < i; ++j)
         {
-            vkd3d_free((void *)elements[j].semantic_name);
+            vsir_signature_element_cleanup(&elements[j]);
         }
         vkd3d_free(elements);
         return VKD3D_ERROR_OUT_OF_MEMORY;

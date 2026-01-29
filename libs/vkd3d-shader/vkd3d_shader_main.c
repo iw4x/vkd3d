@@ -2045,7 +2045,7 @@ void shader_signature_cleanup(struct shader_signature *signature)
 {
     for (unsigned int i = 0; i < signature->element_count; ++i)
     {
-        vkd3d_free((void *)signature->elements[i].semantic_name);
+        vsir_signature_element_cleanup(&signature->elements[i]);
     }
     vkd3d_free(signature->elements);
     signature->elements = NULL;
