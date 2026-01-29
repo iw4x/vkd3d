@@ -9302,6 +9302,8 @@ static enum vkd3d_result vsir_program_normalise_sysval_array(struct vsir_transfo
             if ((!output || vsir_opcode_is_fork_or_join_phase(normaliser.phase))
                     && (res = sysval_array_normaliser_add_input_copy(&normaliser, &it)) < 0)
                 return res;
+
+            ins = vsir_program_iterator_current(&it);
         }
 
         if (!declarations)
