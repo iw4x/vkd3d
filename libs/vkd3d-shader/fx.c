@@ -3585,7 +3585,6 @@ static bool is_supported_object_variable(const struct hlsl_ctx *ctx, const struc
         case HLSL_CLASS_RASTERIZER_STATE:
         case HLSL_CLASS_RENDER_TARGET_VIEW:
         case HLSL_CLASS_SAMPLER:
-        case HLSL_CLASS_TEXTURE:
         case HLSL_CLASS_BLEND_STATE:
         case HLSL_CLASS_VERTEX_SHADER:
         case HLSL_CLASS_GEOMETRY_SHADER:
@@ -3595,6 +3594,13 @@ static bool is_supported_object_variable(const struct hlsl_ctx *ctx, const struc
         case HLSL_CLASS_DOMAIN_SHADER:
         case HLSL_CLASS_HULL_SHADER:
             if (ctx->profile->major_version < 5)
+                return false;
+            return true;
+        case HLSL_CLASS_TEXTURE:
+            if (ctx->profile->major_version >= 5)
+                return true;
+            if (type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER
+                    || type->sampler_dim == HLSL_SAMPLER_DIM_RAW_BUFFER)
                 return false;
             return true;
         case HLSL_CLASS_UAV:
