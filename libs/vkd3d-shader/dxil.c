@@ -9433,6 +9433,34 @@ static void sm6_parser_init_parameter_attributes(struct sm6_parser *dxil, const 
     }
 }
 
+static void dxil_attribute_group_cleanup(struct dxil_attribute_group *group)
+{
+    struct dxil_attribute *attribute;
+    size_t i;
+
+    for (i = 0; i < group->attribute_count; ++i)
+    {
+        attribute = &group->attributes[i];
+
+        switch (attribute->kind)
+        {
+            case ATTRIBUTE_WELL_KNOWN:
+            case ATTRIBUTE_WELL_KNOWN_WITH_INTEGER_VALUE:
+                break;
+
+            case ATTRIBUTE_STRING:
+                vkd3d_free((void *)attribute->key.string);
+                break;
+
+            case ATTRIBUTE_STRING_WITH_STRING_VALUE:
+                vkd3d_free((void *)attribute->key.string);
+                vkd3d_free((void *)attribute->value.string);
+                break;
+        }
+    }
+    vkd3d_free(group->attributes);
+}
+
 static void sm6_parser_init_attribute_groups(struct sm6_parser *dxil, const struct dxil_block *block)
 {
     size_t i, j;
@@ -11608,32 +11636,11 @@ static void sm6_parser_cleanup_parameter_attributes(struct sm6_parser *sm6)
 
 static void sm6_parser_cleanup_attribute_groups(struct sm6_parser *dxil)
 {
-    struct dxil_attribute_group *group;
-    struct dxil_attribute *attribute;
-    size_t i, j;
+    size_t i;
 
     for (i = 0; i < dxil->attribute_group_count; ++i)
     {
-        group = &dxil->attribute_groups[i];
-        for (j = 0; j < group->attribute_count; ++j)
-        {
-            attribute = &group->attributes[j];
-            switch (attribute->kind)
-            {
-                case ATTRIBUTE_WELL_KNOWN:
-                case ATTRIBUTE_WELL_KNOWN_WITH_INTEGER_VALUE:
-                    break;
-
-                case ATTRIBUTE_STRING:
-                    vkd3d_free((void *)attribute->key.string);
-                    break;
-
-                case ATTRIBUTE_STRING_WITH_STRING_VALUE:
-                    vkd3d_free((void *)attribute->key.string);
-                    vkd3d_free((void *)attribute->value.string);
-                    break;
-            }
-        }
+        dxil_attribute_group_cleanup(&dxil->attribute_groups[i]);
     }
 
     vkd3d_free(dxil->attribute_groups);
