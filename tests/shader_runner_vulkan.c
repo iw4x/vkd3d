@@ -374,6 +374,21 @@ static enum vkd3d_shader_fog_source get_fog_source(const struct shader_runner *r
     return runner->ortho_fog ? VKD3D_SHADER_FOG_SOURCE_Z : VKD3D_SHADER_FOG_SOURCE_W;
 }
 
+static void free_d3d_blobs(struct vulkan_shader_runner *runner)
+{
+    unsigned int i;
+
+    for (i = 0; i < SHADER_TYPE_COUNT; ++i)
+    {
+        if (!runner->d3d_blobs[i])
+            continue;
+
+        vkd3d_shader_free_scan_signature_info(&runner->signatures[i]);
+        ID3D10Blob_Release(runner->d3d_blobs[i]);
+        runner->d3d_blobs[i] = NULL;
+    }
+}
+
 static bool compile_hlsl_and_scan(struct vulkan_shader_runner *runner, enum shader_type type)
 {
     struct vkd3d_shader_parameter_info parameter_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_PARAMETER_INFO};
@@ -837,6 +852,7 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
     if (!ret)
     {
         trace("Failed to compile HLSL shader(s).\n");
+        free_d3d_blobs(runner);
         return VK_NULL_HANDLE;
     }
 
@@ -860,6 +876,7 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
         trace("Failed to compile SPIR-V shader(s).\n");
         for (i = 0; i < ARRAY_SIZE(stage_desc); ++i)
             VK_CALL(vkDestroyShaderModule(device, stage_desc[i].module, NULL));
+        free_d3d_blobs(runner);
         return VK_NULL_HANDLE;
     }
 
@@ -1002,15 +1019,7 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
 
     for (i = 0; i < ARRAY_SIZE(stage_desc); ++i)
         VK_CALL(vkDestroyShaderModule(device, stage_desc[i].module, NULL));
-    for (i = 0; i < SHADER_TYPE_COUNT; ++i)
-    {
-        if (!runner->d3d_blobs[i])
-            continue;
-
-        vkd3d_shader_free_scan_signature_info(&runner->signatures[i]);
-        ID3D10Blob_Release(runner->d3d_blobs[i]);
-        runner->d3d_blobs[i] = NULL;
-    }
+    free_d3d_blobs(runner);
 
     return pipeline;
 }
@@ -1034,6 +1043,7 @@ static VkPipeline create_compute_pipeline(struct vulkan_shader_runner *runner, V
     if (!ret)
     {
         trace("Failed to compile SPIR-V shader.\n");
+        free_d3d_blobs(runner);
         return VK_NULL_HANDLE;
     }
 
@@ -1044,10 +1054,7 @@ static VkPipeline create_compute_pipeline(struct vulkan_shader_runner *runner, V
     ok(vr == VK_SUCCESS, "Failed to create compute pipeline, vr %d.\n", vr);
 
     VK_CALL(vkDestroyShaderModule(context->device, pipeline_desc.stage.module, NULL));
-
-    vkd3d_shader_free_scan_signature_info(&runner->signatures[SHADER_TYPE_CS]);
-    ID3D10Blob_Release(runner->d3d_blobs[SHADER_TYPE_CS]);
-    runner->d3d_blobs[SHADER_TYPE_CS] = NULL;
+    free_d3d_blobs(runner);
 
     return pipeline;
 }
