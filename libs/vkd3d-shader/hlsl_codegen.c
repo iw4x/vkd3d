@@ -15521,13 +15521,16 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
     process_entry_function(ctx, &semantic_vars, &body, &initializer_block, entry_func);
 
     if (ctx->result)
+    {
+        hlsl_block_cleanup(&body);
         return ctx->result;
+    }
 
     if (profile->type == VKD3D_SHADER_TYPE_HULL)
     {
         process_entry_function(ctx, &patch_semantic_vars, &patch_body, &initializer_block, ctx->patch_constant_func);
         if (ctx->result)
-            return ctx->result;
+            goto done;
     }
 
     hlsl_block_cleanup(&initializer_block);
@@ -15557,7 +15560,7 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
     }
 
     if (ctx->result)
-        return ctx->result;
+        goto done;
 
     generate_vsir_signature(ctx, program, entry_func, &semantic_vars);
     if (program->shader_version.type == VKD3D_SHADER_TYPE_HULL)
@@ -15570,15 +15573,21 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
     else
         sm4_generate_rdef(ctx, reflection_data);
     if (ctx->result)
-        return ctx->result;
+        goto done;
 
     if (program->shader_version.major < 4)
         sm1_generate_vsir(ctx, compile_info, entry_func, &semantic_vars, &body, config_flags, program);
     else
         sm4_generate_vsir(ctx, compile_info, entry_func, &semantic_vars, &body,
                 &patch_semantic_vars, &patch_body, config_flags, program);
+
     if (ctx->result)
         vkd3d_shader_free_shader_code(reflection_data);
+
+done:
+    if (profile->type == VKD3D_SHADER_TYPE_HULL)
+        hlsl_block_cleanup(&patch_body);
+    hlsl_block_cleanup(&body);
 
     return ctx->result;
 }
