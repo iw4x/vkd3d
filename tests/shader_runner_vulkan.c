@@ -406,9 +406,14 @@ static bool compile_hlsl_and_scan(struct vulkan_shader_runner *runner, enum shad
 
     runner->signatures[type].type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_SIGNATURE_INFO;
     runner->signatures[type].next = NULL;
-    ret = vkd3d_shader_scan(&info, NULL);
+    if ((ret = vkd3d_shader_scan(&info, NULL)) < 0)
+    {
+        ID3D10Blob_Release(runner->d3d_blobs[type]);
+        runner->d3d_blobs[type] = NULL;
+        return false;
+    }
 
-    return ret >= 0;
+    return true;
 }
 
 static bool compile_d3d_code(struct vulkan_shader_runner *runner,
