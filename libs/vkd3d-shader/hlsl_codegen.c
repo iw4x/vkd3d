@@ -14326,13 +14326,11 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
 
     sm4_free_extern_resources(extern_resources, extern_resources_count);
 
-    if (buffer.status)
-    {
-        vkd3d_bytecode_buffer_cleanup(&buffer);
+    if (ctx->result >= 0 && buffer.status < 0)
         ctx->result = buffer.status;
-        return;
-    }
-    vkd3d_shader_code_from_bytecode_buffer(rdef, &buffer);
+    if (ctx->result >= 0)
+        vkd3d_shader_code_from_bytecode_buffer(rdef, &buffer);
+    vkd3d_bytecode_buffer_cleanup(&buffer);
 }
 
 static bool loop_unrolling_generate_const_bool_store(struct hlsl_ctx *ctx, struct hlsl_ir_var *var,
