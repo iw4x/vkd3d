@@ -2158,10 +2158,7 @@ static int hlsl_fx_2_write(struct hlsl_ctx *ctx, struct vkd3d_shader_code *out)
         ctx->result = fx.status;
 
     if (!ctx->result)
-    {
-        out->code = buffer.data;
-        out->size = buffer.size;
-    }
+        vkd3d_shader_code_from_bytecode_buffer(out, &buffer);
 
     return fx_write_context_cleanup(&fx);
 }
@@ -3693,10 +3690,7 @@ static int hlsl_fx_4_write(struct hlsl_ctx *ctx, struct vkd3d_shader_code *out)
         ctx->result = fx.status;
 
     if (!ctx->result)
-    {
-        out->code = buffer.data;
-        out->size = buffer.size;
-    }
+        vkd3d_shader_code_from_bytecode_buffer(out, &buffer);
 
     return fx_write_context_cleanup(&fx);
 }
@@ -3756,10 +3750,7 @@ static int hlsl_fx_5_write(struct hlsl_ctx *ctx, struct vkd3d_shader_code *out)
         ctx->result = fx.status;
 
     if (!ctx->result)
-    {
-        out->code = buffer.data;
-        out->size = buffer.size;
-    }
+        vkd3d_shader_code_from_bytecode_buffer(out, &buffer);
 
     return fx_write_context_cleanup(&fx);
 }

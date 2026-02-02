@@ -11100,8 +11100,7 @@ static void sm1_generate_ctab(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ct
         ctx->result = buffer.status;
         return;
     }
-    ctab->code = buffer.data;
-    ctab->size = buffer.size;
+    vkd3d_shader_code_from_bytecode_buffer(ctab, &buffer);
 }
 
 static enum vkd3d_shader_input_sysval_semantic vkd3d_siv_from_sysval_indexed(enum vkd3d_shader_sysval_semantic sysval,
@@ -14333,8 +14332,7 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
         ctx->result = buffer.status;
         return;
     }
-    rdef->code = buffer.data;
-    rdef->size = buffer.size;
+    vkd3d_shader_code_from_bytecode_buffer(rdef, &buffer);
 }
 
 static bool loop_unrolling_generate_const_bool_store(struct hlsl_ctx *ctx, struct hlsl_ir_var *var,

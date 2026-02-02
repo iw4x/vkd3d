@@ -2275,13 +2275,8 @@ int d3dbc_compile(struct vsir_program *program, uint64_t config_flags,
         result = VKD3D_ERROR_INVALID_SHADER;
 
     if (!result)
-    {
-        out->code = buffer->data;
-        out->size = buffer->size;
-    }
-    else
-    {
-        vkd3d_free(buffer->data);
-    }
+        vkd3d_shader_code_from_bytecode_buffer(out, buffer);
+    vkd3d_free(buffer->data);
+
     return result;
 }
