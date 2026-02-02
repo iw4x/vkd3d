@@ -11094,13 +11094,11 @@ static void sm1_generate_ctab(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ct
     struct vkd3d_bytecode_buffer buffer = {0};
 
     write_sm1_uniforms(ctx, &buffer);
-    if (buffer.status)
-    {
-        vkd3d_bytecode_buffer_cleanup(&buffer);
+    if (ctx->result >= 0 && buffer.status < 0)
         ctx->result = buffer.status;
-        return;
-    }
-    vkd3d_shader_code_from_bytecode_buffer(ctab, &buffer);
+    if (ctx->result >= 0)
+        vkd3d_shader_code_from_bytecode_buffer(ctab, &buffer);
+    vkd3d_bytecode_buffer_cleanup(&buffer);
 }
 
 static enum vkd3d_shader_input_sysval_semantic vkd3d_siv_from_sysval_indexed(enum vkd3d_shader_sysval_semantic sysval,
