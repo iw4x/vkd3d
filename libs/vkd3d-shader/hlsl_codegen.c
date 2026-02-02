@@ -11096,7 +11096,7 @@ static void sm1_generate_ctab(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ct
     write_sm1_uniforms(ctx, &buffer);
     if (buffer.status)
     {
-        vkd3d_free(buffer.data);
+        vkd3d_bytecode_buffer_cleanup(&buffer);
         ctx->result = buffer.status;
         return;
     }
@@ -14328,7 +14328,7 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
 
     if (buffer.status)
     {
-        vkd3d_free(buffer.data);
+        vkd3d_bytecode_buffer_cleanup(&buffer);
         ctx->result = buffer.status;
         return;
     }

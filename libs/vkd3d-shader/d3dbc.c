@@ -2276,7 +2276,7 @@ int d3dbc_compile(struct vsir_program *program, uint64_t config_flags,
 
     if (!result)
         vkd3d_shader_code_from_bytecode_buffer(out, buffer);
-    vkd3d_free(buffer->data);
+    vkd3d_bytecode_buffer_cleanup(buffer);
 
     return result;
 }

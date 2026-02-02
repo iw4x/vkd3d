@@ -474,6 +474,11 @@ void vkd3d_shader_error(struct vkd3d_shader_message_context *context, const stru
     va_end(args);
 }
 
+void vkd3d_bytecode_buffer_cleanup(struct vkd3d_bytecode_buffer *buffer)
+{
+    vkd3d_free(buffer->data);
+}
+
 size_t bytecode_align(struct vkd3d_bytecode_buffer *buffer)
 {
     size_t aligned_size = align(buffer->size, 4);
