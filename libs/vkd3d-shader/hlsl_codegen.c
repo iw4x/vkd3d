@@ -15523,6 +15523,7 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
     if (ctx->result)
     {
         hlsl_block_cleanup(&body);
+        hlsl_block_cleanup(&initializer_block);
         return ctx->result;
     }
 
@@ -15532,8 +15533,6 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
         if (ctx->result)
             goto done;
     }
-
-    hlsl_block_cleanup(&initializer_block);
 
     if (profile->major_version < 4)
     {
@@ -15588,6 +15587,7 @@ done:
     if (profile->type == VKD3D_SHADER_TYPE_HULL)
         hlsl_block_cleanup(&patch_body);
     hlsl_block_cleanup(&body);
+    hlsl_block_cleanup(&initializer_block);
 
     return ctx->result;
 }
