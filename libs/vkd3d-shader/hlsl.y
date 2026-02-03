@@ -9869,9 +9869,11 @@ postfix_expr:
             if (!add_method_call(ctx, $1, object, $3, &$5, &@3))
             {
                 destroy_block($1);
+                vkd3d_free($3);
                 vkd3d_free($5.args);
                 YYABORT;
             }
+            vkd3d_free($3);
             vkd3d_free($5.args);
             $$ = $1;
         }
