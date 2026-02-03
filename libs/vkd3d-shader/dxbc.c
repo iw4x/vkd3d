@@ -91,6 +91,7 @@ int vkd3d_shader_serialize_dxbc(size_t section_count, const struct vkd3d_shader_
 
     if (!buffer.status)
         vkd3d_shader_code_from_bytecode_buffer(dxbc, &buffer);
+    vkd3d_bytecode_buffer_cleanup(&buffer);
 
     return buffer.status;
 }
