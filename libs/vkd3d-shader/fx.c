@@ -3228,7 +3228,7 @@ static unsigned int decompose_fx_4_state_function_call(struct hlsl_ir_var *var, 
     const struct state_block_function_info *info;
     struct function_component components[9];
     struct hlsl_ctx *ctx = fx->ctx;
-    unsigned int i;
+    unsigned int i, count;
 
     if (!entry->is_function_call)
         return 1;
@@ -3256,16 +3256,16 @@ static unsigned int decompose_fx_4_state_function_call(struct hlsl_ir_var *var, 
 
     get_state_block_function_components(info, components, entry->args_count);
 
-    for (i = 0; i < entry->args_count; ++i)
+    for (i = 0, count = entry->args_count; i < count; ++i)
     {
         const struct function_component *comp = &components[i];
-        unsigned int arg_index = (i + 1) % entry->args_count;
+        unsigned int arg_index = (i + 1) % count;
         block->entries[entry_index + i] = clone_stateblock_entry(ctx, entry, comp->name,
                 comp->lhs_has_index, comp->lhs_index, true, arg_index);
     }
     hlsl_free_state_block_entry(entry);
 
-    return entry->args_count;
+    return count;
 }
 
 /* For some states assignment sets all of the elements. This behaviour is limited to certain states of BlendState
