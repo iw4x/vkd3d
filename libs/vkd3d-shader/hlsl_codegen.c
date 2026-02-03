@@ -14971,8 +14971,9 @@ static struct hlsl_ir_node *lower_f32tof16(struct hlsl_ctx *ctx, struct hlsl_ir_
 
     if (!(body = hlsl_sprintf_alloc(ctx, template, component_count, component_count)))
         return NULL;
-
-    if (!(func = hlsl_compile_internal_function(ctx, "soft_f32tof16", body)))
+    func = hlsl_compile_internal_function(ctx, "soft_f32tof16", body);
+    vkd3d_free(body);
+    if (!func)
         return NULL;
 
     lhs = func->parameters.vars[0];
