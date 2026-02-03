@@ -4778,7 +4778,6 @@ struct function_emission_state
 {
     struct sm6_function *function;
     const struct dxil_record *record;
-    struct vkd3d_shader_instruction *ins;
     unsigned int temp_idx;
 };
 
@@ -5352,8 +5351,6 @@ static bool sm6_parser_emit_reg_composite_construct(struct sm6_parser *sm6,
     {
         if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
             return false;
-
-        state->ins = ins + 1;
 
         vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_MOV);
 
@@ -9222,7 +9219,6 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
 
         state.function = function;
         state.record = block->records[i];
-        state.ins = ins;
 
         record = block->records[i];
         switch (record->code)
