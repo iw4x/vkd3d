@@ -2159,6 +2159,7 @@ static int hlsl_fx_2_write(struct hlsl_ctx *ctx, struct vkd3d_shader_code *out)
 
     if (!ctx->result)
         vkd3d_shader_code_from_bytecode_buffer(out, &buffer);
+    vkd3d_bytecode_buffer_cleanup(&buffer);
 
     return fx_write_context_cleanup(&fx);
 }
