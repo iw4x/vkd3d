@@ -8689,6 +8689,7 @@ type_no_void:
 
             if (hlsl_is_numeric_type(type) && type->e.numeric.type == HLSL_TYPE_INT)
             {
+                vkd3d_free($2);
                 if (!(type = hlsl_type_clone(ctx, type, 0, 0)))
                     YYABORT;
                 vkd3d_free((void *)type->name);
@@ -8699,6 +8700,7 @@ type_no_void:
             {
                 hlsl_error(ctx, &@2, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
                         "The 'unsigned' keyword can't be used with type %s.", $2);
+                vkd3d_free($2);
             }
 
             $$ = type;
