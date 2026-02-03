@@ -379,6 +379,7 @@ static void write_fx_4_annotation(struct hlsl_ir_var *var, struct fx_write_conte
 static uint32_t write_type(const struct type_entry *type, struct fx_write_context *fx)
 {
     struct type_entry *type_entry;
+    uint32_t offset;
 
     /* We don't try to reuse nameless types; they will get the same
      * "<unnamed>" name, but are not available for the type cache. */
@@ -402,16 +403,19 @@ static uint32_t write_type(const struct type_entry *type, struct fx_write_contex
         }
     }
 
+    offset = write_fx_4_type(type, fx);
+
+    if (!type->name)
+        return offset;
+
     if (!(type_entry = hlsl_alloc(fx->ctx, sizeof(*type_entry))))
-        return 0;
+        return offset;
 
     *type_entry = *type;
-    type_entry->offset = write_fx_4_type(type, fx);
+    type_entry->offset = offset;
+    list_add_tail(&fx->types, &type_entry->entry);
 
-    if (type_entry->name)
-        list_add_tail(&fx->types, &type_entry->entry);
-
-    return type_entry->offset;
+    return offset;
 }
 
 static void type_entry_from_type(struct type_entry *e, const struct hlsl_type *type, const struct fx_write_context *fx)
