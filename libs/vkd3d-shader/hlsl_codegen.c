@@ -15113,8 +15113,9 @@ static struct hlsl_ir_node *lower_isinf(struct hlsl_ctx *ctx, struct hlsl_ir_nod
     component_count = hlsl_type_component_count(rhs->data_type);
     if (!(body = hlsl_sprintf_alloc(ctx, template, component_count, component_count)))
         return NULL;
-
-    if (!(func = hlsl_compile_internal_function(ctx, "isinf", body)))
+    func = hlsl_compile_internal_function(ctx, "isinf", body);
+    vkd3d_free(body);
+    if (!func)
         return NULL;
 
     hlsl_block_add_simple_store(ctx, block, func->parameters.vars[0], rhs);
