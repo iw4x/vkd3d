@@ -108,3 +108,41 @@ probe (320, 240) f32(123456, 123456, 123456, 123456)
 write cbv-i32 (0) i32(3, 1, 2, 0)
 todo draw quad
 probe (320, 240) f32(246, 246, 246, 246)
+
+[require]
+shader model = 2.0
+
+[vertex shader d3dbc-hex]
+fffe0200                                                % vs_2_0
+05000051 a00f0008 3c23d70a 00000000 00000000 00000000   % def c8, 0.01, 0, 0, 0
+0200001f 80000000 900f0000                              % dcl_position v0
+02000001 800f0000 a0e40000                              % mov r0, c0
+0200001b f0e40800 f0e40000                              % loop aL, i0
+04000002 800f0000 80e40000 a0e42001 f0e40800            %   add r0, r0, c[aL + 1]
+0000001d                                                % endloop
+02000001 c00f0000 90e40000                              % mov oPos, v0
+03000005 800f0000 80e40000 a0000008                     % mul r0, r0, c8.x
+02000001 d00f0000 80e40000                              % mov oD0, r0
+0000ffff                                                % end
+
+[pixel shader d3dbc-hex]
+ffff0200                     % ps_2_0
+0200001f 80000000 900f0000   % dcl v0
+02000001 800f0800 90e40000   % mov oC0, v0
+0000ffff                     % end
+
+[test]
+write cbv-f32 (0) f32(0, 0, 0, 1)
+write cbv-f32 (4) f32(1, 1, 1, 1)
+write cbv-f32 (8) f32(2, 2, 2, 1)
+write cbv-f32 (12) f32(4, 4, 4, 1)
+write cbv-f32 (16) f32(8, 8, 8, 1)
+write cbv-f32 (20) f32(16, 16, 16, 1)
+write cbv-f32 (24) f32(32, 32, 32, 1)
+write cbv-f32 (28) f32(64, 64, 64, 1)
+write cbv-i32 (0) i32(6, 0, 1, 0)
+todo draw quad
+probe (320, 240) f32(0.63, 0.63, 0.63, 0.07)
+write cbv-i32 (0) i32(3, 1, 2, 0)
+todo draw quad
+probe (320, 240) f32(0.42, 0.42, 0.42, 0.04)
