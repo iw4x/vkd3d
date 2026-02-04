@@ -6744,7 +6744,8 @@ static enum vkd3d_result vsir_cfg_init(struct vsir_cfg *cfg, struct vsir_program
                 vsir_program_iterator_next(&current_block->begin);
                 if (!cfg->entry)
                     cfg->entry = current_block;
-                ++defined_block_count;
+                if (label > defined_block_count)
+                    defined_block_count = label;
                 break;
             }
 
