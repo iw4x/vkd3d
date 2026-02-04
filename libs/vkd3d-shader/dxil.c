@@ -9551,23 +9551,23 @@ static enum vkd3d_result sm6_parser_module_init(struct sm6_parser *sm6, const st
     return sm6->p.status;
 }
 
-static enum vkd3d_result sm6_function_emit_instructions(const struct sm6_function *function, struct sm6_parser *dxil)
+static enum vkd3d_result sm6_function_emit_instructions(struct sm6_function *function, struct sm6_parser *dxil)
 {
+    struct vsir_program_iterator it = vsir_program_iterator(&function->instructions);
     struct vsir_program *program = dxil->program;
-    struct vkd3d_shader_instruction *ins;
-    unsigned int i;
+    struct vkd3d_shader_instruction *dst, *src;
 
     program->block_count = max(program->block_count, function->block_count);
 
-    for (i = 0; i < function->instructions.count; ++i)
+    for (src = vsir_program_iterator_head(&it); src; src = vsir_program_iterator_next(&it))
     {
-        if (!(ins = vsir_program_append(program)))
+        if (!(dst = vsir_program_append(program)))
         {
             vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
                     "Out of memory while emitting instructions.");
             return dxil->p.status;
         }
-        *ins = function->instructions.elements[i];
+        *dst = *src;
     }
 
     return dxil->p.status;
