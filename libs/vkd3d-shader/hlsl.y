@@ -9266,6 +9266,7 @@ var_modifiers:
             else
                 hlsl_error(ctx, &@1, VKD3D_SHADER_ERROR_HLSL_UNKNOWN_MODIFIER,
                         "Unknown modifier %s.", debugstr_a($1));
+            vkd3d_free($1);
         }
 
 complex_initializer:
