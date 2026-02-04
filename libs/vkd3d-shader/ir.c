@@ -614,12 +614,12 @@ static struct vsir_src_operand *vsir_program_clone_src_operands(
     return ret;
 }
 
-static void shader_instruction_array_destroy(struct vkd3d_shader_instruction_array *array)
+void shader_instruction_array_cleanup(struct vkd3d_shader_instruction_array *array)
 {
     vkd3d_free(array->elements);
 }
 
-static bool shader_instruction_array_init(struct vkd3d_shader_instruction_array *array, size_t reserve)
+bool shader_instruction_array_init(struct vkd3d_shader_instruction_array *array, size_t reserve)
 {
     memset(array, 0, sizeof(*array));
 
@@ -724,7 +724,7 @@ void vsir_program_cleanup(struct vsir_program *program)
         vkd3d_free((void *)program->block_names[i]);
     vkd3d_free(program->block_names);
     vkd3d_shader_source_list_cleanup(&program->source_files);
-    shader_instruction_array_destroy(&program->instructions);
+    shader_instruction_array_cleanup(&program->instructions);
     shader_signature_cleanup(&program->input_signature);
     shader_signature_cleanup(&program->output_signature);
     shader_signature_cleanup(&program->patch_constant_signature);
@@ -5101,7 +5101,7 @@ static enum vkd3d_result vsir_program_remove_dead_code(struct vsir_program *prog
 static void vsir_program_replace_instructions(struct vsir_program *program,
         struct vkd3d_shader_instruction_array *array)
 {
-    shader_instruction_array_destroy(&program->instructions);
+    shader_instruction_array_cleanup(&program->instructions);
 
     program->instructions = *array;
     memset(array, 0, sizeof(*array));
@@ -5762,7 +5762,7 @@ static enum vkd3d_result vsir_program_flatten_control_flow_constructs(struct vsi
     }
     else
     {
-        shader_instruction_array_destroy(&flattener.instructions);
+        shader_instruction_array_cleanup(&flattener.instructions);
     }
 
     vkd3d_free(flattener.control_flow_info);
@@ -5938,7 +5938,7 @@ static enum vkd3d_result vsir_program_lower_switch_to_selection_ladder(struct vs
     return VKD3D_OK;
 
 fail:
-    shader_instruction_array_destroy(&instructions);
+    shader_instruction_array_cleanup(&instructions);
     vkd3d_free(block_map);
 
     return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -8392,7 +8392,7 @@ static enum vkd3d_result vsir_program_structurize(struct vsir_program *program,
     return VKD3D_OK;
 
 fail:
-    shader_instruction_array_destroy(&target.instructions);
+    shader_instruction_array_cleanup(&target.instructions);
 
     return ret;
 }

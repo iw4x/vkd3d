@@ -11528,7 +11528,7 @@ static void sm6_functions_cleanup(struct sm6_function *functions, size_t count)
 
     for (i = 0; i < count; ++i)
     {
-        vkd3d_free(functions[i].instructions.elements);
+        shader_instruction_array_cleanup(&functions[i].instructions);
     }
     vkd3d_free(functions);
 }
