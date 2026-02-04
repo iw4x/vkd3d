@@ -9112,6 +9112,7 @@ array:
     | '[' expr ']'
         {
             $$ = evaluate_static_expression_as_uint(ctx, $2, &@2);
+            destroy_block($2);
 
             if (!$$)
             {
@@ -9126,8 +9127,6 @@ array:
                         "Array size %u is not between 1 and 65536.", $$);
                 YYABORT;
             }
-
-            destroy_block($2);
         }
 
 arrays:
