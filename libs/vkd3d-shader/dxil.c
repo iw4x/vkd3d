@@ -9119,11 +9119,11 @@ static void metadata_attachment_record_apply(const struct dxil_record *record, e
 static void dxil_emit_function_label(struct sm6_parser *dxil,
         struct function_emission_state *state, unsigned int label_id)
 {
-    struct sm6_function *function = state->function;
     struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_param;
 
-    ins = &function->instructions.elements[function->instructions.count++];
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
+        return;
 
     vsir_instruction_init(ins, &dxil->p.location, VSIR_OP_LABEL);
     if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
