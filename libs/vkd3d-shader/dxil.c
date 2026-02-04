@@ -9116,8 +9116,10 @@ static void metadata_attachment_record_apply(const struct dxil_record *record, e
     }
 }
 
-static void sm6_function_emit_label(struct sm6_function *function, unsigned int label_id, struct sm6_parser *dxil)
+static void dxil_emit_function_label(struct sm6_parser *dxil,
+        struct function_emission_state *state, unsigned int label_id)
 {
+    struct sm6_function *function = state->function;
     struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_param;
 
@@ -9197,11 +9199,14 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
             return VKD3D_ERROR_OUT_OF_MEMORY;
         }
 
+        state.function = function;
+        state.record = block->records[i];
+
         if (!emitted_label)
         {
             /* Label id is 1-based. Do not emit a label until it is known that
              * instructions will follow. */
-            sm6_function_emit_label(function, block_idx + 1, sm6);
+            dxil_emit_function_label(sm6, &state, block_idx + 1);
             emitted_label = true;
         }
 
@@ -9212,9 +9217,6 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
         dst->type = NULL;
         dst->is_back_ref = true;
         is_terminator = false;
-
-        state.function = function;
-        state.record = block->records[i];
 
         record = block->records[i];
         switch (record->code)
