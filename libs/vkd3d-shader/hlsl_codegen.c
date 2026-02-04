@@ -10885,12 +10885,18 @@ struct ctab_ctx
     struct hlsl_ctx *hlsl;
 
     struct vkd3d_bytecode_buffer buffer;
+
+    struct ctab_type_info
+    {
+        unsigned int bytecode_offset;
+    } *type_info;
 };
 
 static void ctab_write_type(struct ctab_ctx *ctab, struct hlsl_type *type,
         bool is_combined_sampler, enum hlsl_sampler_dim sampler_dim, unsigned int ctab_start)
 {
     const struct hlsl_type *array_type = hlsl_get_multiarray_element_type(type);
+    struct ctab_type_info *type_info = &ctab->type_info[type->type_id];
     unsigned int array_size = hlsl_get_multiarray_size(type);
     struct vkd3d_bytecode_buffer *buffer = &ctab->buffer;
     struct hlsl_struct_field *field;
@@ -10900,7 +10906,7 @@ static void ctab_write_type(struct ctab_ctx *ctab, struct hlsl_type *type,
      * samplers. Apparently it deals with this by never deduplicating any
      * sampler types. This is not very efficient, but we may as well do the
      * same. */
-    if (type->bytecode_offset && array_type->class != HLSL_CLASS_SAMPLER)
+    if (type_info->bytecode_offset && array_type->class != HLSL_CLASS_SAMPLER)
         return;
 
     if (array_type->class == HLSL_CLASS_STRUCT)
@@ -10919,19 +10925,22 @@ static void ctab_write_type(struct ctab_ctx *ctab, struct hlsl_type *type,
 
         for (i = 0; i < field_count; ++i)
         {
+            struct ctab_type_info *field_type_info;
+
             field = &array_type->e.record.fields[i];
+            field_type_info = &ctab->type_info[field->type->type_id];
             put_u32(buffer, field->name_bytecode_offset - ctab_start);
-            put_u32(buffer, field->type->bytecode_offset - ctab_start);
+            put_u32(buffer, field_type_info->bytecode_offset - ctab_start);
         }
 
-        type->bytecode_offset = put_u32(buffer, vkd3d_make_u32(D3DXPC_STRUCT, D3DXPT_VOID));
+        type_info->bytecode_offset = put_u32(buffer, vkd3d_make_u32(D3DXPC_STRUCT, D3DXPT_VOID));
         put_u32(buffer, vkd3d_make_u32(1, hlsl_type_component_count(array_type)));
         put_u32(buffer, vkd3d_make_u32(array_size, field_count));
         put_u32(buffer, fields_offset);
     }
     else
     {
-        type->bytecode_offset = put_u32(buffer,
+        type_info->bytecode_offset = put_u32(buffer,
                 vkd3d_make_u32(hlsl_sm1_class(type), hlsl_sm1_base_type(array_type, is_combined_sampler, sampler_dim)));
         if (hlsl_is_numeric_type(array_type))
             put_u32(buffer, vkd3d_make_u32(array_type->e.numeric.dimy, array_type->e.numeric.dimx));
@@ -11049,6 +11058,8 @@ static void ctab_write_uniforms(struct ctab_ctx *ctab)
 
     LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
     {
+        struct ctab_type_info *var_type_info = &ctab->type_info[var->data_type->type_id];
+
         for (r = 0; r <= HLSL_REGSET_LAST; ++r)
         {
             enum hlsl_sampler_dim sampler_dim = HLSL_SAMPLER_DIM_GENERIC;
@@ -11078,7 +11089,7 @@ static void ctab_write_uniforms(struct ctab_ctx *ctab)
             set_u32(buffer, var_offset, name_offset - ctab_start);
 
             ctab_write_type(ctab, var->data_type, var->is_combined_sampler, sampler_dim, ctab_start);
-            set_u32(buffer, var_offset + 3 * sizeof(uint32_t), var->data_type->bytecode_offset - ctab_start);
+            set_u32(buffer, var_offset + 3 * sizeof(uint32_t), var_type_info->bytecode_offset - ctab_start);
 
             if (var->default_values)
             {
@@ -11145,21 +11156,32 @@ static void ctab_write_uniforms(struct ctab_ctx *ctab)
 
 static void ctab_ctx_cleanup(struct ctab_ctx *ctab)
 {
+    vkd3d_free(ctab->type_info);
     vkd3d_bytecode_buffer_cleanup(&ctab->buffer);
 }
 
-static void ctab_ctx_init(struct ctab_ctx *ctab, struct hlsl_ctx *hlsl)
+static int ctab_ctx_init(struct ctab_ctx *ctab, struct hlsl_ctx *hlsl)
 {
     ctab->hlsl = hlsl;
 
     memset(&ctab->buffer, 0, sizeof(ctab->buffer));
+
+    if (!(ctab->type_info = vkd3d_calloc(hlsl->type_count, sizeof(*ctab->type_info))))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    return VKD3D_OK;
 }
 
 static void sm1_generate_ctab(struct hlsl_ctx *hlsl, struct vkd3d_shader_code *out)
 {
     struct ctab_ctx ctab;
+    int ret;
 
-    ctab_ctx_init(&ctab, hlsl);
+    if ((ret = ctab_ctx_init(&ctab, hlsl)) < 0)
+    {
+        hlsl->result = ret;
+        return;
+    }
 
     ctab_write_uniforms(&ctab);
     if (hlsl->result >= 0 && ctab.buffer.status < 0)

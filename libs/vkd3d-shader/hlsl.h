@@ -236,6 +236,9 @@ struct hlsl_type
     /* Offset where the type's packed description starts in the output bytecode, in bytes. */
     size_t packed_bytecode_offset;
 
+    /* ID used for indexing auxiliary data. */
+    size_t type_id;
+
     bool is_typedef;
 
     uint32_t is_minimum_precision : 1;
@@ -1160,6 +1163,7 @@ struct hlsl_ctx
     /* List containing all created hlsl_types, except builtin_types; linked by the hlsl_type.entry
      *   fields. */
     struct list types;
+    size_t type_count;
     /* Tree map for the declared functions, using hlsl_ir_function.name as key.
      * The functions are attached through the hlsl_ir_function.entry fields. */
     struct rb_tree functions;
