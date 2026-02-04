@@ -14011,22 +14011,29 @@ struct rdef_ctx
     struct hlsl_ctx *hlsl;
 
     struct vkd3d_bytecode_buffer buffer;
+
+    struct rdef_type_info
+    {
+        unsigned int bytecode_offset;
+        unsigned int packed_bytecode_offset;
+    } *type_info;
 };
 
 static void rdef_write_type(struct rdef_ctx *rdef, struct hlsl_type *type, bool structured)
 {
     const struct hlsl_type *array_type = hlsl_get_multiarray_element_type(type);
     const char *name = array_type->name ? array_type->name : "<unnamed>";
+    struct rdef_type_info *type_info = &rdef->type_info[type->type_id];
     const struct hlsl_profile_info *profile = rdef->hlsl->profile;
     struct vkd3d_bytecode_buffer *buffer = &rdef->buffer;
     unsigned int array_size = 0;
     size_t name_offset = 0;
     size_t i;
 
-    if (!structured && type->bytecode_offset)
+    if (!structured && type_info->bytecode_offset)
         return;
 
-    if (structured && type->packed_bytecode_offset)
+    if (structured && type_info->packed_bytecode_offset)
         return;
 
     if (profile->major_version >= 5)
@@ -14057,6 +14064,7 @@ static void rdef_write_type(struct rdef_ctx *rdef, struct hlsl_type *type, bool 
         for (i = 0; i < array_type->e.record.field_count; ++i)
         {
             struct hlsl_struct_field *field = &array_type->e.record.fields[i];
+            const struct rdef_type_info *member_type_info;
             unsigned int field_type_offset, offset;
 
             if (!field->type->reg_size[HLSL_REGSET_NUMERIC])
@@ -14064,10 +14072,11 @@ static void rdef_write_type(struct rdef_ctx *rdef, struct hlsl_type *type, bool 
 
             put_u32(buffer, field->name_bytecode_offset);
 
+            member_type_info = &rdef->type_info[field->type->type_id];
             if (!structured)
-                field_type_offset = field->type->bytecode_offset;
+                field_type_offset = member_type_info->bytecode_offset;
             else
-                field_type_offset = field->type->packed_bytecode_offset;
+                field_type_offset = member_type_info->packed_bytecode_offset;
             put_u32(buffer, field_type_offset);
 
             if (!structured)
@@ -14077,9 +14086,9 @@ static void rdef_write_type(struct rdef_ctx *rdef, struct hlsl_type *type, bool 
             put_u32(buffer, offset);
         }
         if (!structured)
-            type->bytecode_offset = put_u32(buffer, vkd3d_make_u32(D3D_SVC_STRUCT, D3D_SVT_VOID));
+            type_info->bytecode_offset = put_u32(buffer, vkd3d_make_u32(D3D_SVC_STRUCT, D3D_SVT_VOID));
         else
-            type->packed_bytecode_offset = put_u32(buffer, vkd3d_make_u32(D3D_SVC_STRUCT, D3D_SVT_VOID));
+            type_info->packed_bytecode_offset = put_u32(buffer, vkd3d_make_u32(D3D_SVC_STRUCT, D3D_SVT_VOID));
         put_u32(buffer, vkd3d_make_u32(1, hlsl_type_component_count(array_type)));
         put_u32(buffer, vkd3d_make_u32(array_size, field_count));
         put_u32(buffer, fields_offset);
@@ -14088,9 +14097,10 @@ static void rdef_write_type(struct rdef_ctx *rdef, struct hlsl_type *type, bool 
     {
         VKD3D_ASSERT(array_type->class <= HLSL_CLASS_LAST_NUMERIC);
         if (!structured)
-            type->bytecode_offset = put_u32(buffer, vkd3d_make_u32(sm4_class(array_type), sm4_base_type(array_type)));
+            type_info->bytecode_offset = put_u32(buffer,
+                    vkd3d_make_u32(sm4_class(array_type), sm4_base_type(array_type)));
         else
-            type->packed_bytecode_offset = put_u32(buffer,
+            type_info->packed_bytecode_offset = put_u32(buffer,
                     vkd3d_make_u32(sm4_class(array_type), sm4_base_type(array_type)));
         put_u32(buffer, vkd3d_make_u32(array_type->e.numeric.dimy, array_type->e.numeric.dimx));
         put_u32(buffer, vkd3d_make_u32(array_size, 0));
@@ -14109,14 +14119,20 @@ static void rdef_write_type(struct rdef_ctx *rdef, struct hlsl_type *type, bool 
 
 static void rdef_ctx_cleanup(struct rdef_ctx *rdef)
 {
+    vkd3d_free(rdef->type_info);
     vkd3d_bytecode_buffer_cleanup(&rdef->buffer);
 }
 
-static void rdef_ctx_init(struct rdef_ctx *rdef, struct hlsl_ctx *hlsl)
+static int rdef_ctx_init(struct rdef_ctx *rdef, struct hlsl_ctx *hlsl)
 {
     rdef->hlsl = hlsl;
 
     memset(&rdef->buffer, 0, sizeof(rdef->buffer));
+
+    if (!(rdef->type_info = vkd3d_calloc(hlsl->type_count, sizeof(*rdef->type_info))))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    return VKD3D_OK;
 }
 
 static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *out)
@@ -14131,6 +14147,7 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ou
     const struct hlsl_buffer *cbuffer;
     const struct hlsl_ir_var *var;
     struct rdef_ctx rdef;
+    int ret;
 
     static const uint16_t target_types[] =
     {
@@ -14142,7 +14159,11 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ou
         0x4353, /* COMPUTE */
     };
 
-    rdef_ctx_init(&rdef, ctx);
+    if ((ret = rdef_ctx_init(&rdef, ctx)) < 0)
+    {
+        ctx->result = ret;
+        return;
+    }
     buffer = &rdef.buffer;
 
     extern_resources = sm4_get_extern_resources(ctx, &extern_resources_count);
@@ -14346,6 +14367,7 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ou
         j = 0;
         LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
         {
+            const struct rdef_type_info *type_info = &rdef.type_info[var->data_type->type_id];
             const unsigned int var_size = (profile->major_version >= 5 ? 10 : 6);
             size_t var_offset = vars_start + j * var_size * sizeof(uint32_t);
 
@@ -14355,7 +14377,7 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ou
             string_offset = put_string(buffer, var->name);
             set_u32(buffer, var_offset, string_offset);
             rdef_write_type(&rdef, var->data_type, false);
-            set_u32(buffer, var_offset + 4 * sizeof(uint32_t), var->data_type->bytecode_offset);
+            set_u32(buffer, var_offset + 4 * sizeof(uint32_t), type_info->bytecode_offset);
 
             if (var->default_values)
             {
@@ -14400,6 +14422,7 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ou
     for (j = 0; j < extern_resources_count; ++j)
     {
         const struct extern_resource *resource = &extern_resources[j];
+        const struct rdef_type_info *type_info;
         struct hlsl_type *resource_type;
         size_t vars_start;
 
@@ -14407,6 +14430,7 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ou
             continue;
 
         resource_type = resource->component_type->e.resource.format;
+        type_info = &rdef.type_info[resource_type->type_id];
 
         vars_start = bytecode_align(buffer);
 
@@ -14430,7 +14454,7 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ou
         string_offset = put_string(buffer, "$Element");
         set_u32(buffer, vars_start, string_offset);
         rdef_write_type(&rdef, resource_type, true);
-        set_u32(buffer, vars_start + 4 * sizeof(uint32_t), resource_type->packed_bytecode_offset);
+        set_u32(buffer, vars_start + 4 * sizeof(uint32_t), type_info->packed_bytecode_offset);
     }
 
     creator_offset = put_string(buffer, vkd3d_shader_get_version(NULL, NULL));

@@ -230,11 +230,6 @@ struct hlsl_type
      * If type is HLSL_CLASS_STRUCT or HLSL_CLASS_ARRAY, the reg_size of their elements and padding
      *   (which varies according to the backend) is also included. */
     unsigned int reg_size[HLSL_REGSET_LAST + 1];
-    /* Offset where the type's description starts in the output bytecode, in bytes. */
-    size_t bytecode_offset;
-
-    /* Offset where the type's packed description starts in the output bytecode, in bytes. */
-    size_t packed_bytecode_offset;
 
     /* ID used for indexing auxiliary data. */
     size_t type_id;
