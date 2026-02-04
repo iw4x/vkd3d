@@ -7692,6 +7692,7 @@ base_optional:
             if ($$->class != HLSL_CLASS_STRUCT)
             {
                 hlsl_error(ctx, &@2, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE, "Base type \"%s\" is not a struct.", $2);
+                vkd3d_free($2);
                 YYABORT;
             }
             vkd3d_free($2);
