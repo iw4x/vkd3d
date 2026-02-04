@@ -914,6 +914,7 @@ struct dxil_attribute_group
 enum fixup_type
 {
     FIXUP_LOAD,
+    FIXUP_STORE,
 };
 
 struct fixup_data
@@ -924,6 +925,7 @@ struct fixup_data
     size_t value_idx;
 
     const struct sm6_value *ptr;
+    const struct sm6_value *src;
     unsigned int alignment;
 };
 
@@ -4831,6 +4833,7 @@ static struct fixup_data *sm6_parser_add_fixup(struct sm6_parser *dxil, struct f
 }
 
 static void sm6_parser_fixup_load(struct sm6_parser *dxil, struct function_emission_state *state);
+static void sm6_parser_fixup_store(struct sm6_parser *dxil, struct function_emission_state *state);
 
 static void sm6_parser_apply_fixups(struct sm6_parser *dxil, struct sm6_function *function)
 {
@@ -4853,6 +4856,10 @@ static void sm6_parser_apply_fixups(struct sm6_parser *dxil, struct sm6_function
         {
             case FIXUP_LOAD:
                 sm6_parser_fixup_load(dxil, &state);
+                break;
+
+            case FIXUP_STORE:
+                sm6_parser_fixup_store(dxil, &state);
                 break;
         }
     }
@@ -8681,18 +8688,14 @@ static void sm6_parser_emit_ret(struct sm6_parser *dxil, struct function_emissio
 static void sm6_parser_emit_store(struct sm6_parser *dxil, struct function_emission_state *state)
 {
     const struct dxil_record *record = state->record;
-    unsigned int i = 0, alignment, operand_count;
-    struct vkd3d_shader_instruction *ins;
-    struct vsir_src_operand *src_params;
-    struct vsir_dst_operand *dst_param;
     const struct sm6_value *ptr, *src;
-    struct vkd3d_shader_register reg;
+    unsigned int i = 0, alignment;
+    struct fixup_data *fixup;
     uint64_t alignment_code;
 
-    if (!(ptr = sm6_parser_get_value_by_ref(dxil, record, NULL, &i))
+    if (!(ptr = sm6_parser_get_pointer_value_by_ref(dxil, record, NULL, &i))
             || !sm6_value_validate_is_register(ptr, dxil)
-            || !sm6_value_validate_is_pointer(ptr, dxil)
-            || !sm6_value_validate_is_backward_ref(ptr, dxil))
+            || !sm6_value_validate_is_pointer(ptr, dxil))
         return;
 
     /* Forward-referenced sources are stored as value/type pairs, even
@@ -8716,6 +8719,26 @@ static void sm6_parser_emit_store(struct sm6_parser *dxil, struct function_emiss
     if (record->operands[i])
         WARN("Ignoring volatile modifier.\n");
 
+    if (!(fixup = sm6_parser_add_fixup(dxil, state, FIXUP_STORE)))
+        return;
+
+    fixup->ptr = ptr;
+    fixup->src = src;
+    fixup->alignment = alignment;
+}
+
+static void sm6_parser_fixup_store(struct sm6_parser *dxil, struct function_emission_state *state)
+{
+    struct fixup_data *fixup = state->fixup;
+    struct vkd3d_shader_instruction *ins;
+    struct vsir_src_operand *src_params;
+    struct vsir_dst_operand *dst_param;
+    const struct sm6_value *ptr, *src;
+    struct vkd3d_shader_register reg;
+    unsigned int operand_count;
+
+    ptr = fixup->ptr;
+    src = fixup->src;
     vsir_register_from_dxil_value(&reg, ptr, 0, dxil);
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
@@ -8764,7 +8787,7 @@ static void sm6_parser_emit_store(struct sm6_parser *dxil, struct function_emiss
 
     dst_param_init(dst_param);
     dst_param->reg = reg;
-    dst_param->reg.alignment = alignment;
+    dst_param->reg.alignment = fixup->alignment;
     /* Groupshared stores contain the address in the src params. */
     if (dst_param->reg.type != VKD3DSPR_IDXTEMP)
         dst_param->reg.idx_count = 1;
