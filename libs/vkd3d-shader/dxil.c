@@ -9030,7 +9030,7 @@ static bool metadata_node_get_unary_uint(const struct sm6_metadata_node *node, u
 }
 
 static void metadata_attachment_record_apply(const struct dxil_record *record, enum bitcode_function_code func_code,
-        struct vkd3d_shader_instruction *ins, struct sm6_value *dst, struct sm6_parser *sm6)
+        struct vsir_program_iterator *it, struct sm6_value *dst, struct sm6_parser *dxil)
 {
     static const char *ignored_names[] =
     {
@@ -9048,29 +9048,24 @@ static void metadata_attachment_record_apply(const struct dxil_record *record, e
     const char *name;
 
     if (record->attachment)
-    {
-        WARN("Ignoring nested metadata attachment.\n");
-        vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
+        vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
                 "Ignoring a nested metadata attachment.");
-    }
 
     VKD3D_ASSERT(record->operand_count & 1);
     for (i = 1; i < record->operand_count; i += 2)
     {
-        if (!(m = sm6_parser_find_metadata_kind(sm6, record->operands[i])))
+        if (!(m = sm6_parser_find_metadata_kind(dxil, record->operands[i])))
         {
-            WARN("Failed to find metadata kind %"PRIx64".\n", record->operands[i]);
-            vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
+            vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
                     "Failed to find metadata kind %"PRIx64" for an attachment.", record->operands[i]);
             continue;
         }
         name = m->u.kind.name;
 
-        m = sm6_parser_metadata_get_value(sm6, record->operands[i + 1]);
+        m = sm6_parser_metadata_get_value(dxil, record->operands[i + 1]);
         if (!m || !sm6_metadata_value_is_node(m))
         {
-            WARN("Failed to retrieve metadata attachment node.\n");
-            vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
+            vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
                     "Failed to retrieve a metadata attachment node.");
             continue;
         }
@@ -9080,39 +9075,39 @@ static void metadata_attachment_record_apply(const struct dxil_record *record, e
         {
             if (!sm6_value_is_register(dst))
             {
-                WARN("Precise value is not a register.\n");
-                vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
+                vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
                         "A value marked as precise is not a register.");
             }
-            else if (metadata_node_get_unary_uint(node, &operand, sm6) && operand)
+            else if (metadata_node_get_unary_uint(node, &operand, dxil) && operand)
             {
-                ins->flags |= sm6_type_is_scalar(dst->type) ? VKD3DSI_PRECISE_X : VKD3DSI_PRECISE_XYZW;
+                /* The iterator is set to the last vsir instruction before those
+                 * that were inserted by the current DXIL instruction. */
+                struct vkd3d_shader_instruction *ins = vsir_program_iterator_next(it);
+
+                for (; ins; ins = vsir_program_iterator_next(it))
+                {
+                    ins->flags |= sm6_type_is_scalar(dst->type) ? VKD3DSI_PRECISE_X : VKD3DSI_PRECISE_XYZW;
+                }
             }
         }
         else if (!strcmp(name, "dx.nonuniform"))
         {
             if (!sm6_value_is_register(dst))
-            {
-                WARN("Non-uniform value is not a register.\n");
-                vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
+                vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
                         "A value marked as non-uniform is not a register.");
-            }
-            else if (metadata_node_get_unary_uint(node, &operand, sm6))
-            {
+            else if (metadata_node_get_unary_uint(node, &operand, dxil))
                 dst->non_uniform = !!operand;
-            }
         }
         else
         {
             for (j = 0; j < ARRAY_SIZE(ignored_names); ++j)
+            {
                 if (!strcmp(name, ignored_names[j]))
                     break;
-            if (j == ARRAY_SIZE(ignored_names))
-            {
-                WARN("Ignoring metadata attachment '%s'.\n", name);
-                vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
-                        "Ignoring a metadata attachment named '%s'.", name);
             }
+            if (j == ARRAY_SIZE(ignored_names))
+                vkd3d_shader_parser_warning(&dxil->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
+                        "Ignoring a metadata attachment named '%s'.", name);
             ignored = true;
         }
 
@@ -9141,13 +9136,15 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
         const struct dxil_block *block, struct sm6_function *function)
 {
     struct vsir_program *program = sm6->program;
-    struct vkd3d_shader_instruction *ins;
     size_t i, block_idx, block_count;
     const struct dxil_record *record;
+    struct vsir_program_iterator it;
     const struct sm6_type *fwd_type;
     bool ret_found, is_terminator;
     bool emitted_label = false;
     struct sm6_value *dst;
+
+    it = vsir_program_iterator(&function->instructions);
 
     if (!(function->declaration = sm6_parser_next_function_definition(sm6)))
     {
@@ -9208,8 +9205,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
             emitted_label = true;
         }
 
-        ins = &function->instructions.elements[function->instructions.count];
-        ins->opcode = VSIR_OP_INVALID;
+        vsir_program_iterator_tail(&it);
 
         dst = sm6_parser_get_current_value(sm6);
         fwd_type = dst->type;
@@ -9286,7 +9282,7 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
             return sm6->p.status;
 
         if (record->attachment)
-            metadata_attachment_record_apply(record->attachment, record->code, ins, dst, sm6);
+            metadata_attachment_record_apply(record->attachment, record->code, &it, dst, sm6);
 
         if (is_terminator)
         {
