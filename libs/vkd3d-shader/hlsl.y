@@ -7400,6 +7400,7 @@ static void validate_uav_type(struct hlsl_ctx *ctx, enum hlsl_sampler_dim dim,
 %type <name> var_identifier
 %type <name> stateblock_lhs_identifier
 %type <name> name_opt
+%destructor { vkd3d_free($$); } <name>
 
 %type <parameter> parameter
 %type <parameter> parameter_decl
