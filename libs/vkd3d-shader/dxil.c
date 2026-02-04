@@ -33,7 +33,6 @@ static const uint64_t ALLOCA_FLAG_IN_ALLOCA = 0x20;
 static const uint64_t ALLOCA_FLAG_EXPLICIT_TYPE = 0x40;
 static const uint64_t ALLOCA_ALIGNMENT_MASK = 0x1f;
 static const unsigned int SHADER_DESCRIPTOR_TYPE_COUNT = 4;
-static const size_t MAX_IR_INSTRUCTIONS_PER_DXIL_INSTRUCTION = 11;
 
 static const unsigned int dx_max_thread_group_size[3] = {1024, 1024, 64};
 
@@ -9188,15 +9187,6 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
             vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
                     "Invalid block count %zu.", function->block_count);
             return VKD3D_ERROR_INVALID_SHADER;
-        }
-
-        /* Some instructions can emit >1 IR instruction, so extra may be used. */
-        if (!vkd3d_array_reserve((void **)&function->instructions.elements, &function->instructions.capacity,
-                function->instructions.count + !emitted_label + MAX_IR_INSTRUCTIONS_PER_DXIL_INSTRUCTION,
-                sizeof(*function->instructions.elements)))
-        {
-            ERR("Failed to allocate instructions.\n");
-            return VKD3D_ERROR_OUT_OF_MEMORY;
         }
 
         state.function = function;
