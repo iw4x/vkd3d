@@ -6208,6 +6208,15 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
         flags &= ~VKD3DSGF_FORCE_EARLY_DEPTH_STENCIL;
     }
 
+    /* We're free to ignore this. There may be performance advantages to using
+     * 16-bit operations for minimum precision types when supported, but in
+     * terms of correctness the current behaviour should be fine. */
+    if (flags & VKD3DSGF_ENABLE_MINIMUM_PRECISION)
+    {
+        WARN("Ignoring the \"enableMinimumPrecision\" global flag.\n");
+        flags &= ~VKD3DSGF_ENABLE_MINIMUM_PRECISION;
+    }
+
     spirv_compiler_emit_denormal_mode(compiler, 32, compiler->program->f32_denormal_mode);
 
     if (flags & (VKD3DSGF_ENABLE_DOUBLE_PRECISION_FLOAT_OPS | VKD3DSGF_ENABLE_11_1_DOUBLE_EXTENSIONS))
