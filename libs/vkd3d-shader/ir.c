@@ -3131,7 +3131,7 @@ static enum vkd3d_result vsir_program_lower_d3dbc_loops(
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
     bool has_loop = false, has_input_with_loop_rel_addr = false;
     struct vkd3d_shader_instruction *ins;
-    unsigned int idxtemp_idx, i;
+    unsigned int idxtemp_idx = 0, i;
     enum vkd3d_result ret;
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
