@@ -915,6 +915,7 @@ enum fixup_type
 {
     FIXUP_LOAD,
     FIXUP_STORE,
+    FIXUP_ATOMICRMW,
 };
 
 struct fixup_data
@@ -927,6 +928,8 @@ struct fixup_data
     const struct sm6_value *ptr;
     const struct sm6_value *src;
     unsigned int alignment;
+    enum vkd3d_shader_opcode op;
+    bool is_volatile;
 };
 
 struct sm6_parser
@@ -4834,6 +4837,7 @@ static struct fixup_data *sm6_parser_add_fixup(struct sm6_parser *dxil, struct f
 
 static void sm6_parser_fixup_load(struct sm6_parser *dxil, struct function_emission_state *state);
 static void sm6_parser_fixup_store(struct sm6_parser *dxil, struct function_emission_state *state);
+static void sm6_parser_fixup_atomicrmw(struct sm6_parser *dxil, struct function_emission_state *state);
 
 static void sm6_parser_apply_fixups(struct sm6_parser *dxil, struct sm6_function *function)
 {
@@ -4861,7 +4865,13 @@ static void sm6_parser_apply_fixups(struct sm6_parser *dxil, struct sm6_function
             case FIXUP_STORE:
                 sm6_parser_fixup_store(dxil, &state);
                 break;
+
+            case FIXUP_ATOMICRMW:
+                sm6_parser_fixup_atomicrmw(dxil, &state);
+                break;
         }
+
+        dxil->program->temp_count = max(dxil->program->temp_count, state.temp_idx);
     }
 
     dxil->value_count = prev_value_count;
@@ -4978,47 +4988,32 @@ static enum vkd3d_shader_opcode map_dx_atomicrmw_op(uint64_t code)
     }
 }
 
-static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, struct function_emission_state *state)
+static void sm6_parser_emit_atomicrmw(struct sm6_parser *dxil, struct function_emission_state *state)
 {
-    struct sm6_value *dst = sm6_parser_get_current_value(sm6);
+    struct sm6_value *dst = sm6_parser_get_current_value(dxil);
     const struct dxil_record *record = state->record;
-    struct vkd3d_shader_register regs[2], reg;
-    struct vkd3d_shader_instruction *ins;
-    struct vsir_src_operand *src_params;
-    struct vsir_dst_operand *dst_params;
-    struct vkd3d_shader_register coord;
     const struct sm6_value *ptr, *src;
     enum vkd3d_shader_opcode op;
+    struct fixup_data *fixup;
     unsigned int i = 0;
     bool is_volatile;
     uint64_t code;
 
-    if (!(ptr = sm6_parser_get_value_by_ref(sm6, record, NULL, &i))
-            || !sm6_value_validate_is_pointer_to_i32(ptr, sm6)
-            || !sm6_value_validate_is_backward_ref(ptr, sm6))
+    if (!(ptr = sm6_parser_get_pointer_value_by_ref(dxil, record, NULL, &i))
+            || !sm6_value_validate_is_pointer_to_i32(ptr, dxil))
         return;
-
-    vsir_register_from_dxil_value(&reg, ptr, 0, sm6);
-
-    if (reg.type != VKD3DSPR_GROUPSHAREDMEM)
-    {
-        WARN("Register is not groupshared.\n");
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
-                "The destination register for an atomicrmw instruction is not groupshared memory.");
-        return;
-    }
 
     dst->type = ptr->type->u.pointer.type;
 
-    if (!(src = sm6_parser_get_value_by_ref(sm6, record, dst->type, &i)))
+    if (!(src = sm6_parser_get_value_by_ref(dxil, record, dst->type, &i)))
         return;
 
-    if (!dxil_record_validate_operand_count(record, i + 4, i + 4, sm6))
+    if (!dxil_record_validate_operand_count(record, i + 4, i + 4, dxil))
         return;
 
     if ((op = map_dx_atomicrmw_op(code = record->operands[i++])) == VSIR_OP_INVALID)
     {
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                 "Operation %"PRIu64" for an atomicrmw instruction is unhandled.", code);
         return;
     }
@@ -5034,6 +5029,39 @@ static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, struct function_em
     if ((code = record->operands[i]) != 1)
         WARN("Ignoring synchronisation scope %"PRIu64".\n", code);
 
+    sm6_parser_init_ssa_value(dxil, dst);
+
+    if (!(fixup = sm6_parser_add_fixup(dxil, state, FIXUP_ATOMICRMW)))
+        return;
+
+    fixup->ptr = ptr;
+    fixup->src = src;
+    fixup->op = op;
+    fixup->is_volatile = is_volatile;
+}
+
+static void sm6_parser_fixup_atomicrmw(struct sm6_parser *dxil, struct function_emission_state *state)
+{
+    struct sm6_value *dst = sm6_parser_get_current_value(dxil);
+    struct vkd3d_shader_register regs[2], reg;
+    struct fixup_data *fixup = state->fixup;
+    struct vkd3d_shader_instruction *ins;
+    struct vsir_src_operand *src_params;
+    struct vsir_dst_operand *dst_params;
+    struct vkd3d_shader_register coord;
+    const struct sm6_value *ptr, *src;
+
+    ptr = fixup->ptr;
+    src = fixup->src;
+    vsir_register_from_dxil_value(&reg, ptr, 0, dxil);
+
+    if (reg.type != VKD3DSPR_GROUPSHAREDMEM)
+    {
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_INVALID_OPERAND,
+                "The destination register for an atomicrmw instruction is not groupshared memory.");
+        return;
+    }
+
     if (ptr->structure_stride)
     {
         if (reg.idx[1].rel_addr)
@@ -5041,17 +5069,17 @@ static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, struct function_em
         else
             register_make_constant_uint(&regs[0], reg.idx[1].offset);
         register_make_constant_uint(&regs[1], 0);
-        if (!sm6_parser_emit_reg_composite_construct(sm6, regs, 2, state, &coord))
+        if (!sm6_parser_emit_reg_composite_construct(dxil, regs, 2, state, &coord))
             return;
     }
 
-    if (!(ins = sm6_parser_add_function_instruction(sm6, state)))
+    if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    vsir_instruction_init(ins, &sm6->p.location, op);
-    ins->flags = is_volatile ? VKD3DARF_VOLATILE : 0;
+    vsir_instruction_init(ins, &dxil->p.location, fixup->op);
+    ins->flags = fixup->is_volatile ? VKD3DARF_VOLATILE : 0;
 
-    if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
+    if (!(src_params = instruction_src_params_alloc(ins, 2, dxil)))
     {
         vkd3d_shader_instruction_make_nop(ins);
         return;
@@ -5060,16 +5088,16 @@ static void sm6_parser_emit_atomicrmw(struct sm6_parser *sm6, struct function_em
         src_param_init_vector_from_reg(&src_params[0], &coord);
     else
         src_param_make_constant_uint(&src_params[0], 0);
-    src_param_init_from_value(&src_params[1], src, 0, sm6);
+    src_param_init_from_value(&src_params[1], src, 0, dxil);
 
-    sm6_parser_init_ssa_value(sm6, dst);
+    sm6_parser_init_ssa_value(dxil, dst);
 
-    if (!(dst_params = instruction_dst_params_alloc(ins, 2, sm6)))
+    if (!(dst_params = instruction_dst_params_alloc(ins, 2, dxil)))
     {
         vkd3d_shader_instruction_make_nop(ins);
         return;
     }
-    vsir_register_from_dxil_value(&dst_params[0].reg, dst, 0, sm6);
+    vsir_register_from_dxil_value(&dst_params[0].reg, dst, 0, dxil);
     dst_param_init(&dst_params[0]);
 
     dst_params[1].reg = reg;
