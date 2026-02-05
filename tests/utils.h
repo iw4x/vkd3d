@@ -438,7 +438,7 @@ static inline void check_readback_data_vec_(const char *file, unsigned int line,
     {
         for (x = r.left; x < r.right; ++x)
         {
-            got = *get_readback_vec4(rb, x, y);
+            memcpy(&got, get_readback_vec4(rb, x, y), component_count * sizeof(float));
             if (!compare_vec(&got, expected, max_diff, component_count))
             {
                 all_match = false;
