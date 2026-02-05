@@ -6198,6 +6198,10 @@ static void spirv_compiler_emit_denormal_mode(struct spirv_compiler *compiler,
 
 static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, enum vsir_global_flags flags)
 {
+    static const uint64_t ignored_flags = VKD3DSGF_REFACTORING_ALLOWED
+            | VKD3DSGF_ENABLE_RAW_AND_STRUCTURED_BUFFERS
+            | VKD3DSGF_SKIP_OPTIMIZATION;
+
     if (flags & VKD3DSGF_FORCE_EARLY_DEPTH_STENCIL)
     {
         spirv_compiler_emit_execution_mode(compiler, SpvExecutionModeEarlyFragmentTests, NULL, 0);
@@ -6254,10 +6258,14 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
         flags &= ~VKD3DSGF_ENABLE_WAVE_INTRINSICS;
     }
 
-    if (flags & ~(VKD3DSGF_REFACTORING_ALLOWED | VKD3DSGF_ENABLE_RAW_AND_STRUCTURED_BUFFERS))
+    if (flags & ignored_flags)
+    {
+        TRACE("Ignoring global flags %#"PRIx64".\n", flags & ignored_flags);
+        flags &= ~ignored_flags;
+    }
+
+    if (flags)
         FIXME("Unhandled global flags %#"PRIx64".\n", (uint64_t)flags);
-    else if (flags)
-        WARN("Unhandled global flags %#"PRIx64".\n", (uint64_t)flags);
 }
 
 static void spirv_compiler_emit_temps(struct spirv_compiler *compiler, uint32_t count)
