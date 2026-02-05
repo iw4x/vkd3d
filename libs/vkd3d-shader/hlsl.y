@@ -760,6 +760,12 @@ static void cleanup_parse_attribute_list(struct parse_attribute_list *attr_list)
     vkd3d_free(attr_list->attrs);
 }
 
+static void parse_function_cleanup(struct parse_function *f)
+{
+    hlsl_func_parameters_cleanup(&f->parameters);
+    hlsl_cleanup_semantic(&f->return_semantic);
+}
+
 static void cleanup_parse_initializer(struct parse_initializer *initializer)
 {
     destroy_block(initializer->instrs);
@@ -7879,14 +7885,13 @@ func_declaration:
             hlsl_pop_scope(ctx);
 
             if (!$1.first)
-            {
-                hlsl_func_parameters_cleanup(&$1.parameters);
-                hlsl_cleanup_semantic(&$1.return_semantic);
-            }
+                parse_function_cleanup(&$1);
         }
     | func_prototype ';'
         {
             hlsl_pop_scope(ctx);
+            if (!$1.first)
+                parse_function_cleanup(&$1);
         }
 
 func_prototype_no_attrs:
