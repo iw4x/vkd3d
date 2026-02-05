@@ -7921,7 +7921,7 @@ static enum vkd3d_shader_opcode dxil_map_cast_op(uint64_t code, const struct sm6
          to_width = 32;
 
      if (from->class == to->class && from_width == to_width)
-         op = VSIR_OP_NOP;
+         op = VSIR_OP_MOV;
 
     return op;
 }
@@ -7958,13 +7958,6 @@ static void sm6_parser_emit_cast(struct sm6_parser *dxil, struct function_emissi
 
     if ((op = dxil_map_cast_op(record->operands[i], value->type, &src_type_flags, type, dxil)) == VSIR_OP_INVALID)
         return;
-
-    if (op == VSIR_OP_NOP)
-    {
-        *dst = *value;
-        dst->type = type;
-        return;
-    }
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
