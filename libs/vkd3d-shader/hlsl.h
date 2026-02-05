@@ -616,6 +616,11 @@ struct hlsl_func_parameters
     size_t count, capacity;
 };
 
+static inline void hlsl_func_parameters_cleanup(struct hlsl_func_parameters *p)
+{
+    vkd3d_free(p->vars);
+}
+
 struct hlsl_ir_function
 {
     /* Item entry in hlsl_ctx.functions */

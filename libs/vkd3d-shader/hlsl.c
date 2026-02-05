@@ -4627,7 +4627,7 @@ static void free_function_decl(struct hlsl_ir_function_decl *decl)
         hlsl_free_attribute((void *)decl->attrs[i]);
     vkd3d_free((void *)decl->attrs);
 
-    vkd3d_free(decl->parameters.vars);
+    hlsl_func_parameters_cleanup(&decl->parameters);
     hlsl_block_cleanup(&decl->body);
     vkd3d_free(decl);
 }

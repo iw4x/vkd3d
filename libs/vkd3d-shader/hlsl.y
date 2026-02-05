@@ -7880,7 +7880,7 @@ func_declaration:
 
             if (!$1.first)
             {
-                vkd3d_free($1.parameters.vars);
+                hlsl_func_parameters_cleanup(&$1.parameters);
                 hlsl_cleanup_semantic(&$1.return_semantic);
             }
         }
