@@ -7415,6 +7415,7 @@ static void validate_uav_type(struct hlsl_ctx *ctx, enum hlsl_sampler_dim dim,
 
 %type <parameters> param_list
 %type <parameters> parameters
+%destructor { hlsl_func_parameters_cleanup(&$$); } <parameters>
 
 %type <reg_reservation> register_reservation
 %type <reg_reservation> packoffset_reservation
