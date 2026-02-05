@@ -6285,7 +6285,8 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
     }
 
     if (flags)
-        FIXME("Unhandled global flags %#"PRIx64".\n", (uint64_t)flags);
+        spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_NOT_IMPLEMENTED,
+                "Unhandled global flags %#"PRIx64".", (uint64_t)flags);
 }
 
 static void spirv_compiler_emit_temps(struct spirv_compiler *compiler, uint32_t count)
