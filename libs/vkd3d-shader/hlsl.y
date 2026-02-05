@@ -7342,6 +7342,7 @@ static void validate_uav_type(struct hlsl_ctx *ctx, enum hlsl_sampler_dim dim,
 
 %type <attr_list> attribute_list
 %type <attr_list> attribute_list_optional
+%destructor { cleanup_parse_attribute_list(&$$); } <attr_list>
 
 %type <block> add_expr
 %type <block> assignment_expr
