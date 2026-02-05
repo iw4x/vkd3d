@@ -7421,6 +7421,7 @@ static void validate_uav_type(struct hlsl_ctx *ctx, enum hlsl_sampler_dim dim,
 %type <so_type> so_type
 
 %type <state_block> state_block
+%destructor { hlsl_free_state_block($$); } <state_block>
 
 %type <state_block_index> state_block_index_opt
 
