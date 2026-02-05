@@ -7390,6 +7390,7 @@ static void validate_uav_type(struct hlsl_ctx *ctx, enum hlsl_sampler_dim dim,
 %type <initializer> complex_initializer_list
 %type <initializer> func_arguments
 %type <initializer> initializer_expr_list
+%destructor { cleanup_parse_initializer(&$$); } <initializer>
 
 %type <if_body> if_body
 
