@@ -121,12 +121,13 @@ static void shader_dump_global_flags(struct vkd3d_d3d_asm_compiler *compiler, en
     global_flag_info[] =
     {
         {VKD3DSGF_REFACTORING_ALLOWED,               "refactoringAllowed"},
+        {VKD3DSGF_ENABLE_DOUBLE_PRECISION_FLOAT_OPS, "enableDoublePrecisionFloatOps"},
         {VKD3DSGF_FORCE_EARLY_DEPTH_STENCIL,         "forceEarlyDepthStencil"},
         {VKD3DSGF_ENABLE_RAW_AND_STRUCTURED_BUFFERS, "enableRawAndStructuredBuffers"},
-        {VKD3DSGF_ENABLE_MINIMUM_PRECISION,          "enableMinimumPrecision"},
         {VKD3DSGF_SKIP_OPTIMIZATION,                 "skipOptimization"},
-        {VKD3DSGF_ENABLE_DOUBLE_PRECISION_FLOAT_OPS, "enableDoublePrecisionFloatOps"},
+        {VKD3DSGF_ENABLE_MINIMUM_PRECISION,          "enableMinimumPrecision"},
         {VKD3DSGF_ENABLE_11_1_DOUBLE_EXTENSIONS,     "enable11_1DoubleExtensions"},
+        {VKD3DSGF_ENABLE_11_1_SHADER_EXTENSIONS,     "enable11_1ShaderExtensions"},
     };
 
     for (i = 0; i < ARRAY_SIZE(global_flag_info); ++i)
