@@ -128,6 +128,7 @@ static void shader_dump_global_flags(struct vkd3d_d3d_asm_compiler *compiler, en
         {VKD3DSGF_ENABLE_MINIMUM_PRECISION,          "enableMinimumPrecision"},
         {VKD3DSGF_ENABLE_11_1_DOUBLE_EXTENSIONS,     "enable11_1DoubleExtensions"},
         {VKD3DSGF_ENABLE_11_1_SHADER_EXTENSIONS,     "enable11_1ShaderExtensions"},
+        {VKD3DSGF_BIND_FOR_DURATION,                 "allResourcesBound"},
     };
 
     for (i = 0; i < ARRAY_SIZE(global_flag_info); ++i)
