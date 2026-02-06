@@ -88,7 +88,9 @@ static const char * const shader_register_names[] =
 struct vkd3d_d3d_asm_colours
 {
     const char *reset;
+    const char *enumerant;
     const char *error;
+    const char *label;
     const char *literal;
     const char *modifier;
     const char *opcode;
@@ -96,7 +98,6 @@ struct vkd3d_d3d_asm_colours
     const char *swizzle;
     const char *version;
     const char *write_mask;
-    const char *label;
 };
 
 struct vkd3d_d3d_asm_compiler
@@ -132,7 +133,8 @@ static void shader_dump_global_flags(struct vkd3d_d3d_asm_compiler *compiler, en
     {
         if (global_flags & global_flag_info[i].flag)
         {
-            vkd3d_string_buffer_printf(&compiler->buffer, "%s", global_flag_info[i].name);
+            vkd3d_string_buffer_printf(&compiler->buffer, "%s%s%s",
+                    compiler->colours.enumerant, global_flag_info[i].name, compiler->colours.reset);
             global_flags &= ~global_flag_info[i].flag;
             if (global_flags)
                 vkd3d_string_buffer_printf(&compiler->buffer, " | ");
@@ -140,7 +142,8 @@ static void shader_dump_global_flags(struct vkd3d_d3d_asm_compiler *compiler, en
     }
 
     if (global_flags)
-        vkd3d_string_buffer_printf(&compiler->buffer, "unknown_flags(%#"PRIx64")", (uint64_t)global_flags);
+        vkd3d_string_buffer_printf(&compiler->buffer, "%sunknown_flags(%#"PRIx64")%s",
+                compiler->colours.error, (uint64_t)global_flags, compiler->colours.reset);
 }
 
 static void shader_dump_atomic_op_flags(struct vkd3d_d3d_asm_compiler *compiler, uint32_t atomic_flags)
@@ -2107,7 +2110,9 @@ enum vkd3d_result d3d_asm_compile(struct vsir_program *program, const struct vkd
     static const struct vkd3d_d3d_asm_colours no_colours =
     {
         .reset = "",
+        .enumerant = "",
         .error = "",
+        .label = "",
         .literal = "",
         .modifier = "",
         .opcode = "",
@@ -2115,12 +2120,13 @@ enum vkd3d_result d3d_asm_compile(struct vsir_program *program, const struct vkd
         .swizzle = "",
         .version = "",
         .write_mask = "",
-        .label = "",
     };
     static const struct vkd3d_d3d_asm_colours colours =
     {
         .reset = "\x1b[m",
+        .enumerant = "\x1b[93m",
         .error = "\x1b[97;41m",
+        .label = "\x1b[91m",
         .literal = "\x1b[95m",
         .modifier = "\x1b[36m",
         .opcode = "\x1b[96;1m",
@@ -2128,7 +2134,6 @@ enum vkd3d_result d3d_asm_compile(struct vsir_program *program, const struct vkd
         .swizzle = "\x1b[93m",
         .version = "\x1b[36m",
         .write_mask = "\x1b[93m",
-        .label = "\x1b[91m",
     };
 
     formatting = VKD3D_SHADER_COMPILE_OPTION_FORMATTING_INDENT
