@@ -96,6 +96,7 @@ struct vkd3d_d3d_asm_colours
     const char *opcode;
     const char *reg;
     const char *swizzle;
+    const char *type;
     const char *version;
     const char *write_mask;
 };
@@ -436,7 +437,8 @@ static void shader_dump_resource_data_type(struct vkd3d_d3d_asm_compiler *compil
 
         vkd3d_string_buffer_printf(&compiler->buffer, "%s", i == 0 ? "" : ",");
         if (t < ARRAY_SIZE(names) && names[t])
-            vkd3d_string_buffer_printf(&compiler->buffer, "%s", names[t]);
+            vkd3d_string_buffer_printf(&compiler->buffer, "%s%s%s",
+                    compiler->colours.type, names[t], compiler->colours.reset);
         else
             vkd3d_string_buffer_printf(&compiler->buffer, "%s<unhandled data type %#zx>%s",
                     compiler->colours.error, t, compiler->colours.reset);
@@ -490,7 +492,7 @@ static void shader_print_dcl_usage(struct vkd3d_d3d_asm_compiler *compiler,
         }
         if (semantic->resource.reg.reg.type == VKD3DSPR_UAV)
             shader_dump_uav_flags(compiler, flags);
-        vkd3d_string_buffer_printf(buffer, " ");
+        vkd3d_string_buffer_printf(buffer, "%s ", compiler->colours.reset);
         shader_dump_resource_data_type(compiler, semantic->resource_data_type);
         vkd3d_string_buffer_printf(buffer, "%s", suffix);
         return;
@@ -1087,9 +1089,9 @@ static void shader_print_reg_type(struct vkd3d_d3d_asm_compiler *compiler,
     else
         dimension = "??";
 
-    vkd3d_string_buffer_printf(buffer, "%s <%s", prefix, dimension);
+    vkd3d_string_buffer_printf(buffer, " %s<%s%s", prefix, compiler->colours.type, dimension);
     shader_print_data_type(compiler, reg->data_type);
-    vkd3d_string_buffer_printf(buffer, ">%s", suffix);
+    vkd3d_string_buffer_printf(buffer, "%s>%s", compiler->colours.reset, suffix);
 }
 
 static void shader_print_indexable_temp_data_type(struct vkd3d_d3d_asm_compiler *compiler,
@@ -2122,6 +2124,7 @@ enum vkd3d_result d3d_asm_compile(struct vsir_program *program, const struct vkd
         .opcode = "",
         .reg = "",
         .swizzle = "",
+        .type = "",
         .version = "",
         .write_mask = "",
     };
@@ -2136,6 +2139,7 @@ enum vkd3d_result d3d_asm_compile(struct vsir_program *program, const struct vkd
         .opcode = "\x1b[96;1m",
         .reg = "\x1b[96m",
         .swizzle = "\x1b[93m",
+        .type = "\x1b[92m",
         .version = "\x1b[36m",
         .write_mask = "\x1b[93m",
     };
