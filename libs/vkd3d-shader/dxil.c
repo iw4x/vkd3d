@@ -4093,7 +4093,7 @@ static void sm6_parser_declare_indexable_temp(struct sm6_parser *sm6, const stru
 {
     enum vsir_data_type data_type = vsir_data_type_from_dxil(elem_type, 0, sm6);
 
-    if (!(sm6->program->global_flags & VKD3DSGF_FORCE_NATIVE_LOW_PRECISION))
+    if (!(sm6->program->global_flags & VKD3DSGF_ENABLE_NATIVE_LOW_PRECISION))
     {
         if (data_type == VSIR_DATA_F16)
             data_type = VSIR_DATA_F32;
@@ -10819,7 +10819,7 @@ static enum vkd3d_result sm6_parser_read_signature(struct sm6_parser *sm6, const
         return VKD3D_ERROR_OUT_OF_MEMORY;
     }
 
-    native_16bit = program->global_flags & VKD3DSGF_FORCE_NATIVE_LOW_PRECISION;
+    native_16bit = program->global_flags & VKD3DSGF_ENABLE_NATIVE_LOW_PRECISION;
     for (i = 0; i < operand_count; ++i)
     {
         m = node->operands[i];

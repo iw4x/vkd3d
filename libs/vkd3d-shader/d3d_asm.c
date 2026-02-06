@@ -135,6 +135,7 @@ static void shader_dump_global_flags(struct vkd3d_d3d_asm_compiler *compiler, en
         {VKD3DSGF_ENABLE_RASTERIZER_ORDERED_VIEWS,   "ROVs"},
         {VKD3DSGF_ENABLE_WAVE_INTRINSICS,            "waveOps"},
         {VKD3DSGF_ENABLE_INT64,                      "int64Ops"},
+        {VKD3DSGF_ENABLE_NATIVE_LOW_PRECISION,       "nativeLowPrecision"},
     };
 
     for (i = 0; i < ARRAY_SIZE(global_flag_info); ++i)
