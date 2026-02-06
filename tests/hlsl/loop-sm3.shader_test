@@ -694,3 +694,100 @@ if(sm<4) write cbv-f32 (0) f32(3.0, 1.0, 0.0, 0.0)
 if(sm>=4) write cbv-0 (0) i32(3, 1, 0, 0)
 todo(msl & sm>=6) draw quad
 probe (0, 0) f32(1.5, 1.5, 1.5, 4.0)
+
+[require]
+shader model >= 3.0
+
+% Side-effects in the conditional are ignored for the last iteration when there
+% is a limiter.
+[pixel shader todo(sm<4)]
+// In SM3, this gets i0.x as int, and c0.x as float.
+int limit;
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+    int i;
+
+    for (i = 0; i++ < limit;)
+        sum += i;
+    sum.w = i; // limit is required on c0 only because it is copy-propped here.
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-i32 (0) i32(7, 0, 0, 0)
+if(sm<4) write cbv-f32 (0) f32(7.0, 0, 0, 0)
+if(sm>=4) write cbv-0 (0) i32(7)
+todo(sm<4 | msl & sm>=6) draw quad
+if(sm<4) probe (0, 0) f32(28, 28, 28, 7)
+if(sm>=4) probe (0, 0) f32(28, 28, 28, 8)
+
+% Same as previous test but with a constant instead of a uniform.
+[pixel shader]
+float4 main() : sv_target
+{
+    int LIMIT = 7;
+    float4 sum = 0;
+    int i;
+
+    for (i = 0; i++ < LIMIT;)
+        sum += i;
+    sum.w = i;
+    return sum;
+}
+
+[test]
+todo(msl & sm>=6) draw quad
+probe (0, 0) f32(28, 28, 28, 8)
+
+% Last call to fun() is not performed on SM1.
+[pixel shader]
+int limit;
+
+float fun(int i, out float p)
+{
+    p = 100 * i;
+    return i;
+}
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+    float p;
+    int i;
+
+    for (i = 0; fun(i, p) < limit; ++i)
+        sum += i;
+    sum.z = p;
+    sum.w = i;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-i32 (0) i32(13, 0, 0, 0)
+if(sm>=4) write cbv-0 (0) i32(13)
+todo(msl & sm>=6) draw quad
+todo if(sm<4) probe (0, 0) f32(78, 78, 1200, 13)
+if(sm>=4) probe (0, 0) f32(78, 78, 1300, 13)
+
+% In contrast, the last side-effect happens on loops with a constant maximum
+% number of iterations.
+[pixel shader]
+float u;
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+    int i = 0;
+
+    [loop]
+    for (i = 0; i++ < 20;)
+        sum += i + u;
+    sum.w = i;
+    return sum;
+}
+[test]
+write cbv-f32 (0) f32(1000)
+todo(msl & sm>=6) draw quad
+probe (0, 0) f32(20210, 20210, 20210, 21)
