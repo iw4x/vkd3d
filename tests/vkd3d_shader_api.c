@@ -2075,6 +2075,7 @@ static void test_parameters(void)
     p_glSpecializeShader(vs_id, "main", 0, NULL, NULL);
     glGetShaderiv(vs_id, GL_COMPILE_STATUS, &status);
     ok(status, "Failed to compile vertex shader.\n");
+    vkd3d_shader_free_shader_code(&vs_spirv);
 
     info.source.code = ps_code;
     info.source.size = strlen(ps_code);
@@ -2099,6 +2100,7 @@ static void test_parameters(void)
     p_glSpecializeShader(fs_id, "main", 0, NULL, NULL);
     glGetShaderiv(fs_id, GL_COMPILE_STATUS, &status);
     ok(status, "Failed to compile fragment shader.\n");
+    vkd3d_shader_free_shader_code(&ps_spirv);
 
     gl_draw_triangle(vs_id, fs_id);
     gl_get_backbuffer_color(&context, 0, 0, &colour);
@@ -2125,6 +2127,7 @@ static void test_parameters(void)
     p_glSpecializeShader(fs_id, "main", 0, NULL, NULL);
     glGetShaderiv(fs_id, GL_COMPILE_STATUS, &status);
     ok(status, "Failed to compile fragment shader.\n");
+    vkd3d_shader_free_shader_code(&ps_spirv);
 
     gl_draw_triangle(vs_id, fs_id);
     gl_get_backbuffer_color(&context, 0, 0, &colour);
@@ -2146,6 +2149,7 @@ static void test_parameters(void)
     p_glSpecializeShader(fs_id, "main", 1, &spec_id, &spec_value);
     glGetShaderiv(fs_id, GL_COMPILE_STATUS, &status);
     ok(status, "Failed to compile fragment shader.\n");
+    vkd3d_shader_free_shader_code(&ps_spirv);
 
     gl_draw_triangle(vs_id, fs_id);
     gl_get_backbuffer_color(&context, 0, 0, &colour);
@@ -2171,6 +2175,7 @@ static void test_parameters(void)
     p_glSpecializeShader(fs_id, "main", 0, NULL, NULL);
     glGetShaderiv(fs_id, GL_COMPILE_STATUS, &status);
     ok(status, "Failed to compile fragment shader.\n");
+    vkd3d_shader_free_shader_code(&ps_spirv);
 
     gl_draw_triangle(vs_id, fs_id);
     gl_get_backbuffer_color(&context, 0, 0, &colour);
