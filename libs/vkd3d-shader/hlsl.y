@@ -9424,7 +9424,10 @@ jump_statement:
             if (!($$ = make_empty_block(ctx)))
                 YYABORT;
             if (!add_return(ctx, $$, NULL, &@1))
+            {
+                destroy_block($$);
                 YYABORT;
+            }
         }
     | KW_DISCARD ';'
         {
