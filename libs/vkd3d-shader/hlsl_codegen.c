@@ -925,6 +925,50 @@ bool hlsl_transform_ir(struct hlsl_ctx *ctx, bool (*func)(struct hlsl_ctx *ctx, 
     return progress;
 }
 
+static bool hlsl_transform_ir_once(struct hlsl_ctx *ctx,
+        bool (*func)(struct hlsl_ctx *ctx, struct hlsl_ir_node *, void *),
+        struct hlsl_block *block, void *context)
+{
+    struct hlsl_ir_node *instr, *next;
+
+    if (ctx->result)
+        return false;
+
+    LIST_FOR_EACH_ENTRY_SAFE(instr, next, &block->instrs, struct hlsl_ir_node, entry)
+    {
+        if (instr->type == HLSL_IR_IF)
+        {
+            struct hlsl_ir_if *iff = hlsl_ir_if(instr);
+
+            if (hlsl_transform_ir_once(ctx, func, &iff->then_block, context))
+                return true;
+            if (hlsl_transform_ir_once(ctx, func, &iff->else_block, context))
+                return true;
+        }
+        else if (instr->type == HLSL_IR_LOOP)
+        {
+            if (hlsl_transform_ir_once(ctx, func, &hlsl_ir_loop(instr)->body, context))
+                return true;
+        }
+        else if (instr->type == HLSL_IR_SWITCH)
+        {
+            struct hlsl_ir_switch *s = hlsl_ir_switch(instr);
+            struct hlsl_ir_switch_case *c;
+
+            LIST_FOR_EACH_ENTRY(c, &s->cases, struct hlsl_ir_switch_case, entry)
+            {
+                if (hlsl_transform_ir_once(ctx, func, &c->body, context))
+                    return true;
+            }
+        }
+
+        if (func(ctx, instr, context))
+            return true;
+    }
+
+    return false;
+}
+
 typedef struct hlsl_ir_node *(*PFN_replace_func)(struct hlsl_ctx *, struct hlsl_ir_node *, struct hlsl_block *);
 
 static bool call_replace_func(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *context)
@@ -14527,9 +14571,10 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
 
     max_iterations = loop_unrolling_get_max_iterations(ctx, loop, unroll_limit);
     copy_propagation_state_init(&state, ctx);
-    index = 2;
+
     state.stop = &loop->node;
-    loop_unrolling_simplify(ctx, block, &state, &index);
+    index_instructions(block, 2);
+    copy_propagation_transform_block(ctx, block, &state);
     state.stopped = false;
     index = loop->node.index;
 
@@ -14616,12 +14661,12 @@ static bool unroll_loops(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, void *
     struct hlsl_ir_loop *loop;
 
     if (node->type != HLSL_IR_LOOP)
-        return true;
+        return false;
 
     loop = hlsl_ir_loop(node);
 
-    if (loop->unroll_type != HLSL_LOOP_UNROLL && loop->unroll_type != HLSL_LOOP_FORCE_UNROLL)
-        return true;
+    if (loop->unroll_type == HLSL_LOOP_FORCE_LOOP)
+        return false;
 
     if (loop->unroll_limit.node)
     {
@@ -14745,10 +14790,12 @@ static void loop_unrolling_execute(struct hlsl_ctx *ctx, struct hlsl_block *bloc
     /* These are required by copy propagation, which in turn is required for
      * unrolling. */
     split_copies(ctx, block);
-
-    hlsl_run_folding_passes(ctx, block);
-
-    hlsl_transform_ir(ctx, unroll_loops, block, block);
+    for (;;)
+    {
+        hlsl_run_folding_passes(ctx, block);
+        if (!hlsl_transform_ir_once(ctx, unroll_loops, block, block))
+            break;
+    }
     resolve_continues(ctx, block, NULL);
     hlsl_transform_ir(ctx, resolve_loops, block, NULL);
 }
