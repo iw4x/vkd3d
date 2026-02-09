@@ -3531,12 +3531,16 @@ static void test_compile_null_terminator(void)
     if (hr == S_OK)
         ID3D10Blob_Release(blob);
     todo ok(!errors, "Got errors %p.\n", errors);
+    if (errors)
+        ID3D10Blob_Release(errors);
 
     hr = D3DCompile(source, sizeof(source), NULL, NULL, NULL, "main", "ps_4_0", 0, 0, &blob, &errors);
     todo ok(hr == S_OK, "Got hr %#x.\n", hr);
     if (hr == S_OK)
         ID3D10Blob_Release(blob);
     todo ok(!errors, "Got errors %p.\n", errors);
+    if (errors)
+        ID3D10Blob_Release(errors);
 }
 
 static void test_special_characters(void)
