@@ -10063,7 +10063,10 @@ conditional_expr:
             destroy_block($5);
 
             if (!add_ternary(ctx, $1, cond, first, second))
+            {
+                destroy_block($1);
                 YYABORT;
+            }
             $$ = $1;
         }
 
