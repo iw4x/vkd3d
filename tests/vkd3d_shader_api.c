@@ -985,6 +985,8 @@ static void test_scan_signatures(void)
 
         vkd3d_test_pop_context();
     }
+
+    IDxcCompiler3_Release(compiler);
 }
 
 static void test_scan_descriptors(void)
