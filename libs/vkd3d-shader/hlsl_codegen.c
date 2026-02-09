@@ -14513,6 +14513,10 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
     struct copy_propagation_state state;
     struct hlsl_ir_if *target_if;
 
+    hlsl_block_init(&draft);
+    hlsl_block_init(&tmp_dst);
+    hlsl_block_init(&loop_body);
+
     if (!(broken = hlsl_new_synthetic_var(ctx, "broken",
             hlsl_get_scalar_type(ctx, HLSL_TYPE_BOOL), &loop->node.loc)))
         goto fail;
@@ -14520,9 +14524,6 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
     if (!(continued = hlsl_new_synthetic_var(ctx, "continued",
             hlsl_get_scalar_type(ctx, HLSL_TYPE_BOOL), &loop->node.loc)))
         goto fail;
-
-    hlsl_block_init(&draft);
-    hlsl_block_init(&tmp_dst);
 
     max_iterations = loop_unrolling_get_max_iterations(ctx, loop, unroll_limit);
     copy_propagation_state_init(&state, ctx);
