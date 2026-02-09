@@ -10079,7 +10079,10 @@ assignment_expr:
             hlsl_block_add_block($3, $1);
             destroy_block($1);
             if (!add_assignment(ctx, $3, lhs, $2, rhs, false))
+            {
+                destroy_block($3);
                 YYABORT;
+            }
             $$ = $3;
         }
 
