@@ -211,6 +211,21 @@ INT_SUFFIX      [uUlL]{0,2}
 
 %%
 
+static void preproc_func_state_cleanup_arg_values(struct preproc_func_state *f)
+{
+    const struct preproc_macro *m;
+    size_t i;
+
+    if (!(m = f->macro))
+        return;
+
+    for (i = 0; i < m->arg_count; ++i)
+    {
+        vkd3d_string_buffer_cleanup(&f->arg_values[i].text);
+    }
+    free(f->arg_values);
+}
+
 static void update_location(struct preproc_ctx *ctx)
 {
     struct preproc_buffer *buffer = &preproc_get_top_file(ctx)->buffer;
@@ -740,6 +755,7 @@ int yylex(YYSTYPE *lval, YYLTYPE *lloc, yyscan_t scanner)
                                     return return_token(T_IDENTIFIER, lval, func_state->macro->name);
 
                                 vkd3d_string_buffer_printf(&ctx->buffer, "%s ", func_state->macro->name);
+                                preproc_func_state_cleanup_arg_values(func_state);
                             }
                             func_state->macro = NULL;
                             func_state->state = STATE_NONE;
@@ -880,6 +896,7 @@ int preproc_lexer_parse(const struct vkd3d_shader_compile_info *compile_info,
             break;
     }
 
+    preproc_func_state_cleanup_arg_values(&ctx.text_func);
     while (ctx.file_count)
         preproc_pop_buffer(&ctx);
     yylex_destroy(ctx.scanner);
