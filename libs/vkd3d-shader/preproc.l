@@ -821,6 +821,7 @@ int preproc_lexer_parse(const struct vkd3d_shader_compile_info *compile_info,
         struct vkd3d_shader_code *out, struct vkd3d_shader_message_context *message_context)
 {
     static const struct vkd3d_shader_preprocess_info default_preprocess_info = {0};
+    struct vkd3d_shader_location loc = {0};
     struct preproc_ctx ctx = {0};
     char *source_name = NULL;
     unsigned int i;
@@ -831,12 +832,12 @@ int preproc_lexer_parse(const struct vkd3d_shader_compile_info *compile_info,
         ctx.preprocess_info = &default_preprocess_info;
     ctx.message_context = message_context;
 
-    if (!(source_name = vkd3d_strdup(compile_info->source_name ? compile_info->source_name : "<anonymous>")))
+    loc.source_name = compile_info->source_name ? compile_info->source_name : "<anonymous>";
+    if (!(source_name = vkd3d_strdup(loc.source_name)))
         goto fail;
 
     for (i = 0; i < ctx.preprocess_info->macro_count; ++i)
     {
-        const struct vkd3d_shader_location loc = {.source_name = source_name};
         struct vkd3d_string_buffer body;
         char *name;
 
@@ -870,14 +871,9 @@ int preproc_lexer_parse(const struct vkd3d_shader_compile_info *compile_info,
             break;
 
         case STATE_ARGS:
-        {
-            const struct vkd3d_shader_location loc = {.source_name = source_name};
-
             preproc_warning(&ctx, &loc, VKD3D_SHADER_WARNING_PP_UNTERMINATED_MACRO,
                     "Unterminated macro invocation.");
-        }
         /* fall through */
-
         case STATE_IDENTIFIER:
             if (preproc_is_writing(&ctx))
                 vkd3d_string_buffer_printf(&ctx.buffer, "%s ", ctx.text_func.macro->name);
