@@ -3167,7 +3167,10 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
 
     input_layout_cleanup(&runner->input);
     for (i = 0; i < SHADER_TYPE_COUNT; ++i)
+    {
         free(runner->shader_source[i]);
+    }
+    free(shader_source);
     for (i = 0; i < ARRAY_SIZE(runner->uniform_buffers); ++i)
     {
         free(runner->uniform_buffers[i].elements);
