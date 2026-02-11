@@ -163,7 +163,7 @@ BEGIN {
     last_tag = ""
 }
 
-function print_entry(line, model, tag) {
+function print_entry(tag) {
     if ($5 ~ " Model [^[:space:]]+")
         entry = "<fade>" $4 "+" substr($5, 8) "<reset>"
     else
@@ -179,19 +179,19 @@ function print_entry(line, model, tag) {
 }
 
 /: Test failed:/ {
-    print_entry($4, $5, "[F]")
+    print_entry("[F]")
 }
 
 /: Todo:/ {
-    print_entry($4, $5, "[XF]")
+    print_entry("[XF]")
 }
 
 /: Todo succeeded:/ {
-    print_entry($4, $5, "[XP]")
+    print_entry("[XP]")
 }
 
 /: Test skipped:/ {
-    print_entry($4, $5, "[SK]")
+    print_entry("[SK]")
 }
 
 /: Assertion .* failed\./ {
