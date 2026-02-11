@@ -531,6 +531,7 @@ TEST_CPPFLAGS = -I$(builddir)/tests
 if BUILD_TESTS
 check_PROGRAMS = $(vkd3d_tests) $(vkd3d_cross_tests) tests/shader_runner
 dist_check_SCRIPTS = tests/test-driver.sh
+LOG_DRIVER = $(srcdir)/tests/test-driver.sh
 TESTS = $(vkd3d_tests) $(vkd3d_cross_tests) $(vkd3d_shader_tests)
 tests_d3d12_CPPFLAGS = $(AM_CPPFLAGS) $(TEST_CPPFLAGS)
 tests_d3d12_LDADD = $(LDADD) @PTHREAD_LIBS@ @DL_LIBS@

@@ -164,12 +164,19 @@ BEGIN {
 }
 
 function print_entry(tag) {
-    if ($5 ~ " Model [^[:space:]]+")
-        entry = "<fade>" $4 "+" substr($5, 8) "<reset>"
-    else
-        entry = "<fade>" $4 "<reset>"
+    if ($3 ~ / [^[:space:]]+\.shader_test/) {
+        if ($5 ~ / Model [^[:space:]]+/)
+            entry = "<fade>" $4 "+" substr($5, 8) "<reset>"
+        else
+            entry = "<fade>" $4 "<reset>"
+    }
+    else {
+        entry = "<fade>" $2 "<reset>"
+    }
 
-    if (entry != last_entry)
+    if (!str && !last_entry)
+        print "#   " entry tag
+    else if (entry != last_entry)
         print entry tag
     else if (tag != last_tag)
         print tag
