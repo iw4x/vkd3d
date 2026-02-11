@@ -139,6 +139,8 @@ commas or semicolons.
 
  * VKD3D_SHADER_DUMP_PATH - path where shader bytecode is dumped.
 
+ * VKD3D_TEST_BUG - set to 0 to disable bug_if() conditions in tests.
+
  * VKD3D_TEST_DEBUG - enables additional debug messages in tests. Set to 0, 1
    or 2.
 
@@ -157,7 +159,10 @@ commas or semicolons.
  * VKD3D_TEST_SKIP_DXC - when set, tests requiring the dxcompiler library will
    be skipped.
 
- * VKD3D_TEST_BUG - set to 0 to disable bug_if() conditions in tests.
+ * VKD3D_TEST_WRAPPER - when set, execution of tests is wrapped by the specified
+   executable. For example, VKD3D_TEST_WRAPPER="wine" could be used to run the
+   tests from a Windows build of vkd3d with Wine. Similarly,
+   VKD3D_TEST_WRAPPER="valgrind" would run the tests under valgrind.
 
 If the configuration defines 'DXCOMPILER_LIBS=-L/path/to/dxcompiler', Shader
 Runner attempts to load libdxcompiler.so or dxcompiler.dll to compile test

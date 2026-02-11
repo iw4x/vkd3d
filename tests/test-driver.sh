@@ -122,7 +122,7 @@ trap "st=143; $do_exit" 15
 # to ameliorate tests themselves also writing to the log file. Our tests
 # don't, but others can (automake bug#35762).
 : >"$log_file"
-"$@" >>"$log_file" 2>&1
+${VKD3D_TEST_WRAPPER:-} "$@" >>"$log_file" 2>&1
 estatus=$?
 
 if test $enable_hard_errors = no && test $estatus -eq 99; then
