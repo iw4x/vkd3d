@@ -15088,6 +15088,63 @@ static bool hlsl_version_has_sm1_loop_support(struct hlsl_ctx *ctx)
     return hlsl_version_ge(ctx, 2, 1);
 }
 
+static bool is_instr_constant_lt_var(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr,
+        unsigned int k, struct hlsl_ir_var **var, unsigned int *var_component, bool *negated)
+{
+    unsigned int component, component_count, swizzle_component = 0;
+    struct hlsl_ir_expr *expr;
+    struct hlsl_ir_node *arg1;
+    struct hlsl_ir_load *load;
+    bool neg = false;
+
+    if (instr->type != HLSL_IR_EXPR)
+        return false;
+    expr = hlsl_ir_expr(instr);
+
+    if (expr->op == HLSL_OP1_LOGIC_NOT)
+    {
+        if (expr->operands[0].node->type != HLSL_IR_EXPR)
+            return false;
+        expr = hlsl_ir_expr(expr->operands[0].node);
+        neg = true;
+    }
+
+    if (expr->op == HLSL_OP2_GEQUAL)
+        neg = !neg;
+    else if (expr->op != HLSL_OP2_LESS)
+        return false;
+
+    if (expr->operands[0].node->type != HLSL_IR_CONSTANT)
+        return false;
+    arg1 = expr->operands[1].node;
+    if (arg1->type == HLSL_IR_SWIZZLE)
+    {
+        VKD3D_ASSERT(hlsl_ir_swizzle(arg1)->val.node->data_type->class == HLSL_CLASS_VECTOR);
+
+        swizzle_component = hlsl_swizzle_get_component(hlsl_ir_swizzle(arg1)->u.vector, 0);
+        arg1 = hlsl_ir_swizzle(arg1)->val.node;
+    }
+    if (arg1->type != HLSL_IR_LOAD)
+        return false;
+    if (hlsl_ir_constant(expr->operands[0].node)->value.u[0].u != k)
+        return false;
+
+    load = hlsl_ir_load(arg1);
+    if (load->node.data_type->e.numeric.type != HLSL_TYPE_INT
+            && load->node.data_type->e.numeric.type != HLSL_TYPE_UINT)
+        return false;
+    *var = load->src.var;
+
+    if (!hlsl_component_index_range_from_deref(ctx, &load->src, &component, &component_count))
+        return false;
+    component += swizzle_component;
+    component = map_matrix_component_index((*var)->data_type, component, READING_ORDER_ALWAYS_ROW_MAJOR);
+
+    *var_component = component;
+    *negated = neg;
+    return true;
+}
+
 /* In SM1, the native compiler will emit REP or LOOP instructions to represent
  * loops. These instructions require an i# register containing the number of
  * iterations.
@@ -15125,12 +15182,11 @@ static bool hlsl_version_has_sm1_loop_support(struct hlsl_ctx *ctx)
 static struct hlsl_ir_if *identify_limiter_uniform(struct hlsl_ctx *ctx,
         struct hlsl_ir_loop *loop, struct hlsl_block *block, unsigned int k)
 {
-    unsigned int limiter_component, component_count, swizzle_component = 0;
-    struct hlsl_ir_node *condition, *arg1;
+    struct hlsl_ir_node *condition;
     struct hlsl_ir_if *iff = NULL;
-    struct hlsl_ir_expr *expr;
-    struct hlsl_ir_load *load;
+    unsigned int var_component;
     struct hlsl_ir_var *var;
+    bool negated;
 
     VKD3D_ASSERT(loop->unroll_type == HLSL_LOOP_FORCE_LOOP);
     VKD3D_ASSERT(loop->type != HLSL_LOOP_DO_WHILE);
@@ -15144,57 +15200,21 @@ static struct hlsl_ir_if *identify_limiter_uniform(struct hlsl_ctx *ctx,
         return NULL;
 
     condition = iff->condition.node;
-    if (condition->type != HLSL_IR_EXPR)
+    if (!is_instr_constant_lt_var(ctx, condition, k, &var, &var_component, &negated))
         goto fail;
-    expr = hlsl_ir_expr(condition);
-
-    if (expr->op == HLSL_OP1_LOGIC_NOT)
-    {
-        if (expr->operands[0].node->type != HLSL_IR_EXPR)
-            goto fail;
-        expr = hlsl_ir_expr(expr->operands[0].node);
-        if (expr->op != HLSL_OP2_LESS)
-            goto fail;
-    }
-    else if (expr->op != HLSL_OP2_GEQUAL)
+    if (!negated)
         goto fail;
-
-    if (expr->operands[0].node->type != HLSL_IR_CONSTANT)
-        goto fail;
-    arg1 = expr->operands[1].node;
-    if (arg1->type == HLSL_IR_SWIZZLE)
-    {
-        VKD3D_ASSERT(hlsl_ir_swizzle(arg1)->val.node->data_type->class == HLSL_CLASS_VECTOR);
-
-        swizzle_component = hlsl_swizzle_get_component(hlsl_ir_swizzle(arg1)->u.vector, 0);
-        arg1 = hlsl_ir_swizzle(arg1)->val.node;
-    }
-    if (arg1->type != HLSL_IR_LOAD)
-        goto fail;
-    if (hlsl_ir_constant(expr->operands[0].node)->value.u[0].u != k)
-        goto fail;
-
-    load = hlsl_ir_load(arg1);
-    if (load->node.data_type->e.numeric.type != HLSL_TYPE_INT
-            && load->node.data_type->e.numeric.type != HLSL_TYPE_UINT)
-        goto fail;
-    var = load->src.var;
 
     if (!var->is_uniform)
         goto fail;
 
-    if (!hlsl_component_index_range_from_deref(ctx, &load->src, &limiter_component, &component_count))
-        goto fail;
-    limiter_component += swizzle_component;
-    limiter_component = map_matrix_component_index(var->data_type, limiter_component, READING_ORDER_ALWAYS_ROW_MAJOR);
-
     if (!loop->limiter)
     {
         loop->limiter = var;
-        loop->limiter_component = limiter_component;
+        loop->limiter_component = var_component;
     }
 
-    if (loop->limiter != var || loop->limiter_component != limiter_component)
+    if (loop->limiter != var || loop->limiter_component != var_component)
         goto fail;
 
     return iff;
