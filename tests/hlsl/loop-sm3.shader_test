@@ -854,3 +854,118 @@ float4 main() : sv_target
 write cbv-f32 (0) f32(1000)
 todo(msl & sm>=6) draw quad
 probe (0, 0) f32(20210, 20210, 20210, 21)
+
+% Other instances of "i < limit" are removed, this manifests in "limit" not
+% allocating c0.
+[pixel shader todo(sm<4)]
+int limit;
+float c; // should get c0
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    [loop]
+    for (int i = 0; i < limit; ++i)
+    {
+        sum.x += i;
+        if (i < limit) // check removed: always true.
+            sum.y += i + 1;
+        if (i >= limit) // check removed: always false.
+            sum.z += i;
+    }
+    sum.w = c;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-i32 (0) i32(6, 0, 0, 0)
+if(sm<4) write cbv-f32 (0) f32(132)
+if(sm>=4) write cbv-0 (0) i32(6)
+if(sm>=4) write cbv-0 (1) f32(132)
+todo(sm<4 | msl & sm>=6) draw quad
+probe (0, 0) f32(15, 21, 0, 132)
+
+[pixel shader todo(sm<4)]
+int limit; // gets i0 and c0.
+float c; // gets c1.
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    [loop]
+    for (int i = 0; i < limit; ++i)
+    {
+        sum.x += i;
+        [branch]
+        if (i / 2 < limit) // even though it is always true, check is not removed.
+            sum.y += i + 2;
+    }
+    sum.w = c;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-i32 (0) i32(6, 0, 0, 0)
+if(sm<4) write cbv-f32 (0) f32(6)
+if(sm<4) write cbv-f32 (4) f32(42)
+if(sm>=4) write cbv-0 (0) i32(6)
+if(sm>=4) write cbv-0 (1) f32(42)
+todo(sm<4 | msl & sm>=6) draw quad
+probe (0, 0) f32(15, 27, 0, 42)
+
+[pixel shader todo(sm<4)]
+int limit; // gets i0 and c0.
+float c; // gets c1.
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    [loop]
+    for (int i = 0; i < limit; ++i)
+    {
+        sum.x += i;
+        [branch]
+        if (i % 255 < limit) // even though it is always true, check is not removed.
+            sum.y += i + 3;
+    }
+    sum.w = c;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-i32 (0) i32(5, 0, 0, 0)
+if(sm<4) write cbv-f32 (0) f32(5)
+if(sm<4) write cbv-f32 (4) f32(82)
+if(sm>=4) write cbv-0 (0) i32(5)
+if(sm>=4) write cbv-0 (1) f32(82)
+todo(sm<4 | msl & sm>=6) draw quad
+probe (0, 0) f32(10, 25, 0, 82)
+
+[pixel shader todo(sm<4)]
+int limit; // gets i0 and c0.
+float c; // gets c1.
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    // even though it is always (i < limit), the (i % 255 < limit) check is not
+    // removed, despite the limiter being detected.
+    [loop]
+    for (int i = 0; i % 255 < limit; ++i)
+        sum.x += i;
+    sum.w = c;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-i32 (0) i32(4, 0, 0, 0)
+if(sm<4) write cbv-f32 (0) f32(4)
+if(sm<4) write cbv-f32 (4) f32(33)
+if(sm>=4) write cbv-0 (0) i32(4)
+if(sm>=4) write cbv-0 (1) f32(33)
+todo(sm<4 | msl & sm>=6) draw quad
+probe (0, 0) f32(6, 0, 0, 33)
