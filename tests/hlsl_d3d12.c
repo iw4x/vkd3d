@@ -426,6 +426,29 @@ static void test_preprocess(void)
             "",
             "",
         },
+
+        /* Function-like macros terminated with ] or } emit that character
+         * at every expansion of the last argument.
+         * Function-like macros with ) do not. */
+        {
+            "#define KEY(a) a!\n"
+            "KEY(a]bar",
+
+            "a ] ! bar",
+        },
+        {
+            "#define KEY(a) a!\n"
+            "KEY(a}bar",
+
+            "a } ! bar",
+        },
+        {
+            "#define KEY(a) a!\n"
+            "KEY(a)bar",
+
+            "a ! bar",
+            ")",
+        },
     };
 
     for (i = 0; i < ARRAY_SIZE(tests); ++i)

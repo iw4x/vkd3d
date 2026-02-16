@@ -740,6 +740,12 @@ int yylex(YYSTYPE *lval, YYLTYPE *lloc, yyscan_t scanner)
                     case '}':
                         if (!--func_state->paren_depth)
                         {
+                            /* Not only can you end a macro with ] or }, if
+                             * you do, it's treated as part of the last
+                             * argument. */
+                            if (token != ')' && current_arg)
+                                preproc_text_add(current_arg, text);
+
                             if (++func_state->arg_count == func_state->macro->arg_count)
                             {
                                 preproc_push_expansion(ctx, &func_state->macro->body,
