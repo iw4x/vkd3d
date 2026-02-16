@@ -4617,7 +4617,8 @@ static unsigned int shader_register_normalise_arrayed_addressing(struct vkd3d_sh
     return id_idx;
 }
 
-static bool vsir_dst_operand_io_normalise(struct vsir_dst_operand *dst, struct io_normaliser *normaliser)
+static bool vsir_dst_operand_io_normalise(struct vsir_dst_operand *dst,
+        struct io_normaliser *normaliser, struct vkd3d_shader_instruction *ins)
 {
     unsigned int id_idx, reg_idx, write_mask, element_idx;
     struct vkd3d_shader_register *reg = &dst->reg;
@@ -4690,7 +4691,13 @@ static bool vsir_dst_operand_io_normalise(struct vsir_dst_operand *dst, struct i
 
     id_idx = reg->idx_count - 1;
     if (!shader_signature_find_element_for_reg(signature, reg_idx, write_mask, &element_idx))
-        vkd3d_unreachable();
+    {
+        vkd3d_shader_error(normaliser->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_INVALID_SIGNATURE,
+                "Unable to resolve I/O register type %#x, index %u, write mask %#x, to a signature element.",
+                reg->type, reg_idx, write_mask);
+        normaliser->result = VKD3D_ERROR_INVALID_SHADER;
+        return false;
+    }
     e = &signature->elements[element_idx];
 
     if (vsir_signature_element_is_array(e, normaliser->normalisation_flags))
@@ -4769,7 +4776,8 @@ static void vsir_src_operand_io_normalise(struct vsir_src_operand *src,
     if (!shader_signature_find_element_for_reg(signature, reg_idx, write_mask, &element_idx))
     {
         vkd3d_shader_error(normaliser->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_INVALID_SIGNATURE,
-                "Unable to resolve I/O register to a signature element.");
+                "Unable to resolve I/O register type %#x, index %u, swizzle %#x, to a signature element.",
+                reg->type, reg_idx, src->swizzle);
         normaliser->result = VKD3D_ERROR_INVALID_SHADER;
         return;
     }
@@ -4810,7 +4818,7 @@ static void shader_instruction_normalise_io_params(struct vkd3d_shader_instructi
                 break;
             for (i = 0; i < ins->dst_count; ++i)
             {
-                vsir_dst_operand_io_normalise(&ins->dst[i], normaliser);
+                vsir_dst_operand_io_normalise(&ins->dst[i], normaliser, ins);
             }
             for (i = 0; i < ins->src_count; ++i)
             {
