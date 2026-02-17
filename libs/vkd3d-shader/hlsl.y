@@ -5789,7 +5789,7 @@ static int intrinsic_function_name_compare(const void *a, const void *b)
 static struct hlsl_block *add_call(struct hlsl_ctx *ctx, const char *name,
         struct parse_initializer *args, const struct vkd3d_shader_location *loc)
 {
-    struct intrinsic_function *intrinsic;
+    const struct intrinsic_function *intrinsic;
     struct hlsl_ir_function_decl *decl;
 
     for (unsigned int i = 0; i < args->args_count; ++i)
