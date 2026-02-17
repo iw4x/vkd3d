@@ -914,6 +914,7 @@ int preproc_lexer_parse(const struct vkd3d_shader_compile_info *compile_info,
             break;
     }
 
+    preproc_func_state_cleanup_arg_values(&ctx.directive_func);
     preproc_func_state_cleanup_arg_values(&ctx.text_func);
     while (ctx.file_count)
         preproc_pop_buffer(&ctx);
