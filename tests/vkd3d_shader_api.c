@@ -1709,7 +1709,7 @@ static void test_emit_signature(void)
         rc = vkd3d_shader_compile(&disassemble_info, &disasm, NULL);
         ok(rc == VKD3D_OK, "Cannot disassemble shader, rc %d.\n", rc);
 
-        ptr = strstr(disasm.code, ".text\n");
+        ptr = (char *)strstr(disasm.code, ".text\n");
         ok(ptr, "Cannot find text marker in disassembled code.\n");
         *ptr = '\0';
         todo_if(test->is_todo)
