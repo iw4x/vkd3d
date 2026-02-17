@@ -13984,12 +13984,19 @@ static D3D_SHADER_VARIABLE_TYPE sm4_base_type(const struct hlsl_type *type)
     vkd3d_unreachable();
 }
 
-static void write_sm4_type(struct hlsl_ctx *ctx, struct vkd3d_bytecode_buffer *buffer,
-        struct hlsl_type *type, bool structured)
+struct rdef_ctx
+{
+    struct hlsl_ctx *hlsl;
+
+    struct vkd3d_bytecode_buffer buffer;
+};
+
+static void rdef_write_type(struct rdef_ctx *rdef, struct hlsl_type *type, bool structured)
 {
     const struct hlsl_type *array_type = hlsl_get_multiarray_element_type(type);
     const char *name = array_type->name ? array_type->name : "<unnamed>";
-    const struct hlsl_profile_info *profile = ctx->profile;
+    const struct hlsl_profile_info *profile = rdef->hlsl->profile;
+    struct vkd3d_bytecode_buffer *buffer = &rdef->buffer;
     unsigned int array_size = 0;
     size_t name_offset = 0;
     size_t i;
@@ -14019,7 +14026,7 @@ static void write_sm4_type(struct hlsl_ctx *ctx, struct vkd3d_bytecode_buffer *b
                 continue;
 
             field->name_bytecode_offset = put_string(buffer, field->name);
-            write_sm4_type(ctx, buffer, field->type, structured);
+            rdef_write_type(rdef, field->type, structured);
             ++field_count;
         }
 
@@ -14078,17 +14085,30 @@ static void write_sm4_type(struct hlsl_ctx *ctx, struct vkd3d_bytecode_buffer *b
     }
 }
 
-static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rdef)
+static void rdef_ctx_cleanup(struct rdef_ctx *rdef)
+{
+    vkd3d_bytecode_buffer_cleanup(&rdef->buffer);
+}
+
+static void rdef_ctx_init(struct rdef_ctx *rdef, struct hlsl_ctx *hlsl)
+{
+    rdef->hlsl = hlsl;
+
+    memset(&rdef->buffer, 0, sizeof(rdef->buffer));
+}
+
+static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *out)
 {
     uint32_t binding_desc_size = (hlsl_version_ge(ctx, 5, 1) ? 10 : 8) * sizeof(uint32_t);
     size_t buffers_offset, resources_offset, creator_offset, string_offset;
     size_t cbuffer_position, resource_position, creator_position;
     unsigned int buffer_count = 0, extern_resources_count, i, j;
     const struct hlsl_profile_info *profile = ctx->profile;
-    struct vkd3d_bytecode_buffer buffer = {0};
     struct extern_resource *extern_resources;
+    struct vkd3d_bytecode_buffer *buffer;
     const struct hlsl_buffer *cbuffer;
     const struct hlsl_ir_var *var;
+    struct rdef_ctx rdef;
 
     static const uint16_t target_types[] =
     {
@@ -14099,6 +14119,9 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
         0x4453, /* DOMAIN */
         0x4353, /* COMPUTE */
     };
+
+    rdef_ctx_init(&rdef, ctx);
+    buffer = &rdef.buffer;
 
     extern_resources = sm4_get_extern_resources(ctx, &extern_resources_count);
 
@@ -14118,31 +14141,31 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
         ++buffer_count;
     }
 
-    put_u32(&buffer, buffer_count);
-    cbuffer_position = put_u32(&buffer, 0);
-    put_u32(&buffer, extern_resources_count);
-    resource_position = put_u32(&buffer, 0);
-    put_u32(&buffer, vkd3d_make_u32(vkd3d_make_u16(profile->minor_version, profile->major_version),
+    put_u32(buffer, buffer_count);
+    cbuffer_position = put_u32(buffer, 0);
+    put_u32(buffer, extern_resources_count);
+    resource_position = put_u32(buffer, 0);
+    put_u32(buffer, vkd3d_make_u32(vkd3d_make_u16(profile->minor_version, profile->major_version),
             target_types[profile->type]));
-    put_u32(&buffer, 0); /* FIXME: compilation flags */
-    creator_position = put_u32(&buffer, 0);
+    put_u32(buffer, 0); /* FIXME: compilation flags */
+    creator_position = put_u32(buffer, 0);
 
     if (profile->major_version >= 5)
     {
-        put_u32(&buffer, hlsl_version_ge(ctx, 5, 1) ? TAG_RD11_REVERSE : TAG_RD11);
-        put_u32(&buffer, 15 * sizeof(uint32_t)); /* size of RDEF header including this header */
-        put_u32(&buffer, 6 * sizeof(uint32_t)); /* size of buffer desc */
-        put_u32(&buffer, binding_desc_size); /* size of binding desc */
-        put_u32(&buffer, 10 * sizeof(uint32_t)); /* size of variable desc */
-        put_u32(&buffer, 9 * sizeof(uint32_t)); /* size of type desc */
-        put_u32(&buffer, 3 * sizeof(uint32_t)); /* size of member desc */
-        put_u32(&buffer, 0); /* unknown; possibly a null terminator */
+        put_u32(buffer, hlsl_version_ge(ctx, 5, 1) ? TAG_RD11_REVERSE : TAG_RD11);
+        put_u32(buffer, 15 * sizeof(uint32_t)); /* size of RDEF header including this header */
+        put_u32(buffer, 6 * sizeof(uint32_t)); /* size of buffer desc */
+        put_u32(buffer, binding_desc_size); /* size of binding desc */
+        put_u32(buffer, 10 * sizeof(uint32_t)); /* size of variable desc */
+        put_u32(buffer, 9 * sizeof(uint32_t)); /* size of type desc */
+        put_u32(buffer, 3 * sizeof(uint32_t)); /* size of member desc */
+        put_u32(buffer, 0); /* unknown; possibly a null terminator */
     }
 
     /* Bound resources. */
 
-    resources_offset = bytecode_align(&buffer);
-    set_u32(&buffer, resource_position, resources_offset);
+    resources_offset = bytecode_align(buffer);
+    set_u32(buffer, resource_position, resources_offset);
 
     for (i = 0; i < extern_resources_count; ++i)
     {
@@ -14152,41 +14175,41 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
         if (resource->is_user_packed)
             flags |= D3D_SIF_USERPACKED;
 
-        put_u32(&buffer, 0); /* name */
+        put_u32(buffer, 0); /* name */
         if (resource->buffer)
-            put_u32(&buffer, resource->buffer->type == HLSL_BUFFER_CONSTANT ? D3D_SIT_CBUFFER : D3D_SIT_TBUFFER);
+            put_u32(buffer, resource->buffer->type == HLSL_BUFFER_CONSTANT ? D3D_SIT_CBUFFER : D3D_SIT_TBUFFER);
         else
-            put_u32(&buffer, sm4_resource_type(resource->component_type));
+            put_u32(buffer, sm4_resource_type(resource->component_type));
         if (resource->regset == HLSL_REGSET_TEXTURES || resource->regset == HLSL_REGSET_UAVS)
         {
             bool structured = resource->component_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER;
             unsigned int dimx = resource->component_type->e.resource.format->e.numeric.dimx;
 
-            put_u32(&buffer, sm4_data_type(resource->component_type));
-            put_u32(&buffer, sm4_rdef_resource_dimension(resource->component_type));
+            put_u32(buffer, sm4_data_type(resource->component_type));
+            put_u32(buffer, sm4_rdef_resource_dimension(resource->component_type));
 
             if (structured)
-                put_u32(&buffer, hlsl_type_get_packed_size(resource->component_type->e.resource.format));
+                put_u32(buffer, hlsl_type_get_packed_size(resource->component_type->e.resource.format));
             else
-                put_u32(&buffer, ~0u); /* FIXME: multisample count */
+                put_u32(buffer, ~0u); /* FIXME: multisample count */
 
             if (!structured)
                 flags |= (dimx - 1) << VKD3D_SM4_SIF_TEXTURE_COMPONENTS_SHIFT;
         }
         else
         {
-            put_u32(&buffer, 0);
-            put_u32(&buffer, 0);
-            put_u32(&buffer, 0);
+            put_u32(buffer, 0);
+            put_u32(buffer, 0);
+            put_u32(buffer, 0);
         }
-        put_u32(&buffer, resource->index);
-        put_u32(&buffer, resource->bind_count);
-        put_u32(&buffer, flags);
+        put_u32(buffer, resource->index);
+        put_u32(buffer, resource->bind_count);
+        put_u32(buffer, flags);
 
         if (hlsl_version_ge(ctx, 5, 1))
         {
-            put_u32(&buffer, resource->space);
-            put_u32(&buffer, resource->id);
+            put_u32(buffer, resource->space);
+            put_u32(buffer, resource->id);
         }
     }
 
@@ -14194,14 +14217,14 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
     {
         const struct extern_resource *resource = &extern_resources[i];
 
-        string_offset = put_string(&buffer, resource->name);
-        set_u32(&buffer, resources_offset + i * binding_desc_size, string_offset);
+        string_offset = put_string(buffer, resource->name);
+        set_u32(buffer, resources_offset + i * binding_desc_size, string_offset);
     }
 
     /* Buffers. */
 
-    buffers_offset = bytecode_align(&buffer);
-    set_u32(&buffer, cbuffer_position, buffers_offset);
+    buffers_offset = bytecode_align(buffer);
+    set_u32(buffer, cbuffer_position, buffers_offset);
     LIST_FOR_EACH_ENTRY(cbuffer, &ctx->buffers, struct hlsl_buffer, entry)
     {
         unsigned int var_count = 0;
@@ -14215,12 +14238,12 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
                 ++var_count;
         }
 
-        put_u32(&buffer, 0); /* name */
-        put_u32(&buffer, var_count);
-        put_u32(&buffer, 0); /* variable offset */
-        put_u32(&buffer, align(cbuffer->size, 4) * sizeof(float));
-        put_u32(&buffer, 0); /* FIXME: flags */
-        put_u32(&buffer, cbuffer->type == HLSL_BUFFER_CONSTANT ? D3D_CT_CBUFFER : D3D_CT_TBUFFER);
+        put_u32(buffer, 0); /* name */
+        put_u32(buffer, var_count);
+        put_u32(buffer, 0); /* variable offset */
+        put_u32(buffer, align(cbuffer->size, 4) * sizeof(float));
+        put_u32(buffer, 0); /* FIXME: flags */
+        put_u32(buffer, cbuffer->type == HLSL_BUFFER_CONSTANT ? D3D_CT_CBUFFER : D3D_CT_TBUFFER);
     }
 
     for (i = 0; i < extern_resources_count; ++i)
@@ -14233,12 +14256,12 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
 
         resource_type = resource->component_type->e.resource.format;
 
-        put_u32(&buffer, 0); /* name */
-        put_u32(&buffer, 1); /* var count */
-        put_u32(&buffer, 0); /* variable offset */
-        put_u32(&buffer, hlsl_type_get_packed_size(resource_type)); /* size */
-        put_u32(&buffer, 0); /* FIXME: flags */
-        put_u32(&buffer, D3D_CT_RESOURCE_BIND_INFO);
+        put_u32(buffer, 0); /* name */
+        put_u32(buffer, 1); /* var count */
+        put_u32(buffer, 0); /* variable offset */
+        put_u32(buffer, hlsl_type_get_packed_size(resource_type)); /* size */
+        put_u32(buffer, 0); /* FIXME: flags */
+        put_u32(buffer, D3D_CT_RESOURCE_BIND_INFO);
     }
 
     i = 0;
@@ -14247,8 +14270,8 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
         if (!cbuffer->reg.allocated)
             continue;
 
-        string_offset = put_string(&buffer, cbuffer->name);
-        set_u32(&buffer, buffers_offset + i++ * 6 * sizeof(uint32_t), string_offset);
+        string_offset = put_string(buffer, cbuffer->name);
+        set_u32(buffer, buffers_offset + i++ * 6 * sizeof(uint32_t), string_offset);
     }
 
     for (j = 0; j < extern_resources_count; ++j)
@@ -14258,19 +14281,19 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
         if (resource->buffer || resource->component_type->sampler_dim != HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
             continue;
 
-        string_offset = put_string(&buffer, resource->name);
-        set_u32(&buffer, buffers_offset + i++ * 6 * sizeof(uint32_t), string_offset);
+        string_offset = put_string(buffer, resource->name);
+        set_u32(buffer, buffers_offset + i++ * 6 * sizeof(uint32_t), string_offset);
     }
 
     i = 0;
     LIST_FOR_EACH_ENTRY(cbuffer, &ctx->buffers, struct hlsl_buffer, entry)
     {
-        size_t vars_start = bytecode_align(&buffer);
+        size_t vars_start = bytecode_align(buffer);
 
         if (!cbuffer->reg.allocated)
             continue;
 
-        set_u32(&buffer, buffers_offset + (i++ * 6 + 2) * sizeof(uint32_t), vars_start);
+        set_u32(buffer, buffers_offset + (i++ * 6 + 2) * sizeof(uint32_t), vars_start);
 
         LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
         {
@@ -14282,19 +14305,19 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
             if (var->is_read)
                 flags |= D3D_SVF_USED;
 
-            put_u32(&buffer, 0); /* name */
-            put_u32(&buffer, var->buffer_offset * sizeof(float));
-            put_u32(&buffer, var->data_type->reg_size[HLSL_REGSET_NUMERIC] * sizeof(float));
-            put_u32(&buffer, flags);
-            put_u32(&buffer, 0); /* type */
-            put_u32(&buffer, 0); /* default value */
+            put_u32(buffer, 0); /* name */
+            put_u32(buffer, var->buffer_offset * sizeof(float));
+            put_u32(buffer, var->data_type->reg_size[HLSL_REGSET_NUMERIC] * sizeof(float));
+            put_u32(buffer, flags);
+            put_u32(buffer, 0); /* type */
+            put_u32(buffer, 0); /* default value */
 
             if (profile->major_version >= 5)
             {
-                put_u32(&buffer, 0); /* texture start */
-                put_u32(&buffer, 0); /* texture count */
-                put_u32(&buffer, 0); /* sampler start */
-                put_u32(&buffer, 0); /* sampler count */
+                put_u32(buffer, 0); /* texture start */
+                put_u32(buffer, 0); /* texture count */
+                put_u32(buffer, 0); /* sampler start */
+                put_u32(buffer, 0); /* sampler count */
             }
         }
 
@@ -14307,10 +14330,10 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
             if (!var->is_uniform || var->buffer != cbuffer || !var->data_type->reg_size[HLSL_REGSET_NUMERIC])
                 continue;
 
-            string_offset = put_string(&buffer, var->name);
-            set_u32(&buffer, var_offset, string_offset);
-            write_sm4_type(ctx, &buffer, var->data_type, false);
-            set_u32(&buffer, var_offset + 4 * sizeof(uint32_t), var->data_type->bytecode_offset);
+            string_offset = put_string(buffer, var->name);
+            set_u32(buffer, var_offset, string_offset);
+            rdef_write_type(&rdef, var->data_type, false);
+            set_u32(buffer, var_offset + 4 * sizeof(uint32_t), var->data_type->bytecode_offset);
 
             if (var->default_values)
             {
@@ -14319,8 +14342,8 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
                 unsigned int default_value_offset;
                 unsigned int k;
 
-                default_value_offset = bytecode_reserve_bytes(&buffer, reg_size * sizeof(uint32_t));
-                set_u32(&buffer, var_offset + 5 * sizeof(uint32_t), default_value_offset);
+                default_value_offset = bytecode_reserve_bytes(buffer, reg_size * sizeof(uint32_t));
+                set_u32(buffer, var_offset + 5 * sizeof(uint32_t), default_value_offset);
 
                 for (k = 0; k < comp_count; ++k)
                 {
@@ -14342,7 +14365,7 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
                         if (comp_type->e.numeric.type == HLSL_TYPE_DOUBLE)
                             hlsl_fixme(ctx, &var->loc, "Write double default values.");
 
-                        set_u32(&buffer, default_value_offset + comp_offset * sizeof(uint32_t),
+                        set_u32(buffer, default_value_offset + comp_offset * sizeof(uint32_t),
                                 var->default_values[k].number.u);
                     }
                 }
@@ -14363,41 +14386,42 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *rd
 
         resource_type = resource->component_type->e.resource.format;
 
-        vars_start = bytecode_align(&buffer);
+        vars_start = bytecode_align(buffer);
 
-        set_u32(&buffer, buffers_offset + (i++ * 6 + 2) * sizeof(uint32_t), vars_start);
+        set_u32(buffer, buffers_offset + (i++ * 6 + 2) * sizeof(uint32_t), vars_start);
 
-        put_u32(&buffer, 0); /* name */
-        put_u32(&buffer, 0); /* offset */
-        put_u32(&buffer, hlsl_type_get_packed_size(resource_type));
-        put_u32(&buffer, D3D_SVF_USED);
-        put_u32(&buffer, 0); /* type */
-        put_u32(&buffer, 0); /* default value */
+        put_u32(buffer, 0); /* name */
+        put_u32(buffer, 0); /* offset */
+        put_u32(buffer, hlsl_type_get_packed_size(resource_type));
+        put_u32(buffer, D3D_SVF_USED);
+        put_u32(buffer, 0); /* type */
+        put_u32(buffer, 0); /* default value */
 
         if (profile->major_version >= 5)
         {
-            put_u32(&buffer, ~0u); /* texture start */
-            put_u32(&buffer, 0); /* texture count */
-            put_u32(&buffer, ~0u); /* sampler start */
-            put_u32(&buffer, 0); /* sampler count */
+            put_u32(buffer, ~0u); /* texture start */
+            put_u32(buffer, 0); /* texture count */
+            put_u32(buffer, ~0u); /* sampler start */
+            put_u32(buffer, 0); /* sampler count */
         }
 
-        string_offset = put_string(&buffer, "$Element");
-        set_u32(&buffer, vars_start, string_offset);
-        write_sm4_type(ctx, &buffer, resource_type, true);
-        set_u32(&buffer, vars_start + 4 * sizeof(uint32_t), resource_type->packed_bytecode_offset);
+        string_offset = put_string(buffer, "$Element");
+        set_u32(buffer, vars_start, string_offset);
+        rdef_write_type(&rdef, resource_type, true);
+        set_u32(buffer, vars_start + 4 * sizeof(uint32_t), resource_type->packed_bytecode_offset);
     }
 
-    creator_offset = put_string(&buffer, vkd3d_shader_get_version(NULL, NULL));
-    set_u32(&buffer, creator_position, creator_offset);
+    creator_offset = put_string(buffer, vkd3d_shader_get_version(NULL, NULL));
+    set_u32(buffer, creator_position, creator_offset);
 
     sm4_free_extern_resources(extern_resources, extern_resources_count);
 
-    if (ctx->result >= 0 && buffer.status < 0)
-        ctx->result = buffer.status;
+    if (ctx->result >= 0 && buffer->status < 0)
+        ctx->result = buffer->status;
     if (ctx->result >= 0)
-        vkd3d_shader_code_from_bytecode_buffer(rdef, &buffer);
-    vkd3d_bytecode_buffer_cleanup(&buffer);
+        vkd3d_shader_code_from_bytecode_buffer(out, buffer);
+
+    rdef_ctx_cleanup(&rdef);
 }
 
 static bool loop_unrolling_generate_const_bool_store(struct hlsl_ctx *ctx, struct hlsl_ir_var *var,
