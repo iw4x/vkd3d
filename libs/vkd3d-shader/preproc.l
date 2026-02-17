@@ -887,6 +887,18 @@ int preproc_lexer_parse(const struct vkd3d_shader_compile_info *compile_info,
 
     preproc_yyparse(ctx.scanner, &ctx);
 
+    switch (ctx.directive_func.state)
+    {
+        case STATE_NONE:
+        case STATE_IDENTIFIER:
+            break;
+
+        case STATE_ARGS:
+            preproc_warning(&ctx, &loc, VKD3D_SHADER_WARNING_PP_UNTERMINATED_MACRO,
+                    "Unterminated macro invocation.");
+            break;
+    }
+
     switch (ctx.text_func.state)
     {
         case STATE_NONE:
