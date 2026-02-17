@@ -87,3 +87,18 @@ fail
 #else
 pass
 #endif
+
+[preproc]
+pass
+#if 0
+fail
+
+[preproc]
+#if 1
+pass
+
+[preproc]
+#if 0
+fail
+#else
+pass
