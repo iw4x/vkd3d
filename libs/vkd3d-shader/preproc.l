@@ -265,7 +265,7 @@ static bool preproc_is_writing(struct preproc_ctx *ctx)
  * function-like macro bodies and their arguments. */
 static bool should_concat(struct preproc_ctx *ctx)
 {
-    struct preproc_macro *macro;
+    const struct preproc_macro *macro;
 
     if (!ctx->expansion_count)
         return false;
@@ -368,7 +368,7 @@ static void preproc_text_add(struct preproc_text *text, const char *string)
 }
 
 static bool preproc_push_expansion(struct preproc_ctx *ctx,
-        const struct preproc_text *text, struct preproc_macro *macro, struct preproc_text *arg_values)
+        const struct preproc_text *text, const struct preproc_macro *macro, struct preproc_text *arg_values)
 {
     struct preproc_expansion *exp;
 
