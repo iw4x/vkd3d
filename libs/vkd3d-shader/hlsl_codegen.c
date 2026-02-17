@@ -10880,11 +10880,19 @@ D3DXPARAMETER_TYPE hlsl_sm1_base_type(const struct hlsl_type *type,
     vkd3d_unreachable();
 }
 
-static void write_sm1_type(struct vkd3d_bytecode_buffer *buffer, struct hlsl_type *type,
+struct ctab_ctx
+{
+    struct hlsl_ctx *hlsl;
+
+    struct vkd3d_bytecode_buffer buffer;
+};
+
+static void ctab_write_type(struct ctab_ctx *ctab, struct hlsl_type *type,
         bool is_combined_sampler, enum hlsl_sampler_dim sampler_dim, unsigned int ctab_start)
 {
     const struct hlsl_type *array_type = hlsl_get_multiarray_element_type(type);
     unsigned int array_size = hlsl_get_multiarray_size(type);
+    struct vkd3d_bytecode_buffer *buffer = &ctab->buffer;
     struct hlsl_struct_field *field;
     size_t i;
 
@@ -10904,7 +10912,7 @@ static void write_sm1_type(struct vkd3d_bytecode_buffer *buffer, struct hlsl_typ
         {
             field = &array_type->e.record.fields[i];
             field->name_bytecode_offset = put_string(buffer, field->name);
-            write_sm1_type(buffer, field->type, false, HLSL_SAMPLER_DIM_GENERIC, ctab_start);
+            ctab_write_type(ctab, field->type, false, HLSL_SAMPLER_DIM_GENERIC, ctab_start);
         }
 
         fields_offset = bytecode_align(buffer) - ctab_start;
@@ -10967,10 +10975,12 @@ static void sm1_sort_externs(struct hlsl_ctx *ctx)
     list_move_tail(&ctx->extern_vars, &sorted);
 }
 
-static void write_sm1_uniforms(struct hlsl_ctx *ctx, struct vkd3d_bytecode_buffer *buffer)
+static void ctab_write_uniforms(struct ctab_ctx *ctab)
 {
     size_t ctab_start, vars_offset, vars_start, creator_offset, offset;
+    struct vkd3d_bytecode_buffer *buffer = &ctab->buffer;
     unsigned int uniform_count = 0, r;
+    struct hlsl_ctx *ctx = ctab->hlsl;
     struct hlsl_ir_var *var;
 
     LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
@@ -11067,7 +11077,7 @@ static void write_sm1_uniforms(struct hlsl_ctx *ctx, struct vkd3d_bytecode_buffe
             name_offset = put_string(buffer, var->name);
             set_u32(buffer, var_offset, name_offset - ctab_start);
 
-            write_sm1_type(buffer, var->data_type, var->is_combined_sampler, sampler_dim, ctab_start);
+            ctab_write_type(ctab, var->data_type, var->is_combined_sampler, sampler_dim, ctab_start);
             set_u32(buffer, var_offset + 3 * sizeof(uint32_t), var->data_type->bytecode_offset - ctab_start);
 
             if (var->default_values)
@@ -11133,16 +11143,31 @@ static void write_sm1_uniforms(struct hlsl_ctx *ctx, struct vkd3d_bytecode_buffe
     set_u32(buffer, creator_offset, offset - ctab_start);
 }
 
-static void sm1_generate_ctab(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ctab)
+static void ctab_ctx_cleanup(struct ctab_ctx *ctab)
 {
-    struct vkd3d_bytecode_buffer buffer = {0};
+    vkd3d_bytecode_buffer_cleanup(&ctab->buffer);
+}
 
-    write_sm1_uniforms(ctx, &buffer);
-    if (ctx->result >= 0 && buffer.status < 0)
-        ctx->result = buffer.status;
-    if (ctx->result >= 0)
-        vkd3d_shader_code_from_bytecode_buffer(ctab, &buffer);
-    vkd3d_bytecode_buffer_cleanup(&buffer);
+static void ctab_ctx_init(struct ctab_ctx *ctab, struct hlsl_ctx *hlsl)
+{
+    ctab->hlsl = hlsl;
+
+    memset(&ctab->buffer, 0, sizeof(ctab->buffer));
+}
+
+static void sm1_generate_ctab(struct hlsl_ctx *hlsl, struct vkd3d_shader_code *out)
+{
+    struct ctab_ctx ctab;
+
+    ctab_ctx_init(&ctab, hlsl);
+
+    ctab_write_uniforms(&ctab);
+    if (hlsl->result >= 0 && ctab.buffer.status < 0)
+        hlsl->result = ctab.buffer.status;
+    if (hlsl->result >= 0)
+        vkd3d_shader_code_from_bytecode_buffer(out, &ctab.buffer);
+
+    ctab_ctx_cleanup(&ctab);
 }
 
 static enum vkd3d_shader_input_sysval_semantic vkd3d_siv_from_sysval_indexed(enum vkd3d_shader_sysval_semantic sysval,
