@@ -15135,10 +15135,13 @@ static struct hlsl_ir_if *identify_limiter_uniform(struct hlsl_ctx *ctx,
     VKD3D_ASSERT(loop->unroll_type == HLSL_LOOP_FORCE_LOOP);
     VKD3D_ASSERT(loop->type != HLSL_LOOP_DO_WHILE);
 
-    iff = find_loop_conditional(block);
-
-    if (!iff)
-        goto fail;
+    /* If we don't find the loop conditional, this means that either this
+     * whole iteration is guaranteed, so the loop is not limited by our
+     * current limiter candidate, or that the loop always ends in this
+     * iteration for conditions other than the limiter itself. In the latter
+     * case, fxc/d3dcompiler doesn't invalidate the limiter. */
+    if (!(iff = find_loop_conditional(block)))
+        return NULL;
 
     condition = iff->condition.node;
     if (condition->type != HLSL_IR_EXPR)
@@ -15282,7 +15285,13 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
             struct hlsl_ir_if *limiter_if;
 
             if (!(limiter_if = identify_limiter_uniform(ctx, loop, &target_if->then_block, i)))
+            {
+                loop_unrolling_simplify(ctx, &target_if->then_block, &state, &index);
+                if (!loop_unrolling_check_val(&state, broken))
+                    loop->limiter = NULL;
                 goto fail;
+            }
+
             VKD3D_ASSERT(list_empty(&limiter_if->else_block.instrs));
             /* Remove the conditional so the next iteration can assume that this
              * one was completed while lowering. */

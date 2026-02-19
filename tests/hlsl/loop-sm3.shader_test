@@ -634,7 +634,7 @@ probe (0, 0) f32(123.0, 123.0, 0.0, 4.0)
 
 % This is a rather odd case: the limiter is detected but the (i >= 20) break
 % condition remains.
-[pixel shader]
+[pixel shader todo(sm<4)]
 int limit; // gets i0
 float u; // gets c0
 
@@ -653,16 +653,16 @@ if(sm<4) write cbv-f32 (0) f32(1000.0)
 if(sm<4) write cbv-i32 (0) i32(6)
 if(sm>=4) write cbv-0 (0) i32(6)
 if(sm>=4) write cbv-0 (1) f32(1000.0)
-draw quad
-todo(sm<4) probe (0, 0) f32(1015, 1015, 1015, 1015)
+todo(sm<4) draw quad
+probe (0, 0) f32(1015, 1015, 1015, 1015)
 if(sm<4) write cbv-f32 (0) f32(2000.0)
 if(sm<4) write cbv-i32 (0) i32(32)
 if(sm>=4) write cbv-0 (0) i32(32)
 if(sm>=4) write cbv-0 (1) f32(2000.0)
-draw quad
-todo(sm<4) probe (0, 0) f32(2190, 2190, 2190, 2190)
+todo(sm<4) draw quad
+probe (0, 0) f32(2190, 2190, 2190, 2190)
 
-[pixel shader]
+[pixel shader todo(sm<4)]
 int limit; // gets i0
 float u; // gets c0
 
@@ -684,16 +684,16 @@ if(sm<4) write cbv-f32 (0) f32(3000.0)
 if(sm<4) write cbv-i32 (0) i32(8)
 if(sm>=4) write cbv-0 (0) i32(8)
 if(sm>=4) write cbv-0 (1) f32(3000.0)
-draw quad
+todo(sm<4) draw quad
 % fxc/d3dcompiler miscompiles on SM<4, resulting in f32(3036, 3036, 3036, 8)
-todo(sm<4) winbug(sm<4) probe (0, 0) f32(3036, 3036, 3036, 9)
+winbug(sm<4) probe (0, 0) f32(3036, 3036, 3036, 9)
 
 if(sm<4) write cbv-f32 (0) f32(4000.0)
 if(sm<4) write cbv-i32 (0) i32(30)
 if(sm>=4) write cbv-0 (0) i32(30)
 if(sm>=4) write cbv-0 (1) f32(4000.0)
-draw quad
-todo(sm<4) probe (0, 0) f32(4190, 4190, 4190, 20)
+todo(sm<4) draw quad
+probe (0, 0) f32(4190, 4190, 4190, 20)
 
 [require]
 options: backcompat
