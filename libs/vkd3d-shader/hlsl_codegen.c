@@ -3815,41 +3815,34 @@ static void split_copy(struct hlsl_ctx *ctx, struct hlsl_ir_store *store,
 static void split_resource_load(struct hlsl_ctx *ctx, struct hlsl_ir_store *store,
         struct hlsl_ir_resource_load *load, const unsigned int idx, struct hlsl_type *type)
 {
-    struct hlsl_ir_node *c, *idx_offset, *split_load;
+    struct hlsl_ir_resource_load *res_load;
+    struct hlsl_ir_node *c, *idx_offset;
     struct hlsl_block block;
 
     hlsl_block_init(&block);
 
     c = hlsl_block_add_uint_constant(ctx, &block, idx, &store->node.loc);
 
-    /* Structured (i.e. arrayed) TGSM load. */
-    if (load->resource.var->is_tgsm && !load->resource.path_len && load->node.data_type->class == HLSL_CLASS_ARRAY)
-    {
-        struct hlsl_resource_load_params params = {0};
+    res_load = hlsl_ir_resource_load(hlsl_clone_instr(ctx, &load->node));
+    res_load->node.data_type = type;
 
-        params.type = HLSL_RESOURCE_LOAD;
-        params.resource = &load->node;
-        params.coords = c;
-        params.format = load->node.data_type->e.array.type;
-        split_load = hlsl_block_add_resource_load(ctx, &block, &params, &load->node.loc);
+    if (load->resource.var->is_tgsm && !load->coords.node && !load->resource.path_len
+            && load->node.data_type->class == HLSL_CLASS_ARRAY)
+    {
+        /* Structured (i.e. arrayed) TGSM load. */
+        hlsl_src_from_node(&res_load->coords, c);
     }
     else
     {
-        struct hlsl_ir_resource_load *res_load;
-
         idx_offset = hlsl_block_add_packed_index_offset_append(ctx, &block,
                 load->byte_offset.node, c, load->node.data_type, &store->node.loc);
 
-        res_load = hlsl_ir_resource_load(hlsl_clone_instr(ctx, &load->node));
         hlsl_src_remove(&res_load->byte_offset);
         hlsl_src_from_node(&res_load->byte_offset, idx_offset);
-        res_load->node.data_type = type;
-        hlsl_block_add_instr(&block, &res_load->node);
-
-        split_load = &res_load->node;
     }
 
-    hlsl_block_add_store_index(ctx, &block, &store->lhs, c, split_load, 0, &store->node.loc);
+    hlsl_block_add_instr(&block, &res_load->node);
+    hlsl_block_add_store_index(ctx, &block, &store->lhs, c, &res_load->node, 0, &store->node.loc);
     list_move_before(&store->node.entry, &block.instrs);
 }
 
