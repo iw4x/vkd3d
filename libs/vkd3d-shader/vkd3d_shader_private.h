@@ -1042,7 +1042,7 @@ struct vkd3d_shader_register_index
     bool is_in_bounds;
 };
 
-struct vkd3d_shader_register
+struct vsir_operand
 {
     enum vkd3d_shader_register_type type;
     enum vkd3d_shader_register_precision precision;
@@ -1063,10 +1063,10 @@ struct vkd3d_shader_register
     } u;
 };
 
-void vsir_register_init(struct vkd3d_shader_register *reg, enum vkd3d_shader_register_type reg_type,
+void vsir_operand_init(struct vsir_operand *reg, enum vkd3d_shader_register_type reg_type,
         enum vsir_data_type data_type, unsigned int idx_count);
 
-static inline bool vsir_register_is_descriptor(const struct vkd3d_shader_register *reg)
+static inline bool vsir_operand_is_descriptor(const struct vsir_operand *reg)
 {
     switch (reg->type)
     {
@@ -1079,6 +1079,31 @@ static inline bool vsir_register_is_descriptor(const struct vkd3d_shader_registe
         default:
             return false;
     }
+}
+
+static inline bool vsir_operand_is_constant(const struct vsir_operand *reg)
+{
+    return (reg->type == VKD3DSPR_IMMCONST || reg->type == VKD3DSPR_IMMCONST64);
+}
+
+static inline bool vsir_operand_is_undef(const struct vsir_operand *reg)
+{
+    return reg->type == VKD3DSPR_UNDEF;
+}
+
+static inline bool vsir_operand_is_constant_or_undef(const struct vsir_operand *reg)
+{
+    return vsir_operand_is_constant(reg) || vsir_operand_is_undef(reg);
+}
+
+static inline bool vsir_operand_is_label(const struct vsir_operand *reg)
+{
+    return reg->type == VKD3DSPR_LABEL;
+}
+
+static inline bool vsir_operand_is_ssa(const struct vsir_operand *reg)
+{
+    return reg->type == VKD3DSPR_SSA;
 }
 
 static inline enum vkd3d_shader_register_type vsir_register_type_from_sysval_input(
@@ -1097,7 +1122,7 @@ static inline enum vkd3d_shader_register_type vsir_register_type_from_sysval_inp
 
 struct vsir_dst_operand
 {
-    struct vkd3d_shader_register reg;
+    struct vsir_operand reg;
     uint32_t write_mask;
     uint32_t modifiers;
     unsigned int shift;
@@ -1109,7 +1134,7 @@ void vsir_dst_operand_init_null(struct vsir_dst_operand *dst);
 
 struct vsir_src_operand
 {
-    struct vkd3d_shader_register reg;
+    struct vsir_operand reg;
     uint32_t swizzle;
     enum vkd3d_shader_src_modifier modifiers;
 };
@@ -1446,37 +1471,6 @@ static inline void vkd3d_shader_instruction_make_nop(struct vkd3d_shader_instruc
 static inline bool vkd3d_shader_instruction_has_texel_offset(const struct vkd3d_shader_instruction *ins)
 {
     return ins->texel_offset.u || ins->texel_offset.v || ins->texel_offset.w;
-}
-
-static inline bool register_is_constant(const struct vkd3d_shader_register *reg)
-{
-    return (reg->type == VKD3DSPR_IMMCONST || reg->type == VKD3DSPR_IMMCONST64);
-}
-
-static inline bool register_is_undef(const struct vkd3d_shader_register *reg)
-{
-    return reg->type == VKD3DSPR_UNDEF;
-}
-
-static inline bool register_is_constant_or_undef(const struct vkd3d_shader_register *reg)
-{
-    return register_is_constant(reg) || register_is_undef(reg);
-}
-
-static inline bool register_is_numeric_array(const struct vkd3d_shader_register *reg)
-{
-    return (reg->type == VKD3DSPR_IMMCONSTBUFFER || reg->type == VKD3DSPR_IDXTEMP
-            || reg->type == VKD3DSPR_GROUPSHAREDMEM);
-}
-
-static inline bool vsir_register_is_label(const struct vkd3d_shader_register *reg)
-{
-    return reg->type == VKD3DSPR_LABEL;
-}
-
-static inline bool register_is_ssa(const struct vkd3d_shader_register *reg)
-{
-    return reg->type == VKD3DSPR_SSA;
 }
 
 struct vkd3d_shader_param_node
@@ -1924,7 +1918,7 @@ bool sm1_usage_from_semantic_name(const char *semantic_name,
         uint32_t semantic_index, enum vkd3d_decl_usage *usage, uint32_t *usage_idx);
 bool sm4_register_from_semantic_name(const struct vkd3d_shader_version *version,
         const char *semantic_name, bool output, enum vkd3d_shader_register_type *type, bool *has_idx);
-bool shader_sm4_is_scalar_register(const struct vkd3d_shader_register *reg);
+bool shader_sm4_is_scalar_register(const struct vsir_operand *reg);
 bool sm4_sysval_semantic_from_semantic_name(enum vkd3d_shader_sysval_semantic *sysval_semantic,
         const struct vkd3d_shader_version *version, bool semantic_compat_mapping, enum vkd3d_tessellator_domain domain,
         const char *semantic_name, unsigned int semantic_idx, bool output,
