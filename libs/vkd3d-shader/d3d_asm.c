@@ -566,6 +566,37 @@ static void shader_print_dcl_usage(struct vkd3d_d3d_asm_compiler *compiler,
 static void shader_print_src_operand(struct vkd3d_d3d_asm_compiler *compiler,
         const char *prefix, const struct vsir_src_operand *src, const char *suffix);
 
+static bool f16_isfinite(uint16_t f)
+{
+    return (f & 0x7c00) != 0x7c00;
+}
+
+static bool f16_signbit(uint16_t f)
+{
+    return f & 0x8000;
+}
+
+static uint16_t f16_negate(uint16_t f)
+{
+    return f ^ 0x8000;
+}
+
+static void shader_print_f16_literal(struct vkd3d_d3d_asm_compiler *compiler,
+        const char *prefix, uint16_t f, const char *suffix)
+{
+    const char *sign = "";
+
+    if (f16_isfinite(f) && f16_signbit(f))
+    {
+        sign = "-";
+        f = f16_negate(f);
+    }
+
+    vkd3d_string_buffer_printf(&compiler->buffer, "%s%s%s", prefix, sign, compiler->colours.literal);
+    vkd3d_string_buffer_print_f16(&compiler->buffer, f);
+    vkd3d_string_buffer_printf(&compiler->buffer, "%s%s", compiler->colours.reset, suffix);
+}
+
 static void shader_print_float_literal(struct vkd3d_d3d_asm_compiler *compiler,
         const char *prefix, float f, const char *suffix)
 {
@@ -756,6 +787,9 @@ static void shader_print_register(struct vkd3d_d3d_asm_compiler *compiler, const
                     case VSIR_DATA_BOOL:
                         shader_print_bool_literal(compiler, "", reg->u.immconst_u32[0], "");
                         break;
+                    case VSIR_DATA_F16:
+                        shader_print_f16_literal(compiler, "", reg->u.immconst_u32[0], "");
+                        break;
                     case VSIR_DATA_F32:
                         if (untyped)
                             shader_print_untyped_literal(compiler, "", reg->u.immconst_u32[0], "");
@@ -783,6 +817,12 @@ static void shader_print_register(struct vkd3d_d3d_asm_compiler *compiler, const
                         shader_print_bool_literal(compiler, ", ", reg->u.immconst_u32[1], "");
                         shader_print_bool_literal(compiler, ", ", reg->u.immconst_u32[2], "");
                         shader_print_bool_literal(compiler, ", ", reg->u.immconst_u32[3], "");
+                        break;
+                    case VSIR_DATA_F16:
+                        shader_print_f16_literal(compiler, "", reg->u.immconst_u32[0], "");
+                        shader_print_f16_literal(compiler, ", ", reg->u.immconst_u32[1], "");
+                        shader_print_f16_literal(compiler, ", ", reg->u.immconst_u32[2], "");
+                        shader_print_f16_literal(compiler, ", ", reg->u.immconst_u32[3], "");
                         break;
                     case VSIR_DATA_F32:
                         if (untyped)

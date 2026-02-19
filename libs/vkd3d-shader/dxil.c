@@ -2867,48 +2867,6 @@ static enum vsir_data_type vsir_data_type_from_dxil(const struct sm6_type *type,
     return VSIR_DATA_U32;
 }
 
-/* Based on the implementation in the OpenGL Mathematics library. */
-static uint32_t half_to_float(uint16_t value)
-{
-    uint32_t s = (value & 0x8000u) << 16;
-    uint32_t e = (value >> 10) & 0x1fu;
-    uint32_t m = value & 0x3ffu;
-
-    if (!e)
-    {
-        if (!m)
-        {
-            /* Plus or minus zero */
-            return s;
-        }
-        else
-        {
-            /* Denormalized number -- renormalize it */
-            while (!(m & 0x400u))
-            {
-                m <<= 1;
-                --e;
-            }
-
-            ++e;
-            m &= ~0x400u;
-        }
-    }
-    else if (e == 31u)
-    {
-        /* Positive or negative infinity for zero 'm'.
-         * Nan for non-zero 'm' -- preserve sign and significand bits */
-        return s | 0x7f800000u | (m << 13);
-    }
-
-    /* Normalized number */
-    e += 127u - 15u;
-    m <<= 13;
-
-    /* Assemble s, e and m. */
-    return s | (e << 23) | m;
-}
-
 static void register_convert_to_minimum_precision(struct vkd3d_shader_register *reg)
 {
     unsigned int i;
@@ -2921,7 +2879,9 @@ static void register_convert_to_minimum_precision(struct vkd3d_shader_register *
             if (reg->type == VKD3DSPR_IMMCONST)
             {
                 for (i = 0; i < VSIR_DIMENSION_VEC4; ++i)
-                    reg->u.immconst_u32[i] = half_to_float(reg->u.immconst_u32[i]);
+                {
+                    reg->u.immconst_u32[i] = vkd3d_f32_from_f16(reg->u.immconst_u32[i]);
+                }
             }
             break;
 
@@ -4403,7 +4363,7 @@ static const struct vkd3d_shader_immediate_constant_buffer *resolve_forward_init
                 icb->data_type = VSIR_DATA_F32;
                 for (i = 0; i < count; ++i)
                 {
-                    icb->data[i] = half_to_float(elements[i]);
+                    icb->data[i] = vkd3d_f32_from_f16(elements[i]);
                 }
                 break;
 
