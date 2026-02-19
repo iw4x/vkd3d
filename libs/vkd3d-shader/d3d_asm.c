@@ -641,6 +641,13 @@ static void shader_print_i16_literal(struct vkd3d_d3d_asm_compiler *compiler,
                 prefix, compiler->colours.literal, i, compiler->colours.reset, suffix);
 }
 
+static void shader_print_u16_literal(struct vkd3d_d3d_asm_compiler *compiler,
+        const char *prefix, uint16_t i, const char *suffix)
+{
+    vkd3d_string_buffer_printf(&compiler->buffer, "%s%s%hu%s%s",
+            prefix, compiler->colours.literal, i, compiler->colours.reset, suffix);
+}
+
 static void shader_print_int_literal(struct vkd3d_d3d_asm_compiler *compiler,
         const char *prefix, int i, const char *suffix)
 {
@@ -814,6 +821,9 @@ static void shader_print_register(struct vkd3d_d3d_asm_compiler *compiler, const
                     case VSIR_DATA_I32:
                         shader_print_int_literal(compiler, "", reg->u.immconst_u32[0], "");
                         break;
+                    case VSIR_DATA_U16:
+                        shader_print_u16_literal(compiler, "", reg->u.immconst_u32[0], "");
+                        break;
                     case VSIR_DATA_U32:
                         shader_print_uint_literal(compiler, "", reg->u.immconst_u32[0], "");
                         break;
@@ -866,6 +876,12 @@ static void shader_print_register(struct vkd3d_d3d_asm_compiler *compiler, const
                         shader_print_int_literal(compiler, ", ", reg->u.immconst_u32[1], "");
                         shader_print_int_literal(compiler, ", ", reg->u.immconst_u32[2], "");
                         shader_print_int_literal(compiler, ", ", reg->u.immconst_u32[3], "");
+                        break;
+                    case VSIR_DATA_U16:
+                        shader_print_u16_literal(compiler, "", reg->u.immconst_u32[0], "");
+                        shader_print_u16_literal(compiler, ", ", reg->u.immconst_u32[1], "");
+                        shader_print_u16_literal(compiler, ", ", reg->u.immconst_u32[2], "");
+                        shader_print_u16_literal(compiler, ", ", reg->u.immconst_u32[3], "");
                         break;
                     case VSIR_DATA_U32:
                         shader_print_uint_literal(compiler, "", reg->u.immconst_u32[0], "");
