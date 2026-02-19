@@ -753,6 +753,9 @@ static void shader_print_register(struct vkd3d_d3d_asm_compiler *compiler, const
             case VSIR_DIMENSION_SCALAR:
                 switch (reg->data_type)
                 {
+                    case VSIR_DATA_BOOL:
+                        shader_print_bool_literal(compiler, "", reg->u.immconst_u32[0], "");
+                        break;
                     case VSIR_DATA_F32:
                         if (untyped)
                             shader_print_untyped_literal(compiler, "", reg->u.immconst_u32[0], "");
@@ -775,6 +778,12 @@ static void shader_print_register(struct vkd3d_d3d_asm_compiler *compiler, const
             case VSIR_DIMENSION_VEC4:
                 switch (reg->data_type)
                 {
+                    case VSIR_DATA_BOOL:
+                        shader_print_bool_literal(compiler, "", reg->u.immconst_u32[0], "");
+                        shader_print_bool_literal(compiler, ", ", reg->u.immconst_u32[1], "");
+                        shader_print_bool_literal(compiler, ", ", reg->u.immconst_u32[2], "");
+                        shader_print_bool_literal(compiler, ", ", reg->u.immconst_u32[3], "");
+                        break;
                     case VSIR_DATA_F32:
                         if (untyped)
                         {
