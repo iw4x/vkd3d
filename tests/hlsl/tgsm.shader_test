@@ -32,7 +32,7 @@ void main(uint local_idx : SV_GroupIndex)
     u.Store(4 * local_idx, m[0]);
 }
 
-[compute shader notimpl]
+[compute shader notimpl todo]
 RWByteAddressBuffer u : register(u0);
 groupshared uint m[4];
 
@@ -79,7 +79,7 @@ size (raw_buffer, 4)
 
 0 0 0 0
 
-[compute shader todo]
+[compute shader]
 RWByteAddressBuffer u : register(u0);
 groupshared uint m[4];
 
@@ -92,13 +92,13 @@ void main(uint local_idx : SV_GroupIndex)
 }
 
 [test]
-todo(sm<6 | msl) dispatch 1 1 1
+todo(glsl | msl) dispatch 1 1 1
 probe uav-0 (0) u32(0xcafef00d)
 probe uav-0 (1) u32(0xcafef00d)
 probe uav-0 (2) u32(0xcafef00d)
 probe uav-0 (3) u32(0xcafef00d)
 
-[compute shader todo]
+[compute shader]
 RWByteAddressBuffer u : register(u0);
 groupshared uint m[4][2];
 
@@ -114,7 +114,7 @@ void main(uint local_idx : SV_GroupIndex)
 }
 
 [test]
-todo(sm<6 | msl) dispatch 1 1 1
+todo(glsl | msl) dispatch 1 1 1
 probe uav-0 (0) u32(0xcafef00d)
 probe uav-0 (1) u32(0xcafef00d)
 probe uav-0 (2) u32(0xcafef00d)
@@ -353,7 +353,7 @@ size (raw_buffer, 8)
 0xf000f 0xf000f 0xf000f 0xf000f
 0xf000f 0xf000f 0xf000f 0xf000f
 
-[compute shader todo]
+[compute shader]
 RWByteAddressBuffer u : register(u0);
 groupshared min16uint m[4];
 
@@ -372,7 +372,7 @@ void main(uint local_idx : SV_GroupIndex, uint group_id : SV_GroupID)
 }
 
 [test]
-todo(sm<6 | msl) dispatch 2 1 1
+todo(glsl | msl) dispatch 2 1 1
 probe uav-0 (0) u32(0x18)
 probe uav-0 (1) u32(0x18)
 probe uav-0 (2) u32(0x38)
@@ -389,7 +389,7 @@ size (raw_buffer, 8)
 0xf000f 0xf000f 0xf000f 0xf000f
 0xf000f 0xf000f 0xf000f 0xf000f
 
-[compute shader todo]
+[compute shader]
 RWByteAddressBuffer u : register(u0);
 groupshared uint4x2 m;
 
@@ -404,7 +404,7 @@ void main(uint local_idx : SV_GroupIndex, uint group_id : SV_GroupID)
 }
 
 [test]
-todo(sm<6 | msl) dispatch 2 1 1
+todo(glsl | msl) dispatch 2 1 1
 probe uav-0 (0) u32(0x18)
 probe uav-0 (1) u32(0x18)
 probe uav-0 (2) u32(0x38)

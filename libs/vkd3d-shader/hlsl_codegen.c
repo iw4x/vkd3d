@@ -12412,8 +12412,9 @@ static bool sm4_generate_vsir_instr_load(struct hlsl_ctx *ctx, struct vsir_progr
 static bool sm4_generate_vsir_instr_resource_store(struct hlsl_ctx *ctx,
         struct vsir_program *program, struct hlsl_ir_resource_store *store)
 {
+    struct hlsl_ir_node *coords = store->coords.node, *byte_offset = store->byte_offset.node;
     struct hlsl_type *resource_type = hlsl_deref_get_type(ctx, &store->resource);
-    struct hlsl_ir_node *coords = store->coords.node, *value = store->value.node;
+    struct hlsl_ir_node *value = store->value.node;
     struct hlsl_ir_node *instr = &store->node;
     bool tgsm = store->resource.var->is_tgsm;
     struct vkd3d_shader_instruction *ins;
@@ -12450,14 +12451,13 @@ static bool sm4_generate_vsir_instr_resource_store(struct hlsl_ctx *ctx,
         return false;
     }
 
-    if (tgsm && resource_type->class > HLSL_CLASS_VECTOR)
-    {
-        hlsl_fixme(ctx, &store->node.loc, "Store to indexed or structured TGSM.");
-        return false;
-    }
+    structured = resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER
+            || (tgsm && resource_type->class == HLSL_CLASS_ARRAY);
 
-    if ((structured = resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER))
+    if (structured)
     {
+        VKD3D_ASSERT(byte_offset);
+
         if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_STORE_STRUCTURED, 1, 3)))
             return false;
 
@@ -12465,7 +12465,7 @@ static bool sm4_generate_vsir_instr_resource_store(struct hlsl_ctx *ctx,
                 &store->resource, &instr->loc, store->writemask))
             return false;
 
-        vsir_src_from_hlsl_node(&ins->src[1], ctx, store->byte_offset.node, VKD3DSP_WRITEMASK_ALL);
+        vsir_src_from_hlsl_node(&ins->src[1], ctx, byte_offset, VKD3DSP_WRITEMASK_ALL);
     }
     else if (tgsm || resource_type->sampler_dim == HLSL_SAMPLER_DIM_RAW_BUFFER)
     {
@@ -12486,7 +12486,16 @@ static bool sm4_generate_vsir_instr_resource_store(struct hlsl_ctx *ctx,
             return false;
     }
 
-    vsir_src_from_hlsl_node(&ins->src[0], ctx, tgsm ? store->byte_offset.node : coords, VKD3DSP_WRITEMASK_ALL);
+    if (tgsm && !structured)
+    {
+        VKD3D_ASSERT(byte_offset);
+        vsir_src_from_hlsl_node(&ins->src[0], ctx, byte_offset, VKD3DSP_WRITEMASK_ALL);
+    }
+    else
+    {
+        vsir_src_from_hlsl_node(&ins->src[0], ctx, coords, VKD3DSP_WRITEMASK_ALL);
+    }
+
     vsir_src_from_hlsl_node(&ins->src[structured ? 2 : 1], ctx, value, VKD3DSP_WRITEMASK_ALL);
 
     return true;
