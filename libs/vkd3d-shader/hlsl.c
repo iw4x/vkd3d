@@ -1023,6 +1023,10 @@ struct hlsl_type *hlsl_get_element_type_from_path_index(struct hlsl_ctx *ctx, co
             return type->e.record.fields[c->value.u[0].u].type;
         }
 
+        case HLSL_CLASS_TEXTURE:
+        case HLSL_CLASS_UAV:
+            return type->e.resource.format;
+
         default:
             vkd3d_unreachable();
     }

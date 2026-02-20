@@ -657,7 +657,7 @@ size (buffer, 2)
 -2.0 -2.0 -2.0
 -2.0 -2.0
 
-[compute shader todo]
+[compute shader]
 struct apple
 {
     float3 a;
@@ -675,10 +675,10 @@ void main()
 }
 
 [test]
-todo(sm<6 | msl) dispatch 1 1 1
+todo(glsl | msl) dispatch 1 1 1
 probe uav-2 (1) f32(-1, 10, 20, 30)
 
-[compute shader todo]
+[compute shader]
 struct apple
 {
     float3 a;

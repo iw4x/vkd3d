@@ -1814,6 +1814,120 @@ static struct hlsl_ir_node *lower_tgsm_loads(struct hlsl_ctx *ctx, struct hlsl_i
     return hlsl_block_add_resource_load(ctx, block, &params, loc);
 }
 
+/* Lowers stores to resources objects to resource stores. */
+static struct hlsl_ir_node *lower_resource_stores(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
+{
+    struct hlsl_type *resource_type = NULL;
+    struct hlsl_deref resource_deref = {0};
+    struct hlsl_type **deref_types = NULL;
+    struct hlsl_ir_node *res = NULL;
+    struct hlsl_ir_store *store;
+    struct hlsl_ir_node *coords;
+    unsigned int resource_idx;
+    struct hlsl_deref *deref;
+
+    if (instr->type != HLSL_IR_STORE)
+        return NULL;
+    store = hlsl_ir_store(instr);
+    deref = &store->lhs;
+
+    if (!(deref->var->is_uniform && deref->path_len))
+        return NULL;
+
+    if (!(deref_types = vkd3d_malloc(sizeof(*deref_types) * (deref->path_len + 1))))
+        return NULL;
+    deref_types[0] = deref->var->data_type;
+    for (unsigned int i = 1; i <= deref->path_len; ++i)
+        deref_types[i] = hlsl_get_element_type_from_path_index(ctx, deref_types[i - 1], deref->path[i - 1].node);
+
+    for (unsigned int i = 0; i <= deref->path_len; ++i)
+    {
+        if (deref_types[i]->class == HLSL_CLASS_UAV)
+        {
+            resource_type = deref_types[i];
+            resource_idx = i;
+            break;
+        }
+        else if (deref_types[i]->class == HLSL_CLASS_TEXTURE)
+        {
+            hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                    "Read-only resources cannot be stored to.");
+            goto done;
+        }
+    }
+    if (!resource_type)
+        goto done;
+
+    if (!hlsl_init_deref(ctx, &resource_deref, deref->var, resource_idx))
+        goto done;
+    for (unsigned int i = 0; i < resource_idx; ++i)
+        hlsl_src_from_node(&resource_deref.path[i], deref->path[i].node);
+
+    coords = deref->path[resource_idx].node;
+    VKD3D_ASSERT(coords->data_type->class == HLSL_CLASS_VECTOR);
+    VKD3D_ASSERT(coords->data_type->e.numeric.type == HLSL_TYPE_UINT);
+    VKD3D_ASSERT(coords->data_type->e.numeric.dimx == hlsl_sampler_dim_count(resource_type->sampler_dim));
+
+    if (resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
+    {
+        struct hlsl_ir_node *field_offset = hlsl_block_add_uint_constant(ctx, block, 0, &instr->loc);
+        struct hlsl_type *val_type = deref_types[deref->path_len];
+        unsigned int dimx = val_type->e.numeric.dimx;
+
+        VKD3D_ASSERT(store->rhs.node->data_type->class <= HLSL_CLASS_VECTOR);
+
+        for (int i = deref->path_len - 1; i > resource_idx; --i)
+        {
+            field_offset = hlsl_block_add_packed_index_offset_append(ctx, block, field_offset,
+                    deref->path[i].node, deref_types[i], &instr->loc);
+        }
+
+        for (unsigned int i = 0, k = 0; i < dimx; ++i)
+        {
+            struct hlsl_ir_node *c, *load, *offset;
+
+            if (!(store->writemask & (1u << i)))
+                continue;
+
+            if (val_type->class == HLSL_CLASS_SCALAR)
+            {
+                VKD3D_ASSERT(i == 0);
+                VKD3D_ASSERT(dimx == 1);
+
+                offset = field_offset;
+            }
+            else
+            {
+                c = hlsl_block_add_uint_constant(ctx, block, i, &instr->loc);
+                offset = hlsl_block_add_packed_index_offset_append(ctx, block, field_offset, c, val_type, &instr->loc);
+            }
+
+            load = hlsl_add_load_component(ctx, block, store->rhs.node, k++, &instr->loc);
+            res = hlsl_block_add_resource_store(ctx, block, HLSL_RESOURCE_STORE, &resource_deref,
+                    offset, coords, load, VKD3DSP_WRITEMASK_0, &instr->loc);
+        }
+    }
+    else
+    {
+        unsigned int expected_width = resource_type->e.resource.format->e.numeric.dimx
+                * resource_type->e.resource.format->e.numeric.dimy;
+        unsigned int width = vkd3d_log2i(store->writemask) + 1;
+
+        if (width != expected_width)
+            hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_WRITEMASK,
+                    "Resource store expressions must write to all components.");
+
+        res = hlsl_block_add_resource_store(ctx, block, HLSL_RESOURCE_STORE, &resource_deref,
+                NULL, coords, store->rhs.node, store->writemask, &instr->loc);
+    }
+
+done:
+    vkd3d_free(deref_types);
+    hlsl_cleanup_deref(&resource_deref);
+    return res;
+}
+
 /* Lowers stores to TGSMs to resource stores. */
 static struct hlsl_ir_node *lower_tgsm_stores(struct hlsl_ctx *ctx,
         struct hlsl_ir_node *instr, struct hlsl_block *block)
@@ -15630,6 +15744,8 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
     replace_ir(ctx, lower_tgsm_loads, body);
     hlsl_lower_index_loads(ctx, body);
 
+    split_copies(ctx, body);
+    replace_ir(ctx, lower_resource_stores, body);
     replace_ir(ctx, lower_tgsm_stores, body);
 
     if (entry_func->return_var)
