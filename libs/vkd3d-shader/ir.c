@@ -12922,33 +12922,42 @@ static const char * const signature_type_names[] =
 #define DS_BIT (1u << VKD3D_SHADER_TYPE_DOMAIN)
 #define CS_BIT (1u << VKD3D_SHADER_TYPE_COMPUTE)
 
+#define FLOAT_BIT (1u << VKD3D_SHADER_COMPONENT_FLOAT)
+#define INT_BIT (1u << VKD3D_SHADER_COMPONENT_INT)
+#define UINT_BIT (1u << VKD3D_SHADER_COMPONENT_UINT)
+#define FLOAT16_BIT (1u << VKD3D_SHADER_COMPONENT_FLOAT16)
+#define INT16_BIT (1u << VKD3D_SHADER_COMPONENT_INT16)
+#define UINT16_BIT (1u << VKD3D_SHADER_COMPONENT_UINT16)
+
 static const struct sysval_validation_data_element
 {
     unsigned int input;
     unsigned int output;
     unsigned int patch_constant;
-    enum vkd3d_shader_component_type data_type;
+    unsigned int data_mask;
     unsigned int component_count;
 }
 sysval_validation_data[] =
 {
-    [VKD3D_SHADER_SV_POSITION] = {PS_BIT | GS_BIT | HS_BIT | DS_BIT, VS_BIT | GS_BIT | HS_BIT | DS_BIT, 0,
-            VKD3D_SHADER_COMPONENT_FLOAT, 4},
-    [VKD3D_SHADER_SV_CLIP_DISTANCE] = {PS_BIT | GS_BIT | HS_BIT | DS_BIT, PS_BIT | VS_BIT | GS_BIT | HS_BIT | DS_BIT, 0,
-            VKD3D_SHADER_COMPONENT_FLOAT, 4},
-    [VKD3D_SHADER_SV_CULL_DISTANCE] = {PS_BIT | GS_BIT | HS_BIT | DS_BIT, PS_BIT | VS_BIT | GS_BIT | HS_BIT | DS_BIT, 0,
-            VKD3D_SHADER_COMPONENT_FLOAT, 4},
-    [VKD3D_SHADER_SV_RENDER_TARGET_ARRAY_INDEX] = {HS_BIT | DS_BIT | GS_BIT | PS_BIT, VS_BIT | HS_BIT | DS_BIT | GS_BIT, 0,
-            VKD3D_SHADER_COMPONENT_UINT, 1},
-    [VKD3D_SHADER_SV_VIEWPORT_ARRAY_INDEX] = {HS_BIT | DS_BIT | GS_BIT | PS_BIT, VS_BIT | HS_BIT | DS_BIT | GS_BIT, 0,
-            VKD3D_SHADER_COMPONENT_UINT, 1},
-    [VKD3D_SHADER_SV_VERTEX_ID] = {VS_BIT, 0, 0, VKD3D_SHADER_COMPONENT_UINT, 1},
-    [VKD3D_SHADER_SV_TESS_FACTOR_QUADEDGE] = {0, 0, HS_BIT | DS_BIT, VKD3D_SHADER_COMPONENT_FLOAT, 1},
-    [VKD3D_SHADER_SV_TESS_FACTOR_QUADINT] = {0, 0, HS_BIT | DS_BIT, VKD3D_SHADER_COMPONENT_FLOAT, 1},
-    [VKD3D_SHADER_SV_TESS_FACTOR_TRIEDGE] = {0, 0, HS_BIT | DS_BIT, VKD3D_SHADER_COMPONENT_FLOAT, 1},
-    [VKD3D_SHADER_SV_TESS_FACTOR_TRIINT] = {0, 0, HS_BIT | DS_BIT, VKD3D_SHADER_COMPONENT_FLOAT, 1},
-    [VKD3D_SHADER_SV_TESS_FACTOR_LINEDET] = {0, 0, HS_BIT | DS_BIT, VKD3D_SHADER_COMPONENT_FLOAT, 1},
-    [VKD3D_SHADER_SV_TESS_FACTOR_LINEDEN] = {0, 0, HS_BIT | DS_BIT, VKD3D_SHADER_COMPONENT_FLOAT, 1},
+    [VKD3D_SHADER_SV_POSITION] = {PS_BIT | GS_BIT | HS_BIT | DS_BIT,
+            VS_BIT | GS_BIT | HS_BIT | DS_BIT, 0, FLOAT_BIT, 4},
+    [VKD3D_SHADER_SV_CLIP_DISTANCE] = {PS_BIT | GS_BIT | HS_BIT | DS_BIT,
+            PS_BIT | VS_BIT | GS_BIT | HS_BIT | DS_BIT, 0, FLOAT_BIT, 4},
+    [VKD3D_SHADER_SV_CULL_DISTANCE] = {PS_BIT | GS_BIT | HS_BIT | DS_BIT,
+            PS_BIT | VS_BIT | GS_BIT | HS_BIT | DS_BIT, 0, FLOAT_BIT, 4},
+    [VKD3D_SHADER_SV_RENDER_TARGET_ARRAY_INDEX] = {HS_BIT | DS_BIT | GS_BIT | PS_BIT,
+            VS_BIT | HS_BIT | DS_BIT | GS_BIT, 0, UINT_BIT, 1},
+    [VKD3D_SHADER_SV_VIEWPORT_ARRAY_INDEX] = {HS_BIT | DS_BIT | GS_BIT | PS_BIT,
+            VS_BIT | HS_BIT | DS_BIT | GS_BIT, 0, UINT_BIT, 1},
+    [VKD3D_SHADER_SV_VERTEX_ID] = {VS_BIT, 0, 0, UINT_BIT, 1},
+    [VKD3D_SHADER_SV_TARGET] = {0, PS_BIT, 0,
+            FLOAT_BIT | UINT_BIT | INT_BIT | FLOAT16_BIT | UINT16_BIT | INT16_BIT, 4},
+    [VKD3D_SHADER_SV_TESS_FACTOR_QUADEDGE] = {0, 0, HS_BIT | DS_BIT, FLOAT_BIT, 1},
+    [VKD3D_SHADER_SV_TESS_FACTOR_QUADINT] = {0, 0, HS_BIT | DS_BIT, FLOAT_BIT, 1},
+    [VKD3D_SHADER_SV_TESS_FACTOR_TRIEDGE] = {0, 0, HS_BIT | DS_BIT, FLOAT_BIT, 1},
+    [VKD3D_SHADER_SV_TESS_FACTOR_TRIINT] = {0, 0, HS_BIT | DS_BIT, FLOAT_BIT, 1},
+    [VKD3D_SHADER_SV_TESS_FACTOR_LINEDET] = {0, 0, HS_BIT | DS_BIT, FLOAT_BIT, 1},
+    [VKD3D_SHADER_SV_TESS_FACTOR_LINEDEN] = {0, 0, HS_BIT | DS_BIT, FLOAT_BIT, 1},
 };
 
 static void vsir_validate_signature_element(struct validation_context *ctx,
@@ -13140,7 +13149,7 @@ static void vsir_validate_signature_element(struct validation_context *ctx,
 
         if (data->component_count != 0)
         {
-            if (element->component_type != data->data_type)
+            if (!((1u << element->component_type) & data->data_mask))
                 validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_SIGNATURE,
                         "element %u of %s signature: Invalid data type %#x for system value semantic %#x.",
                         idx, signature_type_name, element->component_type, element->sysval_semantic);
