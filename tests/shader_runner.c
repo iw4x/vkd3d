@@ -2619,7 +2619,6 @@ enum test_action
 {
     TEST_ACTION_COMPILE,
     TEST_ACTION_RUN,
-    TEST_ACTION_SKIP_EXECUTION,
 };
 
 bool test_skipping_execution(const char *executor, const char *compiler,
@@ -2719,10 +2718,60 @@ static void set_default_descriptor_mapping(struct shader_runner *runner)
     }
 }
 
+static uint32_t get_runner_test_mask(struct shader_runner *runner, enum test_action test_action)
+{
+    uint32_t model_mask = runner->compile_model_mask;
+
+    static const uint32_t sm1_mask = (1u << SHADER_MODEL_4_0) - 1;
+    static const uint32_t sm4_mask = ((1u << SHADER_MODEL_6_0) - 1) & ~sm1_mask;
+    static const uint32_t sm6_mask = ((1u << (SHADER_MODEL_MAX + 1)) - 1) & ~(sm1_mask | sm4_mask);
+
+    if (test_action == TEST_ACTION_COMPILE)
+    {
+        if (runner->hlsl_hrs[runner->minimum_shader_model] == S_OK)
+            bitmap_set(&model_mask, runner->minimum_shader_model);
+        for (unsigned int j = SHADER_MODEL_MIN + 1; j <= SHADER_MODEL_MAX; ++j)
+        {
+            if (runner->hlsl_hrs[j - 1] != runner->hlsl_hrs[j])
+            {
+                /* Behaviour changes here; test both versions. */
+                bitmap_set(&model_mask, j - 1);
+                bitmap_set(&model_mask, j);
+            }
+        }
+    }
+
+    /* Most versions have relatively minor differences between them, so don't
+     * waste time testing every version possible. SM1-3, SM4-5, and SM6 are
+     * completely different formats, often with different HLSL semantics, so
+     * where possible try to test one version from each set. */
+    if (!(model_mask & sm1_mask) && runner->minimum_shader_model <= SHADER_MODEL_3_0)
+        bitmap_set(&model_mask, runner->minimum_shader_model);
+    if (!(model_mask & sm4_mask)
+            && runner->minimum_shader_model <= SHADER_MODEL_5_1
+            && runner->maximum_shader_model >= SHADER_MODEL_4_0)
+        bitmap_set(&model_mask, max(runner->minimum_shader_model, SHADER_MODEL_4_0));
+    if (!(model_mask & sm6_mask) && runner->maximum_shader_model >= SHADER_MODEL_6_0)
+        bitmap_set(&model_mask, max(runner->minimum_shader_model, SHADER_MODEL_6_0));
+
+    return model_mask;
+}
+
+static bool should_skip_execution(struct shader_runner *runner, enum test_action test_action)
+{
+    uint32_t model_mask = get_runner_test_mask(runner, test_action);
+
+    if (runner->shader_model > runner->maximum_shader_model || runner->shader_model < runner->minimum_shader_model)
+        return true;
+    if (!bitmap_is_set(&model_mask, runner->shader_model))
+        return true;
+    return false;
+}
+
 void run_shader_tests(struct shader_runner *runner, const struct shader_runner_caps *caps,
         const struct shader_runner_ops *ops, void *dxc_compiler)
 {
-    enum test_action test_action = ops ? TEST_ACTION_RUN : TEST_ACTION_COMPILE;
+    const enum test_action test_action = ops ? TEST_ACTION_RUN : TEST_ACTION_COMPILE;
     enum shader_model minimum_shader_model, maximum_shader_model;
     unsigned int i, line_number = 0, block_start_line_number = 0;
     size_t shader_source_size = 0, shader_source_len = 0;
@@ -2801,18 +2850,18 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                     break;
 
                 case STATE_TEST:
-                    if (test_action == TEST_ACTION_SKIP_EXECUTION && missing_caps)
+                    if (missing_caps)
                         skip("Missing capabilities/tags.\n");
                     break;
 
                 case STATE_REQUIRE:
-                    if (runner->maximum_shader_model < runner->minimum_shader_model || runner->skip_directives)
+                    if (runner->maximum_shader_model < runner->minimum_shader_model)
                     {
-                        test_action = TEST_ACTION_SKIP_EXECUTION;
+                        runner->skip_directives = true;
                     }
                     else if (!check_capabilities(runner, runner->caps))
                     {
-                        test_action = TEST_ACTION_SKIP_EXECUTION;
+                        runner->skip_directives = true;
                         missing_caps = true;
                     }
                     break;
@@ -2827,46 +2876,15 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                     /* Not every backend supports every resource type
                      * (specifically, D3D9 doesn't support UAVs and
                      * textures with data type other than float). */
-                    if (test_action == TEST_ACTION_RUN)
+                    if (test_action == TEST_ACTION_RUN && !runner->skip_directives)
                         set_resource(runner, &current_resource);
                     free(current_resource.data);
                     break;
 
                 case STATE_SHADER:
-                    if (test_action == TEST_ACTION_COMPILE)
+                    if (test_action == TEST_ACTION_COMPILE && !runner->skip_directives)
                     {
-                        /* Most versions have relatively minor differences
-                         * between them, so don't waste time testing every
-                         * version possible.
-                         * SM1-3, SM4-5, and SM6 are completely different
-                         * formats, often with different HLSL semantics, so
-                         * where possible try to test one version from each set. */
-
-                        static const uint32_t sm1_mask = (1u << SHADER_MODEL_4_0) - 1;
-                        static const uint32_t sm4_mask = ((1u << SHADER_MODEL_6_0) - 1) & ~sm1_mask;
-
-                        uint32_t model_mask = runner->compile_model_mask;
-
-                        if (runner->hlsl_hrs[runner->minimum_shader_model] == S_OK)
-                            bitmap_set(&model_mask, runner->minimum_shader_model);
-                        for (unsigned int j = SHADER_MODEL_MIN + 1; j <= SHADER_MODEL_MAX; ++j)
-                        {
-                            if (runner->hlsl_hrs[j - 1] != runner->hlsl_hrs[j])
-                            {
-                                /* Behaviour changes here; test both versions. */
-                                bitmap_set(&model_mask, j - 1);
-                                bitmap_set(&model_mask, j);
-                            }
-                        }
-
-                        if (!(model_mask & sm1_mask) && runner->minimum_shader_model <= SHADER_MODEL_3_0)
-                            bitmap_set(&model_mask, runner->minimum_shader_model);
-                        if (!(model_mask & sm4_mask)
-                                && runner->minimum_shader_model <= SHADER_MODEL_5_1
-                                && runner->maximum_shader_model >= SHADER_MODEL_4_0)
-                            bitmap_set(&model_mask, max(runner->minimum_shader_model, SHADER_MODEL_4_0));
-                        if (runner->maximum_shader_model >= SHADER_MODEL_6_0)
-                            bitmap_set(&model_mask, max(runner->minimum_shader_model, SHADER_MODEL_6_0));
+                        uint32_t model_mask = get_runner_test_mask(runner, test_action);
 
                         for (enum shader_model model = runner->minimum_shader_model;
                                 model <= runner->maximum_shader_model; ++model)
@@ -2878,6 +2896,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                             vkd3d_test_pop_context();
                         }
                     }
+
                     free(runner->shader_source[shader_type]);
                     runner->shader_source[shader_type] = shader_source;
                     shader_source = NULL;
@@ -2890,7 +2909,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                     ID3D10Blob *blob = NULL, *errors = NULL;
                     HRESULT hr;
 
-                    if (test_action != TEST_ACTION_COMPILE)
+                    if (test_action != TEST_ACTION_COMPILE || runner->skip_directives)
                         break;
 
                     hr = D3DPreprocess(shader_source, strlen(shader_source), NULL, NULL, NULL, &blob, &errors);
@@ -2916,7 +2935,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                     HRESULT hr;
                     char *text;
 
-                    if (test_action != TEST_ACTION_COMPILE)
+                    if (test_action != TEST_ACTION_COMPILE || runner->skip_directives)
                         break;
 
                     hr = D3DPreprocess(shader_source, strlen(shader_source), NULL, NULL, NULL, &blob, &errors);
@@ -2970,7 +2989,6 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                 memset(runner->require_format_caps, 0, sizeof(runner->require_format_caps));
                 runner->compile_options = 0;
                 runner->skip_directives = false;
-                test_action = ops ? TEST_ACTION_RUN : TEST_ACTION_COMPILE;
                 missing_caps = false;
             }
             else if (match_string(line, "[pixel shader", &line))
@@ -3058,6 +3076,8 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
             else if (!strcmp(line, "[test]\n"))
             {
                 state = STATE_TEST;
+                runner->shader_model = runner->minimum_shader_model;
+                runner->skip_directives |= should_skip_execution(runner, test_action);
                 if (runner->default_descriptors)
                     set_default_descriptor_mapping(runner);
             }
@@ -3153,10 +3173,10 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                     break;
 
                 case STATE_TEST:
-                    runner->shader_model = runner->minimum_shader_model;
                     /* Compilation which fails with dxcompiler is not 'todo', therefore the tests are
                      * not 'todo' either. They cannot run, so skip them entirely. */
-                    if (!runner->failed_resource_count && test_action == TEST_ACTION_RUN
+                    if (test_action == TEST_ACTION_RUN && !runner->skip_directives
+                            && !runner->failed_resource_count
                             && SUCCEEDED(runner->hlsl_hrs[runner->shader_model]))
                         parse_test_directive(runner, line);
                     break;
