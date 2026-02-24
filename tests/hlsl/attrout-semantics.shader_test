@@ -1,6 +1,5 @@
-[require]
-compile shader model 2.0
-compile shader model 3.0
+[header]
+test-shader-models (2.0 3.0)
 
 % This compiles since FOG is not referenced.
 [pixel shader]

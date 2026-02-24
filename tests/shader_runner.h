@@ -275,7 +275,7 @@ struct shader_runner
     enum shader_model minimum_shader_model;
     enum shader_model maximum_shader_model;
     enum shader_model shader_model;
-    uint32_t compile_model_mask;
+    uint32_t test_model_mask;
     bool require_shader_caps[SHADER_CAP_COUNT];
     uint32_t require_format_caps[DXGI_FORMAT_COUNT];
     bool skip_directives;

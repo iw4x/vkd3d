@@ -1,3 +1,6 @@
+[header]
+test-shader-models (2.0 3.0)
+
 [pixel shader]
 uniform float4 x;
 

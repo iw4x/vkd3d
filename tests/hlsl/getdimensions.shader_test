@@ -1,3 +1,6 @@
+[header]
+test-shader-models (4.0 5.0 6.0)
+
 [require]
 shader model >= 4.0
 

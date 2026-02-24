@@ -158,6 +158,7 @@ enum parse_state
 {
     STATE_NONE,
     STATE_DESCRIPTORS,
+    STATE_HEADER,
     STATE_INPUT_LAYOUT,
     STATE_PREPROC,
     STATE_PREPROC_INVALID,
@@ -384,7 +385,7 @@ static bool check_qualifier_args_conjunction(struct shader_runner *runner,
             line += 4;
             model = match_shader_model_string(line, &line);
             *model_mask &= ~((1u << model) - 1);
-            if (runner->minimum_shader_model < model)
+            if (runner->shader_model < model)
                 holds = false;
         }
         else if (!strncmp(line, "sm<", 3))
@@ -393,7 +394,7 @@ static bool check_qualifier_args_conjunction(struct shader_runner *runner,
             line += 3;
             model = match_shader_model_string(line, &line);
             *model_mask &= ((1u << model) - 1);
-            if (runner->minimum_shader_model >= model)
+            if (runner->shader_model >= model)
                 holds = false;
         }
         else
@@ -624,19 +625,6 @@ static void parse_require_directive(struct shader_runner *runner, const char *li
                 {
                     runner->minimum_shader_model = max(runner->minimum_shader_model, i);
                 }
-                return;
-            }
-        }
-
-        fatal_error("Unknown shader model '%s'.\n", line);
-    }
-    else if (match_string(line, "compile shader model", &line))
-    {
-        for (i = 0; i < ARRAY_SIZE(sm_strings_dot); ++i)
-        {
-            if (match_string(line, sm_strings_dot[i], &line))
-            {
-                bitmap_set(&runner->compile_model_mask, i);
                 return;
             }
         }
@@ -2609,10 +2597,10 @@ static void trace_format_cap(const struct shader_runner_caps *caps, enum format_
     trace("%s.\n", buffer);
 }
 
-static void update_line_number_context(const char *testname, unsigned int line_number)
+static void update_line_number_context(const char *testname, unsigned int line_number, enum shader_model model)
 {
     vkd3d_test_pop_context();
-    vkd3d_test_push_context("%s:%u", testname, line_number);
+    vkd3d_test_push_context("%s:%u: Model %s", testname, line_number, sm_strings_dot[model]);
 }
 
 enum test_action
@@ -2720,7 +2708,7 @@ static void set_default_descriptor_mapping(struct shader_runner *runner)
 
 static uint32_t get_runner_test_mask(struct shader_runner *runner, enum test_action test_action)
 {
-    uint32_t model_mask = runner->compile_model_mask;
+    uint32_t model_mask = runner->test_model_mask;
 
     static const uint32_t sm1_mask = (1u << SHADER_MODEL_4_0) - 1;
     static const uint32_t sm4_mask = ((1u << SHADER_MODEL_6_0) - 1) & ~sm1_mask;
@@ -2768,11 +2756,9 @@ static bool should_skip_execution(struct shader_runner *runner, enum test_action
     return false;
 }
 
-void run_shader_tests(struct shader_runner *runner, const struct shader_runner_caps *caps,
-        const struct shader_runner_ops *ops, void *dxc_compiler)
+static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
 {
-    const enum test_action test_action = ops ? TEST_ACTION_RUN : TEST_ACTION_COMPILE;
-    enum shader_model minimum_shader_model, maximum_shader_model;
+    const enum test_action test_action = runner->ops ? TEST_ACTION_RUN : TEST_ACTION_COMPILE;
     unsigned int i, line_number = 0, block_start_line_number = 0;
     size_t shader_source_size = 0, shader_source_len = 0;
     enum shader_type shader_type = SHADER_TYPE_CS;
@@ -2783,31 +2769,14 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
     bool missing_caps = false;
     char line_buffer[256];
     const char *testname;
-    FILE *f;
 
-    minimum_shader_model = max(caps->minimum_shader_model, shader_test_options.minimum_shader_model);
-    maximum_shader_model = min(caps->maximum_shader_model, shader_test_options.maximum_shader_model);
+    if ((testname = strrchr(shader_test_options.filename, '/')))
+        ++testname;
+    else
+        testname = shader_test_options.filename;
 
-    trace("Compiling SM%s-SM%s shaders with %s and executing with %s.\n",
-            sm_strings_dot[minimum_shader_model], sm_strings_dot[maximum_shader_model],
-            caps->compiler, caps->runner);
-    trace_tags(caps);
-    trace_shader_caps(caps->shader_caps);
-    trace_format_cap(caps, FORMAT_CAP_UAV_LOAD, "uav-load");
+    vkd3d_test_push_context("%s:%u: Model %s", testname, line_number, sm_strings_dot[runner->shader_model]);
 
-    if (!shader_test_options.filename)
-        fatal_error("No filename specified.\n");
-
-    if (!(f = fopen(shader_test_options.filename, "r")))
-        fatal_error("Unable to open '%s' for reading: %s\n",
-                shader_test_options.filename, strerror(errno));
-
-    memset(runner, 0, sizeof(*runner));
-    runner->ops = ops;
-    runner->caps = caps;
-    runner->dxc_compiler = dxc_compiler;
-    runner->minimum_shader_model = minimum_shader_model;
-    runner->maximum_shader_model = maximum_shader_model;
     runner->default_descriptors = true;
     runner->alpha_test_func = VKD3D_SHADER_COMPARISON_FUNC_ALWAYS;
     runner->point_size = 1.0f;
@@ -2823,13 +2792,6 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
     runner->depth_min = 0.0f;
     runner->depth_max = 1.0f;
 
-    if ((testname = strrchr(shader_test_options.filename, '/')))
-        ++testname;
-    else
-        testname = shader_test_options.filename;
-
-    vkd3d_test_push_context("%s:%u", testname, line_number);
-
     for (;;)
     {
         char *ret = fgets(line_buffer, sizeof(line_buffer), f);
@@ -2839,7 +2801,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
 
         if (!ret || line[0] == '[')
         {
-            update_line_number_context(testname, block_start_line_number);
+            update_line_number_context(testname, block_start_line_number, runner->shader_model);
 
             switch (state)
             {
@@ -2847,6 +2809,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                 case STATE_NONE:
                 case STATE_SAMPLER:
                 case STATE_DESCRIPTORS:
+                case STATE_HEADER:
                     break;
 
                 case STATE_TEST:
@@ -2882,20 +2845,10 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                     break;
 
                 case STATE_SHADER:
-                    if (test_action == TEST_ACTION_COMPILE && !runner->skip_directives)
-                    {
-                        uint32_t model_mask = get_runner_test_mask(runner, test_action);
+                    runner->skip_directives |= should_skip_execution(runner, test_action);
 
-                        for (enum shader_model model = runner->minimum_shader_model;
-                                model <= runner->maximum_shader_model; ++model)
-                        {
-                            if (!bitmap_is_set(&model_mask, model))
-                                continue;
-                            vkd3d_test_push_context("Model %s", sm_strings_dot[model]);
-                            compile_shader(runner, shader_source, shader_source_len, shader_type, model);
-                            vkd3d_test_pop_context();
-                        }
-                    }
+                    if (test_action == TEST_ACTION_COMPILE && !runner->skip_directives)
+                        compile_shader(runner, shader_source, shader_source_len, shader_type, runner->shader_model);
 
                     free(runner->shader_source[shader_type]);
                     runner->shader_source[shader_type] = shader_source;
@@ -2972,7 +2925,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
             unsigned int index;
 
             block_start_line_number = line_number;
-            update_line_number_context(testname, line_number);
+            update_line_number_context(testname, line_number, runner->shader_model);
 
             if (match_string(line, "[compute shader", &line))
             {
@@ -2982,9 +2935,8 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
             else if (!strcmp(line, "[require]\n"))
             {
                 state = STATE_REQUIRE;
-                runner->minimum_shader_model = caps->minimum_shader_model;
-                runner->maximum_shader_model = caps->maximum_shader_model;
-                runner->compile_model_mask = 0;
+                runner->minimum_shader_model = runner->caps->minimum_shader_model;
+                runner->maximum_shader_model = runner->caps->maximum_shader_model;
                 memset(runner->require_shader_caps, 0, sizeof(runner->require_shader_caps));
                 memset(runner->require_format_caps, 0, sizeof(runner->require_format_caps));
                 runner->compile_options = 0;
@@ -3076,7 +3028,6 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
             else if (!strcmp(line, "[test]\n"))
             {
                 state = STATE_TEST;
-                runner->shader_model = runner->minimum_shader_model;
                 runner->skip_directives |= should_skip_execution(runner, test_action);
                 if (runner->default_descriptors)
                     set_default_descriptor_mapping(runner);
@@ -3126,6 +3077,12 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                 runner->descriptor_count = 0;
                 runner->default_descriptors = true;
             }
+            else if (!strcmp(line, "[header]\n"))
+            {
+                if (state != STATE_NONE && state != STATE_HEADER)
+                    fatal_error("The [header] section must be at the top.");
+                state = STATE_HEADER;
+            }
             else
             {
                 fatal_error("Unknown directive '%s'.\n", line);
@@ -3136,12 +3093,16 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
         }
         else if (line[0] != '%' && line[0] != '\n')
         {
-            update_line_number_context(testname, line_number);
+            update_line_number_context(testname, line_number, runner->shader_model);
 
             switch (state)
             {
                 case STATE_NONE:
                     fatal_error("Malformed line '%s'.\n", line);
+                    break;
+
+                case STATE_HEADER:
+                    /* The header section is already parsed in parse_header(). */
                     break;
 
                 case STATE_INPUT_LAYOUT:
@@ -3205,6 +3166,131 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
     {
         if (runner->resources[i])
             runner->ops->destroy_resource(runner, runner->resources[i]);
+    }
+}
+
+static void read_shader_model_list(const char **line, uint32_t *model_mask)
+{
+    size_t len, i;
+
+    *model_mask = 0;
+
+    while (isspace(**line))
+        ++*line;
+    if (**line != '(')
+        fatal_error("Malformed shader model list '%s'.\n", *line);
+    ++*line;
+
+    while (*line)
+    {
+        while (isspace(**line))
+            ++*line;
+
+        if (**line == ')')
+        {
+            ++*line;
+            break;
+        }
+
+        for (i = 0; i < ARRAY_SIZE(sm_strings_dot); ++i)
+        {
+            len = strlen(sm_strings_dot[i]);
+            if (strncmp(*line, sm_strings_dot[i], len))
+                continue;
+
+            bitmap_set(model_mask, i);
+            *line += len;
+            break;
+        }
+
+        if (i >= ARRAY_SIZE(sm_strings_dot))
+            fatal_error("Unknown shader model '%s'.\n", *line);
+    }
+}
+
+
+static void parse_header_directive(const char *line, uint32_t *test_model_mask)
+{
+    if (match_string(line, "test-shader-models", &line))
+        read_shader_model_list(&line, test_model_mask);
+    else
+        fatal_error("Unknown header directive '%s'.\n", line);
+}
+
+static void parse_header(FILE *f, uint32_t *test_model_mask)
+{
+    enum parse_state state = STATE_NONE;
+    char line_buffer[256];
+
+    for (;;)
+    {
+        char *ret = fgets(line_buffer, sizeof(line_buffer), f);
+        const char *line = line_buffer;
+
+        if (!ret)
+            break;
+
+        if (!strcmp(line, "[header]\n"))
+        {
+            state = STATE_HEADER;
+        }
+        else if (line[0] == '[')
+        {
+            break;
+        }
+        else if (line[0] != '%' && line[0] != '\n')
+        {
+            if (state == STATE_HEADER)
+                parse_header_directive(line, test_model_mask);
+            else
+                fatal_error("Malformed line '%s'.\n", line);
+        }
+    }
+}
+
+void run_shader_tests(struct shader_runner *runner, const struct shader_runner_caps *caps,
+        const struct shader_runner_ops *ops, void *dxc_compiler)
+{
+    enum shader_model minimum_shader_model, maximum_shader_model;
+    uint32_t test_model_mask = 0;
+    FILE *f;
+
+    if (!shader_test_options.filename)
+        fatal_error("No filename specified.\n");
+
+    if (!(f = fopen(shader_test_options.filename, "r")))
+        fatal_error("Unable to open '%s' for reading: %s\n",
+                shader_test_options.filename, strerror(errno));
+
+    minimum_shader_model = max(caps->minimum_shader_model, shader_test_options.minimum_shader_model);
+    maximum_shader_model = min(caps->maximum_shader_model, shader_test_options.maximum_shader_model);
+
+    trace("Compiling SM%s-SM%s shaders with %s and executing with %s.\n",
+            sm_strings_dot[minimum_shader_model], sm_strings_dot[maximum_shader_model],
+            caps->compiler, caps->runner);
+    trace_tags(caps);
+    trace_shader_caps(caps->shader_caps);
+    trace_format_cap(caps, FORMAT_CAP_UAV_LOAD, "uav-load");
+
+    parse_header(f, &test_model_mask);
+
+    /* Compilation-only tests could test more models than the ones specified in test_model_mask,
+     * so we'll need to iterate over all possible shader models here. */
+    for (enum shader_model model = minimum_shader_model; model <= maximum_shader_model; ++model)
+    {
+        if (fseek(f, 0, SEEK_SET))
+            fatal_error("Failed to rewind file: %s\n", strerror(errno));
+
+        memset(runner, 0, sizeof(*runner));
+        runner->ops = ops;
+        runner->caps = caps;
+        runner->dxc_compiler = dxc_compiler;
+        runner->minimum_shader_model = minimum_shader_model;
+        runner->maximum_shader_model = maximum_shader_model;
+        runner->shader_model = model;
+        runner->test_model_mask = test_model_mask;
+
+        run_shader_tests_for_model(runner, f);
     }
 
     fclose(f);
