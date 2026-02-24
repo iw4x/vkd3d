@@ -1148,6 +1148,9 @@ static void shader_sm1_read_semantic(struct vkd3d_shader_sm1_parser *sm1,
         d3dbc_add_combined_sampler_descriptor(sm1, range->first, semantic->resource_type);
         sm1->texture_descriptors |= (1u << range->first);
     }
+
+    if (semantic->usage == VKD3D_DECL_USAGE_PSIZE)
+        sm1->program->has_point_size = true;
 }
 
 static void shader_sm1_read_immconst(struct vkd3d_shader_sm1_parser *sm1, const uint32_t **ptr,
