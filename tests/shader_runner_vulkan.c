@@ -402,7 +402,7 @@ static bool compile_hlsl_and_scan(struct vulkan_shader_runner *runner, enum shad
     info.next = &parameter_info;
     info.source.code = ID3D10Blob_GetBufferPointer(runner->d3d_blobs[type]);
     info.source.size = ID3D10Blob_GetBufferSize(runner->d3d_blobs[type]);
-    if (runner->r.minimum_shader_model < SHADER_MODEL_4_0)
+    if (runner->r.shader_model < SHADER_MODEL_4_0)
         info.source_type = VKD3D_SHADER_SOURCE_D3D_BYTECODE;
     else if (runner->r.minimum_shader_model < SHADER_MODEL_6_0)
         info.source_type = VKD3D_SHADER_SOURCE_DXBC_TPF;
@@ -465,7 +465,7 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     info.next = &spirv_info;
     info.source.code = ID3D10Blob_GetBufferPointer(runner->d3d_blobs[type]);
     info.source.size = ID3D10Blob_GetBufferSize(runner->d3d_blobs[type]);
-    if (runner->r.minimum_shader_model < SHADER_MODEL_4_0)
+    if (runner->r.shader_model < SHADER_MODEL_4_0)
         info.source_type = VKD3D_SHADER_SOURCE_D3D_BYTECODE;
     else if (runner->r.minimum_shader_model < SHADER_MODEL_6_0)
         info.source_type = VKD3D_SHADER_SOURCE_DXBC_TPF;
@@ -970,7 +970,7 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
         scissor_rects[i].offset.y = 0;
         scissor_rects[i].extent = runner->rt_size;
     }
-    if (runner->r.minimum_shader_model < SHADER_MODEL_4_0)
+    if (runner->r.shader_model < SHADER_MODEL_4_0)
     {
         for (i = 0; i < viewport_count; ++i)
         {

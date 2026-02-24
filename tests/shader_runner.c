@@ -2272,15 +2272,15 @@ ID3D10Blob *compile_hlsl(const struct shader_runner *runner, enum shader_type ty
      * d3dcompiler_47.dll. Version 10.0.17134.12 seems to reject
      * D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY for 5.1 profiles, while
      * version 10.0.10150.0 apparently doesn't. */
-    if (runner->minimum_shader_model >= SHADER_MODEL_5_1)
+    if (runner->shader_model >= SHADER_MODEL_5_1)
         options &= ~D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
 
-    sprintf(profile, "%s_%s", shader_type_string(type), sm_strings_underscore[runner->minimum_shader_model]);
+    sprintf(profile, "%s_%s", shader_type_string(type), sm_strings_underscore[runner->shader_model]);
 
     switch (runner->shader_format[type])
     {
         case SOURCE_FORMAT_HLSL:
-            if (runner->minimum_shader_model >= SHADER_MODEL_6_0)
+            if (runner->shader_model >= SHADER_MODEL_6_0)
             {
                 assert(runner->dxc_compiler);
                 hr = dxc_compiler_compile_shader(runner->dxc_compiler, profile, options,
@@ -2293,24 +2293,22 @@ ID3D10Blob *compile_hlsl(const struct shader_runner *runner, enum shader_type ty
             break;
 
         case SOURCE_FORMAT_D3DBC_HEX:
-            if (runner->maximum_shader_model >= SHADER_MODEL_4_0)
-                fatal_error("Cannot use d3dbc-hex with maximum shader model %#x.\n", runner->maximum_shader_model);
+            if (runner->shader_model >= SHADER_MODEL_4_0)
+                fatal_error("Cannot use d3dbc-hex with shader model %#x.\n", runner->shader_model);
             blob = parse_hex(source);
             hr = S_OK;
             break;
 
         case SOURCE_FORMAT_DXBC_TPF_HEX:
-            if (runner->minimum_shader_model < SHADER_MODEL_4_0)
-                fatal_error("Cannot use dxbc-tpf-hex with minimum shader model %#x.\n", runner->minimum_shader_model);
-            if (runner->maximum_shader_model >= SHADER_MODEL_6_0)
-                fatal_error("Cannot use dxbc-tpf-hex with maximum shader model %#x.\n", runner->maximum_shader_model);
+            if (runner->shader_model < SHADER_MODEL_4_0 || runner->shader_model >= SHADER_MODEL_6_0)
+                fatal_error("Cannot use dxbc-tpf-hex with shader model %#x.\n", runner->shader_model);
             blob = parse_hex(source);
             hr = S_OK;
             break;
 
         case SOURCE_FORMAT_DXBC_DXIL_HEX:
-            if (runner->minimum_shader_model < SHADER_MODEL_6_0)
-                fatal_error("Cannot use dxbc-dxil-hex with minimum shader model %#x.\n", runner->minimum_shader_model);
+            if (runner->shader_model < SHADER_MODEL_6_0)
+                fatal_error("Cannot use dxbc-dxil-hex with shader model %#x.\n", runner->shader_model);
             blob = parse_hex(source);
             hr = S_OK;
             break;
@@ -2733,6 +2731,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
     struct sampler *current_sampler = NULL;
     enum parse_state state = STATE_NONE;
     char *shader_source = NULL;
+    bool missing_caps = false;
     char line_buffer[256];
     const char *testname;
     FILE *f;
@@ -2802,15 +2801,20 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                     break;
 
                 case STATE_TEST:
-                    if (test_action == TEST_ACTION_SKIP_EXECUTION
-                            && runner->minimum_shader_model <= runner->maximum_shader_model)
+                    if (test_action == TEST_ACTION_SKIP_EXECUTION && missing_caps)
                         skip("Missing capabilities/tags.\n");
                     break;
 
                 case STATE_REQUIRE:
-                    if (runner->maximum_shader_model < runner->minimum_shader_model
-                            || runner->skip_directives || !check_capabilities(runner, caps))
+                    if (runner->maximum_shader_model < runner->minimum_shader_model || runner->skip_directives)
+                    {
                         test_action = TEST_ACTION_SKIP_EXECUTION;
+                    }
+                    else if (!check_capabilities(runner, runner->caps))
+                    {
+                        test_action = TEST_ACTION_SKIP_EXECUTION;
+                        missing_caps = true;
+                    }
                     break;
 
                 case STATE_RESOURCE:
@@ -2967,6 +2971,7 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                 runner->compile_options = 0;
                 runner->skip_directives = false;
                 test_action = ops ? TEST_ACTION_RUN : TEST_ACTION_COMPILE;
+                missing_caps = false;
             }
             else if (match_string(line, "[pixel shader", &line))
             {
@@ -3148,10 +3153,11 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
                     break;
 
                 case STATE_TEST:
+                    runner->shader_model = runner->minimum_shader_model;
                     /* Compilation which fails with dxcompiler is not 'todo', therefore the tests are
                      * not 'todo' either. They cannot run, so skip them entirely. */
                     if (!runner->failed_resource_count && test_action == TEST_ACTION_RUN
-                            && SUCCEEDED(runner->hlsl_hrs[runner->minimum_shader_model]))
+                            && SUCCEEDED(runner->hlsl_hrs[runner->shader_model]))
                         parse_test_directive(runner, line);
                     break;
 

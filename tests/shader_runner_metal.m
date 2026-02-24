@@ -408,7 +408,7 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
     info.next = &interface_info;
     info.source.code = ID3D10Blob_GetBufferPointer(runner->d3d_blobs[type]);
     info.source.size = ID3D10Blob_GetBufferSize(runner->d3d_blobs[type]);
-    if (runner->r.minimum_shader_model < SHADER_MODEL_6_0)
+    if (runner->r.shader_model < SHADER_MODEL_6_0)
         info.source_type = VKD3D_SHADER_SOURCE_DXBC_TPF;
     else
         info.source_type = VKD3D_SHADER_SOURCE_DXBC_DXIL;

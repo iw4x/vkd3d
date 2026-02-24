@@ -468,7 +468,7 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
     HRESULT hr;
 
     cs_code = compile_hlsl(&runner->r, SHADER_TYPE_CS);
-    todo_if(runner->r.is_todo && runner->r.minimum_shader_model < SHADER_MODEL_6_0) ok(cs_code, "Failed to compile shader.\n");
+    todo_if(runner->r.is_todo && runner->r.shader_model < SHADER_MODEL_6_0) ok(cs_code, "Failed to compile shader.\n");
     if (!cs_code)
         return false;
 
@@ -878,7 +878,7 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
 
     if (!succeeded)
     {
-        todo_if(runner->r.is_todo && runner->r.minimum_shader_model < SHADER_MODEL_6_0)
+        todo_if(runner->r.is_todo && runner->r.shader_model < SHADER_MODEL_6_0)
         ok(false, "Failed to compile shaders.\n");
 
         if (ps_code)
