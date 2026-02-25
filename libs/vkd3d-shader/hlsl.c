@@ -2246,8 +2246,8 @@ static struct hlsl_ir_node *hlsl_new_resource_store(struct hlsl_ctx *ctx, enum h
 {
     struct hlsl_ir_resource_store *store;
 
-    if (type != HLSL_RESOURCE_STORE
-            || hlsl_deref_get_type(ctx, resource)->sampler_dim != HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
+    if (type != HLSL_RESOURCE_STORE || (!resource->var->is_tgsm
+            && hlsl_deref_get_type(ctx, resource)->sampler_dim != HLSL_SAMPLER_DIM_STRUCTURED_BUFFER))
         VKD3D_ASSERT(!byte_offset);
 
     if (!(store = hlsl_alloc(ctx, sizeof(*store))))

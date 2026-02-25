@@ -1814,7 +1814,7 @@ static struct hlsl_ir_node *lower_tgsm_loads(struct hlsl_ctx *ctx, struct hlsl_i
     return hlsl_block_add_resource_load(ctx, block, &params, loc);
 }
 
-/* Lowers stores to resources objects to resource stores. */
+/* Lowers stores to resources and TGSM objects to resource stores. */
 static struct hlsl_ir_node *lower_resource_stores(struct hlsl_ctx *ctx,
         struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
@@ -1826,13 +1826,15 @@ static struct hlsl_ir_node *lower_resource_stores(struct hlsl_ctx *ctx,
     struct hlsl_ir_node *coords;
     unsigned int resource_idx;
     struct hlsl_deref *deref;
+    bool tgsm;
 
     if (instr->type != HLSL_IR_STORE)
         return NULL;
     store = hlsl_ir_store(instr);
     deref = &store->lhs;
+    tgsm = deref->var->is_tgsm;
 
-    if (!(deref->var->is_uniform && deref->path_len))
+    if (!tgsm && !(deref->var->is_uniform && deref->path_len))
         return NULL;
 
     if (!(deref_types = vkd3d_malloc(sizeof(*deref_types) * (deref->path_len + 1))))
@@ -1841,21 +1843,30 @@ static struct hlsl_ir_node *lower_resource_stores(struct hlsl_ctx *ctx,
     for (unsigned int i = 1; i <= deref->path_len; ++i)
         deref_types[i] = hlsl_get_element_type_from_path_index(ctx, deref_types[i - 1], deref->path[i - 1].node);
 
-    for (unsigned int i = 0; i <= deref->path_len; ++i)
+    if (tgsm)
     {
-        if (deref_types[i]->class == HLSL_CLASS_UAV)
+        resource_type = deref_types[0];
+        resource_idx = 0;
+    }
+    else
+    {
+        for (unsigned int i = 0; i <= deref->path_len; ++i)
         {
-            resource_type = deref_types[i];
-            resource_idx = i;
-            break;
-        }
-        else if (deref_types[i]->class == HLSL_CLASS_TEXTURE)
-        {
-            hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
-                    "Read-only resources cannot be stored to.");
-            goto done;
+            if (deref_types[i]->class == HLSL_CLASS_UAV)
+            {
+                resource_type = deref_types[i];
+                resource_idx = i;
+                break;
+            }
+            else if (deref_types[i]->class == HLSL_CLASS_TEXTURE)
+            {
+                hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                        "Read-only resources cannot be stored to.");
+                goto done;
+            }
         }
     }
+
     if (!resource_type)
         goto done;
 
@@ -1864,12 +1875,34 @@ static struct hlsl_ir_node *lower_resource_stores(struct hlsl_ctx *ctx,
     for (unsigned int i = 0; i < resource_idx; ++i)
         hlsl_src_from_node(&resource_deref.path[i], deref->path[i].node);
 
-    coords = deref->path[resource_idx].node;
-    VKD3D_ASSERT(coords->data_type->class == HLSL_CLASS_VECTOR);
-    VKD3D_ASSERT(coords->data_type->e.numeric.type == HLSL_TYPE_UINT);
-    VKD3D_ASSERT(coords->data_type->e.numeric.dimx == hlsl_sampler_dim_count(resource_type->sampler_dim));
+    if (tgsm)
+    {
+        /* The byte_offset, rather than coords, field of the resource store
+         * is used to hold the store address of TGSM stores.
+         * The coords field is used only for structured (i.e. arrayed) TGSM stores,
+         * and represents the structured array index. */
+        if (resource_type->class == HLSL_CLASS_ARRAY)
+        {
+            VKD3D_ASSERT(deref->path_len);
 
-    if (resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
+            coords = deref->path[0].node;
+            VKD3D_ASSERT(hlsl_is_vec1(coords->data_type));
+            VKD3D_ASSERT(coords->data_type->e.numeric.type == HLSL_TYPE_UINT);
+        }
+        else
+        {
+            coords = hlsl_block_add_uint_constant(ctx, block, 0, &instr->loc);
+        }
+    }
+    else
+    {
+        coords = deref->path[resource_idx].node;
+        VKD3D_ASSERT(coords->data_type->class == HLSL_CLASS_VECTOR);
+        VKD3D_ASSERT(coords->data_type->e.numeric.type == HLSL_TYPE_UINT);
+        VKD3D_ASSERT(coords->data_type->e.numeric.dimx == hlsl_sampler_dim_count(resource_type->sampler_dim));
+    }
+
+    if (tgsm || resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
     {
         struct hlsl_ir_node *field_offset = hlsl_block_add_uint_constant(ctx, block, 0, &instr->loc);
         struct hlsl_type *val_type = deref_types[deref->path_len];
@@ -1877,8 +1910,12 @@ static struct hlsl_ir_node *lower_resource_stores(struct hlsl_ctx *ctx,
 
         VKD3D_ASSERT(store->rhs.node->data_type->class <= HLSL_CLASS_VECTOR);
 
-        for (int i = deref->path_len - 1; i > resource_idx; --i)
+        for (int i = deref->path_len - 1; i >= (int)resource_idx; --i)
         {
+            /* The coords field is used to index resources and arrayed TGSM objects. */
+            if (i == resource_idx && (!tgsm || resource_type->class == HLSL_CLASS_ARRAY))
+                break;
+
             field_offset = hlsl_block_add_packed_index_offset_append(ctx, block, field_offset,
                     deref->path[i].node, deref_types[i], &instr->loc);
         }
@@ -1926,36 +1963,6 @@ done:
     vkd3d_free(deref_types);
     hlsl_cleanup_deref(&resource_deref);
     return res;
-}
-
-/* Lowers stores to TGSMs to resource stores. */
-static struct hlsl_ir_node *lower_tgsm_stores(struct hlsl_ctx *ctx,
-        struct hlsl_ir_node *instr, struct hlsl_block *block)
-{
-    struct hlsl_ir_store *store;
-    struct hlsl_ir_node *coords;
-    struct hlsl_deref res_deref;
-    struct hlsl_deref *deref;
-
-    if (instr->type != HLSL_IR_STORE)
-        return NULL;
-    store = hlsl_ir_store(instr);
-    deref = &store->lhs;
-
-    if (!deref->var->is_tgsm)
-        return NULL;
-
-    if (deref->path_len)
-    {
-        hlsl_fixme(ctx, &instr->loc, "Store to indexed TGSM.");
-        return NULL;
-    }
-
-    hlsl_init_simple_deref_from_var(&res_deref, deref->var);
-    coords = hlsl_block_add_uint_constant(ctx, block, 0, &instr->loc);
-
-    return hlsl_block_add_resource_store(ctx, block, HLSL_RESOURCE_STORE, &res_deref,
-            NULL, coords, store->rhs.node, store->writemask, &instr->loc);
 }
 
 /* Allocate a unique, ordered index to each instruction, which will be used for
@@ -12443,9 +12450,9 @@ static bool sm4_generate_vsir_instr_resource_store(struct hlsl_ctx *ctx,
         return false;
     }
 
-    if (tgsm && !hlsl_is_numeric_type(resource_type))
+    if (tgsm && resource_type->class > HLSL_CLASS_VECTOR)
     {
-        hlsl_fixme(ctx, &store->node.loc, "Store to structured TGSM.");
+        hlsl_fixme(ctx, &store->node.loc, "Store to indexed or structured TGSM.");
         return false;
     }
 
@@ -12479,7 +12486,7 @@ static bool sm4_generate_vsir_instr_resource_store(struct hlsl_ctx *ctx,
             return false;
     }
 
-    vsir_src_from_hlsl_node(&ins->src[0], ctx, coords, VKD3DSP_WRITEMASK_ALL);
+    vsir_src_from_hlsl_node(&ins->src[0], ctx, tgsm ? store->byte_offset.node : coords, VKD3DSP_WRITEMASK_ALL);
     vsir_src_from_hlsl_node(&ins->src[structured ? 2 : 1], ctx, value, VKD3DSP_WRITEMASK_ALL);
 
     return true;
@@ -15746,7 +15753,6 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
 
     split_copies(ctx, body);
     replace_ir(ctx, lower_resource_stores, body);
-    replace_ir(ctx, lower_tgsm_stores, body);
 
     if (entry_func->return_var)
     {
