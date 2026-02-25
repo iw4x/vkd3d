@@ -15095,6 +15095,7 @@ static bool is_instr_constant_lt_var(struct hlsl_ctx *ctx, struct hlsl_ir_node *
     struct hlsl_ir_expr *expr;
     struct hlsl_ir_node *arg1;
     struct hlsl_ir_load *load;
+    bool floating = false;
     bool neg = false;
 
     if (instr->type != HLSL_IR_EXPR)
@@ -15116,7 +15117,14 @@ static bool is_instr_constant_lt_var(struct hlsl_ctx *ctx, struct hlsl_ir_node *
 
     if (expr->operands[0].node->type != HLSL_IR_CONSTANT)
         return false;
+
     arg1 = expr->operands[1].node;
+    if (arg1->type == HLSL_IR_EXPR && hlsl_ir_expr(arg1)->op == HLSL_OP1_CAST)
+    {
+        if (hlsl_type_is_floating_point(arg1->data_type))
+            floating = true;
+        arg1 = hlsl_ir_expr(arg1)->operands[0].node;
+    }
     if (arg1->type == HLSL_IR_SWIZZLE)
     {
         VKD3D_ASSERT(hlsl_ir_swizzle(arg1)->val.node->data_type->class == HLSL_CLASS_VECTOR);
@@ -15126,7 +15134,9 @@ static bool is_instr_constant_lt_var(struct hlsl_ctx *ctx, struct hlsl_ir_node *
     }
     if (arg1->type != HLSL_IR_LOAD)
         return false;
-    if (hlsl_ir_constant(expr->operands[0].node)->value.u[0].u != k)
+    if (!floating && hlsl_ir_constant(expr->operands[0].node)->value.u[0].u != k)
+        return false;
+    if (floating && hlsl_ir_constant(expr->operands[0].node)->value.u[0].f != k)
         return false;
 
     load = hlsl_ir_load(arg1);

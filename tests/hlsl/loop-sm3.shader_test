@@ -455,7 +455,7 @@ probe (0, 0) f32(55.0, 55.0, 55.0, 55.0)
 % The compiler detects a limiter variable, allocates it i0, and gets rid of
 % the conditional even if the iterator is a floating point and a member of
 % another variable.
-[pixel shader fail(sm<3)]
+[pixel shader fail(sm<3) todo(sm<4)]
 int limit; // gets i0.
 float c; // gets c0.
 
@@ -479,8 +479,8 @@ if(sm<4) write cbv-i32 (0) i32(5)
 if(sm<4) write cbv-f32 (0) f32(42)
 if(sm>=4) write cbv-0 (0) i32(5)
 if(sm>=4) write cbv-0 (1) f32(42)
-draw quad
-if(!warp) todo(sm<4) probe (0, 0) f32(510.0, 510.0, 510.0, 42.0)
+todo(sm<4) draw quad
+if(!warp) probe (0, 0) f32(510.0, 510.0, 510.0, 42.0)
 % ^ Bug on WARP version 1.10.16.1 used by the CI.
 
 [require]
@@ -837,7 +837,7 @@ todo(msl & sm>=6) draw quad
 probe (0, 0) f32(28, 28, 28, 8)
 
 % Last call to fun() is not performed on SM1.
-[pixel shader]
+[pixel shader todo(sm<4)]
 int limit;
 
 float fun(int i, out float p)
@@ -862,8 +862,8 @@ float4 main() : sv_target
 [test]
 if(sm<4) write cbv-i32 (0) i32(13, 0, 0, 0)
 if(sm>=4) write cbv-0 (0) i32(13)
-todo(msl & sm>=6) draw quad
-todo if(sm<4) probe (0, 0) f32(78, 78, 1200, 13)
+todo(sm<4 | msl & sm>=6) draw quad
+if(sm<4) probe (0, 0) f32(78, 78, 1200, 13)
 if(sm>=4) probe (0, 0) f32(78, 78, 1300, 13)
 
 % In contrast, the last side-effect happens on loops with a constant maximum
