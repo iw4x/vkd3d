@@ -169,6 +169,7 @@ if(sm<4) write cbv-i32 (0) i32(4)
 if(sm>=4) write cbv-0 (0) i32(4)
 todo(sm<4) draw quad
 if(!warp) probe (0, 0) f32(2345.0, 2345.0, 2345.0, 4.0)
+% ^ Bug on WARP version 1.10.16.1 used by the CI.
 
 % Uniforms get as many `i` registers as the last component used for a loop
 % limit.
@@ -450,6 +451,37 @@ if(sm<4) write cbv-f32 (0) f32(6)
 if(sm>=4) write cbv-0 (0) i32(6)
 draw quad
 probe (0, 0) f32(55.0, 55.0, 55.0, 55.0)
+
+% The compiler detects a limiter variable, allocates it i0, and gets rid of
+% the conditional even if the iterator is a floating point and a member of
+% another variable.
+[pixel shader fail(sm<3)]
+int limit; // gets i0.
+float c; // gets c0.
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+    float2 i = float2(100, 0);
+
+    [loop]
+    for(; i.y < limit;)
+    {
+        sum += i.x + i.y;
+        i.y += 1;
+    }
+    sum.w = c;
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-i32 (0) i32(5)
+if(sm<4) write cbv-f32 (0) f32(42)
+if(sm>=4) write cbv-0 (0) i32(5)
+if(sm>=4) write cbv-0 (1) f32(42)
+draw quad
+if(!warp) todo(sm<4) probe (0, 0) f32(510.0, 510.0, 510.0, 42.0)
+% ^ Bug on WARP version 1.10.16.1 used by the CI.
 
 [require]
 options: backcompat
