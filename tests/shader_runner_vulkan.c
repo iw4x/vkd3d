@@ -1767,12 +1767,40 @@ static const struct shader_runner_ops vulkan_runner_ops =
     .release_readback = vulkan_runner_release_readback,
 };
 
+static bool is_option_separator(char c)
+{
+    return c == ',' || c == ';' || c == '\0';
+}
+
+static bool list_has_member(const char *string, const char *member)
+{
+    char prev_char, next_char;
+    const char *p;
+
+    p = string;
+    while (p)
+    {
+        if ((p = strstr(p, member)))
+        {
+            prev_char = p > string ? p[-1] : 0;
+            p += strlen(member);
+            next_char = *p;
+
+            if (is_option_separator(prev_char) && is_option_separator(next_char))
+                return true;
+        }
+    }
+
+    return false;
+}
+
 static bool check_device_extensions(struct vulkan_shader_runner *runner,
         struct vulkan_extension_list *enabled_extensions)
 {
     const struct vulkan_test_context *context = &runner->context;
     VkPhysicalDevice phys_device = context->phys_device;
     VkExtensionProperties *extensions;
+    const char *disabled_extensions;
     uint32_t i, count;
 
     static const struct
@@ -1798,9 +1826,14 @@ static bool check_device_extensions(struct vulkan_shader_runner *runner,
     extensions = calloc(count, sizeof(*extensions));
     VK_CALL(vkEnumerateDeviceExtensionProperties(phys_device, NULL, &count, extensions));
 
+    disabled_extensions = getenv("VKD3D_DISABLE_EXTENSIONS");
+
     for (i = 0; i < ARRAY_SIZE(device_extensions); ++i)
     {
         const char *name = device_extensions[i].name;
+
+        if (list_has_member(disabled_extensions, name))
+            continue;
 
         if (vk_extension_properties_contain(extensions, count, name))
         {
