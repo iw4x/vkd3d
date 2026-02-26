@@ -2032,8 +2032,8 @@ static void test_parameters(void)
     struct vkd3d_shader_code vs_spirv, ps_spirv;
     struct vkd3d_shader_parameter1 parameter1;
     struct vkd3d_shader_parameter parameter;
+    struct gl_test_context context = {0};
     uint32_t buffer_data[2] = {0, 5};
-    struct gl_test_context context;
     struct vec4 colour;
     char *messages;
     GLint status;
