@@ -4064,7 +4064,6 @@ struct control_point_normaliser
 {
     struct vsir_program *program;
     enum vkd3d_shader_opcode phase;
-    struct vsir_src_operand *outpointid_param;
 };
 
 struct vsir_src_operand *vsir_program_create_outpointid_param(struct vsir_program *program)
@@ -4072,7 +4071,10 @@ struct vsir_src_operand *vsir_program_create_outpointid_param(struct vsir_progra
     struct vsir_src_operand *rel_addr;
 
     if (!(rel_addr = vsir_program_get_src_operands(program, 1)))
+    {
+        ERR("Failed to allocate source operand.\n");
         return NULL;
+    }
 
     vsir_operand_init(&rel_addr->reg, VKD3DSPR_OUTPOINTID, VSIR_DATA_U32, 0);
     rel_addr->swizzle = 0;
@@ -4081,7 +4083,7 @@ struct vsir_src_operand *vsir_program_create_outpointid_param(struct vsir_progra
     return rel_addr;
 }
 
-static void vsir_dst_operand_normalise_outpointid(struct vsir_dst_operand *dst,
+static bool vsir_dst_operand_normalise_outpointid(struct vsir_dst_operand *dst,
         struct control_point_normaliser *normaliser)
 {
     struct vsir_operand *reg = &dst->reg;
@@ -4093,9 +4095,11 @@ static void vsir_dst_operand_normalise_outpointid(struct vsir_dst_operand *dst,
         reg->idx[1] = reg->idx[0];
         /* The control point id param is implicit here. Avoid later complications by inserting it. */
         reg->idx[0].offset = 0;
-        reg->idx[0].rel_addr = normaliser->outpointid_param;
+        if (!(reg->idx[0].rel_addr = vsir_program_create_outpointid_param(normaliser->program)))
+            return false;
         ++reg->idx_count;
     }
+    return true;
 }
 
 static enum vkd3d_result control_point_normaliser_emit_hs_input(struct control_point_normaliser *normaliser,
@@ -4133,18 +4137,18 @@ static enum vkd3d_result control_point_normaliser_emit_hs_input(struct control_p
             return VKD3D_ERROR_OUT_OF_MEMORY;
         }
 
-        VKD3D_ASSERT(normaliser->outpointid_param);
-
         vsir_dst_operand_init_io(&ins->dst[0], VKD3DSPR_OUTPUT, e, 2);
         ins->dst[0].reg.dimension = VSIR_DIMENSION_VEC4;
         ins->dst[0].reg.idx[0].offset = 0;
-        ins->dst[0].reg.idx[0].rel_addr = normaliser->outpointid_param;
+        if (!(ins->dst[0].reg.idx[0].rel_addr = vsir_program_create_outpointid_param(normaliser->program)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
         ins->dst[0].reg.idx[1].offset = e->register_index;
 
         vsir_src_operand_init_io(&ins->src[0], VKD3DSPR_INPUT, e, 2);
         ins->src[0].reg.dimension = VSIR_DIMENSION_VEC4;
         ins->src[0].reg.idx[0].offset = 0;
-        ins->src[0].reg.idx[0].rel_addr = normaliser->outpointid_param;
+        if (!(ins->src[0].reg.idx[0].rel_addr = vsir_program_create_outpointid_param(normaliser->program)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
         ins->src[0].reg.idx[1].offset = e->register_index;
 
         ins = vsir_program_iterator_next(dst_it);
@@ -4174,11 +4178,6 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
         return VKD3D_OK;
     }
 
-    if (!(normaliser.outpointid_param = vsir_program_create_outpointid_param(program)))
-    {
-        ERR("Failed to allocate src param.\n");
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-    }
     normaliser.program = program;
     it = vsir_program_iterator(&normaliser.program->instructions);
     normaliser.phase = VSIR_OP_INVALID;
@@ -4197,7 +4196,8 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
                     break;
                 for (j = 0; j < ins->dst_count; ++j)
                 {
-                    vsir_dst_operand_normalise_outpointid(&ins->dst[j], &normaliser);
+                    if (!vsir_dst_operand_normalise_outpointid(&ins->dst[j], &normaliser))
+                        return VKD3D_ERROR_OUT_OF_MEMORY;
                 }
                 break;
         }
@@ -9122,7 +9122,6 @@ static enum vkd3d_result sysval_array_normaliser_add_output_copy(
         struct sysval_array_normaliser *normaliser, struct vsir_program_iterator *it)
 {
     struct vsir_program *program = normaliser->ctx->program;
-    struct vsir_src_operand *outpointid_param = NULL;
     unsigned int output_component_count = 0;
     struct vkd3d_shader_instruction *mov;
     struct signature_element *element;
@@ -9137,13 +9136,6 @@ static enum vkd3d_result sysval_array_normaliser_add_output_copy(
 
     element = &program->output_signature.elements[normaliser->element_idx];
     loc = vsir_program_iterator_current(it)->location;
-
-    if (program->shader_version.type == VKD3D_SHADER_TYPE_HULL
-            && !(outpointid_param = vsir_program_create_outpointid_param(program)))
-    {
-        ERR("Failed to allocate outpointid param.\n");
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-    }
 
     for (unsigned int q = 0; q < normaliser->reg_count; ++q)
     {
@@ -9167,11 +9159,12 @@ static enum vkd3d_result sysval_array_normaliser_add_output_copy(
             dst->reg.idx[1].offset = normaliser->element_idx;
             dst->reg.dimension = VSIR_DIMENSION_VEC4;
             dst->write_mask = VKD3DSP_WRITEMASK_0;
-            if (outpointid_param)
+            if (program->shader_version.type == VKD3D_SHADER_TYPE_HULL)
             {
                 dst->reg.idx_count = 3;
                 dst->reg.idx[2] = dst->reg.idx[1];
-                dst->reg.idx[1].rel_addr = outpointid_param;
+                if (!(dst->reg.idx[1].rel_addr = vsir_program_create_outpointid_param(program)))
+                    return VKD3D_ERROR_OUT_OF_MEMORY;
                 dst->reg.idx[1].offset = 0;
             }
 
@@ -9490,7 +9483,13 @@ static enum vkd3d_result sysval_array_normaliser_map_register(struct sysval_arra
     else
     {
         reg->idx[1].offset = normaliser->reg_count * p_idx.offset + i_idx.offset + q;
-        reg->idx[1].rel_addr = i_idx.rel_addr;
+        reg->idx[1].rel_addr = NULL;
+        if (i_idx.rel_addr)
+        {
+            if (!(reg->idx[1].rel_addr = vsir_program_get_src_operands(program, 1)))
+                return VKD3D_ERROR_OUT_OF_MEMORY;
+            *reg->idx[1].rel_addr = *i_idx.rel_addr;
+        }
     }
 
     if (src_swizzle)
