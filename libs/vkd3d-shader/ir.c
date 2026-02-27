@@ -908,6 +908,7 @@ void vsir_src_operand_init(struct vsir_src_operand *src, enum vkd3d_shader_regis
     vsir_operand_init(&src->reg, reg_type, data_type, idx_count);
     src->swizzle = 0;
     src->modifiers = VKD3DSPSM_NONE;
+    src->owner_index = 0;
 }
 
 static void vsir_src_operand_init_const_f32(struct vsir_src_operand *src, float value)
@@ -14814,6 +14815,73 @@ static void vsir_validate_instruction(struct validation_context *ctx,
     }
 }
 
+static void vsir_program_validate_update_src_operand_owner(struct validation_context *ctx,
+        struct vsir_src_operand *src, bool reset, size_t owner_index)
+{
+    if (!src)
+        return;
+
+    if (reset)
+    {
+        src->owner_index = 0;
+        return;
+    }
+
+    if (src->owner_index)
+    {
+        if (src->owner_index == owner_index)
+            validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_MULTIPLE_SRC_OPERAND_OWNERS,
+                    "Source operand is used more than once by this instruction.");
+        else
+            validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_MULTIPLE_SRC_OPERAND_OWNERS,
+                    "Source operand is used by more than one instruction, first one is %zu.", src->owner_index);
+        return;
+    }
+    src->owner_index = owner_index;
+}
+
+static enum vkd3d_result vsir_program_validate_src_operands_owners(
+        struct validation_context *ctx, struct vsir_program *program)
+{
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
+    struct vkd3d_shader_instruction *ins;
+    struct vsir_src_operand *src;
+    struct vsir_dst_operand *dst;
+
+    for (unsigned int t = 0; t < 2; ++t)
+    {
+        ctx->invalid_instruction_idx = false;
+        ctx->instruction_idx = 0;
+        for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
+        {
+            ctx->location = ins->location;
+            for (unsigned int i = 0; i < ins->src_count; ++i)
+            {
+                src = &ins->src[i];
+                vsir_program_validate_update_src_operand_owner(ctx, src, !t, ctx->instruction_idx + 1);
+                for (unsigned int k = 0; k < src->reg.idx_count; ++k)
+                {
+                    vsir_program_validate_update_src_operand_owner(ctx,
+                            src->reg.idx[k].rel_addr, !t, ctx->instruction_idx + 1);
+                }
+            }
+            for (unsigned int i = 0; i < ins->dst_count; ++i)
+            {
+                dst = &ins->dst[i];
+                for (unsigned int k = 0; k < dst->reg.idx_count; ++k)
+                {
+                    vsir_program_validate_update_src_operand_owner(ctx,
+                            dst->reg.idx[k].rel_addr, !t, ctx->instruction_idx + 1);
+                }
+            }
+            ++ctx->instruction_idx;
+        }
+    }
+    ctx->invalid_instruction_idx = true;
+
+    return ctx->status;
+}
+
 enum vkd3d_result vsir_program_validate(struct vsir_program *program, uint64_t config_flags,
         const char *source_name, struct vkd3d_shader_message_context *message_context)
 {
@@ -14940,8 +15008,9 @@ enum vkd3d_result vsir_program_validate(struct vsir_program *program, uint64_t c
     if (!(ctx.ssas = vkd3d_calloc(ctx.program->ssa_count, sizeof(*ctx.ssas))))
         goto fail;
 
-    ctx.invalid_instruction_idx = false;
+    vsir_program_validate_src_operands_owners(&ctx, program);
 
+    ctx.invalid_instruction_idx = false;
     ctx.instruction_idx = 0;
     for (ins = vsir_program_iterator_head(&it); ins && ctx.status != VKD3D_ERROR_OUT_OF_MEMORY;
             ins = vsir_program_iterator_next(&it))

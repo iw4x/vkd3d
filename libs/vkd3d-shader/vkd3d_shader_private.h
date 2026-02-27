@@ -280,6 +280,7 @@ enum vkd3d_shader_error
     VKD3D_SHADER_ERROR_VSIR_INVALID_RESOURCE_TYPE       = 9025,
     VKD3D_SHADER_ERROR_VSIR_INVALID_DESCRIPTOR_COUNT    = 9026,
     VKD3D_SHADER_ERROR_VSIR_INVALID_FLAGS               = 9027,
+    VKD3D_SHADER_ERROR_VSIR_MULTIPLE_SRC_OPERAND_OWNERS = 9028,
 
     VKD3D_SHADER_WARNING_VSIR_DYNAMIC_DESCRIPTOR_ARRAY  = 9300,
 
@@ -1137,6 +1138,9 @@ struct vsir_src_operand
     struct vsir_operand reg;
     uint32_t swizzle;
     enum vkd3d_shader_src_modifier modifiers;
+
+    /* Index of the instruction that uses the src operand, only used during validation. */
+    size_t owner_index;
 };
 
 void vsir_src_operand_init(struct vsir_src_operand *src, enum vkd3d_shader_register_type reg_type,
