@@ -965,7 +965,6 @@ struct sm6_parser
     struct vsir_dst_operand *input_params;
     struct vsir_dst_operand *patch_constant_params;
     uint32_t io_regs_declared[VKD3D_BITMAP_SIZE(VKD3DSPR_COUNT)];
-    struct vsir_src_operand *outpointid_param;
 
     struct sm6_function *functions;
     size_t function_count;
@@ -4634,7 +4633,7 @@ static enum vkd3d_shader_register_type register_type_from_dxil_semantic_kind(
     }
 }
 
-static void sm6_parser_init_signature(struct sm6_parser *sm6, const struct shader_signature *s,
+static bool sm6_parser_init_signature(struct sm6_parser *sm6, const struct shader_signature *s,
         bool is_input, enum vkd3d_shader_register_type reg_type, struct vsir_dst_operand *params)
 {
     enum vkd3d_shader_type shader_type = sm6->program->shader_version.type;
@@ -4688,8 +4687,8 @@ static void sm6_parser_init_signature(struct sm6_parser *sm6, const struct shade
         {
             if (reg_type == VKD3DSPR_OUTPUT)
             {
-                VKD3D_ASSERT(sm6->outpointid_param);
-                param->reg.idx[count].rel_addr = sm6->outpointid_param;
+                if (!(param->reg.idx[count].rel_addr = vsir_program_create_outpointid_param(sm6->program)))
+                    return false;
             }
             param->reg.idx[count++].offset = 0;
         }
@@ -4701,6 +4700,8 @@ static void sm6_parser_init_signature(struct sm6_parser *sm6, const struct shade
         param->reg.idx[count++].offset = i;
         param->reg.idx_count = count;
     }
+
+    return true;
 }
 
 static int sm6_parser_init_output_signature(struct sm6_parser *sm6, const struct shader_signature *output_signature)
@@ -4712,7 +4713,8 @@ static int sm6_parser_init_output_signature(struct sm6_parser *sm6, const struct
         return VKD3D_ERROR_OUT_OF_MEMORY;
     }
 
-    sm6_parser_init_signature(sm6, output_signature, false, VKD3DSPR_OUTPUT, sm6->output_params);
+    if (!sm6_parser_init_signature(sm6, output_signature, false, VKD3DSPR_OUTPUT, sm6->output_params))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
 
     return VKD3D_OK;
 }
@@ -4726,7 +4728,8 @@ static int sm6_parser_init_input_signature(struct sm6_parser *sm6, const struct 
         return VKD3D_ERROR_OUT_OF_MEMORY;
     }
 
-    sm6_parser_init_signature(sm6, input_signature, true, VKD3DSPR_INPUT, sm6->input_params);
+    if (!sm6_parser_init_signature(sm6, input_signature, true, VKD3DSPR_INPUT, sm6->input_params))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
 
     return VKD3D_OK;
 }
@@ -4744,8 +4747,9 @@ static int sm6_parser_init_patch_constant_signature(struct sm6_parser *sm6,
         return VKD3D_ERROR_OUT_OF_MEMORY;
     }
 
-    sm6_parser_init_signature(sm6, patch_constant_signature, is_input, VKD3DSPR_PATCHCONST,
-            sm6->patch_constant_params);
+    if (!sm6_parser_init_signature(sm6, patch_constant_signature, is_input,
+            VKD3DSPR_PATCHCONST, sm6->patch_constant_params))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
 
     return VKD3D_OK;
 }
@@ -11031,14 +11035,6 @@ static enum vkd3d_result sm6_parser_signatures_init(struct sm6_parser *sm6, cons
     if (m->u.node->operand_count > 1 && (ret = sm6_parser_read_signature(sm6, m->u.node->operands[2],
             &program->patch_constant_signature, tessellator_domain, false)) < 0)
         return ret;
-
-    if (sm6->program->shader_version.type == VKD3D_SHADER_TYPE_HULL
-            && !(sm6->outpointid_param = vsir_program_create_outpointid_param(sm6->program)))
-    {
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
-                "Failed to allocate outpointid parameter.");
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-    }
 
     if ((ret = sm6_parser_init_input_signature(sm6, &program->input_signature)) < 0)
         return ret;
