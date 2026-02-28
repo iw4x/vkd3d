@@ -7897,6 +7897,10 @@ static void allocate_buffers(struct hlsl_ctx *ctx)
             var->buffer = ctx->params_buffer;
     }
 
+    LIST_FOR_EACH_ENTRY(buffer, &ctx->buffers, struct hlsl_buffer, entry)
+    {
+        buffer->used_size = buffer->size = 0;
+    }
     hlsl_calculate_buffer_offsets(ctx);
     validate_buffer_offsets(ctx);
 
