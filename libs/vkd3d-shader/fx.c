@@ -5233,10 +5233,10 @@ static void fx_print_fxlc_argument(struct fx_parser *parser, const struct fxlc_a
     bool pending_brace = false;
     unsigned index_level = 0;
 
-    /* register index chain goes outside in, so start at the end. */
-    for (ssize_t i = arg->index_count; i >= 0; --i)
+    for (size_t i = 0; i <= arg->index_count; ++i)
     {
-        const struct fxlc_register *reg = &arg->registers[i];
+        /* register index chain goes outside in, so start at the end. */
+        const struct fxlc_register *reg = &arg->registers[arg->index_count - i];
 
         if (reg->type > FX_FXLC_REG_MAX)
         {
