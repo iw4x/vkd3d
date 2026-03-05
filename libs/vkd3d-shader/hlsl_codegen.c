@@ -7117,15 +7117,17 @@ static bool find_constant(struct hlsl_ctx *ctx, const float *f, unsigned int cou
     for (size_t i = 0; i < defs->count; ++i)
     {
         const struct hlsl_constant_register *reg = &defs->regs[i];
+        const float *regf;
 
         if (reg->is_int)
             continue;
+        regf = (float[]){reg->value[0].f, reg->value[1].f, reg->value[2].f, reg->value[3].f};
         for (size_t j = 0; j <= 4 - count; ++j)
         {
             unsigned int writemask = ((1u << count) - 1) << j;
 
             if ((reg->allocated_mask & writemask) == writemask
-                    && !memcmp(f, &reg->value[j].f, count * sizeof(float)))
+                    && !memcmp(f, &regf[j], count * sizeof(float)))
             {
                 ret->type = VKD3DSPR_CONST;
                 ret->id = reg->index;
