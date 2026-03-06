@@ -5191,8 +5191,10 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
         /* Floating values are always cast to signed integers. */
         if (val_base_type == HLSL_TYPE_FLOAT || val_base_type == HLSL_TYPE_HALF || val_base_type == HLSL_TYPE_DOUBLE)
             val_type = hlsl_get_scalar_type(ctx, HLSL_TYPE_INT);
+        else if (val_base_type != lhs_type->e.numeric.type)
+            val_type = hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT);
         else
-            val_type = hlsl_get_scalar_type(ctx, lhs_type->e.numeric.type);
+            val_type = hlsl_get_scalar_type(ctx, val_base_type);
     }
     else
     {
