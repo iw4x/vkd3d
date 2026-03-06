@@ -330,3 +330,47 @@ void main()
 {
     InterlockedAdd(u[0], 1);
 }
+
+% Non-structured UAV targets must have scalar type.
+
+[compute shader fail]
+RWBuffer<int4> u : register(u1);
+
+     [numthreads(3, 1, 1)]
+void main()
+{
+    InterlockedAdd(u[0].x, 1);
+}
+
+% Interlocked operations on structured UAVs.
+
+[uav 1]
+stride 16
+size (buffer, 2)
+0 0 0 0
+0 0 0 0
+
+[compute shader fail(sm<5) todo(sm>=5)]
+struct apple
+{
+    int2 a, b;
+};
+
+RWStructuredBuffer<apple> u : register(u1);
+
+uniform int4 i;
+
+    [numthreads(3, 1, 1)]
+void main(uint local_idx: SV_groupIndex, uint group_id : SV_GroupID)
+{
+    InterlockedAdd(u[group_id.x].a.x, i.x * local_idx + group_id.x * 10);
+    InterlockedAdd(u[group_id.x].a.y, i.y * local_idx + group_id.x * 10);
+    InterlockedAdd(u[group_id.x].b.x, i.z * local_idx + group_id.x * 10);
+    InterlockedAdd(u[group_id.x].b.y, i.w * local_idx + group_id.x * 10);
+}
+
+[test]
+write cbv-0 (0) i32(1, 2, -30, -40)
+todo(sm<6 | msl) dispatch 2 1 1
+probe uav-1 (0) i32(3, 6, -90, -120)
+probe uav-1 (1) i32(33, 36, -60, -90)
