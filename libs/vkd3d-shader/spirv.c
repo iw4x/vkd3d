@@ -6202,7 +6202,8 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
             | VKD3DSGF_ENABLE_RAW_AND_STRUCTURED_BUFFERS
             | VKD3DSGF_SKIP_OPTIMIZATION
             | VKD3DSGF_ENABLE_VP_AND_RT_ARRAY_INDEX
-            | VKD3DSGF_ENABLE_UAVS_AT_EVERY_STAGE;
+            | VKD3DSGF_ENABLE_UAVS_AT_EVERY_STAGE
+            | VKD3DSGF_ENABLE_RASTERIZER_ORDERED_VIEWS;
 
     if (flags & VKD3DSGF_FORCE_EARLY_DEPTH_STENCIL)
     {
