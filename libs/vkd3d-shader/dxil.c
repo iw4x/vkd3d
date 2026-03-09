@@ -5350,6 +5350,32 @@ static bool sm6_function_validate_block_index(const struct sm6_function *functio
     return true;
 }
 
+static bool dxil_copy_template_operand(struct sm6_parser *dxil,
+        struct vsir_operand *operand, const struct vsir_operand *template)
+{
+    *operand = *template;
+
+    for (unsigned int i = 0; i < operand->idx_count; ++i)
+    {
+        operand->idx[i].rel_addr = NULL;
+    }
+
+    for (unsigned int i = 0; i < operand->idx_count; ++i)
+    {
+        if (!template->idx[i].rel_addr)
+            continue;
+        if (!(operand->idx[i].rel_addr = vsir_program_get_src_operands(dxil->program, 1)))
+        {
+            vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
+                    "Out of memory allocating indirect index for operand copy.");
+            return false;
+        }
+        *operand->idx[i].rel_addr = *template->idx[i].rel_addr;
+    }
+
+    return true;
+}
+
 static void sm6_parser_emit_br(struct sm6_parser *dxil, struct function_emission_state *state)
 {
     const struct dxil_record *record = state->record;
@@ -6223,7 +6249,11 @@ static void sm6_parser_emit_dx_eval_attrib(struct sm6_parser *sm6, enum dx_intri
         return;
     }
 
-    src_params[0].reg = sm6->input_params[row_index].reg;
+    if (!(dxil_copy_template_operand(sm6, &src_params[0].reg, &sm6->input_params[row_index].reg)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
     src_param_init_scalar(&src_params[0], column_index);
     if (e->register_count > 1)
         register_index_address_init(&src_params[0].reg.idx[0], operands[1], sm6);
@@ -6545,7 +6575,11 @@ static void sm6_parser_emit_dx_load_input(struct sm6_parser *sm6, enum dx_intrin
         return;
     }
 
-    src_param->reg = params[row_index].reg;
+    if (!(dxil_copy_template_operand(sm6, &src_param->reg, &params[row_index].reg)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
     src_param_init_scalar(src_param, column_index);
     count = 0;
 
@@ -7112,7 +7146,11 @@ static void sm6_parser_emit_dx_sample_index(struct sm6_parser *dxil, enum dx_int
         return;
     }
 
-    src_param->reg = dxil->input_params[element_idx].reg;
+    if (!(dxil_copy_template_operand(dxil, &src_param->reg, &dxil->input_params[element_idx].reg)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
     src_param_init(src_param);
 
     if (!instruction_dst_param_init_ssa_scalar(ins, 0, dxil))
@@ -7173,6 +7211,7 @@ static void sm6_parser_emit_dx_store_output(struct sm6_parser *dxil, enum dx_int
     const struct shader_signature *signature;
     struct vkd3d_shader_instruction *ins;
     unsigned int row_index, column_index;
+    const struct vsir_operand *template;
     struct vsir_src_operand *src_param;
     struct vsir_dst_operand *dst_param;
     const struct signature_element *e;
@@ -7218,8 +7257,12 @@ static void sm6_parser_emit_dx_store_output(struct sm6_parser *dxil, enum dx_int
     }
 
     dst_param_init_scalar(dst_param, column_index);
-    dst_param->reg = is_patch_constant ? dxil->patch_constant_params[row_index].reg
-            : dxil->output_params[row_index].reg;
+    template = is_patch_constant ? &dxil->patch_constant_params[row_index].reg : &dxil->output_params[row_index].reg;
+    if (!(dxil_copy_template_operand(dxil, &dst_param->reg, template)))
+    {
+        vkd3d_shader_instruction_make_nop(ins);
+        return;
+    }
     if (e->register_count > 1)
         register_index_address_init(&dst_param->reg.idx[0], operands[1], dxil);
 
