@@ -6251,6 +6251,14 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
         flags &= ~VKD3DSGF_ENABLE_INT64;
     }
 
+    if (flags & VKD3DSGF_ENABLE_RELAXED_TYPED_UAV_FORMATS)
+    {
+        if (!compiler->uav_read_without_format)
+            spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_UNSUPPORTED_FEATURE,
+                    "The target environment does not support accessing storage images without specifying a format.");
+        flags &= ~VKD3DSGF_ENABLE_RELAXED_TYPED_UAV_FORMATS;
+    }
+
     if (flags & VKD3DSGF_ENABLE_WAVE_INTRINSICS)
     {
         if (!(compiler->features & VKD3D_SHADER_COMPILE_OPTION_FEATURE_WAVE_OPS))
