@@ -2000,13 +2000,108 @@ static bool invert_swizzle_matrix(const struct hlsl_matrix_swizzle *swizzle,
     return true;
 }
 
+static struct hlsl_ir_node *resolve_assignment_lhs(struct hlsl_ctx *ctx, struct hlsl_block *block,
+        bool is_function_out_arg, struct hlsl_ir_node *lhs, struct hlsl_type **lhs_type,
+        struct hlsl_ir_node **rhs, unsigned int *writemask, bool *matrix_writemask)
+{
+    unsigned int width = 0;
+    bool first_cast = true;
+
+    if (hlsl_is_numeric_type(lhs->data_type))
+    {
+        unsigned int size = hlsl_type_component_count(lhs->data_type);
+
+        *writemask = (1 << size) - 1;
+        width = size;
+    }
+    else
+    {
+        *writemask = 0;
+    }
+
+    *lhs_type = lhs->data_type;
+    *matrix_writemask = false;
+
+    while (lhs->type != HLSL_IR_LOAD && lhs->type != HLSL_IR_INDEX)
+    {
+        if (lhs->type == HLSL_IR_EXPR && hlsl_ir_expr(lhs)->op == HLSL_OP1_CAST)
+        {
+            struct hlsl_ir_node *cast = lhs;
+            lhs = hlsl_ir_expr(cast)->operands[0].node;
+
+            if (hlsl_type_component_count(lhs->data_type) != hlsl_type_component_count(cast->data_type))
+            {
+                hlsl_fixme(ctx, &cast->loc, "Size change on the LHS.");
+                return NULL;
+            }
+            if (hlsl_version_ge(ctx, 4, 0) && (!is_function_out_arg || !first_cast))
+            {
+                hlsl_error(ctx, &cast->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_LVALUE,
+                        "Base type casts are not allowed on the LHS for profiles >= 4.");
+                return NULL;
+            }
+
+            *lhs_type = lhs->data_type;
+            if ((*lhs_type)->class == HLSL_CLASS_VECTOR
+                    || ((*lhs_type)->class == HLSL_CLASS_MATRIX && *matrix_writemask))
+                *lhs_type = hlsl_get_vector_type(ctx, lhs->data_type->e.numeric.type, width);
+
+            first_cast = false;
+        }
+        else if (lhs->type == HLSL_IR_SWIZZLE)
+        {
+            struct hlsl_ir_swizzle *swizzle = hlsl_ir_swizzle(lhs);
+            uint32_t s;
+
+            VKD3D_ASSERT(!*matrix_writemask);
+
+            if (swizzle->val.node->data_type->class == HLSL_CLASS_MATRIX)
+            {
+                struct hlsl_matrix_swizzle ms = swizzle->u.matrix;
+
+                if (swizzle->val.node->type != HLSL_IR_LOAD && swizzle->val.node->type != HLSL_IR_INDEX)
+                {
+                    hlsl_fixme(ctx, &lhs->loc, "Unhandled source of matrix swizzle.");
+                    return NULL;
+                }
+                if (!invert_swizzle_matrix(&ms, &s, writemask, &width))
+                {
+                    hlsl_error(ctx, &lhs->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_WRITEMASK,
+                            "Invalid writemask for matrix.");
+                    return NULL;
+                }
+                *matrix_writemask = true;
+            }
+            else
+            {
+                s = swizzle->u.vector;
+                if (!invert_swizzle(&s, writemask, &width))
+                {
+                    hlsl_error(ctx, &lhs->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_WRITEMASK, "Invalid writemask.");
+                    return NULL;
+                }
+            }
+
+            *rhs = hlsl_block_add_swizzle(ctx, block, s, width, *rhs, &swizzle->node.loc);
+            lhs = swizzle->val.node;
+            *lhs_type = hlsl_get_vector_type(ctx, (*lhs_type)->e.numeric.type, width);
+        }
+        else
+        {
+            hlsl_error(ctx, &lhs->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_LVALUE, "Invalid lvalue.");
+            return NULL;
+        }
+    }
+
+    return lhs;
+}
+
 static bool add_assignment(struct hlsl_ctx *ctx, struct hlsl_block *block, struct hlsl_ir_node *lhs,
         enum parse_assign_op assign_op, struct hlsl_ir_node *rhs, bool is_function_out_arg)
 {
     struct hlsl_type *lhs_type = lhs->data_type;
-    unsigned int writemask = 0, width = 0;
     bool matrix_writemask = false;
-    bool first_cast = true;
+    unsigned int writemask = 0;
 
     if (lhs->data_type->class == HLSL_CLASS_ERROR || rhs->data_type->class == HLSL_CLASS_ERROR)
     {
@@ -2029,84 +2124,11 @@ static bool add_assignment(struct hlsl_ctx *ctx, struct hlsl_block *block, struc
             return false;
     }
 
-    if (hlsl_is_numeric_type(lhs_type))
-    {
-        unsigned int size = hlsl_type_component_count(lhs_type);
-
-        writemask = (1 << size) - 1;
-        width = size;
-    }
-
     rhs = add_implicit_conversion(ctx, block, rhs, lhs_type, &rhs->loc);
 
-    while (lhs->type != HLSL_IR_LOAD && lhs->type != HLSL_IR_INDEX)
-    {
-        if (lhs->type == HLSL_IR_EXPR && hlsl_ir_expr(lhs)->op == HLSL_OP1_CAST)
-        {
-            struct hlsl_ir_node *cast = lhs;
-            lhs = hlsl_ir_expr(cast)->operands[0].node;
-
-            if (hlsl_type_component_count(lhs->data_type) != hlsl_type_component_count(cast->data_type))
-            {
-                hlsl_fixme(ctx, &cast->loc, "Size change on the LHS.");
-                return false;
-            }
-            if (hlsl_version_ge(ctx, 4, 0) && (!is_function_out_arg || !first_cast))
-            {
-                hlsl_error(ctx, &cast->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_LVALUE,
-                        "Base type casts are not allowed on the LHS for profiles >= 4.");
-                return false;
-            }
-
-            lhs_type = lhs->data_type;
-            if (lhs_type->class == HLSL_CLASS_VECTOR || (lhs_type->class == HLSL_CLASS_MATRIX && matrix_writemask))
-                lhs_type = hlsl_get_vector_type(ctx, lhs->data_type->e.numeric.type, width);
-
-            first_cast = false;
-        }
-        else if (lhs->type == HLSL_IR_SWIZZLE)
-        {
-            struct hlsl_ir_swizzle *swizzle = hlsl_ir_swizzle(lhs);
-            uint32_t s;
-
-            VKD3D_ASSERT(!matrix_writemask);
-
-            if (swizzle->val.node->data_type->class == HLSL_CLASS_MATRIX)
-            {
-                struct hlsl_matrix_swizzle ms = swizzle->u.matrix;
-
-                if (swizzle->val.node->type != HLSL_IR_LOAD && swizzle->val.node->type != HLSL_IR_INDEX)
-                {
-                    hlsl_fixme(ctx, &lhs->loc, "Unhandled source of matrix swizzle.");
-                    return false;
-                }
-                if (!invert_swizzle_matrix(&ms, &s, &writemask, &width))
-                {
-                    hlsl_error(ctx, &lhs->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_WRITEMASK, "Invalid writemask for matrix.");
-                    return false;
-                }
-                matrix_writemask = true;
-            }
-            else
-            {
-                s = swizzle->u.vector;
-                if (!invert_swizzle(&s, &writemask, &width))
-                {
-                    hlsl_error(ctx, &lhs->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_WRITEMASK, "Invalid writemask.");
-                    return false;
-                }
-            }
-
-            rhs = hlsl_block_add_swizzle(ctx, block, s, width, rhs, &swizzle->node.loc);
-            lhs = swizzle->val.node;
-            lhs_type = hlsl_get_vector_type(ctx, lhs_type->e.numeric.type, width);
-        }
-        else
-        {
-            hlsl_error(ctx, &lhs->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_LVALUE, "Invalid lvalue.");
-            return false;
-        }
-    }
+    if (!(lhs = resolve_assignment_lhs(ctx, block, is_function_out_arg, lhs,
+            &lhs_type, &rhs, &writemask, &matrix_writemask)))
+        return false;
 
     /* lhs casts could have resulted in a discrepancy between the
      * rhs->data_type and the type of the variable that will be ulimately
