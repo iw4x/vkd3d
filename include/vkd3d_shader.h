@@ -227,6 +227,16 @@ enum vkd3d_shader_compile_option_backward_compatibility
      *  \since 1.14
      */
     VKD3D_SHADER_COMPILE_OPTION_DOUBLE_AS_FLOAT_ALIAS = 0x00000002,
+    /**
+     *  Causes all uniform variables in global scope to be const.
+     *  This includes variables declared without either 'uniform' or 'static',
+     *  but does not include uniforms declared as arguments to the entry point.
+     *
+     *  This option is disabled by default.
+     *
+     *  \since 2.0
+     */
+    VKD3D_SHADER_COMPILE_OPTION_CONST_GLOBAL_UNIFORMS = 0x00000004,
 
     VKD3D_FORCE_32_BIT_ENUM(VKD3D_SHADER_COMPILE_OPTION_BACKWARD_COMPATIBILITY),
 };

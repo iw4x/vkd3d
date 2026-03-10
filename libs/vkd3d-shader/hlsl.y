@@ -2528,6 +2528,10 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
             && !(modifiers & (HLSL_STORAGE_STATIC | HLSL_STORAGE_GROUPSHARED)))
         modifiers |= HLSL_STORAGE_UNIFORM;
 
+    if (ctx->cur_scope == ctx->globals && (modifiers & HLSL_STORAGE_UNIFORM)
+            && (ctx->compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_CONST_GLOBAL_UNIFORMS))
+        type = hlsl_type_clone(ctx, type, 0, HLSL_MODIFIER_CONST);
+
     if (!(var = hlsl_new_var(ctx, var_name, type, &v->loc, &new_semantic, modifiers, &v->reg_reservation)))
     {
         hlsl_cleanup_semantic(&new_semantic);
