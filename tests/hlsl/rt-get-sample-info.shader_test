@@ -20,6 +20,40 @@ float4 main() : sv_target
     return GetRenderTargetSampleCount()[0];
 }
 
+[pixel shader notimpl(sm>=4 & sm<4.1) fail(sm<4) todo(sm>=4 & sm<4.1)]
+float4 main() : sv_target
+{
+    return GetRenderTargetSampleCount();
+}
+
+[test]
+todo(glsl | msl) draw quad
+probe (0, 0) f32(4.0, 4.0, 4.0, 4.0)
+
+[require]
+shader model = 4.1
+
+[pixel shader dxbc-tpf-hex]
+% As above, but compiled with native d3dcompiler_47.
+% Our HLSL compiler doesn't optimize this down to a broadcast yet,
+% but that's what we want to test is translated correctly here.
+
+43425844 a6470f1b 113256d1 55344c2c 2617f76a 00000001 000000a4  % DXBC header
+00000003 0000002c 0000003c 00000070                             %
+4e475349 00000008 00000000 00000008                             % .input
+4e47534f 0000002c 00000001 00000008                             % .output
+00000020 00000000 00000000 00000003 00000000 0000000f           % .param sv_target.xyzw, o0.xyzw, float, TARGET
+745f7673 65677261 abab0074                                      %
+52444853 0000002c 00000041 0000000b                             % .text ps_4_1
+0100086a                                                        % dcl_globalFlags refactoringAllowed
+03000065 001020f2 00000000                                      % dcl_output o0.xyzw
+0400006f 001020f2 00000000 0000e00a                             % sampleinfo o0.xyzw, rasterizer.x
+0100003e                                                        % ret
+
+[test]
+todo(glsl | msl) draw quad
+probe (0, 0) f32(4.0, 4.0, 4.0, 4.0)
+
 [pixel shader notimpl(sm<4.1) todo]
 uniform uint u;
 
