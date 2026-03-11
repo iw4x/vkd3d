@@ -2524,6 +2524,10 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
         return;
     }
 
+    if (ctx->cur_scope == ctx->globals
+            && !(modifiers & (HLSL_STORAGE_STATIC | HLSL_STORAGE_GROUPSHARED)))
+        modifiers |= HLSL_STORAGE_UNIFORM;
+
     if (!(var = hlsl_new_var(ctx, var_name, type, &v->loc, &new_semantic, modifiers, &v->reg_reservation)))
     {
         hlsl_cleanup_semantic(&new_semantic);
@@ -2550,12 +2554,11 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                     "packoffset() is only allowed inside constant buffer declarations.");
     }
-    else
-    {
-        if ((type->modifiers & HLSL_MODIFIER_CONST) && !v->initializer.args_count)
-            hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_MISSING_INITIALIZER,
-                    "Const variable \"%s\" is missing an initializer.", var->name);
-    }
+
+    if (!(modifiers & (HLSL_STORAGE_UNIFORM | HLSL_STORAGE_STATIC | HLSL_STORAGE_GROUPSHARED))
+            && (type->modifiers & HLSL_MODIFIER_CONST) && !v->initializer.args_count)
+        hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_MISSING_INITIALIZER,
+                "Const variable \"%s\" is missing an initializer.", var->name);
 
     if (ctx->cur_scope == ctx->globals)
     {
@@ -2576,12 +2579,6 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
                         "Ignoring the 'groupshared' modifier in a non-compute shader.");
             }
         }
-
-        /* Mark it as uniform. We need to do this here since synthetic
-            * variables also get put in the global scope, but shouldn't be
-            * considered uniforms, and we have no way of telling otherwise. */
-        if (!(modifiers & (HLSL_STORAGE_STATIC | HLSL_STORAGE_GROUPSHARED)))
-            var->storage_modifiers |= HLSL_STORAGE_UNIFORM;
 
         if (stream_output)
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_MISPLACED_STREAM_OUTPUT,
