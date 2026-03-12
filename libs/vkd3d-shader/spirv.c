@@ -7431,7 +7431,7 @@ static void spirv_compiler_emit_bool_cast(struct spirv_compiler *compiler,
     spirv_compiler_emit_store_dst(compiler, dst, val_id);
 }
 
-static enum vkd3d_result spirv_compiler_emit_alu_instruction(struct spirv_compiler *compiler,
+static void spirv_compiler_emit_alu_instruction(struct spirv_compiler *compiler,
         const struct vkd3d_shader_instruction *instruction)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
@@ -7445,10 +7445,9 @@ static enum vkd3d_result spirv_compiler_emit_alu_instruction(struct spirv_compil
     if (src->reg.data_type == VSIR_DATA_U64 && instruction->opcode == VSIR_OP_COUNTBITS)
     {
         /* At least some drivers support this anyway, but if validation is enabled it will fail. */
-        FIXME("Unsupported 64-bit source for bit count.\n");
         spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_NOT_IMPLEMENTED,
                 "64-bit source for bit count is not supported.");
-        return VKD3D_ERROR_INVALID_SHADER;
+        return;
     }
 
     if (src->reg.data_type == VSIR_DATA_BOOL)
@@ -7464,7 +7463,7 @@ static enum vkd3d_result spirv_compiler_emit_alu_instruction(struct spirv_compil
             /* VSIR supports cast from bool to signed/unsigned integer types and floating point types,
              * where bool is treated as a 1-bit integer and a signed 'true' value converts to -1. */
             spirv_compiler_emit_bool_cast(compiler, instruction);
-            return VKD3D_OK;
+            return;
         }
     }
     else
@@ -7477,7 +7476,7 @@ static enum vkd3d_result spirv_compiler_emit_alu_instruction(struct spirv_compil
         spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_INVALID_HANDLER,
                 "Encountered invalid/unhandled instruction \"%s\" (%#x).",
                 vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
-        return VKD3D_ERROR_INVALID_SHADER;
+        return;
     }
 
     VKD3D_ASSERT(instruction->dst_count == 1);
@@ -7509,7 +7508,6 @@ static enum vkd3d_result spirv_compiler_emit_alu_instruction(struct spirv_compil
         vkd3d_spirv_build_op_decorate(builder, val_id, SpvDecorationNoContraction, NULL, 0);
 
     spirv_compiler_emit_store_dst(compiler, dst, val_id);
-    return VKD3D_OK;
 }
 
 static void spirv_compiler_emit_saturate(struct spirv_compiler *compiler,
@@ -10281,11 +10279,9 @@ static void spirv_compiler_emit_main_prolog(struct spirv_compiler *compiler)
         vkd3d_spirv_build_op(&compiler->spirv_builder.function_stream, SpvOpBeginInvocationInterlockEXT);
 }
 
-static int spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
+static void spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
         const struct vkd3d_shader_instruction *instruction)
 {
-    int ret = VKD3D_OK;
-
     compiler->location = instruction->location;
     /* radeonsi from Mesa 20.3.5 seems to get confused by OpLine instructions
      * before OpFunction, seemingly causing it to fail to find the entry
@@ -10377,7 +10373,7 @@ static int spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
         case VSIR_OP_UTOF:
         case VSIR_OP_UTOU:
         case VSIR_OP_XOR:
-            ret = spirv_compiler_emit_alu_instruction(compiler, instruction);
+            spirv_compiler_emit_alu_instruction(compiler, instruction);
             break;
         case VSIR_OP_ISFINITE:
             spirv_compiler_emit_isfinite(compiler, instruction);
@@ -10654,8 +10650,6 @@ static int spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
                     vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
             break;
     }
-
-    return ret;
 }
 
 static void spirv_compiler_emit_io_declarations(struct spirv_compiler *compiler)
@@ -10786,7 +10780,6 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
     struct vsir_program *program = compiler->program;
     enum vkd3d_shader_spirv_environment environment;
     struct vkd3d_shader_instruction *ins;
-    enum vkd3d_result result = VKD3D_OK;
     unsigned int i, max_element_count;
     struct vsir_program_iterator it;
 
@@ -10855,13 +10848,10 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
         spirv_compiler_emit_tessellator_domain(compiler, program->tess_domain);
 
     it = vsir_program_iterator(&program->instructions);
-    for (ins = vsir_program_iterator_head(&it); ins && result >= 0; ins = vsir_program_iterator_next(&it))
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
-        result = spirv_compiler_handle_instruction(compiler, ins);
+        spirv_compiler_handle_instruction(compiler, ins);
     }
-
-    if (result < 0)
-        return result;
 
     if (!is_in_default_phase(compiler))
         spirv_compiler_leave_shader_phase(compiler);
