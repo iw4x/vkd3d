@@ -2269,6 +2269,204 @@ static void test_scan_thread_group_size(void)
     }
 }
 
+static void test_query_denormal_mode(void)
+{
+    static const char code[] =
+            "float4 main() : SV_Target\n"
+            "{\n"
+            "    return float4(1.0, 2.0, 3.0, 4.0);\n"
+            "}\n";
+    static const char code_double[] =
+            "uniform double x;\n"
+            "float4 main() : SV_Target\n"
+            "{\n"
+            "    return float4(1.0, 2.0, 3.0, x);\n"
+            "}\n";
+    static const char code_half[] =
+            "uniform half x;\n"
+            "float4 main() : SV_Target\n"
+            "{\n"
+            "    return float4(1.0, 2.0, 3.0, x);\n"
+            "}\n";
+
+    static const enum vkd3d_shader_denormal_mode ANY = VKD3D_SHADER_DENORMAL_MODE_ANY;
+    static const enum vkd3d_shader_denormal_mode PRESERVE = VKD3D_SHADER_DENORMAL_MODE_PRESERVE;
+    static const enum vkd3d_shader_denormal_mode FTZ = VKD3D_SHADER_DENORMAL_MODE_FLUSH_TO_ZERO;
+    static const struct query_denorm_mode_test
+    {
+        unsigned int shader_model;
+        const char *source;
+        enum denorm_mode dxc_denorm_mode;
+        bool dxc_enable_16bit;
+        enum vkd3d_shader_denormal_mode expect_f16;
+        enum vkd3d_shader_denormal_mode expect_f32;
+        enum vkd3d_shader_denormal_mode expect_f64;
+        bool hlsl_todo;
+    }
+    tests[] =
+    {
+        {3, code,        DENORM_NOT_SPECIFIED, false, ANY,      FTZ,      ANY},
+        {4, code,        DENORM_NOT_SPECIFIED, false, ANY,      FTZ,      ANY},
+        {4, code_double, DENORM_NOT_SPECIFIED, false, ANY,      FTZ,      PRESERVE, true},
+        {6, code,        DENORM_NOT_SPECIFIED, false, ANY,      FTZ,      ANY},
+        {6, code,        DENORM_ANY,           false, ANY,      ANY,      ANY},
+        {6, code,        DENORM_PRESERVE,      false, ANY,      PRESERVE, ANY},
+        {6, code,        DENORM_FTZ,           false, ANY,      FTZ,      ANY},
+        {6, code_double, DENORM_NOT_SPECIFIED, false, ANY,      FTZ,      PRESERVE},
+        {6, code_double, DENORM_ANY,           false, ANY,      ANY,      PRESERVE},
+        {6, code_double, DENORM_PRESERVE,      false, ANY,      PRESERVE, PRESERVE},
+        {6, code_double, DENORM_FTZ,           false, ANY,      FTZ,      PRESERVE},
+        {6, code_half,   DENORM_NOT_SPECIFIED, true,  PRESERVE, FTZ,      ANY},
+        {6, code_half,   DENORM_ANY,           true,  PRESERVE, ANY,      ANY},
+        {6, code_half,   DENORM_PRESERVE,      true,  PRESERVE, PRESERVE, ANY},
+        {6, code_half,   DENORM_FTZ,           true,  PRESERVE, FTZ,      ANY},
+    };
+
+    IDxcCompiler3 *dxc_compiler;
+    unsigned int i;
+
+    if (!(dxc_compiler = dxcompiler_create()))
+        skip("DXIL tests not supported.\n");
+
+    for (i = 0; i < ARRAY_SIZE(tests); ++i)
+    {
+        char profile_str[16];
+        const struct query_denorm_mode_test *test = &tests[i];
+        struct vkd3d_shader_compile_option api_version =
+        {
+            .name = VKD3D_SHADER_COMPILE_OPTION_API_VERSION,
+            .value = VKD3D_SHADER_API_VERSION_1_19,
+        };
+        struct vkd3d_shader_scan_denormal_mode_info denorm_info =
+        {
+            .type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_DENORMAL_MODE_INFO,
+        };
+        struct vkd3d_shader_hlsl_source_info hlsl_info =
+        {
+            .type = VKD3D_SHADER_STRUCTURE_TYPE_HLSL_SOURCE_INFO,
+            .next = &denorm_info,
+            .entry_point = "main",
+            .profile = profile_str,
+        };
+        struct vkd3d_shader_compile_info compile_info =
+        {
+            .type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO,
+            .next = &hlsl_info,
+            .source_type = VKD3D_SHADER_SOURCE_HLSL,
+            .target_type = test->shader_model < 4 ? VKD3D_SHADER_TARGET_D3D_BYTECODE : VKD3D_SHADER_TARGET_DXBC_TPF,
+            .log_level = VKD3D_SHADER_LOG_NONE,
+            .source.code = test->source,
+            .source.size = strlen(test->source),
+        };
+        struct vkd3d_shader_compile_info scan_info =
+        {
+            .type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO,
+            .next = &denorm_info,
+            .source_type = test->shader_model < 4 ? VKD3D_SHADER_SOURCE_D3D_BYTECODE : VKD3D_SHADER_SOURCE_DXBC_TPF,
+            .target_type = VKD3D_SHADER_TARGET_D3D_ASM,
+            .log_level = VKD3D_SHADER_LOG_NONE,
+            .options = &api_version,
+            .option_count = 1,
+        };
+        struct vkd3d_shader_code compiled;
+        int ret;
+
+        vkd3d_test_push_context("test %u, SM %u", i, test->shader_model);
+
+        if (test->shader_model < 6)
+        {
+            sprintf(profile_str, "ps_%u_0", test->shader_model);
+
+            denorm_info.f16_denormal_mode = 0xdeadf00d;
+            denorm_info.f32_denormal_mode = 0xdeadf00d;
+            denorm_info.f64_denormal_mode = 0xdeadf00d;
+
+            ret = vkd3d_shader_compile(&compile_info, &compiled, NULL);
+            todo_if(test->hlsl_todo)
+            ok(ret == VKD3D_OK, "Got ret %d.\n", ret);
+
+            if (ret != VKD3D_OK)
+            {
+                vkd3d_test_pop_context();
+                continue;
+            }
+            vkd3d_shader_free_shader_code(&compiled);
+
+            ok(denorm_info.f16_denormal_mode == ANY,
+                    "Unexpected f16 denormal mode %#x.\n", denorm_info.f16_denormal_mode);
+            ok(denorm_info.f32_denormal_mode == ANY,
+                    "Unexpected f32 denormal mode %#x.\n", denorm_info.f32_denormal_mode);
+            ok(denorm_info.f64_denormal_mode == ANY,
+                    "Unexpected f64 denormal mode %#x.\n", denorm_info.f64_denormal_mode);
+
+            compile_info.options = &api_version;
+            compile_info.option_count = 1;
+            ret = vkd3d_shader_compile(&compile_info, &compiled, NULL);
+            ok(ret == VKD3D_OK, "Got ret %d.\n", ret);
+            vkd3d_shader_free_shader_code(&compiled);
+
+            ok(denorm_info.f16_denormal_mode == ANY,
+                    "Unexpected f16 denormal mode %#x.\n", denorm_info.f16_denormal_mode);
+            ok(denorm_info.f32_denormal_mode == ANY,
+                    "Unexpected f32 denormal mode %#x.\n", denorm_info.f32_denormal_mode);
+            ok(denorm_info.f64_denormal_mode == ANY,
+                    "Unexpected f64 denormal mode %#x.\n", denorm_info.f64_denormal_mode);
+
+            ++api_version.value;
+            ret = vkd3d_shader_compile(&compile_info, &compiled, NULL);
+            ok(ret == VKD3D_OK, "Got ret %d.\n", ret);
+
+            ok(denorm_info.f16_denormal_mode == test->expect_f16,
+                    "Unexpected f16 denormal mode %#x, expected %#x\n",
+                    denorm_info.f16_denormal_mode, test->expect_f16);
+            ok(denorm_info.f32_denormal_mode == test->expect_f32,
+                    "Unexpected f32 denormal mode %#x, expected %#x\n",
+                    denorm_info.f32_denormal_mode, test->expect_f32);
+            ok(denorm_info.f64_denormal_mode == test->expect_f64,
+                    "Unexpected f64 denormal mode %#x, expected %#x\n",
+                    denorm_info.f64_denormal_mode, test->expect_f64);
+        }
+        else
+        {
+            if (!dxc_compiler)
+            {
+                vkd3d_test_pop_context();
+                continue;
+            }
+
+            ret = dxc_compile(dxc_compiler, L"ps_6_2", 0, test->dxc_enable_16bit,
+                    test->dxc_denorm_mode, test->source, &compiled);
+            ok(ret == S_OK, "Got ret %#x.\n", ret);
+
+            scan_info.source_type = VKD3D_SHADER_SOURCE_DXBC_DXIL;
+            ++api_version.value;
+        }
+
+        scan_info.source = compiled;
+
+        denorm_info.f16_denormal_mode = 0xdeadf00d;
+        denorm_info.f32_denormal_mode = 0xdeadf00d;
+        denorm_info.f64_denormal_mode = 0xdeadf00d;
+
+        ret = vkd3d_shader_scan(&scan_info, NULL);
+        ok(ret == VKD3D_OK, "Got ret %d.\n", ret);
+
+        ok(denorm_info.f16_denormal_mode == test->expect_f16,
+                "Unexpected f16 denormal mode %#x, expected %#x\n",
+                denorm_info.f16_denormal_mode, test->expect_f16);
+        ok(denorm_info.f32_denormal_mode == test->expect_f32,
+                "Unexpected f32 denormal mode %#x, expected %#x\n",
+                denorm_info.f32_denormal_mode, test->expect_f32);
+        ok(denorm_info.f64_denormal_mode == test->expect_f64,
+                "Unexpected f64 denormal mode %#x, expected %#x\n",
+                denorm_info.f64_denormal_mode, test->expect_f64);
+
+        vkd3d_shader_free_shader_code(&compiled);
+
+        vkd3d_test_pop_context();
+    }
+}
+
 START_TEST(vkd3d_shader_api)
 {
     setlocale(LC_ALL, "");
@@ -2286,4 +2484,5 @@ START_TEST(vkd3d_shader_api)
     run_test(test_warning_options);
     run_test(test_parameters);
     run_test(test_scan_thread_group_size);
+    run_test(test_query_denormal_mode);
 }
