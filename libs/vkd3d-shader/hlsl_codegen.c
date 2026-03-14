@@ -1814,17 +1814,112 @@ static struct hlsl_ir_node *lower_tgsm_loads(struct hlsl_ctx *ctx, struct hlsl_i
     return hlsl_block_add_resource_load(ctx, block, &params, loc);
 }
 
+static enum vkd3d_result resource_access_from_deref(struct hlsl_ctx *ctx, struct hlsl_block *block,
+        const struct hlsl_deref *deref, struct hlsl_deref *resource_deref,
+        struct hlsl_type **resource_type, struct hlsl_type **val_type, struct hlsl_ir_node **coords,
+        struct hlsl_ir_node **field_offset, const struct vkd3d_shader_location *loc)
+{
+    bool tgsm = deref->var->is_tgsm;
+    struct hlsl_type **deref_types;
+    unsigned int resource_idx;
+
+    if (!(deref_types = vkd3d_malloc(sizeof(*deref_types) * (deref->path_len + 1))))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    deref_types[0] = deref->var->data_type;
+    for (unsigned int i = 1; i <= deref->path_len; ++i)
+        deref_types[i] = hlsl_get_element_type_from_path_index(ctx, deref_types[i - 1], deref->path[i - 1].node);
+
+    *resource_type = NULL;
+    *val_type = deref_types[deref->path_len];
+
+    if (tgsm)
+    {
+        *resource_type = deref_types[0];
+        resource_idx = 0;
+    }
+    else
+    {
+        for (unsigned int i = 0; i <= deref->path_len; ++i)
+        {
+            if (deref_types[i]->class == HLSL_CLASS_UAV || deref_types[i]->class == HLSL_CLASS_TEXTURE)
+            {
+                *resource_type = deref_types[i];
+                resource_idx = i;
+                break;
+            }
+        }
+    }
+
+    if (!*resource_type)
+    {
+        vkd3d_free(deref_types);
+        return VKD3D_ERROR_NOT_FOUND;
+    }
+
+    if (!hlsl_init_deref(ctx, resource_deref, deref->var, resource_idx))
+    {
+        vkd3d_free(deref_types);
+        return VKD3D_ERROR;
+    }
+
+    for (unsigned int i = 0; i < resource_idx; ++i)
+        hlsl_src_from_node(&resource_deref->path[i], deref->path[i].node);
+
+    if (tgsm)
+    {
+        if ((*resource_type)->class == HLSL_CLASS_ARRAY)
+        {
+            VKD3D_ASSERT(deref->path_len);
+
+            *coords = deref->path[0].node;
+            VKD3D_ASSERT(hlsl_is_vec1((*coords)->data_type));
+            VKD3D_ASSERT((*coords)->data_type->e.numeric.type == HLSL_TYPE_UINT);
+        }
+        else
+        {
+            *coords = hlsl_block_add_uint_constant(ctx, block, 0, loc);
+        }
+    }
+    else
+    {
+        *coords = deref->path[resource_idx].node;
+        VKD3D_ASSERT((*coords)->data_type->class == HLSL_CLASS_VECTOR);
+        VKD3D_ASSERT((*coords)->data_type->e.numeric.type == HLSL_TYPE_UINT);
+        VKD3D_ASSERT((*coords)->data_type->e.numeric.dimx == hlsl_sampler_dim_count((*resource_type)->sampler_dim));
+    }
+
+    if (tgsm || (*resource_type)->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
+    {
+        *field_offset = hlsl_block_add_uint_constant(ctx, block, 0, loc);
+        for (int i = deref->path_len - 1; i >= (int)resource_idx; --i)
+        {
+            /* The coords field is used to index resources and arrayed TGSM objects. */
+            if (i == resource_idx && (!tgsm || (*resource_type)->class == HLSL_CLASS_ARRAY))
+                break;
+
+            *field_offset = hlsl_block_add_packed_index_offset_append(ctx, block, *field_offset,
+                    deref->path[i].node, deref_types[i], loc);
+        }
+    }
+    else
+    {
+        *field_offset = NULL;
+    }
+
+    vkd3d_free(deref_types);
+    return VKD3D_OK;
+}
+
 /* Lowers stores to resources and TGSM objects to resource stores. */
 static struct hlsl_ir_node *lower_resource_stores(struct hlsl_ctx *ctx,
         struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
-    struct hlsl_type *resource_type = NULL;
+    struct hlsl_ir_node *coords, *field_offset;
+    struct hlsl_type *resource_type, *val_type;
     struct hlsl_deref resource_deref = {0};
-    struct hlsl_type **deref_types = NULL;
     struct hlsl_ir_node *res = NULL;
     struct hlsl_ir_store *store;
-    struct hlsl_ir_node *coords;
-    unsigned int resource_idx;
     struct hlsl_deref *deref;
     bool tgsm;
 
@@ -1837,88 +1932,22 @@ static struct hlsl_ir_node *lower_resource_stores(struct hlsl_ctx *ctx,
     if (!tgsm && !(deref->var->is_uniform && deref->path_len))
         return NULL;
 
-    if (!(deref_types = vkd3d_malloc(sizeof(*deref_types) * (deref->path_len + 1))))
+    if (resource_access_from_deref(ctx, block, deref, &resource_deref, &resource_type,
+            &val_type, &coords, &field_offset, &instr->loc) != VKD3D_OK)
         return NULL;
-    deref_types[0] = deref->var->data_type;
-    for (unsigned int i = 1; i <= deref->path_len; ++i)
-        deref_types[i] = hlsl_get_element_type_from_path_index(ctx, deref_types[i - 1], deref->path[i - 1].node);
 
-    if (tgsm)
+    if (resource_type->class == HLSL_CLASS_TEXTURE)
     {
-        resource_type = deref_types[0];
-        resource_idx = 0;
-    }
-    else
-    {
-        for (unsigned int i = 0; i <= deref->path_len; ++i)
-        {
-            if (deref_types[i]->class == HLSL_CLASS_UAV)
-            {
-                resource_type = deref_types[i];
-                resource_idx = i;
-                break;
-            }
-            else if (deref_types[i]->class == HLSL_CLASS_TEXTURE)
-            {
-                hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
-                        "Read-only resources cannot be stored to.");
-                goto done;
-            }
-        }
-    }
-
-    if (!resource_type)
-        goto done;
-
-    if (!hlsl_init_deref(ctx, &resource_deref, deref->var, resource_idx))
-        goto done;
-    for (unsigned int i = 0; i < resource_idx; ++i)
-        hlsl_src_from_node(&resource_deref.path[i], deref->path[i].node);
-
-    if (tgsm)
-    {
-        /* The byte_offset, rather than coords, field of the resource store
-         * is used to hold the store address of TGSM stores.
-         * The coords field is used only for structured (i.e. arrayed) TGSM stores,
-         * and represents the structured array index. */
-        if (resource_type->class == HLSL_CLASS_ARRAY)
-        {
-            VKD3D_ASSERT(deref->path_len);
-
-            coords = deref->path[0].node;
-            VKD3D_ASSERT(hlsl_is_vec1(coords->data_type));
-            VKD3D_ASSERT(coords->data_type->e.numeric.type == HLSL_TYPE_UINT);
-        }
-        else
-        {
-            coords = hlsl_block_add_uint_constant(ctx, block, 0, &instr->loc);
-        }
-    }
-    else
-    {
-        coords = deref->path[resource_idx].node;
-        VKD3D_ASSERT(coords->data_type->class == HLSL_CLASS_VECTOR);
-        VKD3D_ASSERT(coords->data_type->e.numeric.type == HLSL_TYPE_UINT);
-        VKD3D_ASSERT(coords->data_type->e.numeric.dimx == hlsl_sampler_dim_count(resource_type->sampler_dim));
+        hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                "Read-only resources cannot be stored to.");
+        return false;
     }
 
     if (tgsm || resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
     {
-        struct hlsl_ir_node *field_offset = hlsl_block_add_uint_constant(ctx, block, 0, &instr->loc);
-        struct hlsl_type *val_type = deref_types[deref->path_len];
         unsigned int dimx = val_type->e.numeric.dimx;
 
-        VKD3D_ASSERT(store->rhs.node->data_type->class <= HLSL_CLASS_VECTOR);
-
-        for (int i = deref->path_len - 1; i >= (int)resource_idx; --i)
-        {
-            /* The coords field is used to index resources and arrayed TGSM objects. */
-            if (i == resource_idx && (!tgsm || resource_type->class == HLSL_CLASS_ARRAY))
-                break;
-
-            field_offset = hlsl_block_add_packed_index_offset_append(ctx, block, field_offset,
-                    deref->path[i].node, deref_types[i], &instr->loc);
-        }
+        VKD3D_ASSERT(val_type->class <= HLSL_CLASS_VECTOR);
 
         for (unsigned int i = 0, k = 0; i < dimx; ++i)
         {
@@ -1959,8 +1988,6 @@ static struct hlsl_ir_node *lower_resource_stores(struct hlsl_ctx *ctx,
                 NULL, coords, store->rhs.node, store->writemask, &instr->loc);
     }
 
-done:
-    vkd3d_free(deref_types);
     hlsl_cleanup_deref(&resource_deref);
     return res;
 }
