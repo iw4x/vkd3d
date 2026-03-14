@@ -4100,10 +4100,11 @@ static bool split_matrix_copies(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr
     if (rhs->type == HLSL_IR_RESOURCE_LOAD)
     {
         /* As we forbid non-scalar or vector types in non-structured resource
-         * loads, this is specific to structured buffer loads. */
+         * loads, this is specific to structured buffer loads and TGSM loads. */
         struct hlsl_ir_resource_load *load = hlsl_ir_resource_load(rhs);
 
-        VKD3D_ASSERT(hlsl_deref_get_type(ctx, &load->resource)->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER);
+        VKD3D_ASSERT(load->resource.var->is_tgsm
+                || hlsl_deref_get_type(ctx, &load->resource)->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER);
 
         for (i = 0; i < hlsl_type_major_size(type); ++i)
         {
