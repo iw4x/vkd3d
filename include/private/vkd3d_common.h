@@ -144,25 +144,25 @@ static inline uint64_t align(uint64_t addr, size_t alignment)
 #define MESSAGE(args...) do { } while (0)
 #endif
 
-enum vkd3d_dbg_level
+enum vkd3d_debug_class
 {
-    VKD3D_DBG_LEVEL_NONE,
-    VKD3D_DBG_LEVEL_MESSAGE,
-    VKD3D_DBG_LEVEL_ERR,
-    VKD3D_DBG_LEVEL_FIXME,
-    VKD3D_DBG_LEVEL_WARN,
-    VKD3D_DBG_LEVEL_TRACE,
+    VKD3D_DEBUG_CLASS_MESSAGE,
+    VKD3D_DEBUG_CLASS_ERR,
+    VKD3D_DEBUG_CLASS_FIXME,
+    VKD3D_DEBUG_CLASS_WARN,
+    VKD3D_DEBUG_CLASS_TRACE,
+
+    VKD3D_DEBUG_CLASS_INIT = 7  /* lazy init flag */
 };
 
 static struct vkd3d_dbg_state
 {
-    enum vkd3d_dbg_level level;
-} vkd3d_dbg_state = {~0u};
+    uint8_t flags;
+} vkd3d_dbg_state = {0xffu};
 
-enum vkd3d_dbg_level vkd3d_dbg_get_level(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name);
-
+uint8_t vkd3d_dbg_get_flags(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name);
 void vkd3d_dbg_printf(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name,
-        enum vkd3d_dbg_level level, const char *function, const char *fmt, ...) VKD3D_PRINTF_FUNC(5, 6);
+        enum vkd3d_debug_class cls, const char *function, const char *fmt, ...) VKD3D_PRINTF_FUNC(5, 6);
 void vkd3d_dbg_set_log_callback(PFN_vkd3d_log callback);
 
 const char *vkd3d_dbg_sprintf(const char *fmt, ...) VKD3D_PRINTF_FUNC(1, 2);
@@ -171,21 +171,21 @@ const char *debugstr_a(const char *str);
 const char *debugstr_an(const char *str, size_t n);
 const char *debugstr_w(const WCHAR *wstr, size_t wchar_size);
 
-#define VKD3D_DBG_LOG(level) \
+#define VKD3D_DBG_LOG(cls) \
         do { \
-        const enum vkd3d_dbg_level vkd3d_dbg_level = VKD3D_DBG_LEVEL_##level; \
-        VKD3D_DBG_PRINTF_##level
+            const enum vkd3d_debug_class vkd3d_dbg_class = VKD3D_DEBUG_CLASS_##cls; \
+            VKD3D_DBG_PRINTF_##cls
 
-#define VKD3D_DBG_LOG_ONCE(first_time_level, level) \
+#define VKD3D_DBG_LOG_ONCE(first_time_cls, cls) \
         do { \
-        static bool vkd3d_dbg_next_time; \
-        const enum vkd3d_dbg_level vkd3d_dbg_level = vkd3d_dbg_next_time \
-        ? VKD3D_DBG_LEVEL_##level : VKD3D_DBG_LEVEL_##first_time_level; \
-        vkd3d_dbg_next_time = true; \
-        VKD3D_DBG_PRINTF_##level
+            static bool vkd3d_dbg_next_time; \
+            const enum vkd3d_debug_class vkd3d_dbg_class = vkd3d_dbg_next_time \
+                    ? VKD3D_DEBUG_CLASS_##cls : VKD3D_DEBUG_CLASS_##first_time_cls; \
+            vkd3d_dbg_next_time = true; \
+            VKD3D_DBG_PRINTF_##cls
 
 #define VKD3D_DBG_PRINTF(...) \
-        vkd3d_dbg_printf(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME, vkd3d_dbg_level, __FUNCTION__, __VA_ARGS__); \
+            vkd3d_dbg_printf(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME, vkd3d_dbg_class, __FUNCTION__, __VA_ARGS__); \
         } while (0)
 
 #define VKD3D_DBG_PRINTF_TRACE(...) VKD3D_DBG_PRINTF(__VA_ARGS__)
@@ -195,8 +195,8 @@ const char *debugstr_w(const WCHAR *wstr, size_t wchar_size);
 
 #ifdef VKD3D_ABORT_ON_ERR
 #define VKD3D_DBG_PRINTF_ERR(...) \
-        vkd3d_dbg_printf(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME, vkd3d_dbg_level, __FUNCTION__, __VA_ARGS__); \
-        abort(); \
+            vkd3d_dbg_printf(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME, vkd3d_dbg_class, __FUNCTION__, __VA_ARGS__); \
+            abort(); \
         } while (0)
 #else
 #define VKD3D_DBG_PRINTF_ERR(...) VKD3D_DBG_PRINTF(__VA_ARGS__)
@@ -229,11 +229,13 @@ const char *debugstr_w(const WCHAR *wstr, size_t wchar_size);
 #endif
 
 #ifndef TRACE_ON
-#define TRACE_ON() (vkd3d_dbg_get_level(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME) == VKD3D_DBG_LEVEL_TRACE)
+#define TRACE_ON() (vkd3d_dbg_get_flags(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME) \
+        & (1u << VKD3D_DEBUG_CLASS_TRACE))
 #endif
 
 #ifndef WARN_ON
-#define WARN_ON() (vkd3d_dbg_get_level(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME) >= VKD3D_DBG_LEVEL_WARN)
+#define WARN_ON() (vkd3d_dbg_get_flags(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME) \
+        & (1u << VKD3D_DEBUG_CLASS_WARN))
 #endif
 
 #ifndef FIXME_ONCE

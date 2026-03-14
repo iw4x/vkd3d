@@ -40,39 +40,111 @@
 #define VKD3D_DEBUG_BUFFER_COUNT 64
 #define VKD3D_DEBUG_BUFFER_SIZE 512
 
-static const char *const debug_level_names[] =
+static const uint8_t VKD3D_DEBUG_DEFAULT_FLAGS = (1u << VKD3D_DEBUG_CLASS_MESSAGE)
+        | (1u << VKD3D_DEBUG_CLASS_ERR) | (1u << VKD3D_DEBUG_CLASS_FIXME);
+
+static const char *const debug_class_names[] =
 {
-    [VKD3D_DBG_LEVEL_NONE ] =   "none",
-    [VKD3D_DBG_LEVEL_MESSAGE] = "message",
-    [VKD3D_DBG_LEVEL_ERR  ] =   "err",
-    [VKD3D_DBG_LEVEL_FIXME] =   "fixme",
-    [VKD3D_DBG_LEVEL_WARN ] =   "warn",
-    [VKD3D_DBG_LEVEL_TRACE] =   "trace",
+    [VKD3D_DEBUG_CLASS_MESSAGE] = "message",
+    [VKD3D_DEBUG_CLASS_ERR    ] = "err",
+    [VKD3D_DEBUG_CLASS_FIXME  ] = "fixme",
+    [VKD3D_DEBUG_CLASS_WARN   ] = "warn",
+    [VKD3D_DEBUG_CLASS_TRACE  ] = "trace",
 };
 
-enum vkd3d_dbg_level vkd3d_dbg_get_level(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name)
+static uint8_t vkd3d_dbg_parse_flags(const char *str)
 {
-    const char *vkd3d_debug;
+    uint8_t flags = VKD3D_DEBUG_DEFAULT_FLAGS;
+    char *opt, *next, *options;
+    const char *p, *name;
     unsigned int i;
+    size_t len;
 
-    if (state->level != ~0u)
-        return state->level;
+    if (!(options = vkd3d_strdup(str)))
+        return flags;
 
-    if (!(vkd3d_debug = getenv(vkd3d_dbg_env_name)))
-        vkd3d_debug = "";
-
-    for (i = 0; i < ARRAY_SIZE(debug_level_names); ++i)
+    for (opt = options; opt; opt = next)
     {
-        if (!strcmp(debug_level_names[i], vkd3d_debug))
+        uint8_t set = 0, clear = 0;
+
+        if ((next = strchr(opt, ',')))
+            *next++ = 0;
+
+        p = opt + strcspn(opt, "+-");
+        if (!*p)
+            p = opt; /* Assume it's a debug channel name. */
+
+        if (p > opt)
         {
-            state->level = i;
-            return state->level;
+            for (i = 0; i < ARRAY_SIZE(debug_class_names); ++i)
+            {
+                if (!(name = debug_class_names[i]))
+                    continue;
+                if ((len = strlen(name)) != (p - opt))
+                    continue;
+                if (memcmp(opt, name, len))
+                    continue;
+
+                if (*p == '+')
+                    set |= 1u << i;
+                else
+                    clear |= 1u << i;
+                break;
+            }
+            if (i == ARRAY_SIZE(debug_class_names))
+                continue; /* Bad class name, skip it. */
         }
+        else
+        {
+            if (*p == '-')
+                clear = ~0;
+            else
+                set = ~0;
+        }
+        if (*p == '+' || *p == '-')
+            ++p;
+        if (!*p)
+            continue;
+
+        if (!strcmp(p, "all"))
+            flags = (flags & ~clear) | set;
     }
 
-    /* Default debug level. */
-    state->level = VKD3D_DBG_LEVEL_FIXME;
-    return state->level;
+    vkd3d_free(options);
+
+    return flags;
+}
+
+static void vkd3d_dbg_init_flags(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name)
+{
+    const char *vkd3d_debug;
+
+    if (!(vkd3d_debug = getenv(vkd3d_dbg_env_name)))
+    {
+        state->flags = VKD3D_DEBUG_DEFAULT_FLAGS;
+        return;
+    }
+
+    if (!strcmp(vkd3d_debug, "trace"))
+        vkd3d_debug = "+all";
+    else if (!strcmp(vkd3d_debug, "warn"))
+        vkd3d_debug = "warn+all";
+    else if (!strcmp(vkd3d_debug, "fixme"))
+        vkd3d_debug = "";
+    else if (!strcmp(vkd3d_debug, "err"))
+        vkd3d_debug = "fixme-all";
+    else if (!strcmp(vkd3d_debug, "none"))
+        vkd3d_debug = "-all";
+
+    state->flags = vkd3d_dbg_parse_flags(vkd3d_debug);
+}
+
+uint8_t vkd3d_dbg_get_flags(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name)
+{
+    if (state->flags & (1u << VKD3D_DEBUG_CLASS_INIT))
+        vkd3d_dbg_init_flags(state, vkd3d_dbg_env_name);
+
+    return state->flags;
 }
 
 static PFN_vkd3d_log log_callback;
@@ -106,21 +178,22 @@ static uint64_t get_pthread_threadid(void)
 #endif
 
 void vkd3d_dbg_printf(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name,
-        enum vkd3d_dbg_level level, const char *function, const char *fmt, ...)
+        enum vkd3d_debug_class cls, const char *function, const char *fmt, ...)
 {
+    const char *cls_name = debug_class_names[cls];
     va_list args;
 
-    if (vkd3d_dbg_get_level(state, vkd3d_dbg_env_name) < level)
+    if (!(vkd3d_dbg_get_flags(state, vkd3d_dbg_env_name) & (1u << cls)))
         return;
 
 #ifdef _WIN32
-    vkd3d_dbg_output("vkd3d:%04lx:%s:%s ", GetCurrentThreadId(), debug_level_names[level], function);
+    vkd3d_dbg_output("vkd3d:%04lx:%s:%s ", GetCurrentThreadId(), cls_name, function);
 #elif HAVE_GETTID
-    vkd3d_dbg_output("vkd3d:%u:%s:%s ", gettid(), debug_level_names[level], function);
+    vkd3d_dbg_output("vkd3d:%u:%s:%s ", gettid(), cls_name, function);
 #elif HAVE_PTHREAD_THREADID_NP
-    vkd3d_dbg_output("vkd3d:%"PRIu64":%s:%s ", get_pthread_threadid(), debug_level_names[level], function);
+    vkd3d_dbg_output("vkd3d:%"PRIu64":%s:%s ", get_pthread_threadid(), cls_name, function);
 #else
-    vkd3d_dbg_output("vkd3d:%s:%s ", debug_level_names[level], function);
+    vkd3d_dbg_output("vkd3d:%s:%s ", cls_name, function);
 #endif
     va_start(args, fmt);
     vkd3d_dbg_voutput(fmt, args);

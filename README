@@ -112,8 +112,21 @@ commas or semicolons.
       constant or bound descriptor limits are exceeded.
     * vk_debug - enables Vulkan debug extensions.
 
- * VKD3D_DEBUG - controls the debug level for log messages produced by
-   libvkd3d. Accepts the following values: none, err, fixme, warn, trace.
+ * VKD3D_DEBUG - controls the classes of log messages produced by libvkd3d. The
+   syntax of this variable is:
+
+       VKD3D_DEBUG=[class]+all,[class]-all,...
+
+   Available messages classes are: `message', `err', `warn', `fixme', and
+   `trace'. By default, only `fixme', `err', and `message' are enabled.
+
+   Additionally, the following shorthands are recognised:
+
+       `trace' = `+all'
+       `warn'  = `warn+all'
+       `fixme' = `'
+       `err'   = `fixme-all'
+       `none'  = `-all'
 
  * VKD3D_VULKAN_DEVICE - a zero-based device index. Use to force the selected
    Vulkan device.
@@ -134,8 +147,8 @@ commas or semicolons.
     * force_validation - Enable (additional) validation of libvkd3d-shader's
       internal representation of shaders.
 
- * VKD3D_SHADER_DEBUG - controls the debug level for log messages produced by
-   libvkd3d-shader. See VKD3D_DEBUG for accepted values.
+ * VKD3D_SHADER_DEBUG - controls the classes of log messages produced by
+   libvkd3d-shader. See VKD3D_DEBUG for the syntax.
 
  * VKD3D_SHADER_DUMP_PATH - path where shader bytecode is dumped.
 
