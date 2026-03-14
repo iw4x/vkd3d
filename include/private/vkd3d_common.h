@@ -155,14 +155,16 @@ enum vkd3d_debug_class
     VKD3D_DEBUG_CLASS_INIT = 7  /* lazy init flag */
 };
 
-static struct vkd3d_dbg_state
+struct vkd3d_debug_channel
 {
     uint8_t flags;
-} vkd3d_dbg_state = {0xffu};
+    char name[15];
+};
 
-uint8_t vkd3d_dbg_get_flags(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name);
-void vkd3d_dbg_printf(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name,
+uint8_t vkd3d_debug_channel_get_flags(struct vkd3d_debug_channel *channel, const char *vkd3d_dbg_env_name);
+void vkd3d_debug_channel_printf(struct vkd3d_debug_channel *channel, const char *vkd3d_dbg_env_name,
         enum vkd3d_debug_class cls, const char *function, const char *fmt, ...) VKD3D_PRINTF_FUNC(5, 6);
+
 void vkd3d_dbg_set_log_callback(PFN_vkd3d_log callback);
 
 const char *vkd3d_dbg_sprintf(const char *fmt, ...) VKD3D_PRINTF_FUNC(1, 2);
@@ -171,21 +173,24 @@ const char *debugstr_a(const char *str);
 const char *debugstr_an(const char *str, size_t n);
 const char *debugstr_w(const WCHAR *wstr, size_t wchar_size);
 
-#define VKD3D_DBG_LOG(cls) \
+#define VKD3D_DBG_LOG(cls, ch) \
         do { \
             const enum vkd3d_debug_class vkd3d_dbg_class = VKD3D_DEBUG_CLASS_##cls; \
+            struct vkd3d_debug_channel *vkd3d_dbg_channel = (ch); \
             VKD3D_DBG_PRINTF_##cls
 
-#define VKD3D_DBG_LOG_ONCE(first_time_cls, cls) \
+#define VKD3D_DBG_LOG_ONCE(first_time_cls, cls, ch) \
         do { \
             static bool vkd3d_dbg_next_time; \
             const enum vkd3d_debug_class vkd3d_dbg_class = vkd3d_dbg_next_time \
                     ? VKD3D_DEBUG_CLASS_##cls : VKD3D_DEBUG_CLASS_##first_time_cls; \
+            struct vkd3d_debug_channel *vkd3d_dbg_channel = (ch); \
             vkd3d_dbg_next_time = true; \
             VKD3D_DBG_PRINTF_##cls
 
 #define VKD3D_DBG_PRINTF(...) \
-            vkd3d_dbg_printf(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME, vkd3d_dbg_class, __FUNCTION__, __VA_ARGS__); \
+            vkd3d_debug_channel_printf(vkd3d_dbg_channel, VKD3D_DEBUG_ENV_NAME, \
+                    vkd3d_dbg_class, __FUNCTION__, __VA_ARGS__); \
         } while (0)
 
 #define VKD3D_DBG_PRINTF_TRACE(...) VKD3D_DBG_PRINTF(__VA_ARGS__)
@@ -195,7 +200,8 @@ const char *debugstr_w(const WCHAR *wstr, size_t wchar_size);
 
 #ifdef VKD3D_ABORT_ON_ERR
 #define VKD3D_DBG_PRINTF_ERR(...) \
-            vkd3d_dbg_printf(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME, vkd3d_dbg_class, __FUNCTION__, __VA_ARGS__); \
+            vkd3d_debug_channel_printf(vkd3d_dbg_channel, VKD3D_DEBUG_ENV_NAME, \
+                    vkd3d_dbg_class, __FUNCTION__, __VA_ARGS__); \
             abort(); \
         } while (0)
 #else
@@ -209,38 +215,45 @@ const char *debugstr_w(const WCHAR *wstr, size_t wchar_size);
 #endif
 
 #ifndef TRACE
-#define TRACE   VKD3D_DBG_LOG(TRACE)
+#define TRACE   VKD3D_DBG_LOG(TRACE, vkd3d_debug_channel_default)
 #endif
 
 #ifndef WARN
-#define WARN    VKD3D_DBG_LOG(WARN)
+#define WARN    VKD3D_DBG_LOG(WARN, vkd3d_debug_channel_default)
 #endif
 
 #ifndef FIXME
-#define FIXME   VKD3D_DBG_LOG(FIXME)
+#define FIXME   VKD3D_DBG_LOG(FIXME, vkd3d_debug_channel_default)
 #endif
 
 #ifndef ERR
-#define ERR     VKD3D_DBG_LOG(ERR)
+#define ERR     VKD3D_DBG_LOG(ERR, vkd3d_debug_channel_default)
 #endif
 
 #ifndef MESSAGE
-#define MESSAGE VKD3D_DBG_LOG(MESSAGE)
+#define MESSAGE VKD3D_DBG_LOG(MESSAGE, vkd3d_debug_channel_default)
 #endif
 
 #ifndef TRACE_ON
-#define TRACE_ON() (vkd3d_dbg_get_flags(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME) \
+#define TRACE_ON() (vkd3d_debug_channel_get_flags(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME) \
         & (1u << VKD3D_DEBUG_CLASS_TRACE))
 #endif
 
 #ifndef WARN_ON
-#define WARN_ON() (vkd3d_dbg_get_flags(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME) \
+#define WARN_ON() (vkd3d_debug_channel_get_flags(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME) \
         & (1u << VKD3D_DEBUG_CLASS_WARN))
 #endif
 
 #ifndef FIXME_ONCE
-#define FIXME_ONCE VKD3D_DBG_LOG_ONCE(FIXME, WARN)
+#define FIXME_ONCE VKD3D_DBG_LOG_ONCE(FIXME, WARN, vkd3d_debug_channel_default)
 #endif
+
+#define VKD3D_DEFAULT_DEBUG_CHANNEL(ch) \
+        static struct vkd3d_debug_channel vkd3d_debug_channel__##ch = {0xffu, #ch}; \
+        STATIC_ASSERT(sizeof(#ch) <= sizeof(vkd3d_debug_channel__##ch.name)); \
+        static struct vkd3d_debug_channel * const vkd3d_debug_channel_default = &vkd3d_debug_channel__##ch;
+
+VKD3D_DEFAULT_DEBUG_CHANNEL(vkd3d)
 
 static inline const char *debugstr_guid(const GUID *guid)
 {

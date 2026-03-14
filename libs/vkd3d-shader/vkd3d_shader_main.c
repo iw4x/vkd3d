@@ -287,7 +287,7 @@ void vkd3d_shader_trace_text_(const char *text, size_t size, const char *functio
             q = end;
         else
             ++q;
-        vkd3d_dbg_printf(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME,
+        vkd3d_debug_channel_printf(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME,
                 VKD3D_DEBUG_CLASS_TRACE, function, "%.*s", (int)(q - p), p);
     }
 }

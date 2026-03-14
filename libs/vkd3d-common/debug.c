@@ -52,16 +52,17 @@ static const char *const debug_class_names[] =
     [VKD3D_DEBUG_CLASS_TRACE  ] = "trace",
 };
 
-static uint8_t vkd3d_dbg_parse_flags(const char *str)
+static uint8_t vkd3d_debug_channel_parse_flags(struct vkd3d_debug_channel *channel, const char *str)
 {
-    uint8_t flags = VKD3D_DEBUG_DEFAULT_FLAGS;
+    uint8_t flags, default_flags = VKD3D_DEBUG_DEFAULT_FLAGS;
+    bool channel_specifics = false;
     char *opt, *next, *options;
     const char *p, *name;
     unsigned int i;
     size_t len;
 
     if (!(options = vkd3d_strdup(str)))
-        return flags;
+        return default_flags;
 
     for (opt = options; opt; opt = next)
     {
@@ -107,21 +108,33 @@ static uint8_t vkd3d_dbg_parse_flags(const char *str)
             continue;
 
         if (!strcmp(p, "all"))
+        {
+            default_flags = (default_flags & ~clear) | set;
+        }
+        else if(!strcmp(p, channel->name))
+        {
+            if (!channel_specifics)
+                flags = default_flags;
             flags = (flags & ~clear) | set;
+            channel_specifics = true;
+        }
     }
 
     vkd3d_free(options);
 
+    if (!channel_specifics)
+        flags = default_flags;
+
     return flags;
 }
 
-static void vkd3d_dbg_init_flags(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name)
+static void vkd3d_debug_channel_init_flags(struct vkd3d_debug_channel *channel, const char *vkd3d_dbg_env_name)
 {
     const char *vkd3d_debug;
 
     if (!(vkd3d_debug = getenv(vkd3d_dbg_env_name)))
     {
-        state->flags = VKD3D_DEBUG_DEFAULT_FLAGS;
+        channel->flags = VKD3D_DEBUG_DEFAULT_FLAGS;
         return;
     }
 
@@ -136,15 +149,15 @@ static void vkd3d_dbg_init_flags(struct vkd3d_dbg_state *state, const char *vkd3
     else if (!strcmp(vkd3d_debug, "none"))
         vkd3d_debug = "-all";
 
-    state->flags = vkd3d_dbg_parse_flags(vkd3d_debug);
+    channel->flags = vkd3d_debug_channel_parse_flags(channel, vkd3d_debug);
 }
 
-uint8_t vkd3d_dbg_get_flags(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name)
+uint8_t vkd3d_debug_channel_get_flags(struct vkd3d_debug_channel *channel, const char *vkd3d_dbg_env_name)
 {
-    if (state->flags & (1u << VKD3D_DEBUG_CLASS_INIT))
-        vkd3d_dbg_init_flags(state, vkd3d_dbg_env_name);
+    if (channel->flags & (1u << VKD3D_DEBUG_CLASS_INIT))
+        vkd3d_debug_channel_init_flags(channel, vkd3d_dbg_env_name);
 
-    return state->flags;
+    return channel->flags;
 }
 
 static PFN_vkd3d_log log_callback;
@@ -177,23 +190,23 @@ static uint64_t get_pthread_threadid(void)
 }
 #endif
 
-void vkd3d_dbg_printf(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name,
+void vkd3d_debug_channel_printf(struct vkd3d_debug_channel *channel, const char *vkd3d_dbg_env_name,
         enum vkd3d_debug_class cls, const char *function, const char *fmt, ...)
 {
     const char *cls_name = debug_class_names[cls];
     va_list args;
 
-    if (!(vkd3d_dbg_get_flags(state, vkd3d_dbg_env_name) & (1u << cls)))
+    if (!(vkd3d_debug_channel_get_flags(channel, vkd3d_dbg_env_name) & (1u << cls)))
         return;
 
 #ifdef _WIN32
-    vkd3d_dbg_output("vkd3d:%04lx:%s:%s ", GetCurrentThreadId(), cls_name, function);
+    vkd3d_dbg_output("vkd3d:%04lx:%s:%s:%s ", GetCurrentThreadId(), cls_name, channel->name, function);
 #elif HAVE_GETTID
-    vkd3d_dbg_output("vkd3d:%u:%s:%s ", gettid(), cls_name, function);
+    vkd3d_dbg_output("vkd3d:%u:%s:%s:%s ", gettid(), cls_name, channel->name, function);
 #elif HAVE_PTHREAD_THREADID_NP
-    vkd3d_dbg_output("vkd3d:%"PRIu64":%s:%s ", get_pthread_threadid(), cls_name, function);
+    vkd3d_dbg_output("vkd3d:%"PRIu64":%s:%s:%s ", get_pthread_threadid(), cls_name, channel->name, function);
 #else
-    vkd3d_dbg_output("vkd3d:%s:%s ", cls_name, function);
+    vkd3d_dbg_output("vkd3d:%s:%s:%s ", cls_name, channel->name, function);
 #endif
     va_start(args, fmt);
     vkd3d_dbg_voutput(fmt, args);
