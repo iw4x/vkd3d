@@ -287,7 +287,8 @@ void vkd3d_shader_trace_text_(const char *text, size_t size, const char *functio
             q = end;
         else
             ++q;
-        vkd3d_dbg_printf(VKD3D_DEBUG_ENV_NAME, VKD3D_DBG_LEVEL_TRACE, function, "%.*s", (int)(q - p), p);
+        vkd3d_dbg_printf(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME,
+                VKD3D_DBG_LEVEL_TRACE, function, "%.*s", (int)(q - p), p);
     }
 }
 

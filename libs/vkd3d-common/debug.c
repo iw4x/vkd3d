@@ -50,14 +50,13 @@ static const char *const debug_level_names[] =
     [VKD3D_DBG_LEVEL_TRACE] =   "trace",
 };
 
-enum vkd3d_dbg_level vkd3d_dbg_get_level(const char *vkd3d_dbg_env_name)
+enum vkd3d_dbg_level vkd3d_dbg_get_level(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name)
 {
-    static unsigned int level = ~0u;
     const char *vkd3d_debug;
     unsigned int i;
 
-    if (level != ~0u)
-        return level;
+    if (state->level != ~0u)
+        return state->level;
 
     if (!(vkd3d_debug = getenv(vkd3d_dbg_env_name)))
         vkd3d_debug = "";
@@ -66,14 +65,14 @@ enum vkd3d_dbg_level vkd3d_dbg_get_level(const char *vkd3d_dbg_env_name)
     {
         if (!strcmp(debug_level_names[i], vkd3d_debug))
         {
-            level = i;
-            return level;
+            state->level = i;
+            return state->level;
         }
     }
 
     /* Default debug level. */
-    level = VKD3D_DBG_LEVEL_FIXME;
-    return level;
+    state->level = VKD3D_DBG_LEVEL_FIXME;
+    return state->level;
 }
 
 static PFN_vkd3d_log log_callback;
@@ -106,12 +105,12 @@ static uint64_t get_pthread_threadid(void)
 }
 #endif
 
-void vkd3d_dbg_printf(const char *vkd3d_dbg_env_name,
+void vkd3d_dbg_printf(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name,
         enum vkd3d_dbg_level level, const char *function, const char *fmt, ...)
 {
     va_list args;
 
-    if (vkd3d_dbg_get_level(vkd3d_dbg_env_name) < level)
+    if (vkd3d_dbg_get_level(state, vkd3d_dbg_env_name) < level)
         return;
 
 #ifdef _WIN32

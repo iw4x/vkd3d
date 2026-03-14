@@ -154,10 +154,15 @@ enum vkd3d_dbg_level
     VKD3D_DBG_LEVEL_TRACE,
 };
 
-enum vkd3d_dbg_level vkd3d_dbg_get_level(const char *vkd3d_dbg_env_name);
+static struct vkd3d_dbg_state
+{
+    enum vkd3d_dbg_level level;
+} vkd3d_dbg_state = {~0u};
 
-void vkd3d_dbg_printf(const char *vkd3d_dbg_env_name, enum vkd3d_dbg_level level,
-        const char *function, const char *fmt, ...) VKD3D_PRINTF_FUNC(4, 5);
+enum vkd3d_dbg_level vkd3d_dbg_get_level(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name);
+
+void vkd3d_dbg_printf(struct vkd3d_dbg_state *state, const char *vkd3d_dbg_env_name,
+        enum vkd3d_dbg_level level, const char *function, const char *fmt, ...) VKD3D_PRINTF_FUNC(5, 6);
 void vkd3d_dbg_set_log_callback(PFN_vkd3d_log callback);
 
 const char *vkd3d_dbg_sprintf(const char *fmt, ...) VKD3D_PRINTF_FUNC(1, 2);
@@ -180,7 +185,8 @@ const char *debugstr_w(const WCHAR *wstr, size_t wchar_size);
         VKD3D_DBG_PRINTF_##level
 
 #define VKD3D_DBG_PRINTF(...) \
-        vkd3d_dbg_printf(VKD3D_DEBUG_ENV_NAME, vkd3d_dbg_level, __FUNCTION__, __VA_ARGS__); } while (0)
+        vkd3d_dbg_printf(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME, vkd3d_dbg_level, __FUNCTION__, __VA_ARGS__); \
+        } while (0)
 
 #define VKD3D_DBG_PRINTF_TRACE(...) VKD3D_DBG_PRINTF(__VA_ARGS__)
 #define VKD3D_DBG_PRINTF_WARN(...) VKD3D_DBG_PRINTF(__VA_ARGS__)
@@ -189,7 +195,7 @@ const char *debugstr_w(const WCHAR *wstr, size_t wchar_size);
 
 #ifdef VKD3D_ABORT_ON_ERR
 #define VKD3D_DBG_PRINTF_ERR(...) \
-        vkd3d_dbg_printf(VKD3D_DEBUG_ENV_NAME, vkd3d_dbg_level, __FUNCTION__, __VA_ARGS__); \
+        vkd3d_dbg_printf(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME, vkd3d_dbg_level, __FUNCTION__, __VA_ARGS__); \
         abort(); \
         } while (0)
 #else
@@ -223,11 +229,11 @@ const char *debugstr_w(const WCHAR *wstr, size_t wchar_size);
 #endif
 
 #ifndef TRACE_ON
-#define TRACE_ON() (vkd3d_dbg_get_level(VKD3D_DEBUG_ENV_NAME) == VKD3D_DBG_LEVEL_TRACE)
+#define TRACE_ON() (vkd3d_dbg_get_level(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME) == VKD3D_DBG_LEVEL_TRACE)
 #endif
 
 #ifndef WARN_ON
-#define WARN_ON() (vkd3d_dbg_get_level(VKD3D_DEBUG_ENV_NAME) >= VKD3D_DBG_LEVEL_WARN)
+#define WARN_ON() (vkd3d_dbg_get_level(&vkd3d_dbg_state, VKD3D_DEBUG_ENV_NAME) >= VKD3D_DBG_LEVEL_WARN)
 #endif
 
 #ifndef FIXME_ONCE
