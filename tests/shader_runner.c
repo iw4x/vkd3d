@@ -2745,15 +2745,24 @@ static uint32_t get_runner_test_mask(struct shader_runner *runner, enum test_act
     return model_mask;
 }
 
-static bool should_skip_execution(struct shader_runner *runner, enum test_action test_action)
+static bool should_skip_execution(struct shader_runner *runner, enum test_action action)
 {
-    uint32_t model_mask = get_runner_test_mask(runner, test_action);
+    uint32_t model_mask;
 
+    if (runner->skip_directives)
+        return true;
+    if (action != (runner->ops ? TEST_ACTION_RUN : TEST_ACTION_COMPILE))
+        return true;
     if (runner->shader_model > runner->maximum_shader_model || runner->shader_model < runner->minimum_shader_model)
         return true;
-    if (!bitmap_is_set(&model_mask, runner->shader_model))
+
+    /* Compilation which fails with dxcompiler is not 'todo', therefore the tests are
+     * not 'todo' either. They cannot run, so skip them entirely. */
+    if (action == TEST_ACTION_RUN && FAILED(runner->hlsl_hrs[runner->shader_model]))
         return true;
-    return false;
+
+    model_mask = get_runner_test_mask(runner, action);
+    return !bitmap_is_set(&model_mask, runner->shader_model);
 }
 
 static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
@@ -2761,12 +2770,12 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
     const enum test_action test_action = runner->ops ? TEST_ACTION_RUN : TEST_ACTION_COMPILE;
     unsigned int i, line_number = 0, block_start_line_number = 0;
     size_t shader_source_size = 0, shader_source_len = 0;
+    bool skip_test_section = false, missing_caps = false;
     enum shader_type shader_type = SHADER_TYPE_CS;
     struct resource_params current_resource;
     struct sampler *current_sampler = NULL;
     enum parse_state state = STATE_NONE;
     char *shader_source = NULL;
-    bool missing_caps = false;
     char line_buffer[256];
     const char *testname;
 
@@ -2845,9 +2854,7 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                     break;
 
                 case STATE_SHADER:
-                    runner->skip_directives |= should_skip_execution(runner, test_action);
-
-                    if (test_action == TEST_ACTION_COMPILE && !runner->skip_directives)
+                    if (!should_skip_execution(runner, TEST_ACTION_COMPILE))
                         compile_shader(runner, shader_source, shader_source_len, shader_type, runner->shader_model);
 
                     free(runner->shader_source[shader_type]);
@@ -3028,7 +3035,7 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
             else if (!strcmp(line, "[test]\n"))
             {
                 state = STATE_TEST;
-                runner->skip_directives |= should_skip_execution(runner, test_action);
+                skip_test_section = should_skip_execution(runner, TEST_ACTION_RUN);
                 if (runner->default_descriptors)
                     set_default_descriptor_mapping(runner);
             }
@@ -3134,11 +3141,7 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                     break;
 
                 case STATE_TEST:
-                    /* Compilation which fails with dxcompiler is not 'todo', therefore the tests are
-                     * not 'todo' either. They cannot run, so skip them entirely. */
-                    if (test_action == TEST_ACTION_RUN && !runner->skip_directives
-                            && !runner->failed_resource_count
-                            && SUCCEEDED(runner->hlsl_hrs[runner->shader_model]))
+                    if (!skip_test_section && !runner->failed_resource_count)
                         parse_test_directive(runner, line);
                     break;
 
