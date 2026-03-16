@@ -129,19 +129,29 @@ static inline uint64_t align(uint64_t addr, size_t alignment)
 
 #ifdef VKD3D_NO_TRACE_MESSAGES
 #define TRACE(args...) do { } while (0)
+#define TRACE_(ch, args...) do { } while (0)
 #define TRACE_ON() (false)
+#define TRACE_ON_(ch) (false)
+#define TRACE_TEXT(text, size) do { } while (0)
+#define TRACE_TEXT_(ch, text, size) do { } while (0)
 #endif
 
 #ifdef VKD3D_NO_DEBUG_MESSAGES
 #define WARN(args...) do { } while (0)
+#define WARN_(ch, args...) do { } while (0)
 #define FIXME(args...) do { } while (0)
+#define FIXME_(ch, args...) do { } while (0)
 #define WARN_ON() (false)
+#define WARN_ON_(ch) (false)
 #define FIXME_ONCE(args...) do { } while (0)
+#define FIXME_ONCE_(ch, args...) do { } while (0)
 #endif
 
 #ifdef VKD3D_NO_ERROR_MESSAGES
 #define ERR(args...) do { } while (0)
+#define ERR_(ch, args...) do { } while (0)
 #define MESSAGE(args...) do { } while (0)
+#define MESSAGE_(ch, args...) do { } while (0)
 #endif
 
 enum vkd3d_debug_class
@@ -162,6 +172,8 @@ struct vkd3d_debug_channel
 };
 
 uint8_t vkd3d_debug_channel_get_flags(struct vkd3d_debug_channel *channel, const char *vkd3d_dbg_env_name);
+void vkd3d_debug_channel_print_text(struct vkd3d_debug_channel *channel, const char *vkd3d_dbg_env_name,
+        enum vkd3d_debug_class cls, const char *function, const char *text, size_t size);
 void vkd3d_debug_channel_printf(struct vkd3d_debug_channel *channel, const char *vkd3d_dbg_env_name,
         enum vkd3d_debug_class cls, const char *function, const char *fmt, ...) VKD3D_PRINTF_FUNC(5, 6);
 
@@ -215,39 +227,58 @@ const char *debugstr_w(const WCHAR *wstr, size_t wchar_size);
 #endif
 
 #ifndef TRACE
-#define TRACE   VKD3D_DBG_LOG(TRACE, vkd3d_debug_channel_default)
+#define TRACE        VKD3D_DBG_LOG(TRACE, vkd3d_debug_channel_default)
+#define TRACE_(ch)   VKD3D_DBG_LOG(TRACE, &vkd3d_debug_channel__##ch)
+#define TRACE_TEXT(text, size) \
+        vkd3d_debug_channel_print_text(vkd3d_debug_channel_default, \
+                VKD3D_DEBUG_ENV_NAME, VKD3D_DEBUG_CLASS_TRACE, __FUNCTION__, text, size)
+#define TRACE_TEXT_(ch, text, size) \
+        vkd3d_debug_channel_print_text(&vkd3d_debug_channel__##ch, \
+                VKD3D_DEBUG_ENV_NAME, VKD3D_DEBUG_CLASS_TRACE, __FUNCTION__, text, size)
 #endif
 
 #ifndef WARN
-#define WARN    VKD3D_DBG_LOG(WARN, vkd3d_debug_channel_default)
+#define WARN         VKD3D_DBG_LOG(WARN, vkd3d_debug_channel_default)
+#define WARN_(ch)    VKD3D_DBG_LOG(WARN, &vkd3d_debug_channel__##ch)
 #endif
 
 #ifndef FIXME
-#define FIXME   VKD3D_DBG_LOG(FIXME, vkd3d_debug_channel_default)
+#define FIXME        VKD3D_DBG_LOG(FIXME, vkd3d_debug_channel_default)
+#define FIXME_(ch)   VKD3D_DBG_LOG(FIXME, &vkd3d_debug_channel__##ch)
 #endif
 
 #ifndef ERR
-#define ERR     VKD3D_DBG_LOG(ERR, vkd3d_debug_channel_default)
+#define ERR          VKD3D_DBG_LOG(ERR, vkd3d_debug_channel_default)
+#define ERR_(ch)     VKD3D_DBG_LOG(ERR, &vkd3d_debug_channel__##ch)
 #endif
 
 #ifndef MESSAGE
-#define MESSAGE VKD3D_DBG_LOG(MESSAGE, vkd3d_debug_channel_default)
+#define MESSAGE      VKD3D_DBG_LOG(MESSAGE, vkd3d_debug_channel_default)
+#define MESSAGE_(ch) VKD3D_DBG_LOG(MESSAGE, &vkd3d_debug_channel__##ch)
 #endif
 
 #ifndef TRACE_ON
-#define TRACE_ON() (vkd3d_debug_channel_get_flags(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME) \
+#define TRACE_ON()    (vkd3d_debug_channel_get_flags(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME) \
+        & (1u << VKD3D_DEBUG_CLASS_TRACE))
+#define TRACE_ON_(ch) (vkd3d_debug_channel_get_flags(&vkd3d_debug_channel__##ch, VKD3D_DEBUG_ENV_NAME) \
         & (1u << VKD3D_DEBUG_CLASS_TRACE))
 #endif
 
 #ifndef WARN_ON
-#define WARN_ON() (vkd3d_debug_channel_get_flags(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME) \
+#define WARN_ON()    (vkd3d_debug_channel_get_flags(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME) \
+        & (1u << VKD3D_DEBUG_CLASS_WARN))
+#define WARN_ON_(ch) (vkd3d_debug_channel_get_flags(&vkd3d_debug_channel__##ch, VKD3D_DEBUG_ENV_NAME) \
         & (1u << VKD3D_DEBUG_CLASS_WARN))
 #endif
 
 #ifndef FIXME_ONCE
-#define FIXME_ONCE VKD3D_DBG_LOG_ONCE(FIXME, WARN, vkd3d_debug_channel_default)
+#define FIXME_ONCE      VKD3D_DBG_LOG_ONCE(FIXME, WARN, vkd3d_debug_channel_default)
+#define FIXME_ONCE_(ch) VKD3D_DBG_LOG_ONCE(FIXME, WARN, &vkd3d_debug_channel__##ch)
 #endif
 
+#define VKD3D_DECLARE_DEBUG_CHANNEL(ch) \
+        static struct vkd3d_debug_channel vkd3d_debug_channel__##ch = {0xffu, #ch}; \
+        STATIC_ASSERT(sizeof(#ch) <= sizeof(vkd3d_debug_channel__##ch.name));
 #define VKD3D_DEFAULT_DEBUG_CHANNEL(ch) \
         static struct vkd3d_debug_channel vkd3d_debug_channel__##ch = {0xffu, #ch}; \
         STATIC_ASSERT(sizeof(#ch) <= sizeof(vkd3d_debug_channel__##ch.name)); \

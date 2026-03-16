@@ -271,25 +271,8 @@ fail:
 
 void vkd3d_string_buffer_trace_(const struct vkd3d_string_buffer *buffer, const char *function)
 {
-    vkd3d_shader_trace_text_(buffer->buffer, buffer->content_size, function);
-}
-
-void vkd3d_shader_trace_text_(const char *text, size_t size, const char *function)
-{
-    const char *p, *q, *end = text + size;
-
-    if (!TRACE_ON())
-        return;
-
-    for (p = text; p < end; p = q)
-    {
-        if (!(q = memchr(p, '\n', end - p)))
-            q = end;
-        else
-            ++q;
-        vkd3d_debug_channel_printf(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME,
-                VKD3D_DEBUG_CLASS_TRACE, function, "%.*s", (int)(q - p), p);
-    }
+    vkd3d_debug_channel_print_text(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME,
+            VKD3D_DEBUG_CLASS_TRACE, function, buffer->buffer, buffer->content_size);
 }
 
 void vkd3d_string_buffer_cache_init(struct vkd3d_string_buffer_cache *cache)

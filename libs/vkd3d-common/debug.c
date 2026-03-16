@@ -213,6 +213,24 @@ void vkd3d_debug_channel_printf(struct vkd3d_debug_channel *channel, const char 
     va_end(args);
 }
 
+void vkd3d_debug_channel_print_text(struct vkd3d_debug_channel *channel, const char *vkd3d_dbg_env_name,
+        enum vkd3d_debug_class cls, const char *function, const char *text, size_t size)
+{
+    const char *p, *q, *end = text + size;
+
+    if (!(vkd3d_debug_channel_get_flags(channel, vkd3d_dbg_env_name) & (1u << cls)))
+        return;
+
+    for (p = text; p < end; p = q)
+    {
+        if (!(q = memchr(p, '\n', end - p)))
+            q = end;
+        else
+            ++q;
+        vkd3d_debug_channel_printf(channel, vkd3d_dbg_env_name, cls, function, "%.*s", (int)(q - p), p);
+    }
+}
+
 void vkd3d_dbg_set_log_callback(PFN_vkd3d_log callback)
 {
     log_callback = callback;

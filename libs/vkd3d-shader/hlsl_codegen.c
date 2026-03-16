@@ -24,6 +24,8 @@
 #include <stdio.h>
 #include <math.h>
 
+VKD3D_DECLARE_DEBUG_CHANNEL(copyprop)
+
 /* The shift that corresponds to the D3D_SIF_TEXTURE_COMPONENTS mask. */
 #define VKD3D_SM4_SIF_TEXTURE_COMPONENTS_SHIFT 2
 
@@ -2355,7 +2357,7 @@ static void copy_propagation_invalidate_variable(struct hlsl_ctx *ctx, struct co
 {
     unsigned i;
 
-    TRACE("Invalidate variable %s[%u]%s.\n", var_def->var->name, comp, debug_hlsl_writemask(writemask));
+    TRACE_(copyprop)("Invalidate variable %s[%u]%s.\n", var_def->var->name, comp, debug_hlsl_writemask(writemask));
 
     for (i = 0; i < 4; ++i)
     {
@@ -2452,7 +2454,7 @@ static void copy_propagation_set_value(struct hlsl_ctx *ctx, struct copy_propaga
         {
             struct copy_propagation_component_trace *trace = &var_def->traces[comp + i];
 
-            TRACE("Variable %s[%u] is written by instruction %p%s.\n",
+            TRACE_(copyprop)("Variable %s[%u] is written by instruction %p%s.\n",
                     var_def->var->name, comp + i, instr, debug_hlsl_writemask(1u << i));
 
             copy_propagation_trace_record_value(ctx, trace, instr, j++, time);
@@ -2489,14 +2491,14 @@ static bool copy_propagation_replace_with_single_instr(struct hlsl_ctx *ctx,
         }
         else if (new_instr != value->node)
         {
-            TRACE("No single source for propagating load from %s[%u-%u]%s\n",
+            TRACE_(copyprop)("No single source for propagating load from %s[%u-%u]%s\n",
                     var->name, start, start + count, debug_hlsl_swizzle(swizzle, instr_component_count));
             return false;
         }
         hlsl_swizzle_set_component(&ret_swizzle, i, value->component);
     }
 
-    TRACE("Load from %s[%u-%u]%s propagated as instruction %p%s.\n",
+    TRACE_(copyprop)("Load from %s[%u-%u]%s propagated as instruction %p%s.\n",
             var->name, start, start + count, debug_hlsl_swizzle(swizzle, instr_component_count),
             new_instr, debug_hlsl_swizzle(ret_swizzle, instr_component_count));
 
@@ -2544,7 +2546,7 @@ static bool copy_propagation_replace_with_constant_vector(struct hlsl_ctx *ctx,
         return false;
     list_add_before(&instr->entry, &cons->entry);
 
-    TRACE("Load from %s[%u-%u]%s turned into a constant %p.\n",
+    TRACE_(copyprop)("Load from %s[%u-%u]%s turned into a constant %p.\n",
             var->name, start, start + count, debug_hlsl_swizzle(swizzle, instr_component_count), cons);
 
     hlsl_replace_node(instr, cons);
@@ -2728,7 +2730,7 @@ static bool copy_propagation_replace_with_deref(struct hlsl_ctx *ctx,
 
         if (hlsl_version_lt(ctx, 4, 0) && x->is_uniform && ctx->profile->type != VKD3D_SHADER_TYPE_VERTEX)
         {
-            TRACE("Skipping propagating non-constant deref to SM1 uniform %s.\n", var->name);
+            TRACE_(copyprop)("Skipping propagating non-constant deref to SM1 uniform %s.\n", var->name);
             goto done;
         }
 
@@ -2828,7 +2830,7 @@ static bool copy_propagation_replace_with_deref(struct hlsl_ctx *ctx,
     if (new_instr->data_type->class == HLSL_CLASS_SCALAR || new_instr->data_type->class == HLSL_CLASS_VECTOR)
         new_instr = hlsl_block_add_swizzle(ctx, &block, ret_swizzle, instr_component_count, new_instr, &instr->loc);
 
-    if (TRACE_ON())
+    if (TRACE_ON_(copyprop))
     {
         struct vkd3d_string_buffer buffer;
 
@@ -2854,7 +2856,7 @@ static bool copy_propagation_replace_with_deref(struct hlsl_ctx *ctx,
         vkd3d_string_buffer_printf(&buffer, "]%s (i = %p).\n",
                 debug_hlsl_swizzle(ret_swizzle, instr_component_count), index);
 
-        vkd3d_string_buffer_trace(&buffer);
+        TRACE_TEXT_(copyprop, buffer.buffer, buffer.content_size);
         vkd3d_string_buffer_cleanup(&buffer);
     }
 
@@ -2994,7 +2996,7 @@ static bool copy_propagation_transform_object_load(struct hlsl_ctx *ctx,
      */
     if (!load->src.var->is_uniform)
     {
-        TRACE("Ignoring load from non-uniform object variable %s\n", load->src.var->name);
+        TRACE_(copyprop)("Ignoring load from non-uniform object variable %s\n", load->src.var->name);
         return false;
     }
 

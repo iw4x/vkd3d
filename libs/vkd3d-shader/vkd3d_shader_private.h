@@ -1912,9 +1912,6 @@ void vkd3d_shader_vwarning(struct vkd3d_shader_message_context *context, const s
 void vkd3d_shader_string_from_message_context(char **out, struct vkd3d_shader_message_context *context);
 
 uint64_t vkd3d_shader_init_config_flags(void);
-void vkd3d_shader_trace_text_(const char *text, size_t size, const char *function);
-#define vkd3d_shader_trace_text(text, size) \
-        vkd3d_shader_trace_text_(text, size, __FUNCTION__)
 
 bool sm1_register_from_semantic_name(const struct vkd3d_shader_version *version, const char *semantic_name,
         unsigned int semantic_index, bool output, enum vkd3d_shader_sysval_semantic *sysval,

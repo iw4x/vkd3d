@@ -840,7 +840,7 @@ static void vkd3d_spirv_dump(const struct vkd3d_shader_code *spirv, enum vkd3d_s
 
     if (!vkd3d_spirv_binary_to_text(spirv, NULL, environment, formatting, &text, &message_context))
     {
-        vkd3d_shader_trace_text(text.code, text.size);
+        TRACE_TEXT(text.code, text.size);
         vkd3d_shader_free_shader_code(&text);
     }
 
@@ -10902,7 +10902,7 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
         if (!vkd3d_spirv_validate(&buffer, spirv, environment))
         {
             FIXME("Failed to validate SPIR-V binary.\n");
-            vkd3d_shader_trace_text(buffer.buffer, buffer.content_size);
+            vkd3d_string_buffer_trace(&buffer);
 
             if (compiler->config_flags & VKD3D_SHADER_CONFIG_FLAG_FORCE_VALIDATION)
             {
