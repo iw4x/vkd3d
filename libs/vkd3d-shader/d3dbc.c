@@ -1928,6 +1928,27 @@ static void write_sm1_src_register(struct vkd3d_bytecode_buffer *buffer, const s
             | (offset & VKD3D_SM1_REGISTER_NUMBER_MASK));
 }
 
+static void validate_register_limits(struct d3dbc_compiler *d3dbc,
+        const struct vsir_operand *reg, const struct vkd3d_shader_location *loc)
+{
+    const struct vkd3d_shader_version *version = &d3dbc->program->shader_version;
+    uint32_t idx = reg->idx[0].offset;
+
+    if (reg->type == VKD3DSPR_TEMP)
+    {
+        if ((version->type == VKD3D_SHADER_TYPE_PIXEL && vkd3d_shader_ver_le(version, 1, 3) && idx >= 2)
+                || (version->type == VKD3D_SHADER_TYPE_PIXEL && vkd3d_shader_ver_le(version, 1, 4) && idx >= 6)
+                || (version->type == VKD3D_SHADER_TYPE_VERTEX && vkd3d_shader_ver_le(version, 2, 0) && idx >= 12)
+                || idx >= 32)
+        {
+            vkd3d_shader_error(d3dbc->message_context, loc, VKD3D_SHADER_ERROR_VSIR_INVALID_INDEX,
+                    "Register r%u exceeds limits for shader type %#x, version %u.%u.",
+                    idx, version->type, version->major, version->minor);
+            d3dbc->failed = true;
+        }
+    }
+}
+
 static void d3dbc_write_instruction(struct d3dbc_compiler *d3dbc, const struct vkd3d_shader_instruction *ins)
 {
     const struct vkd3d_shader_version *version = &d3dbc->program->shader_version;
@@ -1951,6 +1972,8 @@ static void d3dbc_write_instruction(struct d3dbc_compiler *d3dbc, const struct v
 
     for (i = 0; i < ins->dst_count; ++i)
     {
+        validate_register_limits(d3dbc, &ins->dst[i].reg, &ins->location);
+
         if (ins->dst[i].reg.idx[0].rel_addr)
         {
             vkd3d_shader_error(d3dbc->message_context, &ins->location, VKD3D_SHADER_ERROR_D3DBC_NOT_IMPLEMENTED,
@@ -1962,6 +1985,8 @@ static void d3dbc_write_instruction(struct d3dbc_compiler *d3dbc, const struct v
 
     for (i = 0; i < ins->src_count; ++i)
     {
+        validate_register_limits(d3dbc, &ins->src[i].reg, &ins->location);
+
         src = &ins->src[i];
         write_sm1_src_register(buffer, src);
         if (src->reg.idx_count && src->reg.idx[0].rel_addr)
