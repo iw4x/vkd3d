@@ -12977,6 +12977,13 @@ static bool sm4_generate_vsir_instr_interlocked(struct hlsl_ctx *ctx,
     enum vkd3d_shader_opcode opcode;
     struct vsir_dst_operand *dst;
 
+    if (!interlocked->dst.var->is_tgsm && hlsl_deref_get_type(ctx, &interlocked->dst)->class != HLSL_CLASS_UAV)
+    {
+        hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                "Interlocked targets must be UAV or groupshared elements.");
+        return false;
+    }
+
     opcode = is_imm ? imm_opcodes[interlocked->op] : opcodes[interlocked->op];
 
     if (value->data_type->e.numeric.type == HLSL_TYPE_INT)
@@ -16110,8 +16117,16 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
         }
         else if (var->storage_modifiers & HLSL_STORAGE_GROUPSHARED)
         {
-            var->is_tgsm = 1;
-            list_add_tail(&ctx->extern_vars, &var->extern_entry);
+            if (profile->type == VKD3D_SHADER_TYPE_COMPUTE)
+            {
+                var->is_tgsm = 1;
+                list_add_tail(&ctx->extern_vars, &var->extern_entry);
+            }
+            else
+            {
+                hlsl_warning(ctx, &var->loc, VKD3D_SHADER_WARNING_HLSL_IGNORED_MODIFIER,
+                        "Ignoring the 'groupshared' modifier in a non-compute shader.");
+            }
         }
     }
 

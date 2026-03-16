@@ -63,6 +63,27 @@ void main(uint local_idx : SV_GroupIndex)
 {
 }
 
+% The 'groupshared' attribute is ignored in non-compute shaders,
+% and the declared variable is considered static.
+
+[pixel shader fail todo]
+groupshared uint m;
+
+float4 main(float4 pos : SV_Position) : SV_Target
+{
+    // m is uninitialized here.
+    return m * pos;
+}
+
+[pixel shader]
+groupshared uint m;
+
+float4 main(float4 pos : SV_Position) : SV_Target
+{
+    m = 2;
+    return m * pos;
+}
+
 % Even though the 'groupshared' attribute is ignored in non-compute shaders,
 % native still checks whether the type of the variable contains objects or not.
 [pixel shader fail(sm<6) todo(sm>=5.1 & sm<6)]
