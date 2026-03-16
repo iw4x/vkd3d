@@ -62,3 +62,11 @@ float4 main() : sv_target
 
     return 0;
 }
+
+[pixel shader fail(sm<6)]
+uniform float3 m;
+
+float4 main() : SV_TARGET
+{
+    return float4(m[0], m[1], m[2], m[3]);
+}
