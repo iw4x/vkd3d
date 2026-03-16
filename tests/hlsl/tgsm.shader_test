@@ -63,6 +63,15 @@ void main(uint local_idx : SV_GroupIndex)
 {
 }
 
+% The 'groupshared' and 'uniform' attributes cannot be used together.
+[compute shader fail(sm<6)]
+uniform groupshared uint m[4];
+
+    [numthreads(4, 1, 1)]
+void main(uint local_idx : SV_GroupIndex)
+{
+}
+
 % The 'groupshared' attribute is ignored in non-compute shaders,
 % and the declared variable is considered static.
 
