@@ -10887,6 +10887,7 @@ struct liveness_tracker
         bool written;
         bool fixed_mask;
         uint8_t mask;
+        unsigned int interior_loop_start, interior_loop_depth;
         unsigned int first_write, last_access, last_read;
     } *ssa_regs, *temp_regs;
 };
@@ -11032,38 +11033,57 @@ static enum vkd3d_result track_liveness(struct vsir_program *program, struct liv
         {
             if (!loop_depth++)
                 loop_start = i;
+
+            for (unsigned int j = 0; j < program->ssa_count; ++j)
+            {
+                struct liveness_tracker_reg *reg = &tracker->ssa_regs[j];
+
+                /* Only track the topmost loop started after this SSA was
+                 * written. We need to extend the liveness to its end
+                 * if it is in fact read at any point during that loop. */
+                if (reg->written && !reg->interior_loop_depth)
+                {
+                    reg->interior_loop_start = i;
+                    reg->interior_loop_depth = loop_depth;
+                }
+            }
         }
         else if (ins->opcode == VSIR_OP_ENDLOOP || ins->opcode == VSIR_OP_ENDREP)
         {
             if (!--loop_depth)
             {
-                /* Go through the allocator, find anything that was touched
-                 * during the loop, and extend its liveness to the whole range
-                 * of the loop.
-                 * This isn't very sophisticated (e.g. we could try to avoid
-                 * this for registers first written inside a loop body and only
-                 * ever read inside one), but many of the cases that matter are
+                /* SSA registers should always be written before they are read.
+                 * Moreover, if they are written in a loop, all reads must be
+                 * inside the same loop. However, reads can be inside a loop
+                 * that follows the write.
+                 *
+                 * In this case, the register must not be scratched between
+                 * iterations of the loop, so we need to extend the liveness
+                 * to the end of the loop. We track the beginning of each
+                 * immediate child loop that follows the write, and if the last
+                 * access was after that loop began, extend it to the loop end.
+                 *
+                 * For temps, we don't have these restrictions. A temp can be
+                 * written at the end of the loop and read earlier in the same
+                 * loop, and the value has to be preserved, so we need to extend
+                 * both the first write and last access. It may be possible to
+                 * be more sophisticated, but many of the cases that matter are
                  * affected by other optimizations such as copy propagation
                  * anyway.
-                 *
-                 * This is overkill for SSA registers. If an SSA register is
-                 * written in loop L and last read in L, we don't need to touch
-                 * its liveness. If it's last read in an inferior loop of L, we
-                 * only need to extend its last-read to the end of L. (And it
-                 * should be illegal for an SSA value to be read in a block
-                 * containing L.)
-                 * We don't try to perform this optimization yet, in the name of
-                 * maximal simplicity. */
+                 */
                 for (unsigned int j = 0; j < program->ssa_count; ++j)
                 {
                     struct liveness_tracker_reg *reg = &tracker->ssa_regs[j];
 
-                    if (reg->first_write > loop_start)
-                        reg->first_write = loop_start;
-                    if (reg->last_access < i)
-                        reg->last_access = i;
-                    if (reg->last_read < i)
-                        reg->last_read = i;
+                    if (reg->written && reg->interior_loop_depth == loop_depth + 1)
+                    {
+                        if (reg->last_access > reg->interior_loop_start)
+                            reg->last_access = i;
+                        if (reg->last_read > reg->interior_loop_start)
+                            reg->last_read = i;
+
+                        reg->interior_loop_depth = 0;
+                    }
                 }
 
                 for (unsigned int j = 0; j < program->temp_count; ++j)
