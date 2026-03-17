@@ -2932,6 +2932,11 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 ret = vsir_program_lower_nrm(program, &it);
                 break;
 
+            case VSIR_OP_PHASE:
+                vkd3d_shader_instruction_make_nop(ins);
+                ret = VKD3D_OK;
+                break;
+
             case VSIR_OP_POW:
                 ret = vsir_program_lower_pow(program, &it);
                 break;
