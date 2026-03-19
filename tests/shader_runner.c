@@ -2722,6 +2722,18 @@ static void set_default_descriptor_mapping(struct shader_runner *runner)
     }
 }
 
+static void add_one_version_from(uint32_t *model_mask, struct shader_runner *runner, uint32_t from)
+{
+    for (unsigned int j = runner->minimum_shader_model; j <= runner->maximum_shader_model; ++j)
+    {
+        if (bitmap_is_set(&from, j) && runner->hlsl_hrs[j] == S_OK)
+        {
+            bitmap_set(model_mask, j);
+            break;
+        }
+    }
+}
+
 static uint32_t get_runner_test_mask(struct shader_runner *runner, enum test_action test_action)
 {
     uint32_t model_mask = runner->test_model_mask;
@@ -2749,14 +2761,24 @@ static uint32_t get_runner_test_mask(struct shader_runner *runner, enum test_act
      * waste time testing every version possible. SM1-3, SM4-5, and SM6 are
      * completely different formats, often with different HLSL semantics, so
      * where possible try to test one version from each set. */
-    if (!(model_mask & sm1_mask) && runner->minimum_shader_model <= SHADER_MODEL_3_0)
-        bitmap_set(&model_mask, runner->minimum_shader_model);
-    if (!(model_mask & sm4_mask)
-            && runner->minimum_shader_model <= SHADER_MODEL_5_1
-            && runner->maximum_shader_model >= SHADER_MODEL_4_0)
-        bitmap_set(&model_mask, max(runner->minimum_shader_model, SHADER_MODEL_4_0));
-    if (!(model_mask & sm6_mask) && runner->maximum_shader_model >= SHADER_MODEL_6_0)
-        bitmap_set(&model_mask, max(runner->minimum_shader_model, SHADER_MODEL_6_0));
+    if (!(model_mask & sm1_mask))
+        add_one_version_from(&model_mask, runner, sm1_mask);
+    if (!(model_mask & sm4_mask))
+        add_one_version_from(&model_mask, runner, sm4_mask);
+    if (!(model_mask & sm6_mask))
+        add_one_version_from(&model_mask, runner, sm6_mask);
+
+    if (test_action == TEST_ACTION_COMPILE)
+    {
+        /* If the test is expected to fail for all versions in a group,
+         * confirm that by adding one version. */
+        if (!(model_mask & sm1_mask))
+            bitmap_set(&model_mask, SHADER_MODEL_2_0);
+        if (!(model_mask & sm4_mask))
+            bitmap_set(&model_mask, SHADER_MODEL_4_0);
+        if (!(model_mask & sm6_mask))
+            bitmap_set(&model_mask, SHADER_MODEL_6_0);
+    }
 
     return model_mask;
 }

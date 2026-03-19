@@ -170,8 +170,9 @@ float4 main() : sv_target
 }
 
 [test]
-draw quad
-probe (0, 0) f32(2, 2, 2, 99)
+todo(sm<6) draw quad
+if(sm>=6) probe (0,0) f32(2, 2, 2, 99)
+if(sm<6)  probe (0,0) f32(1, 1, 1, 99)
 
 [pixel shader fail(sm<4.1) todo]
 Texture2D tex1 : register(ps_4_0, t1) : register(ps, t2);
@@ -182,7 +183,7 @@ float4 main() : sv_target
 }
 
 [test]
-draw quad
+todo(sm<6) draw quad
 probe (0, 0) f32(2, 2, 2, 99)
 
 [pixel shader fail(sm<6) todo]
