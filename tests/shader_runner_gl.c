@@ -34,6 +34,7 @@
 
 static PFNGLDEPTHBOUNDSEXTPROC p_glDepthBoundsEXT;
 static PFNGLSPECIALIZESHADERPROC p_glSpecializeShader;
+static PFNGLDRAWARRAYSINSTANCEDBASEINSTANCEPROC p_glDrawArraysInstancedBaseInstance;
 
 enum shading_language
 {
@@ -127,6 +128,7 @@ static bool check_gl_extensions(struct gl_runner *runner)
 
     static const char *required_extensions[] =
     {
+        "GL_ARB_base_instance",
         "GL_ARB_clip_control",
         "GL_ARB_compute_shader",
         "GL_ARB_copy_image",
@@ -430,6 +432,7 @@ static bool gl_runner_init(struct gl_runner *runner, enum shading_language langu
 
     p_glDepthBoundsEXT = (void *)eglGetProcAddress("glDepthBoundsEXT");
     p_glSpecializeShader = (void *)eglGetProcAddress("glSpecializeShader");
+    p_glDrawArraysInstancedBaseInstance = (void *)eglGetProcAddress("glDrawArraysInstancedBaseInstance");
 
     glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, NULL, GL_FALSE);
     glDebugMessageCallback(debug_output, NULL);
@@ -1286,8 +1289,8 @@ static void gl_runner_clear(struct shader_runner *r, struct resource *res, const
     glClear(clear_mask);
 }
 
-static bool gl_runner_draw(struct shader_runner *r,
-        D3D_PRIMITIVE_TOPOLOGY topology, unsigned int vertex_count, unsigned int instance_count)
+static bool gl_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY topology,
+        unsigned int vertex_count, unsigned int instance_count, unsigned int first_vertex, unsigned int first_instance)
 {
     unsigned int attribute_idx, fb_width, fb_height, rt_count, ubo_count, i, j;
     struct vkd3d_shader_signature vs_input_signature;
@@ -1536,7 +1539,8 @@ static bool gl_runner_draw(struct shader_runner *r,
     if (runner->r.shader_source[SHADER_TYPE_HS])
         glPatchParameteri(GL_PATCH_VERTICES, max(topology - D3D_PRIMITIVE_TOPOLOGY_1_CONTROL_POINT_PATCHLIST + 1, 1));
 
-    glDrawArraysInstanced(get_topology_gl(topology), 0, vertex_count, instance_count);
+    p_glDrawArraysInstancedBaseInstance(get_topology_gl(topology),
+            first_vertex, vertex_count, instance_count, first_instance);
 
     for (i = 0; i < runner->r.sampler_count; ++i)
     {

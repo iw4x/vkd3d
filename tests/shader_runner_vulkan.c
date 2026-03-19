@@ -1507,8 +1507,8 @@ static void vulkan_runner_clear(struct shader_runner *r, struct resource *res, c
     VK_CALL(vkDestroyFramebuffer(device, fb, NULL));
 }
 
-static bool vulkan_runner_draw(struct shader_runner *r,
-        D3D_PRIMITIVE_TOPOLOGY primitive_topology, unsigned int vertex_count, unsigned int instance_count)
+static bool vulkan_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY primitive_topology,
+        unsigned int vertex_count, unsigned int instance_count, unsigned int first_vertex, unsigned int first_instance)
 {
     VkRenderPassBeginInfo pass_begin_desc = {.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
     struct vulkan_shader_runner *runner = vulkan_shader_runner(r);
@@ -1544,7 +1544,7 @@ static bool vulkan_runner_draw(struct shader_runner *r,
 
     bind_resources(runner, VK_PIPELINE_BIND_POINT_GRAPHICS, set_layout, pipeline_layout);
 
-    VK_CALL(vkCmdDraw(cmd_buffer, vertex_count, instance_count, 0, 0));
+    VK_CALL(vkCmdDraw(cmd_buffer, vertex_count, instance_count, first_vertex, first_instance));
 
     VK_CALL(vkCmdEndRenderPass(cmd_buffer));
     end_command_buffer(context);

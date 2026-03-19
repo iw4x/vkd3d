@@ -836,7 +836,7 @@ static ID3D12PipelineState *create_pipeline_device2(struct d3d12_shader_runner *
 }
 
 static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY primitive_topology,
-        unsigned int vertex_count, unsigned int instance_count)
+        unsigned int vertex_count, unsigned int instance_count, unsigned int first_vertex, unsigned int first_instance)
 {
     struct d3d12_shader_runner *runner = d3d12_shader_runner(r);
     struct test_context *test_context = &runner->test_context;
@@ -1004,7 +1004,7 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
     ID3D12GraphicsCommandList_RSSetViewports(command_list, viewport_count, viewports);
     ID3D12GraphicsCommandList_IASetPrimitiveTopology(command_list, primitive_topology);
     ID3D12GraphicsCommandList_SetPipelineState(command_list, pso);
-    ID3D12GraphicsCommandList_DrawInstanced(command_list, vertex_count, instance_count, 0, 0);
+    ID3D12GraphicsCommandList_DrawInstanced(command_list, vertex_count, instance_count, first_vertex, first_instance);
 
     /* Finish the command list so that we can destroy objects. */
     hr = ID3D12GraphicsCommandList_Close(command_list);

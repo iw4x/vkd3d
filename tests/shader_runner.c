@@ -1540,7 +1540,7 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
                 runner->sample_count = max(runner->sample_count, runner->resources[i]->desc.sample_count);
         }
 
-        runner->last_render_failed = !runner->ops->draw(runner, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST, 3, 1);
+        runner->last_render_failed = !runner->ops->draw(runner, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST, 3, 1, 0, 0);
         todo_if(runner->is_todo) bug_if(runner->is_bug)
         ok(!runner->last_render_failed, "Draw failed.\n");
 
@@ -1548,7 +1548,7 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
     }
     else if (match_string(line, "draw", &line))
     {
-        unsigned int vertex_count, instance_count;
+        unsigned int vertex_count, instance_count, first_vertex, first_instance;
         D3D_PRIMITIVE_TOPOLOGY topology;
 
         if (!runner->shader_source[SHADER_TYPE_HS] != !runner->shader_source[SHADER_TYPE_DS])
@@ -1579,6 +1579,12 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         instance_count = strtoul(line = rest, &rest, 10);
         if (line == rest)
             instance_count = 1;
+        first_vertex = strtoul(line = rest, &rest, 10);
+        if (line == rest)
+            first_vertex = 0;
+        first_instance = strtoul(line = rest, &rest, 10);
+        if (line == rest)
+            first_instance = 0;
 
         runner->sample_count = 1;
         for (unsigned int i = 0; i < runner->resource_count; ++i)
@@ -1588,7 +1594,8 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
                 runner->sample_count = max(runner->sample_count, runner->resources[i]->desc.sample_count);
         }
 
-        runner->last_render_failed = !runner->ops->draw(runner, topology, vertex_count, instance_count);
+        runner->last_render_failed = !runner->ops->draw(runner, topology,
+                vertex_count, instance_count, first_vertex, first_instance);
         todo_if(runner->is_todo) bug_if(runner->is_bug)
         ok(!runner->last_render_failed, "Draw failed.\n");
     }

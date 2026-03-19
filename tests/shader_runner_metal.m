@@ -767,7 +767,7 @@ static void use_graphics_resource(id<MTLCommandEncoder> encoder, id<MTLResource>
 }
 
 static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY topology,
-        unsigned int vertex_count, unsigned int instance_count)
+        unsigned int vertex_count, unsigned int instance_count, unsigned int first_vertex, unsigned int first_instance)
 {
     MTLViewport viewport = {0.0, 0.0, 0.0, 0.0, 0.0, 1.0};
     MTLRenderPassColorAttachmentDescriptor *attachment;
@@ -958,9 +958,10 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
         [encoder setRenderPipelineState:pso];
         [encoder setViewport:viewport];
         [encoder drawPrimitives:get_metal_primitive_type(topology)
-                vertexStart:0
+                vertexStart:first_vertex
                 vertexCount:vertex_count
-                instanceCount:instance_count];
+                instanceCount:instance_count
+                baseInstance:first_instance];
         [encoder endEncoding];
 
         [command_buffer commit];

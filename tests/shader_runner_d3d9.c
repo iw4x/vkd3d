@@ -441,8 +441,8 @@ static void d3d9_runner_clear(struct shader_runner *r, struct resource *resource
     ok(hr == S_OK, "Got hr %#lx.\n", hr);
 }
 
-static bool d3d9_runner_draw(struct shader_runner *r,
-        D3D_PRIMITIVE_TOPOLOGY primitive_topology, unsigned int vertex_count, unsigned int instance_count)
+static bool d3d9_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY primitive_topology,
+        unsigned int vertex_count, unsigned int instance_count, unsigned int first_vertex, unsigned int first_instance)
 {
     static const D3DVERTEXELEMENT9 decl_element_end = D3DDECL_END();
     struct d3d9_shader_runner *runner = d3d9_shader_runner(r);
@@ -459,6 +459,10 @@ static bool d3d9_runner_draw(struct shader_runner *r,
 
     if (instance_count > 1)
         fatal_error("Unhandled instance count %u.\n", instance_count);
+    if (first_vertex)
+        fatal_error("Unhandled first vertex %u.\n", first_vertex);
+    if (first_instance)
+        fatal_error("Unhandled first instance %u.\n", first_instance);
     if (r->viewport_count)
         fatal_error("Unhandled viewports.\n");
 
