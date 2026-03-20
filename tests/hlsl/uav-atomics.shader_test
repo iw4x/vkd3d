@@ -350,7 +350,7 @@ size (buffer, 2)
 0 0 0 0
 0 0 0 0
 
-[compute shader fail(sm<5) todo(sm>=5)]
+[compute shader fail(sm<5)]
 struct apple
 {
     int2 a, b;
@@ -371,6 +371,6 @@ void main(uint local_idx: SV_groupIndex, uint group_id : SV_GroupID)
 
 [test]
 write cbv-0 (0) i32(1, 2, -30, -40)
-todo(sm<6 | msl) dispatch 2 1 1
+todo(glsl | msl) dispatch 2 1 1
 probe uav-1 (0) i32(3, 6, -90, -120)
 probe uav-1 (1) i32(33, 36, -60, -90)

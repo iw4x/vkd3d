@@ -955,7 +955,7 @@ struct hlsl_type *hlsl_deref_get_type(struct hlsl_ctx *ctx, const struct hlsl_de
 
 /* Initializes a deref from another deref (prefix) and a component index.
  * *block is initialized to contain the new constant node instructions used by the deref's path. */
-static bool init_deref_from_component_index(struct hlsl_ctx *ctx, struct hlsl_block *block,
+bool hlsl_init_deref_from_component_index(struct hlsl_ctx *ctx, struct hlsl_block *block,
         struct hlsl_deref *deref, const struct hlsl_deref *prefix, unsigned int index,
         const struct vkd3d_shader_location *loc)
 {
@@ -1730,7 +1730,7 @@ void hlsl_block_add_store_component(struct hlsl_ctx *ctx, struct hlsl_block *blo
         return;
     init_node(&store->node, HLSL_IR_STORE, NULL, &rhs->loc);
 
-    if (!init_deref_from_component_index(ctx, &comp_path_block, &store->lhs, lhs, comp, &rhs->loc))
+    if (!hlsl_init_deref_from_component_index(ctx, &comp_path_block, &store->lhs, lhs, comp, &rhs->loc))
     {
         vkd3d_free(store);
         return;
@@ -2171,7 +2171,7 @@ struct hlsl_ir_node *hlsl_block_add_load_component(struct hlsl_ctx *ctx, struct 
     comp_type = hlsl_type_get_component_type(ctx, type, comp);
     init_node(&load->node, HLSL_IR_LOAD, comp_type, loc);
 
-    if (!init_deref_from_component_index(ctx, &comp_path_block, &load->src, deref, comp, loc))
+    if (!hlsl_init_deref_from_component_index(ctx, &comp_path_block, &load->src, deref, comp, loc))
     {
         vkd3d_free(load);
         block->value = ctx->error_instr;
@@ -4100,8 +4100,11 @@ static void dump_ir_interlocked(struct vkd3d_string_buffer *buffer, const struct
     VKD3D_ASSERT(interlocked->op < ARRAY_SIZE(op_names));
     vkd3d_string_buffer_printf(buffer, "interlocked_%s(dst = ", op_names[interlocked->op]);
     dump_deref(buffer, &interlocked->dst);
-    vkd3d_string_buffer_printf(buffer, ", coords = ");
-    dump_src(buffer, &interlocked->coords);
+    if (interlocked->coords.node)
+    {
+        vkd3d_string_buffer_printf(buffer, ", coords = ");
+        dump_src(buffer, &interlocked->coords);
+    }
     if (interlocked->cmp_value.node)
     {
         vkd3d_string_buffer_printf(buffer, ", cmp_value = ");

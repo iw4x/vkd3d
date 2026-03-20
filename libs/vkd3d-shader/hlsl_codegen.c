@@ -1992,6 +1992,104 @@ static struct hlsl_ir_node *lower_resource_stores(struct hlsl_ctx *ctx,
     return res;
 }
 
+/* Generates the coords field of an interlocked operation from its dst deref,
+ * and points the dst deref to the UAV/TGSM object itself. */
+static struct hlsl_ir_node *generate_interlocked_coords(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
+{
+    struct hlsl_type *resource_type, *val_type;
+    struct hlsl_ir_node *coords, *field_offset;
+    struct hlsl_ir_interlocked *interlocked;
+    struct hlsl_deref resource_deref;
+    struct hlsl_ir_node *res = NULL;
+    struct hlsl_deref *deref;
+    enum vkd3d_result ret;
+    bool tgsm;
+
+    if (instr->type != HLSL_IR_INTERLOCKED)
+        return NULL;
+    interlocked = hlsl_ir_interlocked(instr);
+    deref = &interlocked->dst;
+    tgsm = deref->var->is_tgsm;
+
+    ret = resource_access_from_deref(ctx, block, deref, &resource_deref, &resource_type,
+            &val_type, &coords, &field_offset, &instr->loc);
+    if (ret != VKD3D_OK)
+    {
+        if (ret == VKD3D_ERROR_NOT_FOUND)
+            hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                    "Interlocked targets must be UAV or groupshared elements.");
+        return NULL;
+    }
+
+    if (resource_type->class != HLSL_CLASS_UAV && !tgsm)
+    {
+        hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                    "Interlocked targets must be UAV or groupshared elements.");
+        goto done;
+    }
+
+    VKD3D_ASSERT(!interlocked->coords.node);
+
+    if (resource_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER
+            || (tgsm && resource_type->class == HLSL_CLASS_ARRAY))
+    {
+        struct hlsl_deref structured_coords_deref;
+        struct hlsl_ir_var *structured_coords;
+
+        if (!(structured_coords = hlsl_new_synthetic_var(ctx, "interlocked-coords",
+                hlsl_get_vector_type(ctx, HLSL_TYPE_UINT, 2), &instr->loc)))
+            goto done;
+
+        hlsl_init_simple_deref_from_var(&structured_coords_deref, structured_coords);
+
+        hlsl_block_add_store_component(ctx, block, &structured_coords_deref, 0, coords);
+        hlsl_block_add_store_component(ctx, block, &structured_coords_deref, 1, field_offset);
+
+        hlsl_cleanup_deref(&structured_coords_deref);
+
+        coords = hlsl_block_add_simple_load(ctx, block, structured_coords, &instr->loc);
+    }
+    else
+    {
+        if (tgsm)
+            coords = field_offset;
+        else
+        {
+            VKD3D_ASSERT(!field_offset);
+
+            if (resource_type->e.resource.format->class != HLSL_CLASS_SCALAR)
+            {
+                hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                        "Non-structured UAV interlocked targets must have scalar type.");
+                goto done;
+            }
+        }
+    }
+
+    if ((res = hlsl_clone_instr(ctx, instr)))
+    {
+        struct hlsl_ir_interlocked *new_interlocked = hlsl_ir_interlocked(res);
+
+        hlsl_cleanup_deref(&new_interlocked->dst);
+
+        if (!hlsl_copy_deref(ctx, &new_interlocked->dst, &resource_deref))
+        {
+            hlsl_free_instr(res);
+            res = NULL;
+            goto done;
+        }
+
+        hlsl_src_from_node(&new_interlocked->coords, coords);
+
+        hlsl_block_add_instr(block, res);
+    }
+
+done:
+    hlsl_cleanup_deref(&resource_deref);
+    return res;
+}
+
 /* Allocate a unique, ordered index to each instruction, which will be used for
  * copy propagation and computing liveness ranges.
  * Index 0 means unused, so start at 1. */
@@ -6523,8 +6621,9 @@ static void compute_liveness_recurse(struct hlsl_block *block, unsigned int loop
             var = interlocked->dst.var;
             var->last_read = max(var->last_read, last_read);
             deref_mark_last_read(&interlocked->dst, last_read);
-            interlocked->coords.node->last_read = last_read;
             interlocked->value.node->last_read = last_read;
+            if (interlocked->coords.node)
+                interlocked->coords.node->last_read = last_read;
             if (interlocked->cmp_value.node)
                 interlocked->cmp_value.node->last_read = last_read;
             break;
@@ -15830,6 +15929,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
 
     split_copies(ctx, body);
     replace_ir(ctx, lower_resource_stores, body);
+    replace_ir(ctx, generate_interlocked_coords, body);
 
     if (entry_func->return_var)
     {

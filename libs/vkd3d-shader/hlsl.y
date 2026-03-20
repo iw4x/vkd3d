@@ -5160,10 +5160,12 @@ static bool intrinsic_GetRenderTargetSampleCount(struct hlsl_ctx *ctx,
 static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op op,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc, const char *name)
 {
-    struct hlsl_ir_node *interlocked, *lhs, *coords, *val, *cmp_val = NULL, *orig_val = NULL;
-    struct hlsl_type *lhs_type, *val_type;
+    struct hlsl_ir_node *interlocked, *lhs, *val, *cmp_val = NULL, *orig_val = NULL;
+    struct hlsl_type *lhs_type, *val_type, *ret_type = NULL;
     struct vkd3d_string_buffer *string;
+    unsigned int writemask, component;
     struct hlsl_deref dst_deref;
+    bool matrix_writemask;
 
     if (hlsl_version_lt(ctx, 5, 0))
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INCOMPATIBLE_PROFILE,
@@ -5194,6 +5196,9 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
         if (params->args_count == 3)
             orig_val = params->args[2];
     }
+
+    if (orig_val)
+        ret_type = lhs_type;
 
     if (lhs_type->class != HLSL_CLASS_SCALAR || (lhs_type->e.numeric.type != HLSL_TYPE_UINT
             && lhs_type->e.numeric.type != HLSL_TYPE_INT))
@@ -5232,47 +5237,50 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
     if (!(val = add_implicit_conversion(ctx, params->instrs, val, val_type, loc)))
         return false;
 
-    /* TODO: groupshared variables */
-    if (lhs->type == HLSL_IR_INDEX && hlsl_index_chain_find_resource_access(hlsl_ir_index(lhs)))
-    {
-        if (!hlsl_index_is_resource_access(hlsl_ir_index(lhs)))
-        {
-            hlsl_fixme(ctx, &lhs->loc, "Non-direct structured resource interlocked targets.");
-            return false;
-        }
-
-        if (!hlsl_init_deref_from_index_chain(ctx, &dst_deref, hlsl_ir_index(lhs)->val.node))
-            return false;
-        coords = hlsl_ir_index(lhs)->idx.node;
-
-        VKD3D_ASSERT(coords->data_type->class == HLSL_CLASS_VECTOR);
-        VKD3D_ASSERT(coords->data_type->e.numeric.type == HLSL_TYPE_UINT);
-
-        if (hlsl_deref_get_type(ctx, &dst_deref)->class != HLSL_CLASS_UAV)
-        {
-            hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
-                    "Interlocked targets must be UAV or groupshared elements.");
-            return false;
-        }
-    }
-    else if (lhs->type == HLSL_IR_INDEX && hlsl_index_chain_has_tgsm_access(hlsl_ir_index(lhs)))
-    {
-        hlsl_fixme(ctx, loc, "Interlocked operations on indexed groupshared elements.");
+    if (!(lhs = resolve_assignment_lhs(ctx, params->instrs, false, lhs,
+            &lhs_type, &val, &writemask, &matrix_writemask)))
         return false;
-    }
-    else if (lhs->type == HLSL_IR_LOAD && (hlsl_ir_load(lhs)->src.var->storage_modifiers & HLSL_STORAGE_GROUPSHARED))
+
+    VKD3D_ASSERT(writemask);
+    /* The writemask should be single component. */
+    VKD3D_ASSERT(!(writemask & (writemask - 1)));
+
+    component = vkd3d_log2i(writemask);
+    if (matrix_writemask)
     {
-        hlsl_init_simple_deref_from_var(&dst_deref, hlsl_ir_load(lhs)->src.var);
-        coords = hlsl_block_add_uint_constant(ctx, params->instrs, 0, loc);
+        unsigned int i = component / 4, j = component % 4;
+
+        component = i * lhs->data_type->e.numeric.dimx + j;
+    }
+
+    if (lhs->type == HLSL_IR_INDEX && hlsl_index_is_noncontiguous(hlsl_ir_index(lhs)))
+    {
+        struct hlsl_ir_node *c, *cell;
+
+        VKD3D_ASSERT(!matrix_writemask);
+
+        c = hlsl_block_add_uint_constant(ctx, params->instrs, component, &lhs->loc);
+        cell = hlsl_block_add_index(ctx, params->instrs, lhs, c, &lhs->loc);
+
+        if (!hlsl_init_deref_from_index_chain(ctx, &dst_deref, cell))
+            return false;
     }
     else
     {
-        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
-                "Interlocked targets must be UAV or groupshared elements.");
-        return false;
+        struct hlsl_block component_path_block;
+        struct hlsl_deref dst_deref_prefix;
+
+        if (!hlsl_init_deref_from_index_chain(ctx, &dst_deref_prefix, lhs))
+            return false;
+        if (!hlsl_init_deref_from_component_index(ctx, &component_path_block, &dst_deref,
+                &dst_deref_prefix, component, &lhs->loc))
+            return false;
+
+        hlsl_block_add_block(params->instrs, &component_path_block);
+        hlsl_cleanup_deref(&dst_deref_prefix);
     }
 
-    interlocked = hlsl_new_interlocked(ctx, op, orig_val ? lhs_type : NULL, &dst_deref, coords, cmp_val, val, loc);
+    interlocked = hlsl_new_interlocked(ctx, op, ret_type, &dst_deref, NULL, cmp_val, val, loc);
     hlsl_cleanup_deref(&dst_deref);
     if (!interlocked)
         return false;
