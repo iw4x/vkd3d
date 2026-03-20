@@ -134,3 +134,47 @@
         return x;
     }
     float4 x;
+
+[pixel shader fail(sm>=6) todo]
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    for (int i = 0; i < 8; i += 2)
+        sum += 10 * i;
+    return sum + i; // use of 'i' outside loop.
+}
+
+[test]
+todo draw quad
+probe (0, 0) f32(128, 128, 128, 128)
+
+% This results in an internal error in fxc/d3dcompiler for sm>=3, but
+% compiles properly on ps_2_0.
+[pixel shader fail(sm>=3) todo(sm<3)]
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    for (int i = 0; i < 10; i++)
+        for (int j = 0; j < 10; j++)
+            sum += 1;
+    return sum + j;
+}
+
+% This also results in an internal error, for sm>=4.
+[pixel shader fail(sm>=4) todo]
+float4 main() : sv_target
+{
+    int u = 1;
+    switch(u)
+    {
+        case 0:
+            int p = 10;
+            break;
+        case 1:
+            p = 20;
+            break;
+    }
+    return 0;
+}
