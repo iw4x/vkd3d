@@ -49,3 +49,21 @@ float4 main(float4 pos : sv_position) : sv_target
 {
     return t.Load(int3(pos.xy, 0), int2(8, 1));
 }
+
+[pixel shader fail]
+Texture2D t;
+
+float4 main(float4 pos : sv_position) : sv_target
+{
+    return t.Load(int3(pos.xy, 0), int2((int)pos.x, 1));
+}
+
+[pixel shader fail]
+Texture2D t;
+
+uniform int i;
+
+float4 main(float4 pos : sv_position) : sv_target
+{
+    return t.Load(int3(pos.xy, 0), int2(i, 1));
+}
