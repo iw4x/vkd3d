@@ -96,7 +96,17 @@ char *hlsl_sprintf_alloc(struct hlsl_ctx *ctx, const char *fmt, ...)
 void hlsl_add_var(struct hlsl_ctx *ctx, struct hlsl_ir_var *decl)
 {
     struct hlsl_scope *scope = ctx->cur_scope;
+    bool allow_redefinition = false;
     struct hlsl_ir_var *var;
+
+    /* If a variable is declared in a loop's initialization, it is considered
+     * to be declared outside the loop, and redefinition is allowed. */
+    if (scope->loop)
+    {
+        allow_redefinition = true;
+        scope = scope->upper;
+        VKD3D_ASSERT(scope);
+    }
 
     if (decl->name)
     {
@@ -104,10 +114,21 @@ void hlsl_add_var(struct hlsl_ctx *ctx, struct hlsl_ir_var *decl)
         {
             if (var->name && !strcmp(decl->name, var->name))
             {
-                hlsl_error(ctx, &decl->loc, VKD3D_SHADER_ERROR_HLSL_REDEFINED,
-                        "Identifier \"%s\" was already declared in this scope.", var->name);
-                hlsl_note(ctx, &var->loc, VKD3D_SHADER_LOG_ERROR, "\"%s\" was previously declared here.", var->name);
-                break;
+                if (allow_redefinition)
+                {
+                    hlsl_warning(ctx, &decl->loc, VKD3D_SHADER_WARNING_HLSL_REDEFINED,
+                            "Identifier \"%s\" was already declared in this scope.", var->name);
+                    hlsl_note(ctx, &var->loc, VKD3D_SHADER_LOG_ERROR,
+                            "\"%s\" was previously declared here.", var->name);
+                }
+                else
+                {
+                    hlsl_error(ctx, &decl->loc, VKD3D_SHADER_ERROR_HLSL_REDEFINED,
+                            "Identifier \"%s\" was already declared in this scope.", var->name);
+                    hlsl_note(ctx, &var->loc, VKD3D_SHADER_LOG_ERROR,
+                            "\"%s\" was previously declared here.", var->name);
+                    break;
+                }
             }
         }
     }
@@ -119,7 +140,7 @@ struct hlsl_ir_var *hlsl_get_var(struct hlsl_scope *scope, const char *name)
 {
     struct hlsl_ir_var *var;
 
-    LIST_FOR_EACH_ENTRY(var, &scope->vars, struct hlsl_ir_var, scope_entry)
+    LIST_FOR_EACH_ENTRY_REV(var, &scope->vars, struct hlsl_ir_var, scope_entry)
     {
         if (var->name && !strcmp(name, var->name))
             return var;

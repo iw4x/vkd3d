@@ -135,7 +135,7 @@
     }
     float4 x;
 
-[pixel shader fail(sm>=6) todo]
+[pixel shader fail(sm>=6)]
 float4 main() : sv_target
 {
     float4 sum = 0;
@@ -146,7 +146,7 @@ float4 main() : sv_target
 }
 
 [test]
-todo draw quad
+draw quad
 probe (0, 0) f32(128, 128, 128, 128)
 
 % This results in an internal error in fxc/d3dcompiler for sm>=3, but
@@ -195,10 +195,10 @@ float4 main() : sv_target
 
 [test]
 draw quad
-if(sm<6) todo probe (0, 0) f32(12, 33, 13, 0)
+if(sm<6) probe (0, 0) f32(12, 33, 13, 0)
 if(sm>=6) probe (0, 0) f32(12, 33, 99, 0)
 
-[pixel shader fail(sm<6) todo]
+[pixel shader fail(sm<6)]
 float4 main() : sv_target
 {
     float4 sum = 0;
