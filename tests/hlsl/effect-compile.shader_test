@@ -427,3 +427,37 @@ void cs2()
 
 ComputeShader c = CompileShader( cs_5_0, cs() );
 ComputeShader c2 = CompileShader( cs_5_0, cs2() );
+
+[effect todo]
+struct gs_data
+{
+    float4 pos : SV_POSITION;
+};
+
+    [maxvertexcount(4)]
+void gs(point struct gs_data vin[1], inout TriangleStream<gs_data> vout)
+{
+    vout.Append(vin[0]);
+}
+
+    [maxvertexcount(8)]
+void gs2(point struct gs_data vin[1], inout LineStream<gs_data> vout)
+{
+    vout.Append(vin[0]);
+}
+
+GeometryShader g = CompileShader( gs_5_0, gs() );
+GeometryShader g2 = CompileShader( gs_5_0, gs2() );
+
+technique10 t0
+{
+    pass p0
+    {
+        SetGeometryShader(g);
+    }
+
+    pass p1
+    {
+        SetGeometryShader(g2);
+    }
+}
