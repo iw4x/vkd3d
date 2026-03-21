@@ -2391,6 +2391,14 @@ struct hlsl_ir_node *hlsl_new_compile(struct hlsl_ctx *ctx, const struct hlsl_pr
             type = hlsl_get_type(ctx->cur_scope, "GeometryShader", true, true);
             break;
 
+        case VKD3D_SHADER_TYPE_HULL:
+            type = hlsl_get_type(ctx->cur_scope, "HullShader", true, true);
+            break;
+
+        case VKD3D_SHADER_TYPE_DOMAIN:
+            type = hlsl_get_type(ctx->cur_scope, "DomainShader", true, true);
+            break;
+
         case VKD3D_SHADER_TYPE_COMPUTE:
             type = hlsl_get_type(ctx->cur_scope, "ComputeShader", true, true);
             break;
