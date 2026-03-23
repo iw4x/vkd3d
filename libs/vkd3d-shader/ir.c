@@ -1441,6 +1441,9 @@ static enum vkd3d_result vsir_program_lower_lrp(struct vsir_program *program, st
     ins->src[0] = src[0];
     ins->src[1] = src[1];
     vsir_src_operand_init_ssa(&ins->src[2], mad_id, src[2].reg.data_type, src[2].reg.dimension);
+    /* Copy rel_addrs in second use of SRC0, to avoid multiple owners. */
+    if (!vsir_operand_clone_indirect_indices(&ins->src[0].reg, program))
+        goto fail;
 
     return VKD3D_OK;
 
