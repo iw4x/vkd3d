@@ -178,3 +178,52 @@ float4 main() : sv_target
     }
     return 0;
 }
+
+% Redeclaring a variable works when done by a for loop initializer.
+[pixel shader]
+float4 main() : sv_target
+{
+    float4 sum = 0;
+    int i = 99;
+
+    for (int i = 0; i < 8; i += 2)
+        sum.x += i;
+    for (int i = 10; i < 13; ++i)
+        sum.y += i;
+    return float4(sum.x, sum.y, i, 0);
+}
+
+[test]
+draw quad
+if(sm<6) todo probe (0, 0) f32(12, 33, 13, 0)
+if(sm>=6) probe (0, 0) f32(12, 33, 99, 0)
+
+[pixel shader fail(sm<6) todo]
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    for (int i = 0; i < 8; i += 2)
+        sum += 10 * i;
+    int i = 10;
+    return sum + i;
+}
+
+[pixel shader]
+float4 main() : sv_target
+{
+   float4 sum = 0;
+   {
+      for (int i = 0; i < 10; ++i)
+         sum.x += i;
+   }
+
+   int i = 30;
+   sum.y = i;
+
+   return sum;
+}
+
+[test]
+draw quad
+probe (0, 0) f32(45, 30, 0, 0)
