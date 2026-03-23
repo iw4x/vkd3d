@@ -17,7 +17,7 @@ void main(float4 pos : position, out uint a : TEXCOORD, out float4 opos : sv_pos
     opos = pos;
 }
 
-[pixel shader fail todo(sm>=4)]
+[pixel shader fail]
 float4 main(uint a : TEXCOORD, bool2 face : sv_isfrontface) : sv_target
 {
     return float4(a, face.x, 0, 0);

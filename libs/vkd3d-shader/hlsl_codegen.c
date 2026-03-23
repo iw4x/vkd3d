@@ -9516,6 +9516,10 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
         component_type = VKD3D_SHADER_COMPONENT_FLOAT;
     }
 
+    if (sysval == VKD3D_SHADER_SV_IS_FRONT_FACE && var->data_type->e.numeric.dimx > 1)
+        hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
+                "%s input must have only 1 component.", var->semantic.name);
+
     if (!vkd3d_array_reserve((void **)&signature->elements, &signature->elements_capacity,
             signature->element_count + 1, sizeof(*signature->elements)))
     {
