@@ -1566,6 +1566,9 @@ static enum vkd3d_result vsir_program_lower_pow(struct vsir_program *program, st
     vsir_dst_operand_init_ssa(&ins->dst[0], mul_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
     vsir_src_operand_init_ssa(&ins->src[0], movc_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
     ins->src[1] = src[1];
+    /* Copy rel_addrs in second use of SRC1, to avoid multiple owners. */
+    if (!vsir_operand_clone_indirect_indices(&ins->src[1].reg, program))
+        goto fail;
 
     ins = vsir_program_iterator_next(&it);
     if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_EXP, 1, 1))
