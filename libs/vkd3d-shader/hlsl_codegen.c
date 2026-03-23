@@ -9501,11 +9501,11 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
                 break;
         }
 
-        if (sysval == VKD3D_SHADER_SV_TARGET && !ascii_strcasecmp(name, "color"))
+        if (sysval == VKD3D_SHADER_SV_TARGET && ascii_strcasecmp(name, "SV_Target"))
             name = "SV_Target";
-        else if (sysval == VKD3D_SHADER_SV_DEPTH && !ascii_strcasecmp(name, "depth"))
-            name ="SV_Depth";
-        else if (sysval == VKD3D_SHADER_SV_POSITION && !ascii_strcasecmp(name, "position"))
+        else if (sysval == VKD3D_SHADER_SV_DEPTH && ascii_strcasecmp(name, "SV_Depth"))
+            name = "SV_Depth";
+        else if (sysval == VKD3D_SHADER_SV_POSITION && ascii_strcasecmp(name, "SV_Position"))
             name = "SV_Position";
     }
     else
