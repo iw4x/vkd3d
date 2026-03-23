@@ -2439,6 +2439,9 @@ static struct vkd3d_shader_instruction *generate_bump_coords(struct vsir_program
     ins->src[0].swizzle = vsir_combine_swizzles(perturbation->swizzle, VKD3D_SHADER_SWIZZLE(X, X, X, X));
     vsir_src_operand_init_parameter_vec4(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_0 + idx, VSIR_DATA_F32);
     ins->src[2] = *coords;
+    /* Copy rel_addrs in copy of *perturbation, to avoid multiple owners. */
+    if (!vsir_operand_clone_indirect_indices(&ins->src[0].reg, program))
+        return false;
 
     ins = vsir_program_iterator_next(it);
     if (!vsir_instruction_init_with_params(program, ins, loc, VSIR_OP_MAD, 1, 3))
@@ -2451,6 +2454,9 @@ static struct vkd3d_shader_instruction *generate_bump_coords(struct vsir_program
     ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(Z, W, W, W);
     vsir_src_operand_init_ssa_f32v4(&ins->src[2], ssa_temp);
     ins->src[2].swizzle = VKD3D_SHADER_SWIZZLE(X, Y, Y, Y);
+    /* Copy rel_addrs in copy of *perturbation, to avoid multiple owners. */
+    if (!vsir_operand_clone_indirect_indices(&ins->src[0].reg, program))
+        return false;
 
     return ins;
 }
@@ -2794,6 +2800,9 @@ static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
                 VKD3D_SHADER_PARAMETER_NAME_BUMP_LUMINANCE_SCALE_0 + idx, VSIR_DATA_F32);
         vsir_src_operand_init_parameter(&ins->src[2],
                 VKD3D_SHADER_PARAMETER_NAME_BUMP_LUMINANCE_OFFSET_0 + idx, VSIR_DATA_F32);
+        /* Copy rel_addrs in additional use of SRC0, to avoid multiple owners. */
+        if (!vsir_operand_clone_indirect_indices(&ins->src[0].reg, program))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
 
         ins = vsir_program_iterator_next(it);
         if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MUL, 1, 2))
