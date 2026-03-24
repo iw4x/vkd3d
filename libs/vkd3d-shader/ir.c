@@ -4300,6 +4300,7 @@ struct io_normaliser
     struct io_normaliser_register_data input_range_map[MAX_REG_OUTPUT];
     struct io_normaliser_register_data output_range_map[MAX_REG_OUTPUT];
     struct io_normaliser_register_data pc_range_map[MAX_REG_OUTPUT];
+    uint32_t vpos_ssa;
 
     bool use_vocp;
 };
@@ -4843,6 +4844,14 @@ static void vsir_src_operand_io_normalise(struct vsir_src_operand *src,
             signature = normaliser->input_signature;
             break;
 
+        case VKD3DSPR_MISCTYPE:
+            if (reg->idx[0].offset == 0)
+            {
+                reg->type = VKD3DSPR_SSA;
+                reg->idx[0].offset = normaliser->vpos_ssa;
+            }
+            return;
+
         default:
             return;
     }
@@ -4872,6 +4881,41 @@ static void vsir_src_operand_io_normalise(struct vsir_src_operand *src,
                 src->swizzle -= component_idx << VKD3D_SHADER_SWIZZLE_SHIFT(i);
         }
     }
+}
+
+static enum vkd3d_result io_normaliser_init_misctype(struct vsir_program_iterator *it,
+        struct vsir_program *program, struct io_normaliser *normaliser)
+{
+    struct vkd3d_shader_location location = vsir_program_iterator_current(it)->location;
+    struct vkd3d_shader_instruction *ins;
+    const struct signature_element *vpos;
+    unsigned int vpos_idx;
+
+    if (normaliser->shader_type != VKD3D_SHADER_TYPE_PIXEL || normaliser->major != 3)
+        return VKD3D_OK;
+
+    if (!vsir_signature_find_sysval(normaliser->input_signature, VKD3D_SHADER_SV_POSITION, 0, &vpos_idx))
+        return VKD3D_OK;
+    vpos = &normaliser->input_signature->elements[vpos_idx];
+
+    /* sm4 (and therefore vsir) SV_Position returns the pixel center,
+     * i.e. coordinates ending in .5, but vPos should return integer
+     * coordinates. Take the floor. */
+
+    if (!(ins = vsir_program_iterator_insert_before_and_move(it, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    normaliser->vpos_ssa = program->ssa_count++;
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_ROUND_Z, 1, 1))
+    {
+        vsir_instruction_init(ins, &location, VSIR_OP_NOP);
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    }
+    vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], normaliser->vpos_ssa);
+    vsir_src_operand_init_io(&ins->src[0], VKD3DSPR_INPUT, vpos, 1);
+    ins->src[0].reg.idx[0].offset = vpos_idx;
+    vsir_program_iterator_next(it);
+
+    return VKD3D_OK;
 }
 
 static void shader_instruction_normalise_io_params(struct vkd3d_shader_instruction *ins,
@@ -4910,6 +4954,7 @@ static enum vkd3d_result vsir_program_normalise_io_registers(struct vsir_program
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
     struct io_normaliser normaliser = {ctx->message_context, VKD3D_OK};
     struct vkd3d_shader_instruction *ins;
+    bool misctype_initialized = false;
     enum vkd3d_result ret;
 
     VKD3D_ASSERT(program->normalisation_level == VSIR_NORMALISED_HULL_CONTROL_POINT_IO);
@@ -4921,6 +4966,7 @@ static enum vkd3d_result vsir_program_normalise_io_registers(struct vsir_program
     normaliser.output_signature = &program->output_signature;
     normaliser.patch_constant_signature = &program->patch_constant_signature;
     normaliser.normalisation_flags = &program->normalisation_flags;
+    normaliser.vpos_ssa = ~0u;
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
@@ -4937,6 +4983,13 @@ static enum vkd3d_result vsir_program_normalise_io_registers(struct vsir_program
                 normaliser.phase = ins->opcode;
                 break;
             default:
+                if (!misctype_initialized && ins->opcode != VSIR_OP_NOP)
+                {
+                    if ((ret = io_normaliser_init_misctype(&it, program, &normaliser)))
+                        return ret;
+                    misctype_initialized = true;
+                    ins = vsir_program_iterator_current(&it);
+                }
                 break;
         }
     }
