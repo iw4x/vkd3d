@@ -461,3 +461,199 @@ technique10 t0
         SetGeometryShader(g2);
     }
 }
+
+[effect]
+struct data
+{
+    float4 position : SV_POSITION;
+};
+
+struct patch_constant_data
+{
+    float edges[3] : SV_TessFactor;
+    float inside : SV_InsideTessFactor;
+};
+
+void patch_constant( InputPatch<data, 3> input, out patch_constant_data output )
+{
+    output.edges[0] = output.edges[1] = output.edges[2] = 1.0f;
+    output.inside = 1.0f;
+}
+
+    [domain("tri")]
+    [outputcontrolpoints(3)]
+    [partitioning("integer")]
+    [outputtopology("triangle_cw")]
+    [patchconstantfunc("patch_constant")]
+data hs( InputPatch<data, 3> input, uint i : SV_OutputControlPointID )
+{
+    return input[i];
+}
+
+    [domain("tri")]
+void ds( patch_constant_data input, const OutputPatch<data, 3> patch, out data output )
+{
+    output.position = patch[0].position;
+}
+
+HullShader h = CompileShader( hs_5_0, hs() );
+DomainShader d = CompileShader( ds_5_0, ds() );
+
+technique10 t0
+{
+    pass
+    {
+        SetHullShader(h);
+        SetDomainShader(d);
+    }
+}
+
+[effect]
+struct patch_constant_data
+{
+    float edges[2] : SV_TessFactor;
+};
+
+patch_constant_data patch_constant()
+{
+    return (patch_constant_data)0;
+}
+
+    [domain("isoline")]
+    [outputcontrolpoints(3)]
+    [partitioning("integer")]
+    [outputtopology("point")]
+    [patchconstantfunc("patch_constant")]
+float4 hs() : SV_POSITION
+{
+    return 0;
+}
+
+struct patch_constant_data_tri
+{
+    float edges[3] : SV_TessFactor;
+    float inside : SV_InsideTessFactor;
+};
+
+patch_constant_data_tri patch_constant_tri()
+{
+    return (patch_constant_data_tri)0;
+}
+
+    [domain("tri")]
+    [outputcontrolpoints(6)]
+    [partitioning("pow2")]
+    [outputtopology("triangle_cw")]
+    [patchconstantfunc("patch_constant_tri")]
+float4 hs2() : SV_POSITION
+{
+    return 0;
+}
+
+    [domain("isoline")]
+float4 ds( patch_constant_data input ) : SV_POSITION
+{
+    return 0;
+}
+
+    [domain("tri")]
+float4 ds2( patch_constant_data_tri input ) : SV_POSITION
+{
+    return 0;
+}
+
+technique10 t0
+{
+    pass p0
+    {
+        SetHullShader( CompileShader( hs_5_0, hs() ) );
+        SetDomainShader( CompileShader( ds_5_0, ds() ) );
+    }
+
+    pass p1
+    {
+        SetHullShader( CompileShader( hs_5_0, hs2() ) );
+        SetDomainShader( CompileShader( ds_5_0, ds2() ) );
+    }
+}
+
+[effect fail todo]
+struct patch_constant_data
+{
+    float edges[2] : SV_TessFactor;
+};
+
+patch_constant_data patch_constant()
+{
+    return (patch_constant_data)0;
+}
+
+    [domain("isoline")]
+    [outputcontrolpoints(3)]
+    [partitioning("integer")]
+    [outputtopology("point")]
+    [patchconstantfunc("patch_constant")]
+float4 hs() : SV_POSITION
+{
+    return 0;
+}
+
+    [domain("tri")]
+    [outputcontrolpoints(6)]
+    [partitioning("pow2")]
+    [outputtopology("triangle_cw")]
+    // Missing patchconstantfunc attribute.
+float4 hs2() : SV_POSITION
+{
+    return 0;
+}
+
+technique10 t0
+{
+    pass p0
+    {
+        SetHullShader( CompileShader( hs_5_0, hs() ) );
+    }
+
+    pass p1
+    {
+        SetHullShader( CompileShader( hs_5_0, hs2() ) );
+    }
+}
+
+[effect fail]
+struct patch_constant_data
+{
+    float edges[2] : SV_TessFactor;
+};
+
+struct patch_constant_data_tri
+{
+    float edges[3] : SV_TessFactor;
+    float inside : SV_InsideTessFactor;
+};
+
+    [domain("isoline")]
+float4 ds( patch_constant_data input ) : SV_POSITION
+{
+    return 0;
+}
+
+    // Missing domain attribute.
+float4 ds2( patch_constant_data_tri input ) : SV_POSITION
+{
+    return 0;
+}
+
+technique10 t0
+{
+    pass p0
+    {
+        SetDomainShader( CompileShader( ds_5_0, ds() ) );
+    }
+
+    pass p1
+    {
+        SetDomainShader( CompileShader( ds_5_0, ds2() ) );
+    }
+}
