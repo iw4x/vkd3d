@@ -413,7 +413,40 @@ static void write_descriptors(struct d3d12_shader_runner *runner)
                             .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
                             .TextureCube.MostDetailedMip = 0,
                             .TextureCube.MipLevels = resource->r.desc.level_count,
-                            .TextureCube.ResourceMinLODClamp = 0.0f,
+                            .TextureCube.ResourceMinLODClamp = resource->r.desc.min_lod_clamp,
+                        };
+
+                        ID3D12Device_CreateShaderResourceView(device, resource->resource, &srv_desc, handle);
+                    }
+                    else if (resource->r.desc.dimension == RESOURCE_DIMENSION_2D
+                            && resource->r.desc.layer_count == 1 && resource->r.desc.sample_count == 0)
+                    {
+                        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc =
+                        {
+                            .Format = resource->r.desc.format,
+                            .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
+                            .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+                            .Texture2D.MostDetailedMip = 0,
+                            .Texture2D.MipLevels = resource->r.desc.level_count,
+                            .Texture2D.PlaneSlice = 0,
+                            .Texture2D.ResourceMinLODClamp = resource->r.desc.min_lod_clamp,
+                        };
+
+                        ID3D12Device_CreateShaderResourceView(device, resource->resource, &srv_desc, handle);
+                    }
+                    else if (resource->r.desc.dimension == RESOURCE_DIMENSION_2D && resource->r.desc.sample_count == 0)
+                    {
+                        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc =
+                        {
+                            .Format = resource->r.desc.format,
+                            .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY,
+                            .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+                            .Texture2DArray.MostDetailedMip = 0,
+                            .Texture2DArray.MipLevels = resource->r.desc.level_count,
+                            .Texture2DArray.FirstArraySlice = 0,
+                            .Texture2DArray.ArraySize = resource->r.desc.layer_count,
+                            .Texture2DArray.PlaneSlice = 0,
+                            .Texture2DArray.ResourceMinLODClamp = resource->r.desc.min_lod_clamp,
                         };
 
                         ID3D12Device_CreateShaderResourceView(device, resource->resource, &srv_desc, handle);
@@ -1162,6 +1195,7 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     if (is_geometry_shader_supported(device))
         runner->caps.shader_caps[SHADER_CAP_GEOMETRY_SHADER] = true;
     runner->caps.shader_caps[SHADER_CAP_INT64] = options1.Int64ShaderOps;
+    runner->caps.shader_caps[SHADER_CAP_MIN_LOD_CLAMP] = true;
     runner->caps.shader_caps[SHADER_CAP_ROV] = options.ROVsSupported;
     runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX]
             = options.VPAndRTArrayIndexFromAnyShaderFeedingRasterizerSupportedWithoutGSEmulation;

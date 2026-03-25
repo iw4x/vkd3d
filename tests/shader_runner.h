@@ -102,6 +102,7 @@ struct resource_desc
     unsigned int width, height, depth;
     unsigned int layer_count, level_count;
     unsigned int sample_count;
+    float min_lod_clamp;
 };
 
 struct resource_params
@@ -166,6 +167,7 @@ enum shader_cap
     SHADER_CAP_FOG,
     SHADER_CAP_GEOMETRY_SHADER,
     SHADER_CAP_INT64,
+    SHADER_CAP_MIN_LOD_CLAMP,
     SHADER_CAP_NATIVE_16_BIT,
     SHADER_CAP_POINT_SIZE,
     SHADER_CAP_ROV,

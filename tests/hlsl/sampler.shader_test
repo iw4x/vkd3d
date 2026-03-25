@@ -282,6 +282,197 @@ probe (0, 0) f32(0.25, 0.0, 0.5, 0)
 shader model >= 4.0
 
 [srv 0]
+size (2d, 4, 4)
+levels 3
+
+11.0 0.0 0.0 1.0   12.0 0.0 0.0 1.0   13.0 0.0 0.0 1.0   14.0 0.0 0.0 1.0
+21.0 0.0 0.0 1.0   22.0 0.0 0.0 1.0   23.0 0.0 0.0 1.0   24.0 0.0 0.0 1.0
+31.0 0.0 0.0 1.0   32.0 0.0 0.0 1.0   33.0 0.0 0.0 1.0   34.0 0.0 0.0 1.0
+41.0 0.0 0.0 1.0   42.0 0.0 0.0 1.0   43.0 0.0 0.0 1.0   44.0 0.0 0.0 1.0
+
+0.0 11.0 0.0 1.0   0.0 12.0 0.0 1.0
+0.0 21.0 0.0 1.0   0.0 22.0 0.0 1.0
+
+0.0 0.0 11.0 1.0
+
+[vertex shader]
+void main(float4 pos : position, out float2 tex : texcoord, out float4 out_pos : sv_position)
+{
+    tex = (pos.xy + 1) / 2;
+    out_pos = pos;
+}
+
+[pixel shader]
+sampler s;
+Texture2D t;
+
+float4 main(float2 coord : texcoord) : sv_target
+{
+    return round(10 * t.Sample(s, coord));
+}
+
+[test]
+draw quad
+probe (200, 200) f32(300.0, 0.0, 0.0, 10.0)
+probe (400, 200) f32(313.0, 0.0, 0.0, 10.0)
+probe (200, 400) f32(134.0, 0.0, 0.0, 10.0)
+probe (400, 400) f32(146.0, 0.0, 0.0, 10.0)
+
+[require]
+shader model >= 5.0
+
+[pixel shader todo]
+sampler s;
+Texture2D t;
+uniform float clamp;
+
+float4 main(float2 coord : texcoord) : sv_target
+{
+    return round(10 * t.Sample(s, coord, uint2(0, 0), clamp));
+}
+
+[test]
+write cbv-0 (0) f32(0.0)
+todo draw quad
+probe (200, 200) f32(300.0, 0.0, 0.0, 10.0)
+probe (400, 200) f32(313.0, 0.0, 0.0, 10.0)
+probe (200, 400) f32(134.0, 0.0, 0.0, 10.0)
+probe (400, 400) f32(146.0, 0.0, 0.0, 10.0)
+write cbv-0 (0) f32(0.5)
+todo draw quad
+probe (200, 200) f32(150.0, 89.0, 0.0, 10.0)
+probe (400, 200) f32(156.0, 92.0, 0.0, 10.0)
+probe (200, 400) f32(67.0, 56.0, 0.0, 10.0)
+probe (400, 400) f32(73.0, 59.0, 0.0, 10.0)
+write cbv-0 (0) f32(1.0)
+todo draw quad
+probe (200, 200) f32(0.0, 178.0, 0.0, 10.0)
+probe (400, 200) f32(0.0, 184.0, 0.0, 10.0)
+probe (200, 400) f32(0.0, 111.0, 0.0, 10.0)
+probe (400, 400) f32(0.0, 118.0, 0.0, 10.0)
+write cbv-0 (0) f32(1.5)
+todo draw quad
+probe (200, 200) f32(0.0, 89.0, 55.0, 10.0)
+probe (400, 200) f32(0.0, 92.0, 55.0, 10.0)
+probe (200, 400) f32(0.0, 56.0, 55.0, 10.0)
+probe (400, 400) f32(0.0, 59.0, 55.0, 10.0)
+write cbv-0 (0) f32(2.0)
+todo draw quad
+probe (200, 200) f32(0.0, 0.0, 110.0, 10.0)
+probe (400, 200) f32(0.0, 0.0, 110.0, 10.0)
+probe (200, 400) f32(0.0, 0.0, 110.0, 10.0)
+probe (400, 400) f32(0.0, 0.0, 110.0, 10.0)
+
+[require]
+shader model >= 4.0
+min-lod-clamp
+
+[pixel shader]
+sampler s;
+Texture2D t;
+
+float4 main(float2 coord : texcoord) : sv_target
+{
+    return round(10 * t.Sample(s, coord));
+}
+
+[srv 0]
+size (2d, 4, 4)
+levels 3
+min-lod-clamp 0.5
+
+11.0 0.0 0.0 1.0   12.0 0.0 0.0 1.0   13.0 0.0 0.0 1.0   14.0 0.0 0.0 1.0
+21.0 0.0 0.0 1.0   22.0 0.0 0.0 1.0   23.0 0.0 0.0 1.0   24.0 0.0 0.0 1.0
+31.0 0.0 0.0 1.0   32.0 0.0 0.0 1.0   33.0 0.0 0.0 1.0   34.0 0.0 0.0 1.0
+41.0 0.0 0.0 1.0   42.0 0.0 0.0 1.0   43.0 0.0 0.0 1.0   44.0 0.0 0.0 1.0
+
+0.0 11.0 0.0 1.0   0.0 12.0 0.0 1.0
+0.0 21.0 0.0 1.0   0.0 22.0 0.0 1.0
+
+0.0 0.0 11.0 1.0
+
+[test]
+draw quad
+todo(d3d12) probe (200, 200) f32(150.0, 89.0, 0.0, 10.0)
+todo(d3d12) probe (400, 200) f32(156.0, 92.0, 0.0, 10.0)
+todo(d3d12) probe (200, 400) f32(67.0, 56.0, 0.0, 10.0)
+todo(d3d12) probe (400, 400) f32(73.0, 59.0, 0.0, 10.0)
+
+[srv 0]
+size (2d, 4, 4)
+levels 3
+min-lod-clamp 1.5
+
+11.0 0.0 0.0 1.0   12.0 0.0 0.0 1.0   13.0 0.0 0.0 1.0   14.0 0.0 0.0 1.0
+21.0 0.0 0.0 1.0   22.0 0.0 0.0 1.0   23.0 0.0 0.0 1.0   24.0 0.0 0.0 1.0
+31.0 0.0 0.0 1.0   32.0 0.0 0.0 1.0   33.0 0.0 0.0 1.0   34.0 0.0 0.0 1.0
+41.0 0.0 0.0 1.0   42.0 0.0 0.0 1.0   43.0 0.0 0.0 1.0   44.0 0.0 0.0 1.0
+
+0.0 11.0 0.0 1.0   0.0 12.0 0.0 1.0
+0.0 21.0 0.0 1.0   0.0 22.0 0.0 1.0
+
+0.0 0.0 11.0 1.0
+
+[test]
+draw quad
+todo(d3d12) probe (200, 200) f32(0.0, 89.0, 55.0, 10.0)
+todo(d3d12) probe (400, 200) f32(0.0, 92.0, 55.0, 10.0)
+todo(d3d12) probe (200, 400) f32(0.0, 56.0, 55.0, 10.0)
+todo(d3d12) probe (400, 400) f32(0.0, 59.0, 55.0, 10.0)
+
+% When both a texture min LOD clamp and a sample call clamp argument are
+% present, the maximum is taken (i.e., both requirements have to be satisfied).
+
+[require]
+shader model >= 5.0
+min-lod-clamp
+
+[pixel shader todo]
+sampler s;
+Texture2D t;
+uniform float clamp;
+
+float4 main(float2 coord : texcoord) : sv_target
+{
+    return round(10 * t.Sample(s, coord, uint2(0, 0), clamp));
+}
+
+[test]
+write cbv-0 (0) f32(0.0)
+todo draw quad
+probe (200, 200) f32(0.0, 89.0, 55.0, 10.0)
+probe (400, 200) f32(0.0, 92.0, 55.0, 10.0)
+probe (200, 400) f32(0.0, 56.0, 55.0, 10.0)
+probe (400, 400) f32(0.0, 59.0, 55.0, 10.0)
+write cbv-0 (0) f32(0.5)
+todo draw quad
+probe (200, 200) f32(0.0, 89.0, 55.0, 10.0)
+probe (400, 200) f32(0.0, 92.0, 55.0, 10.0)
+probe (200, 400) f32(0.0, 56.0, 55.0, 10.0)
+probe (400, 400) f32(0.0, 59.0, 55.0, 10.0)
+write cbv-0 (0) f32(1.0)
+todo draw quad
+probe (200, 200) f32(0.0, 89.0, 55.0, 10.0)
+probe (400, 200) f32(0.0, 92.0, 55.0, 10.0)
+probe (200, 400) f32(0.0, 56.0, 55.0, 10.0)
+probe (400, 400) f32(0.0, 59.0, 55.0, 10.0)
+write cbv-0 (0) f32(1.5)
+todo draw quad
+probe (200, 200) f32(0.0, 89.0, 55.0, 10.0)
+probe (400, 200) f32(0.0, 92.0, 55.0, 10.0)
+probe (200, 400) f32(0.0, 56.0, 55.0, 10.0)
+probe (400, 400) f32(0.0, 59.0, 55.0, 10.0)
+write cbv-0 (0) f32(2.0)
+todo draw quad
+probe (200, 200) f32(0.0, 0.0, 110.0, 10.0)
+probe (400, 200) f32(0.0, 0.0, 110.0, 10.0)
+probe (200, 400) f32(0.0, 0.0, 110.0, 10.0)
+probe (400, 400) f32(0.0, 0.0, 110.0, 10.0)
+
+[require]
+shader model >= 4.0
+
+[srv 0]
 size (2d, 2, 2)
 0.0 0.0 0.0 0.0     0.0 0.0 0.0 0.0
 0.0 0.0 0.0 0.0     2621.0 0.0 -2621.0 0.0

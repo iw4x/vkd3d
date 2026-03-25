@@ -573,6 +573,7 @@ static const char *const shader_cap_strings[] =
     [SHADER_CAP_FOG]                 = "fog",
     [SHADER_CAP_GEOMETRY_SHADER]     = "geometry-shader",
     [SHADER_CAP_INT64]               = "int64",
+    [SHADER_CAP_MIN_LOD_CLAMP]       = "min-lod-clamp",
     [SHADER_CAP_NATIVE_16_BIT]       = "native-16-bit",
     [SHADER_CAP_POINT_SIZE]          = "point-size",
     [SHADER_CAP_ROV]                 = "rov",
@@ -861,6 +862,14 @@ static void parse_resource_directive(struct resource_params *resource, const cha
         char *rest;
 
         resource->desc.level_count = strtoul(line, &rest, 10);
+        if (rest == line)
+            fatal_error("Malformed texture directive '%s'.\n", line);
+    }
+    else if (match_string(line, "min-lod-clamp", &line))
+    {
+        char *rest;
+
+        resource->desc.min_lod_clamp = strtof(line, &rest);
         if (rest == line)
             fatal_error("Malformed texture directive '%s'.\n", line);
     }

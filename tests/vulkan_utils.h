@@ -202,8 +202,10 @@ static inline VkImage create_vulkan_image(const struct vulkan_test_context *cont
 }
 
 static inline VkImageView create_vulkan_image_view(const struct vulkan_test_context *context, VkImage image,
-        VkFormat format, VkImageAspectFlags aspect_mask, VkImageType image_type, bool cube, unsigned int layer_count)
+        VkFormat format, VkImageAspectFlags aspect_mask, VkImageType image_type, bool cube,
+        unsigned int layer_count, float min_lod_clamp)
 {
+    VkImageViewMinLodCreateInfoEXT min_lod_info = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_MIN_LOD_CREATE_INFO_EXT};
     VkImageViewCreateInfo view_info = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
     VkImageView view;
 
@@ -224,6 +226,12 @@ static inline VkImageView create_vulkan_image_view(const struct vulkan_test_cont
     view_info.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
     view_info.subresourceRange.baseArrayLayer = 0;
     view_info.subresourceRange.layerCount = layer_count;
+
+    if (min_lod_clamp != 0.0f)
+    {
+        min_lod_info.minLod = min_lod_clamp;
+        view_info.pNext = &min_lod_info;
+    }
 
     VK_CALL(vkCreateImageView(context->device, &view_info, NULL, &view));
     return view;

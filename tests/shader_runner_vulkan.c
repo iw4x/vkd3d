@@ -101,6 +101,7 @@ static void resource_init_texture(struct vulkan_shader_runner *runner, struct vu
     VkImageCreateFlags flags = 0;
     VkBuffer staging_buffer;
     VkImageType image_type;
+    float min_lod_clamp;
     void *data;
 
     if (params->desc.type == RESOURCE_TYPE_UAV)
@@ -117,11 +118,13 @@ static void resource_init_texture(struct vulkan_shader_runner *runner, struct vu
     if (params->desc.dimension == RESOURCE_DIMENSION_CUBE)
         flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
+    min_lod_clamp = runner->caps.shader_caps[SHADER_CAP_MIN_LOD_CLAMP] ? desc->min_lod_clamp : 0.0f;
+
     resource->image = create_vulkan_image(context, image_type, desc->width, desc->height, desc->depth,
             desc->level_count, desc->layer_count, desc->sample_count, usage, format, flags, &resource->memory);
     resource->image_view = create_vulkan_image_view(context,
             resource->image, format, VK_IMAGE_ASPECT_COLOR_BIT, image_type,
-            (params->desc.dimension == RESOURCE_DIMENSION_CUBE), layer_count);
+            (params->desc.dimension == RESOURCE_DIMENSION_CUBE), layer_count, min_lod_clamp);
 
     if (!params->data)
     {
@@ -228,7 +231,7 @@ static struct resource *vulkan_runner_create_resource(struct shader_runner *r, c
                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                     format, 0, &resource->memory);
             resource->image_view = create_vulkan_image_view(context,
-                    resource->image, format, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_TYPE_2D, false, layer_count);
+                    resource->image, format, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_TYPE_2D, false, layer_count, 0.0f);
 
             begin_command_buffer(context);
             transition_image_layout(context, resource->image, VK_IMAGE_ASPECT_COLOR_BIT, 0,
@@ -244,7 +247,7 @@ static struct resource *vulkan_runner_create_resource(struct shader_runner *r, c
                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                     format, 0, &resource->memory);
             resource->image_view = create_vulkan_image_view(context,
-                    resource->image, format, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_TYPE_2D, false, layer_count);
+                    resource->image, format, VK_IMAGE_ASPECT_DEPTH_BIT, VK_IMAGE_TYPE_2D, false, layer_count, 0.0f);
 
             begin_command_buffer(context);
             transition_image_layout(context, resource->image, VK_IMAGE_ASPECT_DEPTH_BIT, 0, layer_count,
@@ -1811,6 +1814,7 @@ static bool check_device_extensions(struct vulkan_shader_runner *runner,
     device_extensions[] =
     {
         {VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME},
+        {VK_EXT_IMAGE_VIEW_MIN_LOD_EXTENSION_NAME},
         {VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME},
         {VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME},
         {VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME},
@@ -1840,6 +1844,8 @@ static bool check_device_extensions(struct vulkan_shader_runner *runner,
             enabled_extensions->names[enabled_extensions->count++] = name;
             if (!strcmp(name, VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME))
                 runner->caps.shader_caps[SHADER_CAP_ROV] = true;
+            if (!strcmp(name, VK_EXT_IMAGE_VIEW_MIN_LOD_EXTENSION_NAME))
+                runner->caps.shader_caps[SHADER_CAP_MIN_LOD_CLAMP] = true;
             if (!strcmp(name, VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
                 runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX] = true;
             if (!strcmp(name, VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME))
