@@ -459,10 +459,9 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 uint 0xc1004300   %  3.5 -2.5
-uniform 1 uint4 0x3800c480  % -4.5  0.5
+write cbv-0 (0) u16(0x4300, 0xc100, 0xc480, 0x3800)     % 3.5 -2.5 -4.5 0.5
 draw quad
-probe (0, 0) rgba(-5.25, -13.75, 6.75, 2.75)
+probe (0, 0) f32(-5.25, -13.75, 6.75, 2.75)
 
 [pixel shader]
 uniform half4 u;

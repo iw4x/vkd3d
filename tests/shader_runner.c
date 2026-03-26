@@ -69,8 +69,10 @@ struct literal
     {
         DATA_F32,
         DATA_F64,
+        DATA_I16,
         DATA_I32,
         DATA_I64,
+        DATA_U16,
         DATA_U32,
         DATA_U64,
     } data_type;
@@ -82,8 +84,10 @@ struct literal
         struct vec4 f32;
         struct i64vec2 i64;
         struct ivec4 i32;
+        struct i16v4 i16;
         struct u64vec2 u64;
         struct uvec4 u32;
+        struct u16v4 u16;
     } v;
 };
 
@@ -1027,6 +1031,40 @@ static void uniform_buffer_write(struct uniform_buffer *u, size_t offset, size_t
     memcpy(&u->elements[offset], data, count * sizeof(*u->elements));
 }
 
+static void read_i16(const char **line, int16_t *i)
+{
+    char *rest;
+    long val;
+
+    errno = 0;
+    val = strtol(*line, &rest, 0);
+    if (errno)
+        fatal_error("Malformed i16 constant '%s'.\n", *line);
+
+    *i = val;
+    if (*i != val)
+        fatal_error("Out of range i16 constant '%.*s'.\n", (int)(rest - *line), *line);
+
+    *line = rest;
+}
+
+static void read_u16(const char **line, uint16_t *u)
+{
+    unsigned long val;
+    char *rest;
+
+    errno = 0;
+    val = strtoul(*line, &rest, 0);
+    if (errno)
+        fatal_error("Malformed u16 constant '%s'.\n", *line);
+
+    *u = val;
+    if (*u != val)
+        fatal_error("Out of range u16 constant '%.*s'.\n", (int)(rest - *line), *line);
+
+    *line = rest;
+}
+
 static void read_int(const char **line, int *i, bool is_uniform)
 {
     char *rest;
@@ -1285,6 +1323,61 @@ static void read_literal(const char **line, struct literal *l)
         *line = close_parentheses(*line);
         ++*line;
         l->u32_count = l->element_count * 2;
+
+        return;
+    }
+
+    if (match_string(*line, "u16", line) || (is_signed = match_string(*line, "i16", line)))
+    {
+        if (**line != '(')
+            fatal_error("Malformed literal '%s'.\n", *line);
+        ++*line;
+
+        l->data_type = is_signed ? DATA_I16 : DATA_U16;
+        if (is_signed)
+            read_i16(line, &l->v.i16.x);
+        else
+            read_u16(line, &l->v.u16.x);
+        ++l->element_count;
+
+        while (isspace(**line))
+            ++*line;
+        if (**line == ',')
+        {
+            ++*line;
+            if (is_signed)
+                read_i16(line, &l->v.i16.y);
+            else
+                read_u16(line, &l->v.u16.y);
+            ++l->element_count;
+
+            while (isspace(**line))
+                ++*line;
+            if (**line == ',')
+            {
+                ++*line;
+                if (is_signed)
+                    read_i16(line, &l->v.i16.z);
+                else
+                    read_u16(line, &l->v.u16.z);
+                ++l->element_count;
+
+                while (isspace(**line))
+                    ++*line;
+                if (**line != ',')
+                    fatal_error("Malformed literal '%s'.\n", *line);
+                ++*line;
+                if (is_signed)
+                    read_i16(line, &l->v.i16.w);
+                else
+                    read_u16(line, &l->v.u16.w);
+                ++l->element_count;
+            }
+        }
+
+        *line = close_parentheses(*line);
+        ++*line;
+        l->u32_count = (l->element_count + 1) / 2;
 
         return;
     }

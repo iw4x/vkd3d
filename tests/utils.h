@@ -64,6 +64,16 @@ struct dvec2
     double x, y;
 };
 
+struct i16v4
+{
+    int16_t x, y, z, w;
+};
+
+struct u16v4
+{
+    uint16_t x, y, z, w;
+};
+
 struct ivec4
 {
     int x, y, z, w;

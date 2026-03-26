@@ -410,8 +410,7 @@ int4 main() : sv_target
 }
 
 [test]
-uniform 0 uint 0xfff70007
-uniform 1 uint4 0x9fff9
+write cbv-0 (0) i16(7, -9, -7, 9)
 draw quad
 probe (0, 0) i32(-21, -45, 21, 45)
 
