@@ -60,3 +60,51 @@ float4 main(float2 tex : texcoord) : sv_target
 projected 0 enable
 draw quad
 probe (0, 0) f32(0.4, 0.2, 0.0, 0.1)
+
+% _dw and _dz modifiers.
+
+[pixel shader d3dbc-hex]
+% TODO: Convert to assembly or HLSL.
+ffff0104                                                % ps_1_4
+00000042 800f0000 baf40000                              % texld r0, t0_dw.xyw
+0000ffff                                                % end
+
+[test]
+projected 0 disable
+draw quad
+probe (0, 0) f32(0.3, 0.1, 0.0, 0.1)
+
+[pixel shader d3dbc-hex]
+% TODO: Convert to assembly or HLSL.
+ffff0104                                                % ps_1_4
+00000042 800f0000 baf40000                              % texld r0, t0_dw.xyw
+0000ffff                                                % end
+
+[test]
+projected 0 disable
+draw quad
+probe (0, 0) f32(0.3, 0.1, 0.0, 0.1)
+
+[pixel shader d3dbc-hex]
+ffff0104                                                % ps_1_4
+00000040 80070001 b0e40000                              % texcrd r1, t0
+0000fffd                                                % phase
+00000042 800f0000 89e40001                              % texld r0, r1_dz
+0000ffff                                                % end
+
+[test]
+projected 0 disable
+draw quad
+probe (0, 0) f32(0.1, 0.0, 0.0, 0.1)
+
+[pixel shader d3dbc-hex]
+ffff0104                                                % ps_1_4
+00000040 80030000 baf40000                              % texcrd r0.xy, t0_dw.xyw
+00000001 800c0000 a0e40000                              % mov r0.zw, c0
+0000ffff                                                % end
+
+[test]
+projected 0 disable
+write cbv-f32 (0) f32(0.0, 0.0, 0.0, 0.0)
+draw quad
+probe (0, 0) f32(0.7, 0.25, 0.0, 0.0)

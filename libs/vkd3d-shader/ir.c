@@ -2070,16 +2070,7 @@ static enum vkd3d_result vsir_program_lower_texcrd(struct vsir_program *program,
         struct vkd3d_shader_instruction *ins, struct vkd3d_shader_message_context *message_context)
 {
     /* texcrd DST, t# -> mov DST, t# */
-
-    if (ins->src[0].modifiers)
-    {
-        vkd3d_shader_error(message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
-                "Aborting due to not yet implemented feature: texcrd source modifier.");
-        return VKD3D_ERROR_NOT_IMPLEMENTED;
-    }
-
     ins->opcode = VSIR_OP_MOV;
-
     return VKD3D_OK;
 }
 
@@ -2091,13 +2082,6 @@ static enum vkd3d_result vsir_program_lower_texld_sm1(struct vsir_program *progr
     struct vsir_src_operand *srcs;
 
     /* texld DST, t# -> sample DST, t#, resource#, sampler# */
-
-    if (ins->src[0].modifiers)
-    {
-        vkd3d_shader_error(message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
-                "Aborting due to not yet implemented feature: texld source modifier.");
-        return VKD3D_ERROR_NOT_IMPLEMENTED;
-    }
 
     if (!(srcs = vsir_program_get_src_operands(program, 4)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -3207,6 +3191,38 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
                     new_opcodes[0] = VSIR_OP_ABS;
                     new_opcodes[1] = VSIR_OP_NEG;
                     break;
+
+                case VKD3DSPSM_DW:
+                case VKD3DSPSM_DZ:
+                    if (!(new_ins = vsir_program_iterator_insert_before(&it, &new_it, 1)))
+                        return VKD3D_ERROR_OUT_OF_MEMORY;
+                    ins = vsir_program_iterator_current(&it);
+
+                    if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_DIV, 1, 2))
+                    {
+                        vkd3d_shader_instruction_make_nop(new_ins);
+                        return VKD3D_ERROR_OUT_OF_MEMORY;
+                    }
+
+                    vsir_dst_operand_init_ssa_f32v4(&new_ins->dst[0], program->ssa_count);
+                    new_ins->src[0] = *src;
+                    new_ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+                    new_ins->src[0].modifiers = VKD3DSPSM_NONE;
+                    new_ins->src[1] = new_ins->src[0];
+                    if (!vsir_operand_clone_indirect_indices(&new_ins->src[1].reg, program))
+                    {
+                        vkd3d_shader_instruction_make_nop(new_ins);
+                        return VKD3D_ERROR_OUT_OF_MEMORY;
+                    }
+                    if (src->modifiers == VKD3DSPSM_DW)
+                        new_ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(W, W, W, W);
+                    else
+                        new_ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z);
+
+                    vsir_src_operand_init_ssa_f32v4(src, program->ssa_count);
+
+                    ++program->ssa_count;
+                    continue;
 
                 default:
                     vkd3d_shader_error(ctx->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
