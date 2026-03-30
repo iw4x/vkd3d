@@ -1,14 +1,12 @@
-[require]
-shader model >= 4.0
-
 [dsv]
 size (2d, 640, 480)
 
 [pixel shader]
 float depth;
 
-float main() : SV_Depth
+float main(out float4 colour : SV_Target) : SV_Depth
 {
+    colour = 0;
     return depth;
 }
 
@@ -16,26 +14,23 @@ float main() : SV_Depth
 uniform 0 float 0.0
 clear dsv f32(1.0)
 depth less
-draw quad
+todo(sm<4) draw quad
 probe dsv (0,0) f32(0.0)
 
 uniform 0 float 0.75
 clear dsv f32(1.0)
-draw quad
+todo(sm<4) draw quad
 probe dsv (0,0) f32(0.75)
 
 clear dsv f32(0.5)
 depth greater
-draw quad
+todo(sm<4) draw quad
 probe dsv (0,0) f32(0.75)
 
 depth less
 clear dsv f32(0.5)
-draw quad
+todo(sm<4) draw quad
 probe dsv (0,0) f32(0.5)
-
-[require]
-shader model >= 5.0
 
 [rtv 0]
 format r32g32b32a32-float
@@ -50,7 +45,7 @@ void main(float4 in_position : POSITION, out float4 out_position : SV_Position)
     out_position.z = depth.x;
 }
 
-[pixel shader todo]
+[pixel shader fail(sm<5) todo(sm>=5)]
 float2 depth;
 
 float4 main(out float out_depth : SV_DepthLessEqual) : SV_Target
@@ -76,7 +71,7 @@ probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 probe dsv (0,0) f32(0.5)
 
 
-[pixel shader todo]
+[pixel shader fail(sm<5) todo(sm>=5)]
 float2 depth;
 
 float4 main(out float out_depth : SV_DepthGreaterEqual) : SV_Target

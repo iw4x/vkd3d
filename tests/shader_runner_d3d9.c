@@ -186,12 +186,36 @@ static D3DTEXTUREADDRESS sampler_address_to_d3d9(D3D12_TEXTURE_ADDRESS_MODE addr
     vkd3d_unreachable();
 }
 
+static D3DMULTISAMPLE_TYPE get_multisample_type(D3DFORMAT format, unsigned int sample_count)
+{
+    D3DMULTISAMPLE_TYPE ms_type;
+    IDirect3D9 *d3d;
+    HRESULT hr;
+
+    if (sample_count == 1)
+        return D3DMULTISAMPLE_NONE;
+
+    assert(sample_count <= 16);
+    ms_type = (D3DMULTISAMPLE_TYPE)sample_count;
+
+    d3d = pDirect3DCreate9(D3D_SDK_VERSION);
+    ok(!!d3d, "Failed to create a D3D object.\n");
+
+    hr = IDirect3D9_CheckDeviceMultiSampleType(d3d, test_options.adapter_idx,
+            D3DDEVTYPE_HAL, format, windowed, ms_type, NULL);
+    IDirect3D9_Release(d3d);
+
+    if (FAILED(hr))
+        fatal_error("Format #%x with sample count %u is not supported.\n", format, sample_count);
+
+    return ms_type;
+}
+
 static struct resource *d3d9_runner_create_resource(struct shader_runner *r, const struct resource_params *params)
 {
     struct d3d9_shader_runner *runner = d3d9_shader_runner(r);
     IDirect3DDevice9 *device = runner->device;
     struct d3d9_resource *resource;
-    D3DMULTISAMPLE_TYPE ms_type;
     D3DFORMAT format;
     HRESULT hr;
     void *data;
@@ -209,6 +233,10 @@ static struct resource *d3d9_runner_create_resource(struct shader_runner *r, con
             format = D3DFMT_R32F;
             break;
 
+        case DXGI_FORMAT_D32_FLOAT:
+            format = D3DFMT_D32F_LOCKABLE;
+            break;
+
         default:
             format = D3DFMT_UNKNOWN;
             break;
@@ -217,36 +245,17 @@ static struct resource *d3d9_runner_create_resource(struct shader_runner *r, con
     switch (params->desc.type)
     {
         case RESOURCE_TYPE_RENDER_TARGET:
-            ms_type = D3DMULTISAMPLE_NONE;
-            if (params->desc.sample_count > 1)
-            {
-                IDirect3D9 *d3d;
-
-                assert(params->desc.sample_count <= 16);
-                ms_type = (D3DMULTISAMPLE_TYPE)params->desc.sample_count;
-
-                d3d = pDirect3DCreate9(D3D_SDK_VERSION);
-                ok(!!d3d, "Failed to create a D3D object.\n");
-
-                hr = IDirect3D9_CheckDeviceMultiSampleType(d3d, test_options.adapter_idx, D3DDEVTYPE_HAL,
-                        format, windowed, ms_type, NULL);
-                IDirect3D9_Release(d3d);
-
-                if (FAILED(hr))
-                {
-                    fatal_error("Format #%x with sample count %u is not supported.\n",
-                            format, params->desc.sample_count);
-                    break;
-                }
-            }
-
             hr = IDirect3DDevice9_CreateRenderTarget(device, params->desc.width, params->desc.height,
-                    format, ms_type, 0, FALSE, &resource->surface, NULL);
+                    format, get_multisample_type(format, params->desc.sample_count),
+                    0, FALSE, &resource->surface, NULL);
             ok(hr == D3D_OK, "Failed to create render target, hr %#lx.\n", hr);
             break;
 
         case RESOURCE_TYPE_DEPTH_STENCIL:
-            fatal_error("DSVs are not supported.\n");
+            hr = IDirect3DDevice9_CreateDepthStencilSurface(device, params->desc.width, params->desc.height,
+                    format, get_multisample_type(format, params->desc.sample_count),
+                    0, FALSE, &resource->surface, NULL);
+            ok(hr == D3D_OK, "Failed to create depth surface, hr %#lx.\n", hr);
             break;
 
         case RESOURCE_TYPE_TEXTURE:
@@ -431,14 +440,30 @@ static uint32_t d3d_color_from_vec4(const struct vec4 *v)
             vkd3d_make_u16(v->x * 255.0f, v->w * 255.0f));
 }
 
-static void d3d9_runner_clear(struct shader_runner *r, struct resource *resource, const struct vec4 *clear_value)
+static void d3d9_runner_clear(struct shader_runner *r, struct resource *res, const struct vec4 *clear_value)
 {
     struct d3d9_shader_runner *runner = d3d9_shader_runner(r);
+    struct d3d9_resource *resource = d3d9_resource(res);
     HRESULT hr;
 
-    hr = IDirect3DDevice9_ColorFill(runner->device, d3d9_resource(resource)->surface,
-            NULL, d3d_color_from_vec4(clear_value));
-    ok(hr == S_OK, "Got hr %#lx.\n", hr);
+    switch (resource->r.desc.type)
+    {
+        case RESOURCE_TYPE_RENDER_TARGET:
+            hr = IDirect3DDevice9_ColorFill(runner->device, resource->surface,
+                    NULL, d3d_color_from_vec4(clear_value));
+            ok(hr == S_OK, "Got hr %#lx.\n", hr);
+            break;
+
+        case RESOURCE_TYPE_DEPTH_STENCIL:
+            hr = IDirect3DDevice9_SetDepthStencilSurface(runner->device, resource->surface);
+            ok(hr == S_OK, "Got hr %#lx.\n", hr);
+            hr = IDirect3DDevice9_Clear(runner->device, 0, NULL, D3DCLEAR_ZBUFFER, 0, clear_value->x, 0);
+            ok(hr == S_OK, "Got hr %#lx.\n", hr);
+            break;
+
+        default:
+            fatal_error("Clears are not implemented for resource type %u.\n", resource->r.desc.type);
+    }
 }
 
 static bool d3d9_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY primitive_topology,
@@ -528,7 +553,13 @@ static bool d3d9_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pri
                 break;
 
             case RESOURCE_TYPE_DEPTH_STENCIL:
-                vkd3d_unreachable();
+                hr = IDirect3DDevice9_SetDepthStencilSurface(device, resource->surface);
+                ok(hr == D3D_OK, "Failed to set depth surface, hr %#lx.\n", hr);
+                if (resource->r.desc.width < fb_width)
+                    fb_width = resource->r.desc.width;
+                if (resource->r.desc.height < fb_height)
+                    fb_height = resource->r.desc.height;
+                break;
 
             case RESOURCE_TYPE_TEXTURE:
                 assert(resource->r.desc.dimension != RESOURCE_DIMENSION_BUFFER);
@@ -594,6 +625,12 @@ static bool d3d9_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pri
                 (sampler->filter & 0x1) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
         ok(hr == D3D_OK, "Failed to set sampler state, hr %#lx.\n", hr);
     }
+
+    /* D3DCMPFUNC is compatible with D3D12_COMPARISON_FUNC. */
+    hr = IDirect3DDevice9_SetRenderState(device, D3DRS_ZFUNC, runner->r.depth_func);
+    ok(hr == D3D_OK, "Failed to set render state, hr %#lx.\n", hr);
+    hr = IDirect3DDevice9_SetRenderState(device, D3DRS_ZENABLE, TRUE);
+    ok(hr == D3D_OK, "Failed to set render state, hr %#lx.\n", hr);
 
     hr = IDirect3DDevice9_SetRenderState(device, D3DRS_ALPHATESTENABLE, TRUE);
     ok(hr == D3D_OK, "Failed to set render state, hr %#lx.\n", hr);
@@ -741,33 +778,49 @@ static struct resource_readback *d3d9_runner_get_resource_readback(struct shader
     D3DSURFACE_DESC desc;
     HRESULT hr;
 
-    assert(resource->r.desc.type == RESOURCE_TYPE_RENDER_TARGET);
     if (sub_resource_idx)
         fatal_error("Unsupported sub-resource index %u.\n", sub_resource_idx);
 
     hr = IDirect3DSurface9_GetDesc(surface, &desc);
     ok(hr == D3D_OK, "Failed to get surface desc, hr %#lx.\n", hr);
-    hr = IDirect3DDevice9Ex_CreateOffscreenPlainSurface(runner->device, desc.Width,
-            desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &rb->surface, NULL);
-    ok(hr == D3D_OK, "Failed to create surface, hr %#lx.\n", hr);
 
-    if (desc.MultiSampleType != D3DMULTISAMPLE_NONE)
+    switch (resource->r.desc.type)
     {
-        hr = IDirect3DDevice9_CreateRenderTarget(runner->device, desc.Width, desc.Height, desc.Format,
-                D3DMULTISAMPLE_NONE, 0, FALSE, &resolved_surface, NULL);
-        ok(hr == D3D_OK, "Failed to create resolved render target, hr %#lx.\n", hr);
+        case RESOURCE_TYPE_DEPTH_STENCIL:
+            rb->surface = resource->surface;
+            IDirect3DSurface9_AddRef(rb->surface);
+            break;
 
-        hr = IDirect3DDevice9_StretchRect(runner->device, surface, NULL, resolved_surface, NULL, D3DTEXF_NONE);
-        ok(hr == D3D_OK, "Failed to resolve multisampled surface, hr %#lx.\n", hr);
+        case RESOURCE_TYPE_RENDER_TARGET:
+            hr = IDirect3DDevice9Ex_CreateOffscreenPlainSurface(runner->device, desc.Width,
+                    desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &rb->surface, NULL);
+            ok(hr == D3D_OK, "Failed to create surface, hr %#lx.\n", hr);
 
-        surface = resolved_surface;
+            if (desc.MultiSampleType != D3DMULTISAMPLE_NONE)
+            {
+                hr = IDirect3DDevice9_CreateRenderTarget(runner->device, desc.Width, desc.Height, desc.Format,
+                        D3DMULTISAMPLE_NONE, 0, FALSE, &resolved_surface, NULL);
+                ok(hr == D3D_OK, "Failed to create resolved render target, hr %#lx.\n", hr);
+
+                hr = IDirect3DDevice9_StretchRect(runner->device, surface, NULL, resolved_surface, NULL, D3DTEXF_NONE);
+                ok(hr == D3D_OK, "Failed to resolve multisampled surface, hr %#lx.\n", hr);
+
+                surface = resolved_surface;
+            }
+
+            hr = IDirect3DDevice9Ex_GetRenderTargetData(runner->device, surface, rb->surface);
+            ok(hr == D3D_OK, "Failed to get render target data, hr %#lx.\n", hr);
+
+            if (resolved_surface)
+                IDirect3DSurface9_Release(resolved_surface);
+            break;
+
+        case RESOURCE_TYPE_VERTEX_BUFFER:
+        case RESOURCE_TYPE_TEXTURE:
+        case RESOURCE_TYPE_UAV:
+        case RESOURCE_TYPE_UNIFORM_BUFFER:
+            assert(0);
     }
-
-    hr = IDirect3DDevice9Ex_GetRenderTargetData(runner->device, surface, rb->surface);
-    ok(hr == D3D_OK, "Failed to get render target data, hr %#lx.\n", hr);
-
-    if (resolved_surface)
-        IDirect3DSurface9_Release(resolved_surface);
 
     hr = IDirect3DSurface9_LockRect(rb->surface, &map_desc, NULL, D3DLOCK_READONLY);
     ok(hr == D3D_OK, "Failed to lock surface, hr %#lx.\n", hr);
