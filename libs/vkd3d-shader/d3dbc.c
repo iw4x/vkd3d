@@ -951,6 +951,10 @@ static void shader_sm1_scan_register(struct vkd3d_shader_sm1_parser *sm1,
             record_constant_register(sm1, VKD3D_SHADER_D3DBC_BOOL_CONSTANT_REGISTER, register_index, from_def);
             break;
 
+        case VKD3DSPR_DEPTHOUT:
+            bitmap_set(program->io_dcls, VKD3DSPR_DEPTHOUT);
+            break;
+
         default:
             break;
     }

@@ -14,22 +14,22 @@ float main(out float4 colour : SV_Target) : SV_Depth
 uniform 0 float 0.0
 clear dsv f32(1.0)
 depth less
-todo(sm<4) draw quad
+draw quad
 probe dsv (0,0) f32(0.0)
 
 uniform 0 float 0.75
 clear dsv f32(1.0)
-todo(sm<4) draw quad
+draw quad
 probe dsv (0,0) f32(0.75)
 
 clear dsv f32(0.5)
 depth greater
-todo(sm<4) draw quad
+draw quad
 probe dsv (0,0) f32(0.75)
 
 depth less
 clear dsv f32(0.5)
-todo(sm<4) draw quad
+draw quad
 probe dsv (0,0) f32(0.5)
 
 [rtv 0]
