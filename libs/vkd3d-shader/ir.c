@@ -2080,6 +2080,66 @@ static enum vkd3d_result vsir_program_lower_texcrd(struct vsir_program *program,
     return VKD3D_OK;
 }
 
+static enum vkd3d_result vsir_program_lower_texdepth(struct vsir_program *program,
+        struct vsir_program_iterator *texdepth, struct vkd3d_shader_message_context *message_context)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(texdepth);
+    const struct vkd3d_shader_location location = ins->location;
+    uint32_t ssa_eq, ssa_div, ssa_sat;
+    struct vsir_program_iterator it;
+
+    /* texdepth r5
+     *      ->
+     * eq srEQ, r5.y, 0.0
+     * div srDIV, r5.x, r5.y
+     * saturate srSAT, srDIV
+     * movc oDepth, srEQ, 1.0, srSAT */
+
+    if (!(ins = vsir_program_iterator_insert_before(texdepth, &it, 3)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_EQO, 1, 2))
+        goto fail;
+    ssa_eq = program->ssa_count++;
+    vsir_dst_operand_init_ssa_bool(&ins->dst[0], ssa_eq);
+    vsir_src_operand_init_temp_f32v4(&ins->src[0], 5);
+    ins->src[0].swizzle = VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y);
+    vsir_src_operand_init_const_f32(&ins->src[1], 0.0f);
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_DIV, 1, 2))
+        goto fail;
+    ssa_div = program->ssa_count++;
+    vsir_dst_operand_init_ssa_f32(&ins->dst[0], ssa_div);
+    vsir_src_operand_init_temp_f32v4(&ins->src[0], 5);
+    ins->src[0].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+    vsir_src_operand_init_temp_f32v4(&ins->src[1], 5);
+    ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y);
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_SATURATE, 1, 1))
+        goto fail;
+    ssa_sat = program->ssa_count++;
+    vsir_dst_operand_init_ssa_f32(&ins->dst[0], ssa_sat);
+    vsir_src_operand_init_ssa_f32(&ins->src[0], ssa_div);
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MOVC, 1, 3))
+        goto fail;
+    vsir_dst_operand_init(&ins->dst[0], VKD3DSPR_DEPTHOUT, VSIR_DATA_F32, 0);
+    ins->dst[0].reg.dimension = VSIR_DIMENSION_SCALAR;
+    vsir_src_operand_init_ssa_bool(&ins->src[0], ssa_eq);
+    vsir_src_operand_init_const_f32(&ins->src[1], 1.0f);
+    vsir_src_operand_init_ssa_f32(&ins->src[2], ssa_sat);
+
+    bitmap_set(program->io_dcls, VKD3DSPR_DEPTHOUT);
+    return VKD3D_OK;
+
+fail:
+    vsir_program_iterator_nop_range(&it, texdepth, &location);
+
+    return VKD3D_ERROR_OUT_OF_MEMORY;
+}
+
 static enum vkd3d_result vsir_program_lower_texld_sm1(struct vsir_program *program,
         struct vkd3d_shader_instruction *ins, struct vkd3d_shader_message_context *message_context)
 {
@@ -2958,6 +3018,10 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 ret = vsir_program_lower_texcrd(program, ins, message_context);
                 break;
 
+            case VSIR_OP_TEXDEPTH:
+                ret = vsir_program_lower_texdepth(program, &it, message_context);
+                break;
+
             case VSIR_OP_TEXKILL:
                 ret = vsir_program_lower_texkill(program, &it, &tmp_idx);
                 break;
@@ -2983,7 +3047,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 ret = vsir_program_lower_texldl(program, ins);
                 break;
 
-            case VSIR_OP_TEXDEPTH:
             case VSIR_OP_TEXDP3:
             case VSIR_OP_TEXDP3TEX:
             case VSIR_OP_TEXM3x2PAD:
