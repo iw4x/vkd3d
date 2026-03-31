@@ -16227,18 +16227,7 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
     struct list semantic_vars, patch_semantic_vars;
     struct hlsl_ir_var *var;
 
-    ctx->domain = VKD3D_TESSELLATOR_DOMAIN_INVALID;
-    ctx->output_control_point_count = UINT_MAX;
-    ctx->output_primitive = 0;
-    ctx->partitioning = 0;
-    ctx->input_control_point_count = UINT_MAX;
-    ctx->max_vertex_count = 0;
-    ctx->input_primitive_type = VKD3D_PT_UNDEFINED;
-    ctx->output_topology_type = VKD3D_PT_UNDEFINED;
-
-    ctx->found_numthreads = 0;
-    memset(ctx->thread_count, 0, sizeof(ctx->thread_count));
-
+    hlsl_ctx_init_entry_function_attributes(ctx);
     parse_entry_function_attributes(ctx, entry_func);
     if (ctx->result)
         return ctx->result;
