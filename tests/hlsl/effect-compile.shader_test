@@ -577,7 +577,7 @@ technique10 t0
     }
 }
 
-[effect fail todo]
+[effect fail]
 struct patch_constant_data
 {
     float edges[2] : SV_TessFactor;

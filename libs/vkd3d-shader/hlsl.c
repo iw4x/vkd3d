@@ -5105,9 +5105,13 @@ void hlsl_ctx_init_entry_function_attributes(struct hlsl_ctx *ctx)
 {
     ctx->domain = VKD3D_TESSELLATOR_DOMAIN_INVALID;
     ctx->output_control_point_count = UINT_MAX;
+    ctx->output_control_point_type = NULL;
     ctx->output_primitive = 0;
     ctx->partitioning = 0;
+    ctx->patch_constant_func = NULL;
     ctx->input_control_point_count = UINT_MAX;
+    ctx->input_control_point_type = NULL;
+    ctx->input_primitive_param = NULL;
     ctx->max_vertex_count = 0;
     ctx->input_primitive_type = VKD3D_PT_UNDEFINED;
     ctx->output_topology_type = VKD3D_PT_UNDEFINED;
