@@ -14769,6 +14769,35 @@ static void vsir_validate_switch_monolithic(struct validation_context *ctx,
     ctx->inside_block = false;
 }
 
+static void vsir_validate_texdepth(struct validation_context *ctx,
+        const struct vkd3d_shader_instruction *instruction)
+{
+    const struct vkd3d_shader_version *version = &ctx->program->shader_version;
+
+    if (version->type != VKD3D_SHADER_TYPE_PIXEL)
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
+                "TEXDEPTH cannot be used in shader type %#x.", version->type);
+
+    if (version->major != 1 || version->minor != 4)
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_OPCODE,
+                "TEXDEPTH cannot be used in version %u.%u.", version->major, version->minor);
+
+    if (instruction->dst[0].write_mask != 0x3)
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_WRITE_MASK,
+                "Invalid TEXDEPTH write mask %#x.", instruction->dst[0].write_mask);
+
+    if (instruction->dst[0].reg.type != VKD3DSPR_TEMP)
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
+                "Invalid TEXDEPTH register type %#x.", instruction->dst[0].reg.type);
+
+    if (instruction->dst[0].reg.idx[0].offset != 5)
+        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_INDEX,
+                "Invalid TEXDEPTH register index %u.", instruction->dst[0].reg.idx[0].offset);
+
+    /* Strictly not an elementwise operation, but we expect the dest to be float. */
+    vsir_validate_float_elementwise_operation(ctx, instruction);
+}
+
 static void vsir_validate_ushr(struct validation_context *ctx,
         const struct vkd3d_shader_instruction *instruction)
 {
@@ -14904,6 +14933,7 @@ static const struct vsir_validator_instruction_desc vsir_validator_instructions[
     [VSIR_OP_SATURATE] =                         {1,   1, vsir_validate_float_or_double_elementwise_operation},
     [VSIR_OP_SWITCH] =                           {0,   1, vsir_validate_switch},
     [VSIR_OP_SWITCH_MONOLITHIC] =                {0, ~0u, vsir_validate_switch_monolithic},
+    [VSIR_OP_TEXDEPTH] =                         {1,   0, vsir_validate_texdepth},
     [VSIR_OP_USHR] =                             {1,   2, vsir_validate_ushr},
 };
 
