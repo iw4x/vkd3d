@@ -99,6 +99,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/clip-cull-distance-2.shader_test \
 	tests/hlsl/clip-planes.shader_test \
 	tests/hlsl/clip.shader_test \
+	tests/hlsl/color-clamping.shader_test \
 	tests/hlsl/combined-samplers.shader_test \
 	tests/hlsl/comma.shader_test \
 	tests/hlsl/compute.shader_test \
