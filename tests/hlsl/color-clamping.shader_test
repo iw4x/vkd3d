@@ -21,7 +21,7 @@ float4 main(float4 c : COLOR, float4 pos : SV_POSITION) : sv_target
 
 [test]
 draw quad
-todo if(sm<3) probe (0, 0) f32(0.0, 0.1, 0.1, 0.0)
+if(sm<3) probe (0, 0) f32(0.0, 0.1, 0.1, 0.0)
 if(sm>=3) probe (0, 0) f32(-0.2, 0.1, 0.2, -0.1)
 
 % This also happens for COLOR1.
@@ -43,7 +43,7 @@ float4 main(float4 c[2] : COLOR, float4 pos : SV_POSITION) : sv_target
 
 [test]
 todo(msl & sm>=6) draw quad
-todo if(sm<3) probe (0, 0) f32(0.0, 0.1, 0.1, 0.0)
+if(sm<3) probe (0, 0) f32(0.0, 0.1, 0.1, 0.0)
 if(sm>=3) probe (0, 0) f32(-0.2, 0.1, 0.2, -0.1)
 
 % The clamping doesn't happen for TEXCOORD.
@@ -107,4 +107,4 @@ ffff0101                                              % ps_1_1
 
 [test]
 draw quad
-todo probe (0, 0) f32(0.0, 0.1, 0.1, 0.0)
+probe (0, 0) f32(0.0, 0.1, 0.1, 0.0)

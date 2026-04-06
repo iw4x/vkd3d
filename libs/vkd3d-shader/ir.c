@@ -3618,6 +3618,32 @@ static enum vkd3d_result vsir_program_normalise_vs3_point_size_output(struct vsi
     return VKD3D_OK;
 }
 
+static enum vkd3d_result vsir_program_clamp_vs2_color_output(struct vsir_program *program,
+        struct vsir_transformation_context *ctx)
+{
+    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
+    struct vkd3d_shader_instruction *ins;
+
+    if (program->shader_version.type != VKD3D_SHADER_TYPE_VERTEX)
+        return VKD3D_OK;
+
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
+    {
+        if (vsir_instruction_is_dcl(ins))
+            continue;
+
+        for (size_t j = 0; j < ins->dst_count; ++j)
+        {
+            struct vsir_operand *reg = &ins->dst[j].reg;
+
+            if (reg->type == VKD3DSPR_ATTROUT)
+                ins->dst[j].modifiers |= VKD3DSPDM_SATURATE;
+        }
+    }
+
+    return VKD3D_OK;
+}
+
 static struct signature_element *add_signature_element(struct shader_signature *signature,
         const char *semantic_name, uint32_t semantic_index, uint32_t mask, uint32_t register_index,
         enum vkd3d_shader_interpolation_mode interpolation_mode)
@@ -15986,6 +16012,8 @@ enum vkd3d_result vsir_program_lower_d3dbc(struct vsir_program *program, uint64_
 
     if (program->shader_version.major == 3 && program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX)
         vsir_transform(&ctx, vsir_program_normalise_vs3_point_size_output);
+    if (program->shader_version.major <= 2 && program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX)
+        vsir_transform(&ctx, vsir_program_clamp_vs2_color_output);
 
     if (TRACE_ON() && ctx.result >= 0)
         vsir_program_trace(program);
