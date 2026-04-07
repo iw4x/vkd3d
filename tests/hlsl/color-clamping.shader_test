@@ -86,3 +86,25 @@ float4 main(float4 pos : POSITION) : COLOR
 [test]
 draw quad
 probe (0, 0) f32(-2, 1, 2, -1)
+
+[require]
+shader model < 3.0
+
+% Verify that the same behavior happens in shader model 1.
+[vertex shader d3dbc-hex]
+fffe0101                                              % vs_1_1
+00000051 a00f0000 c0000000 3f800000 40000000 bf800000 % def c0, -2, 1, 2, -1
+0000001f 80000000 900f0000                            % dcl_position v0
+00000001 d00f0000 a0e40000                            % mov oD0, c0
+00000001 c00f0000 90e40000                            % mov oPos, v0
+0000ffff                                              % end
+
+[pixel shader d3dbc-hex]
+ffff0101                                              % ps_1_1
+00000051 a00f0000 3dcccccd 3dcccccd 3dcccccd 3dcccccd % def c0, 0.1, 0.1, 0.1, 0.1
+00000005 800f0000 90e40000 a0e40000                   % mul r0, v0, c0
+0000ffff
+
+[test]
+draw quad
+todo probe (0, 0) f32(0.0, 0.1, 0.1, 0.0)
