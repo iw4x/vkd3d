@@ -7602,6 +7602,7 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
 
     hlsl_transform_ir(ctx, allocate_constint_registers_for_loops, body, &allocator_constint);
 
+    vkd3d_free(allocator_constint.allocations);
     vkd3d_free(allocator.allocations);
 }
 
