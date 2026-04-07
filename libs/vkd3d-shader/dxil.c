@@ -11747,8 +11747,14 @@ static void sm6_parser_cleanup_attribute_groups(struct sm6_parser *dxil)
     vkd3d_free(dxil->attribute_groups);
 }
 
+static void dxil_cleanup_fixups(struct sm6_parser *dxil)
+{
+    vkd3d_free(dxil->fixups);
+}
+
 static void sm6_parser_cleanup(struct sm6_parser *sm6)
 {
+    dxil_cleanup_fixups(sm6);
     dxil_block_destroy(&sm6->root_block);
     dxil_global_abbrevs_cleanup(sm6->abbrevs, sm6->abbrev_count);
     sm6_type_table_cleanup(sm6->types, sm6->type_count);
