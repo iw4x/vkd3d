@@ -12593,6 +12593,22 @@ static void vsir_validate_ssa_register(struct validation_context *ctx, const str
 
 static void vsir_validate_src_operand(struct validation_context *ctx, const struct vsir_src_operand *src);
 
+static bool vsir_rel_addr_reg_type_is_valid(enum vkd3d_shader_register_type type)
+{
+    switch (type)
+    {
+        case VKD3DSPR_TEMP:
+        case VKD3DSPR_SSA:
+        case VKD3DSPR_ADDR:
+        case VKD3DSPR_LOOP:
+        case VKD3DSPR_OUTPOINTID:
+            return true;
+
+        default:
+            return false;
+    }
+}
+
 static void vsir_validate_register(struct validation_context *ctx, const struct vsir_operand *reg)
 {
     static const struct register_validation_data
@@ -12649,21 +12665,10 @@ static void vsir_validate_register(struct validation_context *ctx, const struct 
         {
             vsir_validate_src_operand(ctx, src);
 
-            switch (src->reg.type)
-            {
-                case VKD3DSPR_TEMP:
-                case VKD3DSPR_SSA:
-                case VKD3DSPR_ADDR:
-                case VKD3DSPR_LOOP:
-                case VKD3DSPR_OUTPOINTID:
-                    break;
-
-                default:
-                    validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
-                            "Invalid register type %#x for a relative address parameter.",
-                            src->reg.type);
-                    break;
-            }
+            if (!vsir_rel_addr_reg_type_is_valid(src->reg.type))
+                validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
+                        "Invalid register type %#x for a relative address parameter.",
+                        src->reg.type);
         }
     }
 
@@ -15867,6 +15872,30 @@ static bool can_propagate_ssa_source(const struct vsir_program *program, const s
     return true;
 }
 
+static bool vsir_program_copy_propagate_relative_addresses(struct vsir_copy_propagation_state *state,
+        struct vsir_operand *reg)
+{
+    bool progress = false;
+
+    for (unsigned int i = 0; i < reg->idx_count; ++i)
+    {
+        const struct vsir_src_operand *rel_addr = reg->idx[i].rel_addr;
+        const struct vkd3d_shader_instruction *mov;
+
+        if (!rel_addr || rel_addr->reg.type != VKD3DSPR_SSA)
+            continue;
+
+        if ((mov = state->ssa_sources[rel_addr->reg.idx[0].offset])
+                && vsir_rel_addr_reg_type_is_valid(mov->src[0].reg.type))
+        {
+            *reg->idx[i].rel_addr = mov->src[0];
+            progress = true;
+        }
+    }
+
+    return progress;
+}
+
 static enum vkd3d_result vsir_program_copy_propagation(struct vsir_program *program,
         struct vsir_transformation_context *ctx)
 {
@@ -15886,6 +15915,8 @@ static enum vkd3d_result vsir_program_copy_propagation(struct vsir_program *prog
             const struct vsir_src_operand *mov_src;
             enum vsir_data_type data_type;
             uint32_t new_swizzle = 0;
+
+            ctx->progress |= vsir_program_copy_propagate_relative_addresses(&state, &src->reg);
 
             if (src->reg.type != VKD3DSPR_SSA)
                 continue;
@@ -15933,6 +15964,9 @@ static enum vkd3d_result vsir_program_copy_propagation(struct vsir_program *prog
 
             ctx->progress = true;
         }
+
+        for (unsigned int j = 0; j < ins->dst_count; ++j)
+            ctx->progress |= vsir_program_copy_propagate_relative_addresses(&state, &ins->dst[j].reg);
 
         if (can_propagate_ssa_source(program, ins))
             state.ssa_sources[ins->dst[0].reg.idx[0].offset] = ins;
