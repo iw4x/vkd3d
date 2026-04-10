@@ -1454,6 +1454,77 @@ fail:
     return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
+static enum vkd3d_result vsir_program_lower_mnxn(struct vsir_program *program, struct vsir_program_iterator *mnxn)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(mnxn);
+    const struct vkd3d_shader_location location = ins->location;
+    const struct vsir_src_operand *src = ins->src;
+    const struct vsir_dst_operand *dst = ins->dst;
+    struct vsir_program_iterator it;
+    enum vkd3d_shader_opcode opcode;
+    unsigned int reg_count;
+
+    /* mNxM DST, SRC0, SRC1
+     *      ->
+     * dpN DST.x, SRC0, SRC1
+     * ...
+     * dpN DST.M, SRC0, SRC1+M */
+
+    switch (ins->opcode)
+    {
+        case VSIR_OP_M3x2:
+            reg_count = 2;
+            opcode = VSIR_OP_DP3;
+            break;
+        case VSIR_OP_M3x3:
+            reg_count = 3;
+            opcode = VSIR_OP_DP3;
+            break;
+        case VSIR_OP_M3x4:
+            reg_count = 4;
+            opcode = VSIR_OP_DP3;
+            break;
+        case VSIR_OP_M4x3:
+            reg_count = 3;
+            opcode = VSIR_OP_DP4;
+            break;
+        case VSIR_OP_M4x4:
+            reg_count = 4;
+            opcode = VSIR_OP_DP4;
+            break;
+        default:
+            vkd3d_unreachable();
+    }
+
+    VKD3D_ASSERT(dst[0].write_mask == ((1u << reg_count) - 1));
+    VKD3D_ASSERT(src[1].reg.idx_count == 1);
+    VKD3D_ASSERT(!src[1].reg.idx[0].rel_addr);
+
+    if (!(ins = vsir_program_iterator_insert_before(mnxn, &it, reg_count - 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    for (unsigned int i = 0; i < reg_count; ++i)
+    {
+        if (!vsir_instruction_init_with_params(program, ins, &location, opcode, 1, 2))
+            goto fail;
+        ins->dst[0] = dst[0];
+        ins->dst[0].write_mask = (VKD3DSP_WRITEMASK_0 << i);
+
+        ins->src[0] = src[0];
+        ins->src[1] = src[1];
+        ins->src[1].reg.idx[0].offset += i;
+
+        ins = vsir_program_iterator_next(&it);
+    }
+
+    return VKD3D_OK;
+
+fail:
+    vsir_program_iterator_nop_range(&it, mnxn, &location);
+
+    return VKD3D_ERROR_OUT_OF_MEMORY;
+}
+
 static enum vkd3d_result vsir_program_lower_nrm(struct vsir_program *program, struct vsir_program_iterator *nrm)
 {
     struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(nrm);
@@ -2986,6 +3057,14 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_LRP:
                 ret = vsir_program_lower_lrp(program, &it);
+                break;
+
+            case VSIR_OP_M3x2:
+            case VSIR_OP_M3x3:
+            case VSIR_OP_M3x4:
+            case VSIR_OP_M4x3:
+            case VSIR_OP_M4x4:
+                ret = vsir_program_lower_mnxn(program, &it);
                 break;
 
             case VSIR_OP_NRM:
