@@ -55,6 +55,7 @@ vkd3d_shader_tests = \
 	tests/d3dbc/dp2add.shader_test \
 	tests/d3dbc/loop.shader_test \
 	tests/d3dbc/lrp.shader_test \
+	tests/d3dbc/mnxn.shader_test \
 	tests/d3dbc/nrm.shader_test \
 	tests/d3dbc/pow.shader_test \
 	tests/d3dbc/rep.shader_test \
