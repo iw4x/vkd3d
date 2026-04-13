@@ -685,11 +685,12 @@ static inline HRESULT dxc_compile(void *dxc_compiler, const WCHAR *profile, unsi
         NULL,
         NULL,
         NULL,
+        NULL,
     };
 
     memset(blob_out, 0, sizeof(*blob_out));
 
-    arg_count = ARRAY_SIZE(args) - 6;
+    arg_count = ARRAY_SIZE(args) - 7;
     if (compile_options & D3DCOMPILE_PACK_MATRIX_ROW_MAJOR)
         args[arg_count++] = L"/Zpr";
     if (compile_options & D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR)
@@ -698,6 +699,8 @@ static inline HRESULT dxc_compile(void *dxc_compiler, const WCHAR *profile, unsi
         args[arg_count++] = L"/Gec";
     if (!(compile_options & D3DCOMPILE_ENABLE_UNBOUNDED_DESCRIPTOR_TABLES))
         args[arg_count++] = L"/flegacy-resource-reservation";
+    if (compile_options & D3DCOMPILE_IEEE_STRICTNESS)
+        args[arg_count++] = L"/Gis";
     if (enable_16bit_types)
         args[arg_count++] = L"/enable-16bit-types";
 
