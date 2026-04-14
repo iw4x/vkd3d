@@ -1468,7 +1468,7 @@ static enum vkd3d_result vsir_program_lower_mnxn(struct vsir_program *program, s
      *      ->
      * dpN DST.x, SRC0, SRC1
      * ...
-     * dpN DST.M, SRC0, SRC1+M */
+     * dpN DST.(M-1), SRC0, SRC1+(M-1) */
 
     switch (ins->opcode)
     {
@@ -1498,7 +1498,6 @@ static enum vkd3d_result vsir_program_lower_mnxn(struct vsir_program *program, s
 
     VKD3D_ASSERT(dst[0].write_mask == ((1u << reg_count) - 1));
     VKD3D_ASSERT(src[1].reg.idx_count == 1);
-    VKD3D_ASSERT(!src[1].reg.idx[0].rel_addr);
 
     if (!(ins = vsir_program_iterator_insert_before(mnxn, &it, reg_count - 1)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -1513,6 +1512,14 @@ static enum vkd3d_result vsir_program_lower_mnxn(struct vsir_program *program, s
         ins->src[0] = src[0];
         ins->src[1] = src[1];
         ins->src[1].reg.idx[0].offset += i;
+
+        /* Copy rel_addrs to avoid multiple owners. */
+        if (!vsir_operand_clone_indirect_indices(&ins->dst[0].reg, program))
+            goto fail;
+        if (!vsir_operand_clone_indirect_indices(&ins->src[0].reg, program))
+            goto fail;
+        if (!vsir_operand_clone_indirect_indices(&ins->src[1].reg, program))
+            goto fail;
 
         ins = vsir_program_iterator_next(&it);
     }
