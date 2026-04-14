@@ -1871,6 +1871,7 @@ static enum vkd3d_result sm6_parser_type_table_init(struct sm6_parser *sm6)
                 break;
 
             case TYPE_CODE_HALF:
+                sm6->program->f16_denormal_mode = VKD3D_SHADER_DENORMAL_MODE_PRESERVE;
                 dxil_record_validate_operand_max_count(record, 0, sm6);
                 type->class = TYPE_CLASS_FLOAT;
                 type->u.width = 16;
