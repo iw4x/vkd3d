@@ -6165,16 +6165,9 @@ static void spirv_compiler_emit_denormal_mode(struct spirv_compiler *compiler,
     if (!spirv_compiler_is_target_extension_supported(compiler,
             VKD3D_SHADER_SPIRV_EXTENSION_KHR_FLOAT_CONTROLS))
     {
-        /* Float controls is not understood by vkd3d-shader <= 1.19. */
-        if (compiler->api_version <= VKD3D_SHADER_API_VERSION_1_19)
-            spirv_compiler_warning(compiler, VKD3D_SHADER_WARNING_SPV_UNSUPPORTED_FEATURE,
-                    "Cannot emit denormal mode for %u-bit floats. "
-                    "The target environment does not support float controls.", bit_width);
-        else
-            spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_UNSUPPORTED_FEATURE,
-                    "Cannot emit denormal mode for %u-bit floats. "
-                    "The target environment does not support float controls.", bit_width);
-
+        spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_UNSUPPORTED_FEATURE,
+                "Cannot emit denormal mode for %u-bit floats. "
+                "The target environment does not support float controls.", bit_width);
         return;
     }
 
