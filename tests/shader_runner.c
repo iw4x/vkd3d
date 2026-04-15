@@ -529,6 +529,7 @@ format_info[] =
     {"r32-sint",             4, DXGI_FORMAT_R32_SINT},
     {"r32-uint",             4, DXGI_FORMAT_R32_UINT},
     {"r32-typeless",         4, DXGI_FORMAT_R32_TYPELESS},
+    {"r8g8b8a8-unorm",       4, DXGI_FORMAT_R8G8B8A8_UNORM},
     {"unknown",              0, DXGI_FORMAT_UNKNOWN},
 };
 

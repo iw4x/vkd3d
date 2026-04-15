@@ -83,6 +83,8 @@ static MTLPixelFormat get_metal_pixel_format(DXGI_FORMAT format)
             return MTLPixelFormatR32Uint;
         case DXGI_FORMAT_D32_FLOAT:
             return MTLPixelFormatDepth32Float;
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+            return MTLPixelFormatRGBA8Unorm;
         default:
             return MTLPixelFormatInvalid;
     }
@@ -104,6 +106,8 @@ static MTLVertexFormat get_metal_attribute_format(DXGI_FORMAT format)
             return MTLVertexFormatFloat;
         case DXGI_FORMAT_R32_UINT:
             return MTLVertexFormatUInt;
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+            return MTLVertexFormatUChar4Normalized;
         default:
             return MTLVertexFormatInvalid;
     }
