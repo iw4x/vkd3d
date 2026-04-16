@@ -730,6 +730,8 @@ enum vkd3d_shader_register_type
     VKD3DSPR_INVALID = ~0u,
 };
 
+const char *vsir_register_type_get_name(enum vkd3d_shader_register_type type, const char *error);
+
 enum vsir_rastout_register
 {
     VSIR_RASTOUT_POSITION   = 0x0,

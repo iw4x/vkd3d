@@ -27,64 +27,6 @@
 #include <stdio.h>
 #include <math.h>
 
-static const char * const shader_register_names[] =
-{
-    [VKD3DSPR_ADDR              ] = "a",
-    [VKD3DSPR_ATTROUT           ] = "oD",
-    [VKD3DSPR_COLOROUT          ] = "oC",
-    [VKD3DSPR_COMBINED_SAMPLER  ] = "s",
-    [VKD3DSPR_CONST             ] = "c",
-    [VKD3DSPR_CONSTBOOL         ] = "b",
-    [VKD3DSPR_CONSTBUFFER       ] = "cb",
-    [VKD3DSPR_CONSTINT          ] = "i",
-    [VKD3DSPR_COVERAGE          ] = "vCoverage",
-    [VKD3DSPR_DEPTHOUT          ] = "oDepth",
-    [VKD3DSPR_DEPTHOUTGE        ] = "oDepthGE",
-    [VKD3DSPR_DEPTHOUTLE        ] = "oDepthLE",
-    [VKD3DSPR_FORKINSTID        ] = "vForkInstanceId",
-    [VKD3DSPR_FUNCTIONBODY      ] = "fb",
-    [VKD3DSPR_FUNCTIONPOINTER   ] = "fp",
-    [VKD3DSPR_GROUPSHAREDMEM    ] = "g",
-    [VKD3DSPR_GSINSTID          ] = "vGSInstanceID",
-    [VKD3DSPR_IDXTEMP           ] = "x",
-    [VKD3DSPR_IMMCONST          ] = "l",
-    [VKD3DSPR_IMMCONST64        ] = "d",
-    [VKD3DSPR_IMMCONSTBUFFER    ] = "icb",
-    [VKD3DSPR_INCONTROLPOINT    ] = "vicp",
-    [VKD3DSPR_INPUT             ] = "v",
-    [VKD3DSPR_JOININSTID        ] = "vJoinInstanceId",
-    [VKD3DSPR_LABEL             ] = "l",
-    [VKD3DSPR_LOCALTHREADID     ] = "vThreadIDInGroup",
-    [VKD3DSPR_LOCALTHREADINDEX  ] = "vThreadIDInGroupFlattened",
-    [VKD3DSPR_LOOP              ] = "aL",
-    [VKD3DSPR_NULL              ] = "null",
-    [VKD3DSPR_OUTCONTROLPOINT   ] = "vocp",
-    [VKD3DSPR_OUTPOINTID        ] = "vOutputControlPointID",
-    [VKD3DSPR_OUTPUT            ] = "o",
-    [VKD3DSPR_OUTSTENCILREF     ] = "oStencilRef",
-    [VKD3DSPR_PARAMETER         ] = "parameter",
-    [VKD3DSPR_PATCHCONST        ] = "vpc",
-    [VKD3DSPR_POINT_COORD       ] = "vPointCoord",
-    [VKD3DSPR_PREDICATE         ] = "p",
-    [VKD3DSPR_PRIMID            ] = "primID",
-    [VKD3DSPR_RASTERIZER        ] = "rasterizer",
-    [VKD3DSPR_RESOURCE          ] = "t",
-    [VKD3DSPR_SAMPLEMASK        ] = "oMask",
-    [VKD3DSPR_SAMPLER           ] = "s",
-    [VKD3DSPR_SSA               ] = "sr",
-    [VKD3DSPR_STREAM            ] = "m",
-    [VKD3DSPR_TEMP              ] = "r",
-    [VKD3DSPR_TESSCOORD         ] = "vDomainLocation",
-    [VKD3DSPR_TEXCRDOUT         ] = "oT",
-    [VKD3DSPR_TEXTURE           ] = "t",
-    [VKD3DSPR_THREADGROUPID     ] = "vThreadGroupID",
-    [VKD3DSPR_THREADID          ] = "vThreadID",
-    [VKD3DSPR_UAV               ] = "u",
-    [VKD3DSPR_UNDEF             ] = "undef",
-    [VKD3DSPR_WAVELANECOUNT     ] = "vWaveLaneCount",
-    [VKD3DSPR_WAVELANEINDEX     ] = "vWaveLaneIndex",
-};
-
 struct vkd3d_d3d_asm_colours
 {
     const char *reset;
@@ -759,6 +701,7 @@ static void shader_print_operand(struct vkd3d_d3d_asm_compiler *compiler, const 
     struct vkd3d_string_buffer *buffer = &compiler->buffer;
     unsigned int offset = reg->idx[0].offset;
     bool is_descriptor = false;
+    const char *name;
 
     static const char * const rastout_reg_names[] = {"oPos", "oFog", "oPts"};
     static const char * const misctype_reg_names[] = {"vPos", "vFace"};
@@ -788,8 +731,8 @@ static void shader_print_operand(struct vkd3d_d3d_asm_compiler *compiler, const 
             /* fall through */
 
         default:
-            if (reg->type < ARRAY_SIZE(shader_register_names) && shader_register_names[reg->type])
-                vkd3d_string_buffer_printf(buffer, "%s", shader_register_names[reg->type]);
+            if ((name = vsir_register_type_get_name(reg->type, NULL)))
+                vkd3d_string_buffer_printf(buffer, "%s", name);
             else
                 vkd3d_string_buffer_printf(buffer, "%s<unhandled register type %#x>%s",
                         compiler->colours.error, reg->type, compiler->colours.reset);
@@ -2037,16 +1980,16 @@ static void shader_print_descriptor_name(struct vkd3d_d3d_asm_compiler *compiler
     switch (t)
     {
         case VKD3D_SHADER_DESCRIPTOR_TYPE_SRV:
-            type = shader_register_names[VKD3DSPR_RESOURCE];
+            type = vsir_register_type_get_name(VKD3DSPR_RESOURCE, NULL);
             break;
         case VKD3D_SHADER_DESCRIPTOR_TYPE_UAV:
-            type = shader_register_names[VKD3DSPR_UAV];
+            type = vsir_register_type_get_name(VKD3DSPR_UAV, NULL);
             break;
         case VKD3D_SHADER_DESCRIPTOR_TYPE_CBV:
-            type = shader_register_names[VKD3DSPR_CONSTBUFFER];
+            type = vsir_register_type_get_name(VKD3DSPR_CONSTBUFFER, NULL);
             break;
         case VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER:
-            type = shader_register_names[VKD3DSPR_SAMPLER];
+            type = vsir_register_type_get_name(VKD3DSPR_SAMPLER, NULL);
             break;
         case VKD3D_SHADER_DESCRIPTOR_TYPE_FORCE_32BIT:
             break;

@@ -92,6 +92,72 @@ const char *vsir_denorm_mode_get_name(enum vkd3d_shader_denormal_mode m, const c
     return error;
 }
 
+const char *vsir_register_type_get_name(enum vkd3d_shader_register_type type, const char *error)
+{
+    static const char * const names[] =
+    {
+        [VKD3DSPR_ADDR              ] = "a",
+        [VKD3DSPR_ATTROUT           ] = "oD",
+        [VKD3DSPR_COLOROUT          ] = "oC",
+        [VKD3DSPR_COMBINED_SAMPLER  ] = "s",
+        [VKD3DSPR_CONST             ] = "c",
+        [VKD3DSPR_CONSTBOOL         ] = "b",
+        [VKD3DSPR_CONSTBUFFER       ] = "cb",
+        [VKD3DSPR_CONSTINT          ] = "i",
+        [VKD3DSPR_COVERAGE          ] = "vCoverage",
+        [VKD3DSPR_DEPTHOUT          ] = "oDepth",
+        [VKD3DSPR_DEPTHOUTGE        ] = "oDepthGE",
+        [VKD3DSPR_DEPTHOUTLE        ] = "oDepthLE",
+        [VKD3DSPR_FORKINSTID        ] = "vForkInstanceId",
+        [VKD3DSPR_FUNCTIONBODY      ] = "fb",
+        [VKD3DSPR_FUNCTIONPOINTER   ] = "fp",
+        [VKD3DSPR_GROUPSHAREDMEM    ] = "g",
+        [VKD3DSPR_GSINSTID          ] = "vGSInstanceID",
+        [VKD3DSPR_IDXTEMP           ] = "x",
+        [VKD3DSPR_IMMCONST          ] = "l",
+        [VKD3DSPR_IMMCONST64        ] = "d",
+        [VKD3DSPR_IMMCONSTBUFFER    ] = "icb",
+        [VKD3DSPR_INCONTROLPOINT    ] = "vicp",
+        [VKD3DSPR_INPUT             ] = "v",
+        [VKD3DSPR_JOININSTID        ] = "vJoinInstanceId",
+        [VKD3DSPR_LABEL             ] = "l",
+        [VKD3DSPR_LOCALTHREADID     ] = "vThreadIDInGroup",
+        [VKD3DSPR_LOCALTHREADINDEX  ] = "vThreadIDInGroupFlattened",
+        [VKD3DSPR_LOOP              ] = "aL",
+        [VKD3DSPR_NULL              ] = "null",
+        [VKD3DSPR_OUTCONTROLPOINT   ] = "vocp",
+        [VKD3DSPR_OUTPOINTID        ] = "vOutputControlPointID",
+        [VKD3DSPR_OUTPUT            ] = "o",
+        [VKD3DSPR_OUTSTENCILREF     ] = "oStencilRef",
+        [VKD3DSPR_PARAMETER         ] = "parameter",
+        [VKD3DSPR_PATCHCONST        ] = "vpc",
+        [VKD3DSPR_POINT_COORD       ] = "vPointCoord",
+        [VKD3DSPR_PREDICATE         ] = "p",
+        [VKD3DSPR_PRIMID            ] = "primID",
+        [VKD3DSPR_RASTERIZER        ] = "rasterizer",
+        [VKD3DSPR_RESOURCE          ] = "t",
+        [VKD3DSPR_SAMPLEMASK        ] = "oMask",
+        [VKD3DSPR_SAMPLER           ] = "s",
+        [VKD3DSPR_SSA               ] = "sr",
+        [VKD3DSPR_STREAM            ] = "m",
+        [VKD3DSPR_TEMP              ] = "r",
+        [VKD3DSPR_TESSCOORD         ] = "vDomainLocation",
+        [VKD3DSPR_TEXCRDOUT         ] = "oT",
+        [VKD3DSPR_TEXTURE           ] = "t",
+        [VKD3DSPR_THREADGROUPID     ] = "vThreadGroupID",
+        [VKD3DSPR_THREADID          ] = "vThreadID",
+        [VKD3DSPR_UAV               ] = "u",
+        [VKD3DSPR_UNDEF             ] = "undef",
+        [VKD3DSPR_WAVELANECOUNT     ] = "vWaveLaneCount",
+        [VKD3DSPR_WAVELANEINDEX     ] = "vWaveLaneIndex",
+    };
+
+    if ((uint32_t)type < ARRAY_SIZE(names) && names[type])
+        return names[type];
+
+    return error;
+}
+
 const char *vsir_opcode_get_name(enum vkd3d_shader_opcode op, const char *error)
 {
     static const char * const names[] =
