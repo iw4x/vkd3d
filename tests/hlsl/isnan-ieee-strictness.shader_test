@@ -1,0 +1,405 @@
+% This file basically contains the same tests from isnan.shader_test but now we
+% also test with IEEE strictness enabled.
+
+% In shader model 1, with IEEE strictness enabled, shaders are compiled so
+% (x == x) and (x != x) comparions are not simplified, obtaining false and true
+% respectively for NaN values.
+% However, drivers seem to simplify these expressions internally, regardless.
+% To avoid this we require the no-refactoring capability.
+
+[require]
+options: ieee-strictness
+no-refactoring
+
+[pixel-shader]
+float4 a;
+
+float4 main() : sv_target
+{
+    return 10 * isnan(a) + (a != a);
+}
+
+[test]
+write cbv-0 (0) f32(inf, nan, 1.0, 0.0)
+draw quad
+if(sm<4) probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
+if(sm>=4) probe (0, 0) f32(0.0, 11.0, 0.0, 0.0)
+
+[pixel-shader]
+float4 a;
+
+float4 main() : sv_target
+{
+    // isnan() is not simplified for SM>=4, and (a != a) is not simplified for any SM.
+    precise float4 ret = 10 * isnan(a) + (a != a);
+    return ret;
+}
+
+[test]
+write cbv-0 (0) f32(inf, nan, 1.0, 0.0)
+draw quad
+% inf != inf for shader model < 4.
+if(sm<4) probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
+if(sm>=4) todo(sm<6 & mvk<1.4.0) probe (0, 0) f32(0.0, 11.0, 0.0, 0.0)
+
+[pixel-shader]
+float4 a, b;
+
+float4 main() : sv_target
+{
+    float4 c = a / b;
+
+    return 10 * isnan(c) + (c != c);
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 1.0, -0.0, -0.0)
+write cbv-0 (4) f32(0.0, -0.0, 0.0, -0.0)
+draw quad
+if(sm<4) probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+if(sm>=4) probe (0, 0) f32(0.0, 0.0, 11.0, 11.0)
+write cbv-0 (0) f32(inf, inf, 1.0, 0.0)
+write cbv-0 (4) f32(inf, 1.0, nan, 1.0)
+draw quad
+if(sm<4) probe (0, 0) f32(1.0, 1.0, 1.0, 0.0)
+if(sm>=4) probe (0, 0) f32(11.0, 0.0, 11.0, 0.0)
+
+[pixel-shader]
+float4 b;
+
+float4 main() : sv_target
+{
+    float4 c = 1.0 / b;
+
+    return 10 * isnan(c) + (c != c);
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 1.0, -0.0, 0.0)
+draw quad
+if(sm<4) probe (0, 0) f32(0.0, 0.0, 1.0, 1.0)
+if(sm>=4) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+write cbv-0 (0) f32(inf, -inf, nan, -nan)
+draw quad
+if(sm<4) probe (0, 0) f32(0.0, 0.0, 1.0, 1.0)
+if(sm>=4) probe (0, 0) f32(0.0, 0.0, 11.0, 11.0)
+
+[pixel-shader]
+float4 b;
+
+float4 main() : sv_target
+{
+    float4 c = 0.0 / b;
+
+    return 10 * isnan(c) + (c != c);
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 1.0, -0.0, 0.0)
+draw quad
+if(sm<4) todo probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+if(sm>=4) bug(llvmpipe | sm>=6 & amd | sm>=6 & mvk) probe (0, 0) f32(0.0, 0.0, 11.0, 11.0)
+% ^ we get f32(0, 0, 0, 0) on llvmpipe, amd, and mvk, in these cases.
+write cbv-0 (0) f32(inf, -inf, nan, -nan)
+draw quad
+if(sm<4) todo probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+if(sm>=4) bug(llvmpipe | sm>=6 & amd | sm>=6 & mvk) probe (0, 0) f32(0.0, 0.0, 11.0, 11.0)
+% ^ we get f32(0, 0, 0, 0) on llvmpipe, amd, and mvk, in these cases.
+% Perhaps (0.0 / b) gets simplified to 0.0 in these drivers despite SignedZeroInfNanPreserve.
+
+[pixel-shader]
+float4 a, b;
+
+float4 main() : sv_target
+{
+    float4 c = a + b;
+
+    return 10 * isnan(c) + (c != c);
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 1.0, -0.0, -0.0)
+write cbv-0 (4) f32(0.0, -0.0, 0.0, -0.0)
+draw quad
+probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+write cbv-0 (0) f32(inf, nan, 1.0, inf)
+write cbv-0 (4) f32(inf, 1.0, nan, -inf)
+draw quad
+if(sm<4) probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+if(sm>=4) probe (0, 0) f32(0.0, 11.0, 11.0, 11.0)
+
+[pixel-shader]
+float4 a, b;
+
+float4 main() : sv_target
+{
+    float4 c = a + b;
+
+    return (c == c);
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 1.0, -0.0, -0.0)
+write cbv-0 (4) f32(0.0, -0.0, 0.0, -0.0)
+draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+write cbv-0 (0) f32(inf, nan, 1.0, -inf)
+write cbv-0 (4) f32(inf, 1.0, nan, 1.0)
+draw quad
+if(sm<4) bug(mvk) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+if(sm>=4) bug(mvk & sm<6) probe (0, 0) f32(1.0, 0.0, 0.0, 1.0)
+% ^ we get f32(1, 1, 1, 1) in mvk.
+
+% Resource loads are still assumed not to be NaN.
+[sampler-0]
+filter linear linear linear
+address clamp clamp clamp
+
+[srv-0]
+size (2d, 1, 1)
+% inf nan 1.0 0.0
+0x7f800000 0x7f800001 0x3f800000 0x00000000
+
+[pixel-shader]
+Texture2D tex;
+sampler sam;
+
+float4 main() : sv_target
+{
+    float4 s = tex.Sample(sam, float2(0, 0));
+
+    return 10 * isnan(s) + (s != s); // Simplified to false.
+}
+
+[test]
+draw quad
+if(sm<6) todo probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+if(sm>=6) bug(llvmpipe) probe (0, 0) f32(0.0, 11.0, 0.0, 0.0)
+% ^ we get f32(11, 11, 0, 0) on llvmpipe.
+
+% Input semantics seem to also be assumed to not be NaN.
+[pixel-shader fail(sm<4) todo(sm>=3 & sm<4)]
+float4 main(float4 pos : SV_POSITION) : sv_target
+{
+    return 10 * isnan(pos) + (pos != pos); // Simplified to false.
+}
+
+[test]
+write cbv-0 (0) f32(inf, nan, 1.0, 0.0)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+
+% It seems that compile-time constants are always false by isnan().
+% This is a difference with NEQ.
+[pixel-shader todo(sm<4)]
+float4 main() : sv_target
+{
+    float c = sin(1.0 / 0.0);
+
+    return 10 * isnan(c) + (c != c); // Only (c != c) is true here, for SM4.
+}
+
+[test]
+todo(sm<4) draw quad
+if(sm<4) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+if(sm>=4 & sm<6) todo probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+if(sm>=6) probe (0, 0) f32(11.0, 11.0, 11.0, 11.0)
+
+% isnan(x) won't be false in shader model 4-5 if only some elements are runtime
+% constants, which means that this happens because of constant folding.
+[pixel-shader fail(sm<4)]
+float4 a, b;
+
+float4 main() : sv_target
+{
+    float4 c = a / b;
+    c.zw = 0.0 / 0.0;
+
+    return 10 * isnan(c) + (c != c);
+}
+
+[test]
+write cbv-0 (0) f32(0.0, -0.0, 0.0, 0.0)
+write cbv-0 (4) f32(1.0, 0.0, 0.0, 0.0)
+todo(sm<4) draw quad
+if(sm<4) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+if(sm>=4 & sm<6) todo probe (0, 0) f32(0.0, 11.0, 0.0, 0.0)
+if(sm>=6) probe (0, 0) f32(0.0, 11.0, 11.0, 11.0)
+
+[pixel-shader]
+float4 a, b;
+
+float4 main() : sv_target
+{
+    float4 c = a / b;
+    float4 d = sin(c);
+
+    return 10 * isnan(d) + (d != d); // Not simplified in SM4.
+}
+
+[test]
+write cbv-0 (0) f32(0.0, -0.0, 1.0, -1.0)
+write cbv-0 (4) f32(0.0, 0.0, 0.0, 0.0)
+draw quad
+if(sm<4) todo probe (0, 0) f32(0.0, 1.0, 1.0, 1.0)
+if(sm>=4) bug(mvk & sm>=6) probe (0, 0) f32(11.0, 11.0, 11.0, 11.0)
+% ^ we get f32(0, 0, 0, 0) in mvk.
+
+% With IEEE-strictness trigonometry functions retrieving NaN are expected.
+[pixel-shader]
+float4 a;
+
+float4 main() : sv_target
+{
+    float4 c = sin(1.0 / a);
+
+    return 10 * isnan(c) + (c != c);
+}
+
+[test]
+write cbv-0 (0) f32(0.0, -0.0, 1.0, -1.0)
+draw quad
+if(sm<4) bug(mvk>=1.4.0) probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
+if(sm>=4) bug(mvk & sm>=6) probe (0, 0) f32(11.0, 11.0, 0.0, 0.0)
+% ^ we get f32(0, 0, 0, 0) in mvk.
+
+[pixel-shader]
+float4 a, b;
+
+float4 main() : sv_target
+{
+    float4 a1 = 1.0 / a;
+    float4 b1 = 1.0 / b;
+    float4 c = a1 + b1; // Could be (inf) + (-inf)
+
+    return 10 * isnan(c) + (c != c); // Not simplified in SM4.
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 0.0, 0.0, 0.0)
+write cbv-0 (4) f32(0.0, 1.0, 0.0, -0.0)
+draw quad
+if(sm<4) probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+if(sm>=4) probe (0, 0) f32(0.0, 0.0, 0.0, 11.0)
+
+[pixel-shader]
+float4 a;
+
+float4 main() : sv_target
+{
+    float4 c = sqrt(a);
+
+    return 10 * isnan(c) + (c != c);
+}
+
+[test]
+write cbv-0 (0) f32(1.0, -1.0, -inf, nan)
+draw quad
+if(sm<4) todo probe (0, 0) f32(0.0, 0.0, 1.0, 1.0)
+if(sm>=4) probe (0, 0) f32(0.0, 11.0, 11.0, 11.0)
+
+[pixel-shader]
+float4 a, b;
+
+float4 main() : sv_target
+{
+    float4 c = pow(a, b);
+
+    return 10 * isnan(c) + (c != c);
+}
+
+[test]
+write cbv-0 (0) f32(2.0, -2.0, 0.0, nan)
+write cbv-0 (4) f32(0.5, 0.5, 0.5, 0.5)
+draw quad
+if(sm<4) todo probe (0, 0) f32(0.0, 0.0, 0.0, 1.0)
+if(sm>=4) probe (0, 0) f32(0.0, 11.0, 0.0, 11.0)
+
+[pixel-shader]
+float4 a;
+
+float4 main() : sv_target
+{
+    float4 c = log(a);
+
+    return 10 * isnan(c) + (c != c);
+}
+
+[test]
+write cbv-0 (0) f32(2.0, -2.0, 0.0, nan)
+draw quad
+if(sm<4) todo probe (0, 0) f32(0.0, 0.0, 1.0, 1.0)
+if(sm>=4) probe (0, 0) f32(0.0, 11.0, 0.0, 11.0)
+
+% Loads with indirect addressing are not simplified.
+[pixel-shader]
+unsigned int i;
+
+float4 main() : sv_target
+{
+    float a[3] = {1.0, 2.0, 3.0};
+
+    return 10 * isnan(a[i]) + (a[i] != a[i]); // Not simplified but a[i] can't be NaN.
+}
+
+[test]
+draw quad
+if(sm<4) write cbv-0 (0) f32(2.0)
+if(sm>=4) write cbv-0 (0) u32(2)
+probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+
+[pixel-shader fail(sm<4)]
+unsigned int i;
+
+float4 main() : sv_target
+{
+    float a[3] = {1.0, 2.0, 0.0 / 0.0};
+
+    return 10 * isnan(a[i]) + (a[i] != a[i]);
+}
+
+[test]
+write cbv-0 (0) u32(2)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(11.0, 11.0, 11.0, 11.0)
+write cbv-0 (0) u32(1)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+
+% isnan() on an indirectly addressed uniform array fails with an internal
+% compiler error in shader model 4/5 on fxc/d3dcompiler.
+[pixel-shader fail(sm>=4 & sm<6) todo(sm>=4 & sm<6)]
+float a[3];
+unsigned int i;
+
+float4 main() : sv_target
+{
+    return isnan(a[i]);
+}
+
+% A temp load (that can't be copy-propagated) is assumed to never be NaN.
+[pixel-shader todo(sm<3)]
+float a[4];
+float aa, bb;
+float k;
+
+float4 main() : sv_target
+{
+    float tmp = aa / bb;
+
+    for (int i = 0; i < k; i++)
+       tmp += a[i];
+    return 10 * isnan(tmp) + (tmp != tmp);
+}
+
+[test]
+write cbv-0 (0) f32(0.0, 0.0, 0.0, 0.0)
+write cbv-0 (4) f32(0.0, 0.0, 0.0, 0.0)
+write cbv-0 (8) f32(0.0, 0.0, 0.0, 0.0)
+write cbv-0 (12) f32(0.0, 0.0, 0.0, 0.0)
+write cbv-0 (16) f32(0.0, 0.0, 0.0, 0.0)
+write cbv-0 (20) f32(0.0, 0.0, 0.0, 0.0)
+write cbv-0 (24) f32(0.0, 0.0, 0.0, 0.0)
+if(sm>=3) draw quad
+if(sm>=3 & sm<6) todo probe (0, 0) f32(0.0, 0.0, 0.0, 0.0);
+if(sm>=6) probe (0, 0) f32(11.0, 11.0, 11.0, 11.0);
