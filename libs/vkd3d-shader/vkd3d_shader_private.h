@@ -1715,6 +1715,7 @@ struct vsir_compile_info
     uint32_t denormal_mode_override_f16 : 1;
     uint32_t denormal_mode_override_f32 : 1;
     uint32_t denormal_mode_override_f64 : 1;
+    uint32_t enforce_ieee_754_fp : 1;
 };
 
 void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d);

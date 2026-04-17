@@ -459,6 +459,17 @@ enum vkd3d_shader_compile_option_name
      * \since 2.2
      */
     VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_VALUE = 0x00000012,
+    /**
+     * If \a value is non-zero, comply with IEEE 754 floating-point rules when
+     * compiling HLSL sources. For example, when this option is enabled,
+     * "0 * x" can be transformed into "0" only when it can be determined that
+     * "x" is neither a NaN nor an infinity.
+     *
+     * The default value is 1.
+     *
+     * \since 2.2
+     */
+    VKD3D_SHADER_COMPILE_OPTION_IEEE_754_FP = 0x00000013,
 
     VKD3D_FORCE_32_BIT_ENUM(VKD3D_SHADER_COMPILE_OPTION_NAME),
 };

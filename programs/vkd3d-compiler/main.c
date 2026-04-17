@@ -71,6 +71,7 @@ enum
     OPTION_ENTRY,
     OPTION_FRAGMENT_COORDINATE_ORIGIN,
     OPTION_ALLOW_HALF_GLOBALS,
+    OPTION_IEEE_754_FP,
     OPTION_INCLUDE_EMPTY_BUFFERS,
     OPTION_MATRIX_STORAGE_ORDER,
     OPTION_OUTPUT,
@@ -198,6 +199,8 @@ static void print_usage(const char *program_name)
         "  --alias-double-as-float\n"
         "                        Treat 'double' as 'float' when compiling HLSL sources\n"
         "                        with shader model 1-3 target profiles.\n"
+        "  --allow-half-globals  Allow half globals in shader model 1-5 target profiles,\n"
+        "                        by handling them as floats.\n"
         "  -b <type>             Specify the target type. Use --print-target-types to\n"
         "                        list the valid and default target types for a given\n"
         "                        source type.\n"
@@ -222,8 +225,9 @@ static void print_usage(const char *program_name)
         "  --fx-include-empty-buffers\n"
         "                        Write empty constant buffers descriptions. This option\n"
         "                        is only meaningful for fx_4_0 and fx_4_1 profiles.\n"
-        "  --allow-half-globals  Allow half globals in shader model 1-5 target profiles,\n"
-        "                        by handling them as floats.\n"
+        "  --ieee-754-fp         When compiling HLSL sources, enforce IEEE 754 floating-point\n"
+        "                        rules, avoiding optimizations that might disregard NaN or\n"
+        "                        Infinity values.\n"
         "  --matrix-storage-order=<order>\n"
         "                        Specify the default matrix storage order. Valid values\n"
         "                        are 'column' (default) and 'row'.\n"
@@ -265,6 +269,7 @@ struct options
     bool print_target_types;
     uint32_t formatting;
     bool explicit_colour;
+    bool ieee_754_fp;
 
     struct vkd3d_shader_compile_option *compile_options;
     unsigned int compile_option_count;
@@ -498,6 +503,7 @@ static bool parse_command_line(int argc, char **argv, struct options *options)
         {"child-effect",               no_argument,       NULL, OPTION_CHILD_EFFECT},
         {"entry",                      required_argument, NULL, OPTION_ENTRY},
         {"fragment-coordinate-origin", required_argument, NULL, OPTION_FRAGMENT_COORDINATE_ORIGIN},
+        {"ieee-754-fp",                no_argument,       NULL, OPTION_IEEE_754_FP},
         {"fx-include-empty-buffers",   no_argument,       NULL, OPTION_INCLUDE_EMPTY_BUFFERS},
         {"matrix-storage-order",       required_argument, NULL, OPTION_MATRIX_STORAGE_ORDER},
         {"output",                     required_argument, NULL, OPTION_OUTPUT},
@@ -559,6 +565,10 @@ static bool parse_command_line(int argc, char **argv, struct options *options)
                     return false;
                 }
                 add_compile_option(options, VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN, origin);
+                break;
+
+            case OPTION_IEEE_754_FP:
+                options->ieee_754_fp = true;
                 break;
 
             case 'h':
@@ -914,6 +924,7 @@ int main(int argc, char **argv)
     init_tty(output);
     if (!options.explicit_colour && !getenv("NO_COLOUR") && !getenv("NO_COLOR") && has_colour(output))
         options.formatting |= VKD3D_SHADER_COMPILE_OPTION_FORMATTING_COLOUR;
+    add_compile_option(&options, VKD3D_SHADER_COMPILE_OPTION_IEEE_754_FP, options.ieee_754_fp);
     add_compile_option(&options, VKD3D_SHADER_COMPILE_OPTION_FORMATTING, options.formatting);
     add_compile_option(&options, VKD3D_SHADER_COMPILE_OPTION_API_VERSION, VKD3D_SHADER_API_VERSION_CURRENT);
     if (options.target_type->type == VKD3D_SHADER_TARGET_SPIRV_BINARY

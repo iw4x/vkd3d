@@ -788,6 +788,7 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
         .api_version = VKD3D_SHADER_API_VERSION_1_2,
         .write_tess_geom_point_size = true,
         .warn_implicit_truncation = true,
+        .enforce_ieee_754_fp = true,
     };
 
     if (!vkd3d)
@@ -891,6 +892,10 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
 
             case VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_VALUE:
                 vsir->global_flags_override_value = vsir_global_flags_from_vkd3d(option->value);
+                break;
+
+            case VKD3D_SHADER_COMPILE_OPTION_IEEE_754_FP:
+                vsir->enforce_ieee_754_fp = !!option->value;
                 break;
 
             default:
