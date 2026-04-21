@@ -431,6 +431,8 @@ static void write_descriptors(struct d3d12_shader_runner *runner)
                             .Texture2D.PlaneSlice = 0,
                             .Texture2D.ResourceMinLODClamp = resource->r.desc.min_lod_clamp,
                         };
+                        if (resource->r.desc.format == DXGI_FORMAT_X32_TYPELESS_G8X24_UINT)
+                            srv_desc.Texture2D.PlaneSlice = 1;
 
                         ID3D12Device_CreateShaderResourceView(device, resource->resource, &srv_desc, handle);
                     }
@@ -557,7 +559,8 @@ static bool d3d12_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
     return true;
 }
 
-static void d3d12_runner_clear(struct shader_runner *r, struct resource *resource, const struct vec4 *clear_value)
+static void d3d12_runner_clear(struct shader_runner *r, struct resource *resource,
+        const struct vec4 *clear_value, uint32_t stencil)
 {
     struct d3d12_shader_runner *runner = d3d12_shader_runner(r);
     struct test_context *test_context = &runner->test_context;
@@ -578,7 +581,7 @@ static void d3d12_runner_clear(struct shader_runner *r, struct resource *resourc
         case RESOURCE_TYPE_DEPTH_STENCIL:
             view = get_cpu_dsv_handle(test_context, runner->dsv_heap, 0);
             ID3D12GraphicsCommandList_ClearDepthStencilView(command_list, view,
-                    D3D12_CLEAR_FLAG_DEPTH, clear_value->x, 0, 0, NULL);
+                    D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, clear_value->x, stencil, 0, NULL);
             break;
 
         default:

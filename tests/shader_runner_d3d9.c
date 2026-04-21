@@ -444,7 +444,8 @@ static uint32_t d3d_color_from_vec4(const struct vec4 *v)
             vkd3d_make_u16(v->x * 255.0f, v->w * 255.0f));
 }
 
-static void d3d9_runner_clear(struct shader_runner *r, struct resource *res, const struct vec4 *clear_value)
+static void d3d9_runner_clear(struct shader_runner *r, struct resource *res,
+        const struct vec4 *clear_value, uint32_t stencil)
 {
     struct d3d9_shader_runner *runner = d3d9_shader_runner(r);
     struct d3d9_resource *resource = d3d9_resource(res);

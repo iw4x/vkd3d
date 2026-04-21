@@ -344,7 +344,8 @@ struct shader_runner_ops
 {
     struct resource *(*create_resource)(struct shader_runner *runner, const struct resource_params *params);
     void (*destroy_resource)(struct shader_runner *runner, struct resource *resource);
-    void (*clear)(struct shader_runner *runner, struct resource *resource, const struct vec4 *clear_value);
+    void (*clear)(struct shader_runner *runner, struct resource *resource,
+            const struct vec4 *clear_value, uint32_t stencil);
     bool (*draw)(struct shader_runner *runner, D3D_PRIMITIVE_TOPOLOGY primitive_topology, unsigned int vertex_count,
             unsigned int instance_count, unsigned int first_vertex, unsigned int first_instance);
     bool (*copy)(struct shader_runner *runner, struct resource *src, struct resource *dst);

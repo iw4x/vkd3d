@@ -1,0 +1,30 @@
+[require]
+shader model >= 4.0
+
+[rtv-0]
+size (2d, 64, 64)
+format r8-uint
+
+[dsv]
+size (2d, 64, 64)
+format d32-float-s8x24-uint
+
+[srv-0]
+size (2d, 64, 64)
+format x32-typeless-g8x24-uint
+
+[pixel shader]
+Texture2D<uint4> tex : register(t0);
+
+uint main(float4 pos : SV_Position) : SV_TARGET
+{
+    return tex[uint2(pos.xy)].g;
+}
+
+[test]
+clear rtv-0 f32(0, 0, 0, 0)
+clear dsv f32(0.5) u32(0x80)
+copy dsv srv-0
+depth always
+draw quad
+todo(d3d12) probe (32, 32) u8(0x80)

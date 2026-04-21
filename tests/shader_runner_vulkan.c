@@ -102,6 +102,8 @@ static const struct format_info *get_format_info(enum DXGI_FORMAT format)
     {
 #define COLOUR        (VK_IMAGE_ASPECT_COLOR_BIT)
 #define DEPTH         (VK_IMAGE_ASPECT_DEPTH_BIT)
+#define DEPTH_STENCIL (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)
+#define STENCIL       (VK_IMAGE_ASPECT_STENCIL_BIT)
         {DXGI_FORMAT_UNKNOWN,                 VK_FORMAT_UNDEFINED,           0},
         {DXGI_FORMAT_R32G32B32A32_FLOAT,      VK_FORMAT_R32G32B32A32_SFLOAT, COLOUR},
         {DXGI_FORMAT_R32G32B32A32_UINT,       VK_FORMAT_R32G32B32A32_UINT,   COLOUR},
@@ -113,6 +115,8 @@ static const struct format_info *get_format_info(enum DXGI_FORMAT format)
         {DXGI_FORMAT_R32G32_FLOAT,            VK_FORMAT_R32G32_SFLOAT,       COLOUR},
         {DXGI_FORMAT_R32G32_UINT,             VK_FORMAT_R32G32_UINT,         COLOUR},
         {DXGI_FORMAT_R32G32_SINT,             VK_FORMAT_R32G32_SINT,         COLOUR},
+        {DXGI_FORMAT_D32_FLOAT_S8X24_UINT,    VK_FORMAT_D32_SFLOAT_S8_UINT,  DEPTH_STENCIL},
+        {DXGI_FORMAT_X32_TYPELESS_G8X24_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT,  STENCIL},
         {DXGI_FORMAT_R8G8B8A8_UNORM,          VK_FORMAT_R8G8B8A8_UNORM,      COLOUR},
         {DXGI_FORMAT_R8G8B8A8_UINT,           VK_FORMAT_R8G8B8A8_UINT,       COLOUR},
         {DXGI_FORMAT_R8G8B8A8_SINT,           VK_FORMAT_R8G8B8A8_SINT,       COLOUR},
@@ -127,6 +131,8 @@ static const struct format_info *get_format_info(enum DXGI_FORMAT format)
         {DXGI_FORMAT_R8_UNORM,                VK_FORMAT_R8_UNORM,            COLOUR},
         {DXGI_FORMAT_R8_UINT,                 VK_FORMAT_R8_UINT,             COLOUR},
         {DXGI_FORMAT_R8_SINT,                 VK_FORMAT_R8_SINT,             COLOUR},
+#undef STENCIL
+#undef DEPTH_STENCIL
 #undef DEPTH
 #undef COLOUR
     };
@@ -1470,7 +1476,8 @@ out:
     return ret;
 }
 
-static void vulkan_runner_clear(struct shader_runner *r, struct resource *res, const struct vec4 *clear_value)
+static void vulkan_runner_clear(struct shader_runner *r, struct resource *res,
+        const struct vec4 *clear_value, uint32_t stencil)
 {
     struct vulkan_shader_runner *runner = vulkan_shader_runner(r);
     struct vulkan_resource *resource = vulkan_resource(res);
@@ -1493,9 +1500,16 @@ static void vulkan_runner_clear(struct shader_runner *r, struct resource *res, c
     attachment_desc.samples = max(resource->r.desc.sample_count, 1);
     attachment_desc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachment_desc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    /* TODO: formats with a stencil component would a clear op here. */
-    attachment_desc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachment_desc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    if (resource->format->vk_aspect_mask & VK_IMAGE_ASPECT_STENCIL_BIT)
+    {
+        attachment_desc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachment_desc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+    }
+    else
+    {
+        attachment_desc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachment_desc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    }
 
     sub_pass_desc.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
@@ -1512,7 +1526,7 @@ static void vulkan_runner_clear(struct shader_runner *r, struct resource *res, c
             attachment_desc.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             sub_pass_desc.pDepthStencilAttachment = &attachment_ref;
             vk_clear_value.depthStencil.depth = clear_value->x;
-            vk_clear_value.depthStencil.stencil = 0;
+            vk_clear_value.depthStencil.stencil = stencil;
             break;
 
         default:
@@ -1647,7 +1661,7 @@ static bool vulkan_runner_copy(struct shader_runner *r, struct resource *src, st
         return false;
 
     if (src->desc.type == RESOURCE_TYPE_DEPTH_STENCIL)
-        aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 
     src_layout = resource_get_layout(src);
     dst_layout = resource_get_layout(dst);

@@ -230,6 +230,9 @@ static const struct format_info *get_format_info(enum DXGI_FORMAT format, bool i
         {DXGI_FORMAT_R32_UINT,           1, true,  false, GL_R32UI,              GL_RED_INTEGER,     GL_UNSIGNED_INT},
         {DXGI_FORMAT_R32_SINT,           1, true,  false, GL_R32I,               GL_RED_INTEGER,     GL_INT},
         {DXGI_FORMAT_R32_TYPELESS,       1, true,  false, GL_R32UI,              GL_RED_INTEGER,     GL_UNSIGNED_INT},
+        {DXGI_FORMAT_R8_UINT,            1, true,  false, GL_R8UI,               GL_RED_INTEGER,     GL_UNSIGNED_BYTE},
+        {DXGI_FORMAT_D32_FLOAT_S8X24_UINT, 2, true, false, GL_DEPTH32F_STENCIL8, GL_DEPTH_STENCIL,   GL_FLOAT_32_UNSIGNED_INT_24_8_REV},
+        {DXGI_FORMAT_X32_TYPELESS_G8X24_UINT, 2, true, false, GL_DEPTH32F_STENCIL8, GL_DEPTH_STENCIL,   GL_FLOAT_32_UNSIGNED_INT_24_8_REV},
     };
 
     for (i = 0; i < ARRAY_SIZE(format_info); ++i)
@@ -527,6 +530,11 @@ static bool init_resource_texture(struct gl_resource *resource, const struct res
                     params->desc.width, params->desc.height);
         glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    }
+    if (resource->format->format == GL_DEPTH_STENCIL)
+    {
+        glTexParameteriv(target, GL_TEXTURE_SWIZZLE_RGBA, (const GLint[]){GL_ZERO, GL_RED, GL_ZERO, GL_ZERO});
+        glTexParameteri(target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
     }
     if (!params->data)
         return true;
@@ -1258,7 +1266,8 @@ fail:
     return 0;
 }
 
-static void gl_runner_clear(struct shader_runner *r, struct resource *res, const struct vec4 *clear_value)
+static void gl_runner_clear(struct shader_runner *r, struct resource *res,
+        const struct vec4 *clear_value, uint32_t stencil)
 {
     struct gl_resource *resource = gl_resource(res);
     struct gl_runner *runner = gl_runner(r);
@@ -1282,6 +1291,13 @@ static void gl_runner_clear(struct shader_runner *r, struct resource *res, const
             glDepthMask(GL_TRUE);
             glClearDepthf(clear_value->x);
             clear_mask = GL_DEPTH_BUFFER_BIT;
+            if (resource->format->format == GL_DEPTH_STENCIL)
+            {
+                glFramebufferTexture(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, resource->id, 0);
+                glStencilMask(~0u);
+                glClearStencil(stencil);
+                clear_mask |= GL_STENCIL_BUFFER_BIT;
+            }
             break;
 
         default:

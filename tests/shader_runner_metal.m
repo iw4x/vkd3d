@@ -61,6 +61,18 @@ struct metal_runner
     struct vkd3d_shader_scan_thread_group_size_info thread_group_size;
 };
 
+static bool is_stencil_format(DXGI_FORMAT format)
+{
+    switch (format)
+    {
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+        case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT:
+            return true;
+        default:
+            return false;
+    }
+}
+
 static MTLPixelFormat get_metal_pixel_format(DXGI_FORMAT format)
 {
     switch (format)
@@ -85,6 +97,12 @@ static MTLPixelFormat get_metal_pixel_format(DXGI_FORMAT format)
             return MTLPixelFormatDepth32Float;
         case DXGI_FORMAT_R8G8B8A8_UNORM:
             return MTLPixelFormatRGBA8Unorm;
+        case DXGI_FORMAT_R8_UINT:
+            return MTLPixelFormatR8Uint;
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+            return MTLPixelFormatDepth32Float_Stencil8;
+        case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT:
+            return MTLPixelFormatX32_Stencil8;
         default:
             return MTLPixelFormatInvalid;
     }
@@ -235,6 +253,7 @@ static void init_resource_buffer(struct metal_runner *runner,
 static void init_resource_texture(struct metal_runner *runner,
         struct metal_resource *resource, const struct resource_params *params)
 {
+    MTLPixelFormat view_format = MTLPixelFormatInvalid;
     id<MTLDevice> device = runner->device;
     MTLTextureDescriptor *desc;
 
@@ -274,6 +293,14 @@ static void init_resource_texture(struct metal_runner *runner,
             fatal_error("Unhandled resource dimension %#x.\n", params->desc.dimension);
     }
     desc.pixelFormat = get_metal_pixel_format(params->desc.format);
+    /* MTLPixelFormatX32_Stencil8 can't be use directly as a texture format;
+     * we instead need to create a texture view on a
+     * MTLPixelFormatDepth32Float_Stencil8 texture. */
+    if (desc.pixelFormat == MTLPixelFormatX32_Stencil8)
+    {
+        view_format = desc.pixelFormat;
+        desc.pixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+    }
     ok(desc.pixelFormat != MTLPixelFormatInvalid, "Unhandled pixel format %#x.\n", params->desc.format);
     desc.width = params->desc.width;
     desc.height = params->desc.height;
@@ -295,6 +322,8 @@ static void init_resource_texture(struct metal_runner *runner,
 
         case RESOURCE_TYPE_TEXTURE:
             desc.usage = MTLTextureUsageShaderRead;
+            if (view_format == MTLPixelFormatX32_Stencil8)
+                desc.usage |= MTLTextureUsagePixelFormatView;
             break;
 
         case RESOURCE_TYPE_UAV:
@@ -350,6 +379,17 @@ static void init_resource_texture(struct metal_runner *runner,
         [command_buffer waitUntilCompleted];
     }
 
+    if (view_format != MTLPixelFormatInvalid)
+    {
+        resource->texture = [resource->texture newTextureViewWithPixelFormat:view_format
+                textureType:desc.textureType
+                levels:NSMakeRange(0, desc.mipmapLevelCount)
+                slices:NSMakeRange(0, desc.arrayLength)
+                swizzle:MTLTextureSwizzleChannelsMake(MTLTextureSwizzleZero,
+                        MTLTextureSwizzleRed, MTLTextureSwizzleZero, MTLTextureSwizzleZero)];
+        ok(resource->texture, "Failed to create texture view.\n");
+    }
+
     [desc release];
 }
 
@@ -385,6 +425,8 @@ static void metal_runner_destroy_resource(struct shader_runner *r, struct resour
 {
     struct metal_resource *resource = metal_resource(res);
 
+    if (resource->texture.parentTexture)
+        [resource->texture.parentTexture release];
     [resource->texture release];
     [resource->buffer release];
     free(resource);
@@ -726,7 +768,8 @@ static bool metal_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
     return true;
 }
 
-static void metal_runner_clear(struct shader_runner *r, struct resource *res, const struct vec4 *clear_value)
+static void metal_runner_clear(struct shader_runner *r, struct resource *res,
+        const struct vec4 *clear_value, uint32_t stencil)
 {
     struct metal_resource *resource = metal_resource(res);
     struct metal_runner *runner = metal_runner(r);
@@ -753,6 +796,13 @@ static void metal_runner_clear(struct shader_runner *r, struct resource *res, co
                 descriptor.depthAttachment.loadAction = MTLLoadActionClear;
                 descriptor.depthAttachment.storeAction = MTLStoreActionStore;
                 descriptor.depthAttachment.clearDepth = clear_value->x;
+                if (is_stencil_format(resource->r.desc.format))
+                {
+                    descriptor.stencilAttachment.texture = resource->texture;
+                    descriptor.stencilAttachment.loadAction = MTLLoadActionClear;
+                    descriptor.stencilAttachment.storeAction = MTLStoreActionStore;
+                    descriptor.stencilAttachment.clearStencil = stencil;
+                }
                 break;
             default:
                 fatal_error("Clears are not implemented for resource type %#x.\n", resource->r.desc.type);
@@ -995,6 +1045,7 @@ static bool metal_runner_copy(struct shader_runner *r, struct resource *src, str
     struct metal_resource *s = metal_resource(src);
     struct metal_resource *d = metal_resource(dst);
     struct metal_runner *runner = metal_runner(r);
+    id<MTLTexture> src_texture, dst_texture;
     id<MTLCommandBuffer> command_buffer;
     id<MTLBlitCommandEncoder> blit;
 
@@ -1005,8 +1056,15 @@ static bool metal_runner_copy(struct shader_runner *r, struct resource *src, str
     {
         command_buffer = [runner->queue commandBuffer];
 
+        src_texture = s->texture;
+        if (src_texture.parentTexture)
+            src_texture = src_texture.parentTexture;
+        dst_texture = d->texture;
+        if (dst_texture.parentTexture)
+            dst_texture = dst_texture.parentTexture;
+
         blit = [command_buffer blitCommandEncoder];
-        [blit copyFromTexture:s->texture toTexture:d->texture];
+        [blit copyFromTexture:src_texture toTexture:dst_texture];
         [blit endEncoding];
 
         [command_buffer commit];

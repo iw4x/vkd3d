@@ -72,6 +72,7 @@ struct literal
         DATA_I16,
         DATA_I32,
         DATA_I64,
+        DATA_U8,
         DATA_U16,
         DATA_U32,
         DATA_U64,
@@ -88,6 +89,7 @@ struct literal
         struct u64vec2 u64;
         struct uvec4 u32;
         struct u16v4 u16;
+        struct u8v4 u8;
     } v;
 };
 
@@ -517,20 +519,23 @@ static const struct format_info
 }
 format_info[] =
 {
-    {"r32g32b32a32-float",  16, DXGI_FORMAT_R32G32B32A32_FLOAT},
-    {"r32g32b32a32-sint",   16, DXGI_FORMAT_R32G32B32A32_SINT},
-    {"r32g32b32a32-uint",   16, DXGI_FORMAT_R32G32B32A32_UINT},
-    {"r32g32b32-float",     12, DXGI_FORMAT_R32G32B32_FLOAT},
-    {"r32g32-float",         8, DXGI_FORMAT_R32G32_FLOAT},
-    {"r32g32-sint",          8, DXGI_FORMAT_R32G32_SINT},
-    {"r32g32-uint",          8, DXGI_FORMAT_R32G32_UINT},
-    {"r32-float-shadow",     4, DXGI_FORMAT_R32_FLOAT, true},
-    {"r32-float",            4, DXGI_FORMAT_R32_FLOAT},
-    {"r32-sint",             4, DXGI_FORMAT_R32_SINT},
-    {"r32-uint",             4, DXGI_FORMAT_R32_UINT},
-    {"r32-typeless",         4, DXGI_FORMAT_R32_TYPELESS},
-    {"r8g8b8a8-unorm",       4, DXGI_FORMAT_R8G8B8A8_UNORM},
-    {"unknown",              0, DXGI_FORMAT_UNKNOWN},
+    {"r32g32b32a32-float",      16, DXGI_FORMAT_R32G32B32A32_FLOAT},
+    {"r32g32b32a32-sint",       16, DXGI_FORMAT_R32G32B32A32_SINT},
+    {"r32g32b32a32-uint",       16, DXGI_FORMAT_R32G32B32A32_UINT},
+    {"r32g32b32-float",         12, DXGI_FORMAT_R32G32B32_FLOAT},
+    {"r32g32-float",             8, DXGI_FORMAT_R32G32_FLOAT},
+    {"r32g32-sint",              8, DXGI_FORMAT_R32G32_SINT},
+    {"r32g32-uint",              8, DXGI_FORMAT_R32G32_UINT},
+    {"r32-float-shadow",         4, DXGI_FORMAT_R32_FLOAT, true},
+    {"r32-float",                4, DXGI_FORMAT_R32_FLOAT},
+    {"r32-sint",                 4, DXGI_FORMAT_R32_SINT},
+    {"r32-uint",                 4, DXGI_FORMAT_R32_UINT},
+    {"r32-typeless",             4, DXGI_FORMAT_R32_TYPELESS},
+    {"r8g8b8a8-unorm",           4, DXGI_FORMAT_R8G8B8A8_UNORM},
+    {"r8-uint",                  1, DXGI_FORMAT_R8_UINT},
+    {"d32-float-s8x24-uint",     8, DXGI_FORMAT_D32_FLOAT_S8X24_UINT},
+    {"x32-typeless-g8x24-uint",  8, DXGI_FORMAT_X32_TYPELESS_G8X24_UINT},
+    {"unknown",                  0, DXGI_FORMAT_UNKNOWN},
 };
 
 static const char *get_format_name(DXGI_FORMAT f)
@@ -1032,6 +1037,23 @@ static void uniform_buffer_write(struct uniform_buffer *u, size_t offset, size_t
     memcpy(&u->elements[offset], data, count * sizeof(*u->elements));
 }
 
+static void read_u8(const char **line, uint8_t *u)
+{
+    unsigned long val;
+    char *rest;
+
+    errno = 0;
+    val = strtoul(*line, &rest, 0);
+    if (errno)
+        fatal_error("Malformed u8 constant '%s'.\n", *line);
+
+    *u = val;
+    if (*u != val)
+        fatal_error("Out of range u8 constant '%.*s'.\n", (int)(rest - *line), *line);
+
+    *line = rest;
+}
+
 static void read_i16(const char **line, int16_t *i)
 {
     char *rest;
@@ -1328,6 +1350,49 @@ static void read_literal(const char **line, struct literal *l)
         return;
     }
 
+    if (match_string(*line, "u8", line))
+    {
+        if (**line != '(')
+            fatal_error("Malformed literal '%s'.\n", *line);
+        ++*line;
+
+        l->data_type = DATA_U8;
+        read_u8(line, &l->v.u8.x);
+        ++l->element_count;
+
+        while (isspace(**line))
+            ++*line;
+        if (**line == ',')
+        {
+            ++*line;
+            read_u8(line, &l->v.u8.y);
+            ++l->element_count;
+
+            while (isspace(**line))
+                ++*line;
+            if (**line == ',')
+            {
+                ++*line;
+                read_u8(line, &l->v.u8.z);
+                ++l->element_count;
+
+                while (isspace(**line))
+                    ++*line;
+                if (**line != ',')
+                    fatal_error("Malformed literal '%s'.\n", *line);
+                ++*line;
+                read_u8(line, &l->v.u8.w);
+                ++l->element_count;
+            }
+        }
+
+        *line = close_parentheses(*line);
+        ++*line;
+        l->u32_count = (l->element_count + 3) / 4;
+
+        return;
+    }
+
     if (match_string(*line, "u16", line) || (is_signed = match_string(*line, "i16", line)))
     {
         if (**line != '(')
@@ -1550,8 +1615,9 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
     {
         struct resource *resource;
         enum resource_type type;
+        uint32_t stencil = 0;
+        struct literal l, s;
         unsigned int slot;
-        struct literal l;
 
         if (!parse_resource_reference(&line, &type, &slot))
             fatal_error("Malformed resource reference '%s'.\n", line);
@@ -1562,8 +1628,15 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         read_literal(&line, &l);
         if (l.data_type != DATA_F32)
             fatal_error("Unhandled literal data type %#x.\n", l.data_type);
+        if (type == RESOURCE_TYPE_DEPTH_STENCIL)
+        {
+            read_literal(&line, &s);
+            if (s.data_type != DATA_U32)
+                fatal_error("Unhandled stencil literal data type %#x.\n", s.data_type);
+            stencil = s.v.u32.x;
+        }
 
-        runner->ops->clear(runner, resource, &l.v.f32);
+        runner->ops->clear(runner, resource, &l.v.f32, stencil);
     }
     else if (match_string(line, "depth-bounds", &line))
     {
@@ -1831,6 +1904,13 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
                 {
                     fatal_error("Unhandled f32 element count %u.\n", l.element_count);
                 }
+                break;
+
+            case DATA_U8:
+                if (l.element_count != 1)
+                    fatal_error("Unhandled u8 element count %u.\n", l.element_count);
+                todo_if(runner->is_todo) bug_if(runner->is_bug)
+                check_readback_data_u8(rb, &rect, l.v.u8.x, 0);
                 break;
 
             case DATA_I32:

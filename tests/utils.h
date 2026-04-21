@@ -64,6 +64,11 @@ struct dvec2
     double x, y;
 };
 
+struct u8v4
+{
+    uint8_t x, y, z, w;
+};
+
 struct i16v4
 {
     int16_t x, y, z, w;
@@ -141,6 +146,13 @@ static inline bool vkd3d_array_reserve(void **elements, size_t *capacity, size_t
     *capacity = new_capacity;
 
     return true;
+}
+
+static bool compare_u8(uint8_t x, uint8_t y, unsigned int max_diff)
+{
+    unsigned int diff = x > y ? x - y : y - x;
+
+    return diff <= max_diff;
 }
 
 static bool compare_uint(unsigned int x, unsigned int y, unsigned int max_diff)
@@ -280,6 +292,11 @@ static double get_readback_double(const struct resource_readback *rb, unsigned i
     return *(double *)get_readback_data(rb, x, y, 0, sizeof(double));
 }
 
+static uint8_t get_readback_u8(struct resource_readback *rb, unsigned int x, unsigned int y)
+{
+    return *(uint8_t *)get_readback_data(rb, x, y, 0, sizeof(uint8_t));
+}
+
 static unsigned int get_readback_uint(const struct resource_readback *rb, unsigned int x, unsigned int y, unsigned int z)
 {
     return *(unsigned int*)get_readback_data(rb, x, y, z, sizeof(unsigned int));
@@ -366,6 +383,35 @@ static inline void check_readback_data_double_(const char *file, unsigned int li
             break;
     }
     ok_(file, line)(all_match, "Got %.15le, expected %.15le at (%u, %u).\n", got, expected, x, y);
+}
+
+#define check_readback_data_u8(a, b, c, d) check_readback_data_u8_(__FILE__, __LINE__, a, b, c, d)
+static inline void check_readback_data_u8_(const char *file, unsigned int line,
+        struct resource_readback *rb, const RECT *rect, uint8_t expected, unsigned int max_diff)
+{
+    RECT r = {0, 0, rb->width, rb->height};
+    unsigned int x = 0, y;
+    bool all_match = true;
+    uint8_t got = 0;
+
+    if (rect)
+        r = *rect;
+
+    for (y = r.top; y < r.bottom; ++y)
+    {
+        for (x = r.left; x < r.right; ++x)
+        {
+            got = get_readback_u8(rb, x, y);
+            if (!compare_u8(got, expected, max_diff))
+            {
+                all_match = false;
+                break;
+            }
+        }
+        if (!all_match)
+            break;
+    }
+    ok_(file, line)(all_match, "Got 0x%02x, expected 0x%02x at (%u, %u).\n", got, expected, x, y);
 }
 
 #define check_readback_data_uint(a, b, c, d) check_readback_data_uint_(__FILE__, __LINE__, a, b, c, d)

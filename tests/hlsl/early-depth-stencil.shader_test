@@ -25,7 +25,7 @@ float4 main() : sv_target
 depth greater equal
 
 clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
-clear dsv f32(0.5)
+clear dsv f32(0.5) u32(0)
 draw quad
 probe (0, 0) f32(0, 0, 0, 0)
 probe uav-1 (0) f32(0.0)

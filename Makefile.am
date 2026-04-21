@@ -284,6 +284,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/state-block-function-syntax.shader_test \
 	tests/hlsl/state-block-syntax.shader_test \
 	tests/hlsl/static-initializer.shader_test \
+	tests/hlsl/stencil.shader_test \
 	tests/hlsl/step.shader_test \
 	tests/hlsl/storage-qualifiers.shader_test \
 	tests/hlsl/strings.shader_test \

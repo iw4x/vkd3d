@@ -789,7 +789,8 @@ static bool d3d11_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
     return true;
 }
 
-static void d3d11_runner_clear(struct shader_runner *r, struct resource *res, const struct vec4 *clear_value)
+static void d3d11_runner_clear(struct shader_runner *r, struct resource *res,
+        const struct vec4 *clear_value, uint32_t stencil)
 {
     struct d3d11_shader_runner *runner = d3d11_shader_runner(r);
     ID3D11DeviceContext *context = runner->immediate_context;
@@ -802,7 +803,8 @@ static void d3d11_runner_clear(struct shader_runner *r, struct resource *res, co
             break;
 
         case RESOURCE_TYPE_DEPTH_STENCIL:
-            ID3D11DeviceContext_ClearDepthStencilView(context, resource->dsv, D3D11_CLEAR_DEPTH, clear_value->x, 0);
+            ID3D11DeviceContext_ClearDepthStencilView(context, resource->dsv,
+                    D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, clear_value->x, stencil);
             break;
 
         default:

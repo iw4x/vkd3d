@@ -44,11 +44,6 @@ static ID3D10Blob *compile_shader(const char *source, size_t len, const char *pr
     return bytecode;
 }
 
-static bool compare_uint8(uint8_t a, uint8_t b, unsigned int max_diff)
-{
-    return abs(a - b) <= max_diff;
-}
-
 static bool compare_uint16(uint16_t a, uint16_t b, unsigned int max_diff)
 {
     return abs(a - b) <= max_diff;
@@ -218,11 +213,6 @@ static void get_buffer_readback_with_command_list(ID3D12Resource *buffer, DXGI_F
     ok(SUCCEEDED(hr), "Failed to map readback buffer, hr %#x.\n", hr);
 }
 
-static uint8_t get_readback_uint8(struct resource_readback *rb, unsigned int x, unsigned int y)
-{
-    return *(uint8_t *)get_readback_data(rb, x, y, 0, sizeof(uint8_t));
-}
-
 static uint16_t get_readback_uint16(struct resource_readback *rb, unsigned int x, unsigned int y)
 {
     return *(uint16_t *)get_readback_data(rb, x, y, 0, sizeof(uint16_t));
@@ -240,35 +230,6 @@ static void check_sub_resource_float_(const char *file, unsigned int line, ID3D1
     release_resource_readback(&rb);
 }
 
-#define check_readback_data_uint8(a, b, c, d) check_readback_data_uint8_(__FILE__, __LINE__, a, b, c, d)
-static void check_readback_data_uint8_(const char *file, unsigned int line, struct resource_readback *rb,
-        const RECT *rect, uint8_t expected, unsigned int max_diff)
-{
-    RECT r = {0, 0, rb->width, rb->height};
-    unsigned int x = 0, y;
-    bool all_match = true;
-    uint8_t got = 0;
-
-    if (rect)
-        r = *rect;
-
-    for (y = r.top; y < r.bottom; ++y)
-    {
-        for (x = r.left; x < r.right; ++x)
-        {
-            got = get_readback_uint8(rb, x, y);
-            if (!compare_uint8(got, expected, max_diff))
-            {
-                all_match = false;
-                break;
-            }
-        }
-        if (!all_match)
-            break;
-    }
-    ok_(file, line)(all_match, "Got 0x%02x, expected 0x%02x at (%u, %u).\n", got, expected, x, y);
-}
-
 #define check_sub_resource_uint8(a, b, c, d, e, f) check_sub_resource_uint8_(__FILE__, __LINE__, a, b, c, d, e, f)
 static void check_sub_resource_uint8_(const char *file, unsigned int line, ID3D12Resource *resource,
         unsigned int sub_resource_idx, ID3D12CommandQueue *queue, ID3D12GraphicsCommandList *command_list,
@@ -277,7 +238,7 @@ static void check_sub_resource_uint8_(const char *file, unsigned int line, ID3D1
     struct d3d12_resource_readback rb;
 
     get_resource_readback_with_command_list(resource, sub_resource_idx, &rb, queue, command_list);
-    check_readback_data_uint8_(file, line, &rb.rb, NULL, expected, max_diff);
+    check_readback_data_u8_(file, line, &rb.rb, NULL, expected, max_diff);
     release_resource_readback(&rb);
 }
 

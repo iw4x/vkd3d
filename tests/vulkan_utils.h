@@ -217,10 +217,20 @@ static inline VkImageView create_vulkan_image_view(const struct vulkan_test_cont
     else if (image_type == VK_IMAGE_TYPE_3D)
         view_info.viewType = VK_IMAGE_VIEW_TYPE_3D;
     view_info.format = format;
-    view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-    view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-    view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-    view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+    if (aspect_mask == VK_IMAGE_ASPECT_STENCIL_BIT)
+    {
+        view_info.components.r = VK_COMPONENT_SWIZZLE_ZERO;
+        view_info.components.g = VK_COMPONENT_SWIZZLE_R;
+        view_info.components.b = VK_COMPONENT_SWIZZLE_ZERO;
+        view_info.components.a = VK_COMPONENT_SWIZZLE_ZERO;
+    }
+    else
+    {
+        view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+    }
     view_info.subresourceRange.aspectMask = aspect_mask;
     view_info.subresourceRange.baseMipLevel = 0;
     view_info.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
