@@ -4111,7 +4111,7 @@ static uint32_t spirv_compiler_emit_load_src(struct spirv_compiler *compiler,
         const struct vsir_src_operand *src, uint32_t write_mask);
 
 static uint32_t spirv_compiler_emit_register_addressing(struct spirv_compiler *compiler,
-        const struct vkd3d_shader_register_index *reg_index)
+        const struct vsir_register_index *reg_index)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     uint32_t type_id, addr_id;
@@ -4249,7 +4249,7 @@ static uint32_t spirv_compiler_get_descriptor_index(struct spirv_compiler *compi
         unsigned int binding_base_idx, enum vkd3d_shader_resource_type resource_type)
 {
     const struct vkd3d_symbol_descriptor_array *array_key = &array_symbol->key.descriptor_array;
-    struct vkd3d_shader_register_index index = reg->idx[1];
+    struct vsir_register_index index = reg->idx[1];
     unsigned int push_constant_index;
     uint32_t index_id;
 

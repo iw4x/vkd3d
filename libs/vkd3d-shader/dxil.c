@@ -2938,8 +2938,8 @@ static void vsir_operand_convert_to_minimum_precision(struct vsir_operand *reg)
     }
 }
 
-static void register_index_address_init(struct vkd3d_shader_register_index *idx, const struct sm6_value *address,
-        struct sm6_parser *sm6);
+static void register_index_address_init(struct vsir_register_index *idx,
+        const struct sm6_value *address, struct sm6_parser *sm6);
 
 static void vsir_operand_from_dxil_value(struct vsir_operand *reg,
         const struct sm6_value *value, uint32_t type_flags, struct sm6_parser *dxil)
@@ -3098,7 +3098,7 @@ static void src_param_make_constant_uint(struct vsir_src_operand *param, unsigne
     vsir_operand_init_constant_u32(&param->reg, value);
 }
 
-static void register_index_address_init(struct vkd3d_shader_register_index *idx,
+static void register_index_address_init(struct vsir_register_index *idx,
         const struct sm6_value *address, struct sm6_parser *sm6)
 {
     struct vsir_src_operand *rel_addr;

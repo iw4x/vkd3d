@@ -9673,7 +9673,7 @@ static enum vkd3d_result sysval_array_normaliser_dcl_indexable_temp(
 
 static bool vsir_program_validate_outpointid_control_point_index(const struct vsir_operand *reg)
 {
-    const struct vkd3d_shader_register_index *index;
+    const struct vsir_register_index *index;
 
     if (reg->idx_count < 2)
         return false;
@@ -9735,8 +9735,8 @@ static bool vsir_program_validate_outpointid_control_point_index(const struct vs
 static enum vkd3d_result sysval_array_normaliser_map_register(struct sysval_array_normaliser *normaliser,
         struct vsir_program_iterator *it, struct vsir_operand *reg, unsigned int *src_swizzle)
 {
-    struct vkd3d_shader_register_index i_idx = {0}, p_idx = {0};
     struct vsir_program *program = normaliser->ctx->program;
+    struct vsir_register_index i_idx = {0}, p_idx = {0};
     unsigned int element_index, control_point_count;
     struct vkd3d_shader_instruction *ssa_ins;
     struct shader_signature *signature;
@@ -16524,8 +16524,7 @@ struct vsir_cse_expr
     unsigned int ins_index;
 };
 
-static int vkd3d_shader_register_index_compare(const struct vkd3d_shader_register_index *a,
-        const struct vkd3d_shader_register_index *b)
+static int vsir_register_index_compare(const struct vsir_register_index *a, const struct vsir_register_index *b)
 {
     int ret;
 
@@ -16552,7 +16551,7 @@ static int vsir_operand_compare(const struct vsir_operand *a, const struct vsir_
         return ret;
     for (unsigned int i = 0; i < a->idx_count; ++i)
     {
-        if ((ret = vkd3d_shader_register_index_compare(&a->idx[i], &b->idx[i])))
+        if ((ret = vsir_register_index_compare(&a->idx[i], &b->idx[i])))
             return ret;
     }
     if ((ret = vkd3d_u32_compare(a->dimension, b->dimension)))

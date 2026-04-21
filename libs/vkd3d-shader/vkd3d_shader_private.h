@@ -1037,9 +1037,9 @@ struct vkd3d_shader_indexable_temp
     const struct vkd3d_shader_immediate_constant_buffer *initialiser;
 };
 
-/* This structure is used by vkd3d_shader_register_index_compare(); changes to
- * the structure should be reflected by the comparison function as well. */
-struct vkd3d_shader_register_index
+/* This structure is used by vsir_register_index_compare(); changes to the
+ * structure should be reflected by the comparison function as well. */
+struct vsir_register_index
 {
     struct vsir_src_operand *rel_addr;
     unsigned int offset;
@@ -1055,7 +1055,7 @@ struct vsir_operand
     enum vkd3d_shader_register_precision precision;
     bool non_uniform;
     enum vsir_data_type data_type;
-    struct vkd3d_shader_register_index idx[3];
+    struct vsir_register_index idx[3];
     unsigned int idx_count;
     enum vsir_dimension dimension;
     /* known address alignment for optimisation, or zero */

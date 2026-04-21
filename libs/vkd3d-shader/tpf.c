@@ -2004,7 +2004,7 @@ static enum vsir_data_type map_data_type(char t)
 }
 
 static bool shader_sm4_read_reg_idx(struct vkd3d_shader_sm4_parser *tpf, const uint32_t **ptr,
-        const uint32_t *end, uint32_t addressing, struct vkd3d_shader_register_index *reg_idx)
+        const uint32_t *end, uint32_t addressing, struct vsir_register_index *reg_idx)
 {
     if (addressing & VKD3D_SM4_ADDRESSING_RELATIVE)
     {
@@ -3520,7 +3520,7 @@ static uint32_t sm4_encode_register(const struct tpf_compiler *tpf, const struct
 static void sm4_write_register_index(const struct tpf_compiler *tpf, const struct vsir_operand *reg, unsigned int j)
 {
     unsigned int addressing = sm4_get_index_addressing_from_reg(reg, j);
-    const struct vkd3d_shader_register_index *idx = &reg->idx[j];
+    const struct vsir_register_index *idx = &reg->idx[j];
     struct vkd3d_bytecode_buffer *buffer = tpf->buffer;
     unsigned int k;
 
