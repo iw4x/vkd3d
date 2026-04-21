@@ -1619,6 +1619,35 @@ static void test_create_committed_resource(void)
         {D3D12_HEAP_TYPE_READBACK, D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS},
     };
 
+    static const struct
+    {
+        DXGI_FORMAT format;
+        bool is_todo;
+    }
+    depth_stencil_tests[] =
+    {
+        {DXGI_FORMAT_R32G8X24_TYPELESS, true},
+        {DXGI_FORMAT_D32_FLOAT_S8X24_UINT, true},
+        {DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS, true},
+        {DXGI_FORMAT_X32_TYPELESS_G8X24_UINT, true},
+        {DXGI_FORMAT_R32_TYPELESS},
+        {DXGI_FORMAT_D32_FLOAT},
+        {DXGI_FORMAT_R32_FLOAT},
+        {DXGI_FORMAT_R32_UINT},
+        {DXGI_FORMAT_R32_SINT},
+        {DXGI_FORMAT_R24G8_TYPELESS, true},
+        {DXGI_FORMAT_D24_UNORM_S8_UINT, true},
+        {DXGI_FORMAT_R24_UNORM_X8_TYPELESS, true},
+        {DXGI_FORMAT_X24_TYPELESS_G8_UINT, true},
+        {DXGI_FORMAT_R16_TYPELESS},
+        {DXGI_FORMAT_R16_FLOAT},
+        {DXGI_FORMAT_D16_UNORM},
+        {DXGI_FORMAT_R16_UNORM},
+        {DXGI_FORMAT_R16_UINT},
+        {DXGI_FORMAT_R16_SNORM},
+        {DXGI_FORMAT_R16_SINT},
+    };
+
     if (!(device = create_device()))
     {
         skip("Failed to create device.\n");
@@ -1915,6 +1944,30 @@ static void test_create_committed_resource(void)
         hr = ID3D12Device_CreateCommittedResource(device, &heap_properties, D3D12_HEAP_FLAG_NONE,
                 &resource_desc, state, NULL, &IID_ID3D12Resource, (void **)&resource);
         ok(hr == E_INVALIDARG, "Test %u: Got unexpected hr %#x.\n", i, hr);
+    }
+
+    for (i = 0; i < ARRAY_SIZE(depth_stencil_tests); ++i)
+    {
+        memset(&heap_properties, 0, sizeof(heap_properties));
+        heap_properties.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+        resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        resource_desc.Alignment = 0;
+        resource_desc.Width = 64;
+        resource_desc.Height = 64;
+        resource_desc.DepthOrArraySize = 1;
+        resource_desc.MipLevels = 1;
+        resource_desc.Format = depth_stencil_tests[i].format;
+        resource_desc.SampleDesc.Count = 1;
+        resource_desc.SampleDesc.Quality = 0;
+        resource_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+        resource_desc.Flags = 0;
+
+        hr = ID3D12Device_CreateCommittedResource(device, &heap_properties, D3D12_HEAP_FLAG_NONE, &resource_desc,
+                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, NULL, &IID_ID3D12Resource, (void **)&resource);
+        todo_if(depth_stencil_tests[i].is_todo) ok(hr == S_OK, "Test %u: Got hr %#x.\n", i, hr);
+        if (SUCCEEDED(hr))
+            ID3D12Resource_Release(resource);
     }
 
     if (SUCCEEDED(ID3D12Device_QueryInterface(device, &IID_ID3D12Device4, (void **)&device4)))
