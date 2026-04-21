@@ -1622,23 +1622,22 @@ static void test_create_committed_resource(void)
     static const struct
     {
         DXGI_FORMAT format;
-        bool is_todo;
     }
     depth_stencil_tests[] =
     {
-        {DXGI_FORMAT_R32G8X24_TYPELESS, true},
-        {DXGI_FORMAT_D32_FLOAT_S8X24_UINT, true},
-        {DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS, true},
-        {DXGI_FORMAT_X32_TYPELESS_G8X24_UINT, true},
+        {DXGI_FORMAT_R32G8X24_TYPELESS},
+        {DXGI_FORMAT_D32_FLOAT_S8X24_UINT},
+        {DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS},
+        {DXGI_FORMAT_X32_TYPELESS_G8X24_UINT},
         {DXGI_FORMAT_R32_TYPELESS},
         {DXGI_FORMAT_D32_FLOAT},
         {DXGI_FORMAT_R32_FLOAT},
         {DXGI_FORMAT_R32_UINT},
         {DXGI_FORMAT_R32_SINT},
-        {DXGI_FORMAT_R24G8_TYPELESS, true},
-        {DXGI_FORMAT_D24_UNORM_S8_UINT, true},
-        {DXGI_FORMAT_R24_UNORM_X8_TYPELESS, true},
-        {DXGI_FORMAT_X24_TYPELESS_G8_UINT, true},
+        {DXGI_FORMAT_R24G8_TYPELESS},
+        {DXGI_FORMAT_D24_UNORM_S8_UINT},
+        {DXGI_FORMAT_R24_UNORM_X8_TYPELESS},
+        {DXGI_FORMAT_X24_TYPELESS_G8_UINT},
         {DXGI_FORMAT_R16_TYPELESS},
         {DXGI_FORMAT_R16_FLOAT},
         {DXGI_FORMAT_D16_UNORM},
@@ -1965,9 +1964,8 @@ static void test_create_committed_resource(void)
 
         hr = ID3D12Device_CreateCommittedResource(device, &heap_properties, D3D12_HEAP_FLAG_NONE, &resource_desc,
                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, NULL, &IID_ID3D12Resource, (void **)&resource);
-        todo_if(depth_stencil_tests[i].is_todo) ok(hr == S_OK, "Test %u: Got hr %#x.\n", i, hr);
-        if (SUCCEEDED(hr))
-            ID3D12Resource_Release(resource);
+        ok(hr == S_OK, "Test %u: Got hr %#x.\n", i, hr);
+        ID3D12Resource_Release(resource);
     }
 
     if (SUCCEEDED(ID3D12Device_QueryInterface(device, &IID_ID3D12Device4, (void **)&device4)))
