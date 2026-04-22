@@ -1163,7 +1163,7 @@ struct vkd3d_shader_index_range
     unsigned int register_count;
 };
 
-struct vkd3d_shader_register_range
+struct vsir_register_range
 {
     unsigned int space;
     unsigned int first, last;
@@ -1172,7 +1172,7 @@ struct vkd3d_shader_register_range
 struct vkd3d_shader_resource
 {
     struct vsir_dst_operand reg;
-    struct vkd3d_shader_register_range range;
+    struct vsir_register_range range;
 };
 
 enum vkd3d_decl_usage
@@ -1328,14 +1328,14 @@ struct vkd3d_shader_register_semantic
 struct vkd3d_shader_sampler
 {
     struct vsir_src_operand src;
-    struct vkd3d_shader_register_range range;
+    struct vsir_register_range range;
 };
 
 struct vkd3d_shader_constant_buffer
 {
     struct vsir_src_operand src;
     unsigned int size;
-    struct vkd3d_shader_register_range range;
+    struct vsir_register_range range;
 };
 
 struct vkd3d_shader_structured_resource
@@ -1741,8 +1741,7 @@ enum vkd3d_result vsir_update_dcl_temps(struct vsir_program *program,
         struct vkd3d_shader_message_context *message_context);
 
 struct vkd3d_shader_descriptor_info1 *vsir_program_add_descriptor(struct vsir_program *program,
-        enum vkd3d_shader_descriptor_type type, unsigned int register_id,
-        const struct vkd3d_shader_register_range *range,
+        enum vkd3d_shader_descriptor_type type, unsigned int register_id, const struct vsir_register_range *range,
         enum vkd3d_shader_resource_type resource_type, enum vsir_data_type resource_data_type);
 bool vsir_program_add_icb(struct vsir_program *program, struct vkd3d_shader_immediate_constant_buffer *icb);
 void vsir_program_cleanup(struct vsir_program *program);

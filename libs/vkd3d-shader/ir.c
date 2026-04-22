@@ -865,8 +865,7 @@ unsigned int vsir_signature_next_location(const struct shader_signature *signatu
 }
 
 struct vkd3d_shader_descriptor_info1 *vsir_program_add_descriptor(struct vsir_program *program,
-        enum vkd3d_shader_descriptor_type type, unsigned int register_id,
-        const struct vkd3d_shader_register_range *range,
+        enum vkd3d_shader_descriptor_type type, unsigned int register_id, const struct vsir_register_range *range,
         enum vkd3d_shader_resource_type resource_type, enum vsir_data_type resource_data_type)
 {
     struct vkd3d_shader_scan_descriptor_info1 *info = &program->descriptors;

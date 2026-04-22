@@ -9767,10 +9767,10 @@ static void sm1_generate_vsir_sampler_dcls(struct hlsl_ctx *ctx,
         struct vsir_program *program, struct hlsl_block *block)
 {
     enum vkd3d_shader_resource_type resource_type;
-    struct vkd3d_shader_register_range *range;
     struct vkd3d_shader_semantic *semantic;
     struct vkd3d_shader_instruction *ins;
     enum hlsl_sampler_dim sampler_dim;
+    struct vsir_register_range *range;
     struct vsir_dst_operand *dst;
     struct hlsl_ir_var *var;
     unsigned int i, count;
@@ -14103,8 +14103,8 @@ static void generate_vsir_descriptors_for_var(struct hlsl_ctx *ctx, struct vsir_
     for (unsigned int k = 0; k < component_count; ++k)
     {
         const struct hlsl_type *component_type = hlsl_type_get_component_type(ctx, var->data_type, k);
-        struct vkd3d_shader_register_range range;
         struct vkd3d_shader_descriptor_info1 *d;
+        struct vsir_register_range range;
         unsigned int regset_offset;
         enum hlsl_regset regset;
         uint32_t id;
@@ -14167,8 +14167,8 @@ static void generate_vsir_descriptors_for_var(struct hlsl_ctx *ctx, struct vsir_
 
 static void generate_vsir_descriptors(struct hlsl_ctx *ctx, struct vsir_program *program)
 {
-    struct vkd3d_shader_register_range range;
     struct vkd3d_shader_descriptor_info1 *d;
+    struct vsir_register_range range;
     const struct hlsl_ir_var *var;
 
     if (program->shader_version.major < 4)

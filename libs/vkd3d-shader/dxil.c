@@ -868,7 +868,7 @@ struct sm6_descriptor_info
 {
     enum vkd3d_shader_descriptor_type type;
     unsigned int id;
-    struct vkd3d_shader_register_range range;
+    struct vsir_register_range range;
     enum dxil_resource_kind kind;
     enum vsir_data_type resource_data_type;
 };
@@ -10148,7 +10148,7 @@ static const struct sm6_metadata_value *sm6_parser_find_named_metadata(struct sm
 }
 
 static bool sm6_parser_resources_load_register_range(struct sm6_parser *sm6,
-        const struct sm6_metadata_node *node, struct vkd3d_shader_register_range *range)
+        const struct sm6_metadata_node *node, struct vsir_register_range *range)
 {
     unsigned int size;
 
@@ -10398,7 +10398,7 @@ static struct vkd3d_shader_resource *sm6_parser_resources_load_common_info(struc
 
 static void init_resource_declaration(struct vkd3d_shader_resource *resource,
         enum vkd3d_shader_register_type reg_type, enum vsir_data_type data_type,
-        unsigned int id, const struct vkd3d_shader_register_range *range)
+        unsigned int id, const struct vsir_register_range *range)
 {
     struct vsir_dst_operand *param = &resource->reg;
 

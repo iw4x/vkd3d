@@ -1238,7 +1238,7 @@ static void vkd3d_shader_scan_record_uav_atomic_op(struct vkd3d_shader_scan_cont
 
 static struct vkd3d_shader_descriptor_info1 *vkd3d_shader_scan_add_descriptor(struct vkd3d_shader_scan_context *context,
         enum vkd3d_shader_descriptor_type type, const struct vsir_operand *reg,
-        const struct vkd3d_shader_register_range *range, enum vkd3d_shader_resource_type resource_type,
+        const struct vsir_register_range *range, enum vkd3d_shader_resource_type resource_type,
         enum vsir_data_type resource_data_type)
 {
     struct vkd3d_shader_scan_descriptor_info1 *info = context->scan_descriptor_info;
