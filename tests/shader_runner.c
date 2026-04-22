@@ -2918,8 +2918,7 @@ static uint32_t get_runner_test_mask(struct shader_runner *runner, enum test_act
 
     if (test_action == TEST_ACTION_COMPILE)
     {
-        if (runner->hlsl_hrs[runner->minimum_shader_model] == S_OK)
-            bitmap_set(&model_mask, runner->minimum_shader_model);
+        bitmap_set(&model_mask, runner->minimum_shader_model);
         for (unsigned int j = SHADER_MODEL_MIN + 1; j <= SHADER_MODEL_MAX; ++j)
         {
             if (runner->hlsl_hrs[j - 1] != runner->hlsl_hrs[j])

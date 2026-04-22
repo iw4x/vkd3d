@@ -37,7 +37,7 @@ options: backcompat
 shader model < 6.0
 
 % sm3 forbids pos or vpos from being more than 2 components.
-[pixel shader fail(sm<4) todo(sm<4)]
+[pixel shader fail(sm<4) todo(sm<4 & sm>=3)]
 float4 main(float4 pos : vpos) : sv_target
 {
     return pos;
