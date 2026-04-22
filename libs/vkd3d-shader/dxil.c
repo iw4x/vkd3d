@@ -4629,6 +4629,9 @@ static enum vkd3d_shader_register_type register_type_from_dxil_semantic_kind(
         case VKD3D_SHADER_SV_DEPTH_LESS_EQUAL:
             *dimension = VSIR_DIMENSION_SCALAR;
             return VKD3DSPR_DEPTHOUTLE;
+        case VKD3D_SHADER_SV_STENCIL_REF:
+            *dimension = VSIR_DIMENSION_SCALAR;
+            return VKD3DSPR_OUTSTENCILREF;
         default:
             return VKD3DSPR_INVALID;
     }
@@ -10073,6 +10076,7 @@ static const enum vkd3d_shader_sysval_semantic sysval_semantic_table[] =
     [SEMANTIC_KIND_DEPTH]                = VKD3D_SHADER_SV_DEPTH,
     [SEMANTIC_KIND_DEPTHLESSEQUAL]       = VKD3D_SHADER_SV_DEPTH_LESS_EQUAL,
     [SEMANTIC_KIND_DEPTHGREATEREQUAL]    = VKD3D_SHADER_SV_DEPTH_GREATER_EQUAL,
+    [SEMANTIC_KIND_STENCILREF]           = VKD3D_SHADER_SV_STENCIL_REF,
 };
 
 static enum vkd3d_shader_sysval_semantic sysval_semantic_from_dxil_semantic_kind(enum dxil_semantic_kind kind,

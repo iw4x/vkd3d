@@ -78,7 +78,7 @@ depth never
 stencil (always replace replace replace)
 stencil-ref u32(0x40)
 clear dsv f32(0.25) u32(0xcc)
-todo draw quad
+todo(sm<6 | msl) draw quad
 copy dsv srv-0
 depth always
 
@@ -93,4 +93,4 @@ uint main(float4 pos : SV_Position) : SV_TARGET
 [test]
 clear rtv-0 f32(0, 0, 0, 0)
 draw quad
-todo probe (32, 32) u8(0xa5)
+todo(sm<6 | msl | d3d12) bug(mvk<1.4) probe (32, 32) u8(0xa5)
