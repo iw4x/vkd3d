@@ -17,6 +17,10 @@
  */
 
 #include "config.h"
+
+#include <sys/stat.h>
+#include <errno.h>
+
 #include "d3d12_crosstest.h"
 #include "vkd3d_common.h"
 #include "vkd3d_d3d12shader.h"
@@ -3797,6 +3801,223 @@ static void test_special_characters(void)
     }
 }
 
+static char temp_dir[PATH_MAX] = "vkd3d-hlsl-d3d12-test-XXXXXX";
+static bool temp_dir_init = false;
+
+static void ensure_temp_dir(void)
+{
+    if (!temp_dir_init)
+    {
+#ifdef _WIN32
+        for (;;)
+        {
+            mktemp(temp_dir);
+            mkdir(temp_dir);
+
+            if (errno != EEXIST)
+                break;
+        }
+#else
+        mkdtemp(temp_dir);
+#endif
+
+        strcat(temp_dir, "/");
+        temp_dir_init = true;
+    }
+}
+
+static void delete_temp_dir(void)
+{
+    if (!temp_dir_init)
+        return;
+    rmdir(temp_dir);
+    temp_dir_init = false;
+}
+
+static void create_file(const char *filename, const char *data, unsigned int size, char *out_path)
+{
+    char path[PATH_MAX];
+    FILE *file;
+
+    ensure_temp_dir();
+
+    strcpy(path, temp_dir);
+    strcat(path, filename);
+
+    file = fopen(path, "wb");
+    fwrite(data, 1, size, file);
+    fclose(file);
+
+    if (out_path)
+        strcpy(out_path, path);
+}
+
+static void create_directory(const char *name, char *out_path)
+{
+    char path[PATH_MAX];
+
+    ensure_temp_dir();
+
+    strcpy(path, temp_dir);
+    strcat(path, name);
+
+#ifdef _WIN32
+    mkdir(path);
+#else
+    mkdir(path, 0700);
+#endif
+
+    if (out_path)
+        strcpy(out_path, path);
+}
+
+static void delete_directory(const char *name)
+{
+    char path[PATH_MAX];
+
+    if (!temp_dir[0])
+        return;
+
+    strcpy(path, temp_dir);
+    strcat(path, name);
+
+    rmdir(path);
+}
+
+static void delete_file(const char *name)
+{
+    char path[PATH_MAX];
+
+    if (!temp_dir[0])
+        return;
+
+    strcpy(path, temp_dir);
+    strcat(path, name);
+
+    remove(path);
+}
+
+static void test_default_include_path(void)
+{
+    ID3D10Blob *blob, *errors;
+    char cwd[PATH_MAX];
+    const char *code;
+    SIZE_T size;
+    HRESULT hr;
+
+    static const char ps_code[] =
+            "#include \"include1.h\"\n"
+            "\n"
+            "float4 main() : COLOR\n"
+            "{\n"
+            "    return LIGHT;\n"
+            "}";
+    static const char include1[] =
+            "#define LIGHT 42\n";
+    static const char include2[] =
+            "#define LIGHT wrong\n";
+
+    create_directory("sources", NULL);
+    create_file("sources/source.ps", ps_code, strlen(ps_code), NULL);
+    create_file("sources/include1.h", include1, strlen(include1), NULL);
+
+    getcwd(cwd, PATH_MAX);
+    chdir(temp_dir);
+
+    blob = NULL;
+    errors = NULL;
+    hr = D3DPreprocess(ps_code, strlen(ps_code), "sources\\source.ps",
+            NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, &blob, &errors);
+#ifdef _WIN32
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+    ok(!!blob, "Got blob %p.\n", blob);
+    ok(!errors, "Got errors %p.\n", errors);
+    ID3D10Blob_Release(blob);
+#else
+    ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+    ok(!blob, "Got blob %p.\n", blob);
+    ok(!!errors, "Got errors %p.\n", errors);
+#endif
+
+    blob = NULL;
+    errors = NULL;
+    hr = D3DPreprocess(ps_code, strlen(ps_code), "sources/source.ps",
+            NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, &blob, &errors);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+    ok(!!blob, "Got blob %p.\n", blob);
+    ok(!errors, "Got errors %p.\n", errors);
+    ID3D10Blob_Release(blob);
+
+    blob = NULL;
+    errors = NULL;
+    hr = D3DPreprocess(ps_code, strlen(ps_code), "source.ps", NULL,
+            D3D_COMPILE_STANDARD_FILE_INCLUDE, &blob, &errors);
+    ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+    ok(!blob, "Got blob %p.\n", blob);
+    ok(!!errors, "Got errors %p.\n", errors);
+    ID3D10Blob_Release(errors);
+
+    blob = NULL;
+    errors = NULL;
+    hr = D3DPreprocess(ps_code, strlen(ps_code), "nonexistent/source.ps",
+            NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, &blob, &errors);
+    ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+    ok(!blob, "Got blob %p.\n", blob);
+    ok(!!errors, "Got errors %p.\n", errors);
+    ID3D10Blob_Release(errors);
+
+    chdir("sources");
+
+    blob = NULL;
+    errors = NULL;
+    hr = D3DPreprocess(ps_code, strlen(ps_code), "source.ps", NULL,
+            D3D_COMPILE_STANDARD_FILE_INCLUDE, &blob, &errors);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+    ok(!!blob, "Got blob %p.\n", blob);
+    ok(!errors, "Got errors %p.\n", errors);
+    ID3D10Blob_Release(blob);
+
+    blob = NULL;
+    errors = NULL;
+    hr = D3DPreprocess(ps_code, strlen(ps_code), "nonexistent/source.ps",
+            NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, &blob, &errors);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+    ok(!!blob, "Got blob %p.\n", blob);
+    ok(!errors, "Got errors %p.\n", errors);
+    ID3D10Blob_Release(blob);
+
+    blob = NULL;
+    errors = NULL;
+    hr = D3DPreprocess(ps_code, strlen(ps_code), "nonexistent\\source.ps",
+            NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, &blob, &errors);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+    ok(!!blob, "Got blob %p.\n", blob);
+    ok(!errors, "Got errors %p.\n", errors);
+    ID3D10Blob_Release(blob);
+
+    chdir(cwd);
+    create_file("include1.h", include2, strlen(include2), NULL);
+    chdir(temp_dir);
+
+    blob = NULL;
+    errors = NULL;
+    hr = D3DPreprocess(ps_code, strlen(ps_code), "sources/source.ps",
+            NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, &blob, &errors);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+    ok(!!blob, "Got blob %p.\n", blob);
+    ok(!errors, "Got errors %p.\n", errors);
+    code = ID3D10Blob_GetBufferPointer(blob);
+    size = ID3D10Blob_GetBufferSize(blob);
+    ok(vkd3d_memmem(code, size, "42", 1), "Incorrect file included.\n");
+    ID3D10Blob_Release(blob);
+
+    delete_file("sources/source.ps");
+    delete_file("sources/include1.h");
+    delete_file("include1.h");
+    delete_directory("sources");
+    delete_temp_dir();
+}
+
 START_TEST(hlsl_d3d12)
 {
     parse_args(argc, argv);
@@ -3813,4 +4034,5 @@ START_TEST(hlsl_d3d12)
     run_test(test_disassemble_shader);
     run_test(test_compile_null_terminator);
     run_test(test_special_characters);
+    run_test(test_default_include_path);
 }
