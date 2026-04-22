@@ -17,9 +17,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
+#include "config.h"
 #include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -183,61 +181,6 @@ static const struct target_type_info *get_target_type_info(enum vkd3d_shader_tar
     }
 
     return NULL;
-}
-
-static bool read_shader(struct vkd3d_shader_code *shader, FILE *f)
-{
-    size_t size = 4096;
-    struct stat st;
-    size_t pos = 0;
-    uint8_t *data;
-    size_t ret;
-
-    memset(shader, 0, sizeof(*shader));
-
-    if (fstat(fileno(f), &st) == -1)
-    {
-        fprintf(stderr, "Could not stat input.\n");
-        return false;
-    }
-
-    if (S_ISREG(st.st_mode))
-        size = st.st_size;
-
-    if (!(data = malloc(size)))
-    {
-        fprintf(stderr, "Out of memory.\n");
-        return false;
-    }
-
-    for (;;)
-    {
-        if (pos >= size)
-        {
-            if (size > SIZE_MAX / 2 || !(data = realloc(data, size * 2)))
-            {
-                fprintf(stderr, "Out of memory.\n");
-                free(data);
-                return false;
-            }
-            size *= 2;
-        }
-
-        if (!(ret = fread(&data[pos], 1, size - pos, f)))
-            break;
-        pos += ret;
-    }
-
-    if (!feof(f))
-    {
-        free(data);
-        return false;
-    }
-
-    shader->code = data;
-    shader->size = pos;
-
-    return true;
 }
 
 static bool write_shader(const struct vkd3d_shader_code *shader, FILE *f)
@@ -844,9 +787,9 @@ int main(int argc, char **argv)
     if (!(input = open_input(options.filename, &close_input)))
         goto done;
 
-    if (!read_shader(&source, input))
+    if ((ret = vkd3d_shader_code_from_file(&source, input)) < 0)
     {
-        fprintf(stderr, "Failed to read input shader.\n");
+        fprintf(stderr, "Failed to read input shader, ret %d.\n", ret);
         goto done;
     }
 

@@ -24,7 +24,6 @@
 #include "vkd3d_shader_private.h"
 #include "preproc.h"
 #include <stdio.h>
-#include <sys/stat.h>
 
 #define PREPROC_YYLTYPE struct vkd3d_shader_location
 
@@ -45,6 +44,7 @@ int preproc_yylex(PREPROC_YYSTYPE *yylval_param, PREPROC_YYLTYPE *yylloc_param, 
 
 %code
 {
+#include "vkd3d_shader_utils.h"
 
 #define YYLLOC_DEFAULT(cur, rhs, n) (cur) = YYRHSLOC(rhs, !!n)
 
@@ -157,11 +157,7 @@ static bool preproc_push_if(struct preproc_ctx *ctx, bool condition)
 static int default_open_include(const char *filename, bool local,
         const char *parent_data, void *context, struct vkd3d_shader_code *out)
 {
-    uint8_t *data, *new_data;
-    size_t size = 4096;
-    struct stat st;
-    size_t pos = 0;
-    size_t ret;
+    enum vkd3d_result res;
     FILE *f;
 
     if (!(f = fopen(filename, "rb")))
@@ -170,63 +166,9 @@ static int default_open_include(const char *filename, bool local,
         return VKD3D_ERROR;
     }
 
-    if (fstat(fileno(f), &st) == -1)
-    {
-        ERR("Could not stat file %s.\n", debugstr_a(filename));
-        fclose(f);
-        return VKD3D_ERROR;
-    }
-
-    if (S_ISREG(st.st_mode))
-        size = st.st_size;
-
-    if (!size)
-    {
-        fclose(f);
-
-        out->code = NULL;
-        out->size = 0;
-
-        return VKD3D_OK;
-    }
-
-    if (!(data = vkd3d_malloc(size)))
-    {
-        fclose(f);
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-    }
-
-    for (;;)
-    {
-        if (pos >= size)
-        {
-            if (size > SIZE_MAX / 2 || !(new_data = vkd3d_realloc(data, size * 2)))
-            {
-                vkd3d_free(data);
-                fclose(f);
-                return VKD3D_ERROR_OUT_OF_MEMORY;
-            }
-            data = new_data;
-            size *= 2;
-        }
-
-        if (!(ret = fread(&data[pos], 1, size - pos, f)))
-            break;
-        pos += ret;
-    }
-
-    if (!feof(f))
-    {
-        vkd3d_free(data);
-        return VKD3D_ERROR;
-    }
-
+    res = vkd3d_shader_code_from_file(out, f);
     fclose(f);
-
-    out->code = data;
-    out->size = pos;
-
-    return VKD3D_OK;
+    return res;
 }
 
 static void default_close_include(const struct vkd3d_shader_code *code, void *context)

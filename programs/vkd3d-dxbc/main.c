@@ -16,9 +16,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
@@ -29,6 +27,7 @@
 
 #include "vkd3d_common.h"
 #include "vkd3d_shader.h"
+#include "vkd3d_shader_utils.h"
 #ifdef HAVE_NCURSES
 #include <term.h>
 #endif
@@ -329,61 +328,6 @@ static FILE *open_input(const char *filename, bool *close)
 
     *close = true;
     return f;
-}
-
-static bool read_input(FILE *f, struct vkd3d_shader_code *dxbc)
-{
-    size_t size = 4096;
-    struct stat st;
-    size_t pos = 0;
-    uint8_t *data;
-    size_t ret;
-
-    memset(dxbc, 0, sizeof(*dxbc));
-
-    if (fstat(fileno(f), &st) == -1)
-    {
-        fprintf(stderr, "Could not stat input.\n");
-        return false;
-    }
-
-    if (S_ISREG(st.st_mode))
-        size = st.st_size;
-
-    if (!(data = malloc(size)))
-    {
-        fprintf(stderr, "Out of memory.\n");
-        return false;
-    }
-
-    for (;;)
-    {
-        if (pos >= size)
-        {
-            if (size > SIZE_MAX / 2 || !(data = realloc(data, size * 2)))
-            {
-                fprintf(stderr, "Out of memory.\n");
-                free(data);
-                return false;
-            }
-            size *= 2;
-        }
-
-        if (!(ret = fread(&data[pos], 1, size - pos, f)))
-            break;
-        pos += ret;
-    }
-
-    if (!feof(f))
-    {
-        free(data);
-        return false;
-    }
-
-    dxbc->code = data;
-    dxbc->size = pos;
-
-    return true;
 }
 
 static FILE *open_output(const char *filename, bool *close)
@@ -710,9 +654,9 @@ int main(int argc, char **argv)
     if (!(input = open_input(options.input_filename, &close_input)))
         goto done;
 
-    if (!read_input(input, &dxbc))
+    if ((ret = vkd3d_shader_code_from_file(&dxbc, input)) < 0)
     {
-        fprintf(stderr, "Failed to read input blob.\n");
+        fprintf(stderr, "Failed to read input blob, ret %d.\n", ret);
         goto done;
     }
 
