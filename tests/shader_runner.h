@@ -172,6 +172,7 @@ enum shader_cap
     SHADER_CAP_POINT_SIZE,
     SHADER_CAP_ROV,
     SHADER_CAP_RT_VP_ARRAY_INDEX,
+    SHADER_CAP_STENCIL_EXPORT,
     SHADER_CAP_TESSELLATION_SHADER,
     SHADER_CAP_WAVE_OPS,
     SHADER_CAP_COUNT,
@@ -311,6 +312,10 @@ struct shader_runner
     D3D12_COMPARISON_FUNC depth_func;
     bool depth_bounds;
     float depth_min, depth_max;
+
+    bool stencil_enable;
+    D3D12_DEPTH_STENCILOP_DESC stencil;
+    uint32_t stencil_ref;
 
     enum vkd3d_shader_comparison_func alpha_test_func;
     float alpha_test_ref;

@@ -188,6 +188,31 @@ static MTLCompareFunction get_metal_compare_function(D3D12_COMPARISON_FUNC func)
     }
 }
 
+static MTLStencilOperation get_metal_stencil_operation(D3D12_STENCIL_OP op)
+{
+    switch (op)
+    {
+        case D3D12_STENCIL_OP_KEEP:
+            return MTLStencilOperationKeep;
+        case D3D12_STENCIL_OP_ZERO:
+            return MTLStencilOperationZero;
+        case D3D12_STENCIL_OP_REPLACE:
+            return MTLStencilOperationReplace;
+        case D3D12_STENCIL_OP_INCR_SAT:
+            return MTLStencilOperationIncrementClamp;
+        case D3D12_STENCIL_OP_DECR_SAT:
+            return MTLStencilOperationDecrementClamp;
+        case D3D12_STENCIL_OP_INVERT:
+            return MTLStencilOperationInvert;
+        case D3D12_STENCIL_OP_INCR:
+            return MTLStencilOperationIncrementWrap;
+        case D3D12_STENCIL_OP_DECR:
+            return MTLStencilOperationDecrementWrap;
+        default:
+            fatal_error("Unhandled stencil op %#x.\n", op);
+    }
+}
+
 static void trace_messages(const char *messages)
 {
     const char *p, *end, *line;
@@ -919,6 +944,13 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
                     pass_desc.depthAttachment.loadAction = MTLLoadActionLoad;
                     pass_desc.depthAttachment.storeAction = MTLStoreActionStore;
                     pass_desc.depthAttachment.texture = resource->texture;
+                    if (is_stencil_format(resource->r.desc.format))
+                    {
+                        pipeline_desc.stencilAttachmentPixelFormat = resource->texture.pixelFormat;
+                        pass_desc.stencilAttachment.loadAction = MTLLoadActionLoad;
+                        pass_desc.stencilAttachment.storeAction = MTLStoreActionStore;
+                        pass_desc.stencilAttachment.texture = resource->texture;
+                    }
                     if (resource->r.desc.width < fb_width)
                         fb_width = resource->r.desc.width;
                     if (resource->r.desc.height < fb_height)
@@ -927,6 +959,20 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
                     ds_desc = [[[MTLDepthStencilDescriptor alloc] init] autorelease];
                     ds_desc.depthCompareFunction = get_metal_compare_function(runner->r.depth_func);
                     ds_desc.depthWriteEnabled = true;
+                    if (runner->r.stencil_enable)
+                    {
+                        const D3D12_DEPTH_STENCILOP_DESC *s = &runner->r.stencil;
+                        MTLStencilDescriptor *stencil_desc;
+
+                        stencil_desc = [[[MTLStencilDescriptor alloc] init] autorelease];
+                        stencil_desc.stencilFailureOperation = get_metal_stencil_operation(s->StencilFailOp);
+                        stencil_desc.depthFailureOperation = get_metal_stencil_operation(s->StencilDepthFailOp);
+                        stencil_desc.depthStencilPassOperation = get_metal_stencil_operation(s->StencilPassOp);
+                        stencil_desc.stencilCompareFunction = get_metal_compare_function(s->StencilFunc);
+
+                        ds_desc.frontFaceStencil = stencil_desc;
+                        ds_desc.backFaceStencil = stencil_desc;
+                    }
                     ds_state = [[device newDepthStencilStateWithDescriptor:ds_desc] autorelease];
                     break;
 
@@ -1010,7 +1056,10 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
         }
 
         if (ds_state)
+        {
             [encoder setDepthStencilState:ds_state];
+            [encoder setStencilFrontReferenceValue:runner->r.stencil_ref backReferenceValue:runner->r.stencil_ref];
+        }
 
         [encoder setRenderPipelineState:pso];
         [encoder setViewport:viewport];
@@ -1263,6 +1312,7 @@ static bool metal_runner_init(struct metal_runner *runner)
 
     runner->caps.runner = "Metal";
     runner->caps.shader_caps[SHADER_CAP_DESCRIPTORS] = true;
+    runner->caps.shader_caps[SHADER_CAP_STENCIL_EXPORT] = true;
 
     runner->caps.tags[SHADER_RUNNER_TAG_MSL].present = true;
 

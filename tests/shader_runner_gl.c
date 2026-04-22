@@ -163,6 +163,9 @@ static bool check_gl_extensions(struct gl_runner *runner)
         runner->caps.shader_caps[SHADER_CAP_FLOAT64] = true;
     if (check_gl_extension("GL_ARB_gpu_shader_int64", count))
         runner->caps.shader_caps[SHADER_CAP_INT64] = true;
+    if (check_gl_extension("GL_ARB_shader_stencil_export", count) && (runner->language == GLSL
+            || check_spirv_extension("SPV_EXT_shader_stencil_export", spirv_count)))
+        runner->caps.shader_caps[SHADER_CAP_STENCIL_EXPORT] = true;
     if (check_gl_extension("GL_ARB_shader_viewport_layer_array", count) && (runner->language == GLSL
             || check_spirv_extension("SPV_EXT_shader_viewport_index_layer", spirv_count)))
         runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX] = true;
@@ -1142,6 +1145,31 @@ static GLenum get_compare_op_gl(D3D12_COMPARISON_FUNC op)
     }
 }
 
+static GLenum get_stencil_op_gl(D3D12_STENCIL_OP op)
+{
+    switch (op)
+    {
+        case D3D12_STENCIL_OP_KEEP:
+            return GL_KEEP;
+        case D3D12_STENCIL_OP_ZERO:
+            return GL_ZERO;
+        case D3D12_STENCIL_OP_REPLACE:
+            return GL_REPLACE;
+        case D3D12_STENCIL_OP_INCR_SAT:
+            return GL_INCR;
+        case D3D12_STENCIL_OP_DECR_SAT:
+            return GL_DECR;
+        case D3D12_STENCIL_OP_INVERT:
+            return GL_INVERT;
+        case D3D12_STENCIL_OP_INCR:
+            return GL_INCR_WRAP;
+        case D3D12_STENCIL_OP_DECR:
+            return GL_DECR_WRAP;
+        default:
+            fatal_error("Unhandled stencil op %#x.\n", op);
+    }
+}
+
 static GLenum get_texture_reduction_mode_gl(D3D12_FILTER filter)
 {
     D3D12_FILTER_REDUCTION_TYPE r = D3D12_DECODE_FILTER_REDUCTION(filter);
@@ -1430,6 +1458,19 @@ static bool gl_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY topol
                 glEnable(GL_DEPTH_TEST);
                 glDepthMask(GL_TRUE);
                 glDepthFunc(get_compare_op_gl(runner->r.depth_func));
+                if (runner->r.stencil_enable)
+                {
+                    glEnable(GL_STENCIL_TEST);
+                    glStencilFunc(get_compare_op_gl(runner->r.stencil.StencilFunc), runner->r.stencil_ref, 0xff);
+                    glStencilOp(get_stencil_op_gl(runner->r.stencil.StencilFailOp),
+                            get_stencil_op_gl(runner->r.stencil.StencilDepthFailOp),
+                            get_stencil_op_gl(runner->r.stencil.StencilPassOp));
+                    glStencilMask(0xff);
+                }
+                else
+                {
+                    glDisable(GL_STENCIL_TEST);
+                }
                 if (runner->r.depth_bounds)
                 {
                     glEnable(GL_DEPTH_BOUNDS_TEST_EXT);

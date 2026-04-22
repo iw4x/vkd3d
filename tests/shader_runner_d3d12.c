@@ -670,6 +670,11 @@ static ID3D12PipelineState *create_pipeline(struct d3d12_shader_runner *runner,
             pso_desc.DepthStencilState.DepthEnable = true;
             pso_desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
             pso_desc.DepthStencilState.DepthFunc = runner->r.depth_func;
+            pso_desc.DepthStencilState.StencilEnable = runner->r.stencil_enable;
+            pso_desc.DepthStencilState.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
+            pso_desc.DepthStencilState.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
+            pso_desc.DepthStencilState.FrontFace = runner->r.stencil;
+            pso_desc.DepthStencilState.BackFace = runner->r.stencil;
         }
     }
 
@@ -851,6 +856,11 @@ static ID3D12PipelineState *create_pipeline_device2(struct d3d12_shader_runner *
             pipeline.dsv.depth_stencil_desc.DepthEnable = true;
             pipeline.dsv.depth_stencil_desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
             pipeline.dsv.depth_stencil_desc.DepthFunc = runner->r.depth_func;
+            pipeline.dsv.depth_stencil_desc.StencilEnable = runner->r.stencil_enable;
+            pipeline.dsv.depth_stencil_desc.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
+            pipeline.dsv.depth_stencil_desc.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
+            pipeline.dsv.depth_stencil_desc.FrontFace = runner->r.stencil;
+            pipeline.dsv.depth_stencil_desc.BackFace = runner->r.stencil;
             pipeline.dsv.depth_stencil_desc.DepthBoundsTestEnable = runner->r.depth_bounds;
         }
     }
@@ -1033,6 +1043,7 @@ static bool d3d12_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
     }
 
     ID3D12GraphicsCommandList_OMSetRenderTargets(command_list, rtv_count, rtvs, false, dsv.ptr ? &dsv : NULL);
+    ID3D12GraphicsCommandList_OMSetStencilRef(command_list, runner->r.stencil_ref);
 
     if (runner->r.depth_bounds)
         ID3D12GraphicsCommandList1_OMSetDepthBounds(command_list1, runner->r.depth_min, runner->r.depth_max);
@@ -1202,6 +1213,7 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     runner->caps.shader_caps[SHADER_CAP_ROV] = options.ROVsSupported;
     runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX]
             = options.VPAndRTArrayIndexFromAnyShaderFeedingRasterizerSupportedWithoutGSEmulation;
+    runner->caps.shader_caps[SHADER_CAP_STENCIL_EXPORT] = options.PSSpecifiedStencilRefSupported;
     runner->caps.shader_caps[SHADER_CAP_TESSELLATION_SHADER] = true;
     runner->caps.shader_caps[SHADER_CAP_WAVE_OPS] = options1.WaveOps;
     runner->caps.shader_caps[SHADER_CAP_NATIVE_16_BIT] = options4.Native16BitShaderOpsSupported;

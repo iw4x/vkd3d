@@ -355,6 +355,7 @@ static BOOL init_test_context(struct d3d11_shader_runner *runner)
     runner->caps.shader_caps[SHADER_CAP_GEOMETRY_SHADER] = true;
     runner->caps.shader_caps[SHADER_CAP_ROV] = options2.ROVsSupported;
     runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX] = options3.VPAndRTArrayIndexFromAnyShaderFeedingRasterizer;
+    runner->caps.shader_caps[SHADER_CAP_STENCIL_EXPORT] = options2.PSSpecifiedStencilRefSupported;
     runner->caps.shader_caps[SHADER_CAP_TESSELLATION_SHADER] = true;
     for (unsigned int i = 0; i < ARRAY_SIZE(formats); ++i)
     {
@@ -950,9 +951,17 @@ static bool d3d11_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
                 ds_desc.DepthEnable = TRUE;
                 ds_desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
                 ds_desc.DepthFunc = runner->r.depth_func;
+                ds_desc.StencilEnable = runner->r.stencil_enable;
+                ds_desc.StencilReadMask = D3D11_DEFAULT_STENCIL_READ_MASK;
+                ds_desc.StencilWriteMask = D3D11_DEFAULT_STENCIL_WRITE_MASK;
+                ds_desc.FrontFace.StencilFailOp = runner->r.stencil.StencilFailOp;
+                ds_desc.FrontFace.StencilDepthFailOp = runner->r.stencil.StencilDepthFailOp;
+                ds_desc.FrontFace.StencilPassOp = runner->r.stencil.StencilPassOp;
+                ds_desc.FrontFace.StencilFunc = runner->r.stencil.StencilFunc;
+                ds_desc.BackFace = ds_desc.FrontFace;
                 hr = ID3D11Device_CreateDepthStencilState(device, &ds_desc, &ds_state);
                 ok(hr == S_OK, "Failed to create depth/stencil state, hr %#lx.\n", hr);
-                ID3D11DeviceContext_OMSetDepthStencilState(context, ds_state, 0);
+                ID3D11DeviceContext_OMSetDepthStencilState(context, ds_state, runner->r.stencil_ref);
                 if (resource->r.desc.width < fb_width)
                     fb_width = resource->r.desc.width;
                 if (resource->r.desc.height < fb_height)

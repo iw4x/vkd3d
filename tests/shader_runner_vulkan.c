@@ -504,7 +504,7 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     struct vkd3d_shader_compile_info info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO};
     struct vkd3d_shader_push_constant_buffer push_constants[MAX_UNIFORM_BUFFERS];
     struct vkd3d_shader_resource_binding bindings[MAX_RESOURCES + MAX_SAMPLERS];
-    enum vkd3d_shader_spirv_extension spirv_extensions[3];
+    enum vkd3d_shader_spirv_extension spirv_extensions[4];
     struct vkd3d_shader_varying_map varying_map[12];
     struct vkd3d_shader_resource_binding *binding;
     struct vkd3d_shader_compile_option options[3];
@@ -584,6 +584,8 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
         spirv_extensions[spirv_info.extension_count++] = VKD3D_SHADER_SPIRV_EXTENSION_EXT_FRAGMENT_SHADER_INTERLOCK;
     if (runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX])
         spirv_extensions[spirv_info.extension_count++] = VKD3D_SHADER_SPIRV_EXTENSION_EXT_VIEWPORT_INDEX_LAYER;
+    if (runner->caps.shader_caps[SHADER_CAP_STENCIL_EXPORT])
+        spirv_extensions[spirv_info.extension_count++] = VKD3D_SHADER_SPIRV_EXTENSION_EXT_STENCIL_EXPORT;
     if (runner->demote_to_helper_invocation)
         spirv_extensions[spirv_info.extension_count++] = VKD3D_SHADER_SPIRV_EXTENSION_EXT_DEMOTE_TO_HELPER_INVOCATION;
 
@@ -873,6 +875,31 @@ static enum VkCompareOp vk_compare_op_from_d3d12(D3D12_COMPARISON_FUNC op)
     }
 }
 
+static enum VkStencilOp vk_stencil_op_from_d3d12(D3D12_STENCIL_OP op)
+{
+    switch (op)
+    {
+        case D3D12_STENCIL_OP_KEEP:
+            return VK_STENCIL_OP_KEEP;
+        case D3D12_STENCIL_OP_ZERO:
+            return VK_STENCIL_OP_ZERO;
+        case D3D12_STENCIL_OP_REPLACE:
+            return VK_STENCIL_OP_REPLACE;
+        case D3D12_STENCIL_OP_INCR_SAT:
+            return VK_STENCIL_OP_INCREMENT_AND_CLAMP;
+        case D3D12_STENCIL_OP_DECR_SAT:
+            return VK_STENCIL_OP_DECREMENT_AND_CLAMP;
+        case D3D12_STENCIL_OP_INVERT:
+            return VK_STENCIL_OP_INVERT;
+        case D3D12_STENCIL_OP_INCR:
+            return VK_STENCIL_OP_INCREMENT_AND_WRAP;
+        case D3D12_STENCIL_OP_DECR:
+            return VK_STENCIL_OP_DECREMENT_AND_WRAP;
+        default:
+            fatal_error("Unhandled stencil op %#x.\n", op);
+    }
+}
+
 static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, VkRenderPass render_pass,
         VkPipelineLayout pipeline_layout, D3D_PRIMITIVE_TOPOLOGY primitive_topology)
 {
@@ -1000,7 +1027,18 @@ static VkPipeline create_graphics_pipeline(struct vulkan_shader_runner *runner, 
                 ds_desc.depthWriteEnable = VK_TRUE;
                 ds_desc.depthCompareOp = vk_compare_op_from_d3d12(runner->r.depth_func);
                 ds_desc.depthBoundsTestEnable = runner->r.depth_bounds;
-                ds_desc.stencilTestEnable = VK_FALSE;
+                if (runner->r.stencil_enable)
+                {
+                    ds_desc.stencilTestEnable = VK_TRUE;
+                    ds_desc.front.failOp = vk_stencil_op_from_d3d12(runner->r.stencil.StencilFailOp);
+                    ds_desc.front.passOp = vk_stencil_op_from_d3d12(runner->r.stencil.StencilPassOp);
+                    ds_desc.front.depthFailOp = vk_stencil_op_from_d3d12(runner->r.stencil.StencilDepthFailOp);
+                    ds_desc.front.compareOp = vk_compare_op_from_d3d12(runner->r.stencil.StencilFunc);
+                    ds_desc.front.compareMask = 0xff;
+                    ds_desc.front.writeMask = 0xff;
+                    ds_desc.front.reference = runner->r.stencil_ref;
+                    ds_desc.back = ds_desc.front;
+                }
                 ds_desc.minDepthBounds = runner->r.depth_min;
                 ds_desc.maxDepthBounds = runner->r.depth_max;
                 pipeline_desc.pDepthStencilState = &ds_desc;
@@ -1882,6 +1920,7 @@ static bool check_device_extensions(struct vulkan_shader_runner *runner,
         {VK_EXT_IMAGE_VIEW_MIN_LOD_EXTENSION_NAME},
         {VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME},
         {VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME},
+        {VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME},
         {VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME},
         {VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME, true},
         {VK_KHR_MAINTENANCE1_EXTENSION_NAME, true},
@@ -1913,6 +1952,8 @@ static bool check_device_extensions(struct vulkan_shader_runner *runner,
                 runner->caps.shader_caps[SHADER_CAP_MIN_LOD_CLAMP] = true;
             if (!strcmp(name, VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
                 runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX] = true;
+            if (!strcmp(name, VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME))
+                runner->caps.shader_caps[SHADER_CAP_STENCIL_EXPORT] = true;
             if (!strcmp(name, VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME))
                 runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX] = true;
             if (!strcmp(name, VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME))

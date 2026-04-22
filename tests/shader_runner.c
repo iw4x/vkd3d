@@ -472,7 +472,7 @@ static bool match_string_generic(struct shader_runner *runner, const char *line,
     while (isspace(*line))
         ++line;
 
-    if (strncmp(line, token, len) || !(isspace(line[len]) || line[len] == '(' || line[len] == ']'))
+    if (strncmp(line, token, len) || !(isspace(line[len]) || line[len] == '(' || line[len] == ')' || line[len] == ']'))
         return false;
     line += len;
 
@@ -588,6 +588,7 @@ static const char *const shader_cap_strings[] =
     [SHADER_CAP_POINT_SIZE]          = "point-size",
     [SHADER_CAP_ROV]                 = "rov",
     [SHADER_CAP_RT_VP_ARRAY_INDEX]   = "rt-vp-array-index",
+    [SHADER_CAP_STENCIL_EXPORT]      = "stencil-export",
     [SHADER_CAP_TESSELLATION_SHADER] = "tessellation-shader",
     [SHADER_CAP_WAVE_OPS]            = "wave-ops",
 };
@@ -1538,6 +1539,56 @@ static void read_literal(const char **line, struct literal *l)
     fatal_error("Malformed literal '%s'.\n", *line);
 }
 
+static D3D12_STENCIL_OP read_stencil_op(const char **line)
+{
+    size_t i;
+
+    static const struct
+    {
+        const char *name;
+        D3D12_STENCIL_OP op;
+    }
+    ops[] =
+    {
+        {"keep",            D3D12_STENCIL_OP_KEEP},
+        {"zero",            D3D12_STENCIL_OP_ZERO},
+        {"replace",         D3D12_STENCIL_OP_REPLACE},
+        {"increment-clamp", D3D12_STENCIL_OP_INCR_SAT},
+        {"decrement-clamp", D3D12_STENCIL_OP_DECR_SAT},
+        {"invert",          D3D12_STENCIL_OP_INVERT},
+        {"increment-wrap",  D3D12_STENCIL_OP_INCR},
+        {"decrement-wrap",  D3D12_STENCIL_OP_DECR},
+    };
+
+    for (i = 0; i < ARRAY_SIZE(ops); ++i)
+    {
+        if (match_string(*line, ops[i].name, line))
+            return ops[i].op;
+    }
+
+    fatal_error("Unknown stencil op '%s'.\n", *line);
+}
+
+static void read_stencil(const char **line, D3D12_DEPTH_STENCILOP_DESC *s)
+{
+    while (isspace(**line))
+        ++*line;
+    if (**line != '(')
+        fatal_error("Malformed stencil '%s'.\n", *line);
+    ++*line;
+
+    s->StencilFunc = parse_comparison_func(*line, line);
+    s->StencilFailOp = read_stencil_op(line);
+    s->StencilDepthFailOp = read_stencil_op(line);
+    s->StencilPassOp = read_stencil_op(line);
+
+    while (isspace(**line))
+        ++*line;
+    if (**line != ')')
+        fatal_error("Malformed stencil '%s'.\n", *line);
+    ++*line;
+}
+
 static void parse_test_directive(struct shader_runner *runner, const char *line)
 {
     bool skip_directive = false;
@@ -2065,6 +2116,20 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
 
         read_uint(&line, &sample_mask, false);
         runner->sample_mask = sample_mask;
+    }
+    else if (match_string(line, "stencil", &line))
+    {
+        runner->stencil_enable = true;
+        read_stencil(&line, &runner->stencil);
+    }
+    else if (match_string(line, "stencil-ref", &line))
+    {
+        struct literal l;
+
+        read_literal(&line, &l);
+        if (l.data_type != DATA_U32)
+            fatal_error("Unhandled literal data type %#x.\n", l.data_type);
+        runner->stencil_ref = l.v.u32.x;
     }
     else if (match_string(line, "alpha test", &line))
     {
