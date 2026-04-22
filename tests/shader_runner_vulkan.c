@@ -63,6 +63,7 @@ struct vulkan_shader_runner
     struct shader_runner_caps caps;
     bool demote_to_helper_invocation;
     bool driver_properties;
+    bool float_controls;
 
     struct vulkan_test_context context;
 
@@ -86,6 +87,7 @@ struct physical_device_info
     VkPhysicalDeviceProperties2 properties2;
     VkPhysicalDeviceDriverPropertiesKHR driver_properties;
     VkPhysicalDeviceSamplerFilterMinmaxPropertiesEXT filter_minmax_properties;
+    VkPhysicalDeviceFloatControlsPropertiesKHR float_controls_properties;
     VkPhysicalDeviceSubgroupProperties subgroup_properties;
 };
 
@@ -549,7 +551,7 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     struct vkd3d_shader_compile_info info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO};
     struct vkd3d_shader_push_constant_buffer push_constants[MAX_UNIFORM_BUFFERS];
     struct vkd3d_shader_resource_binding bindings[MAX_RESOURCES + MAX_SAMPLERS];
-    enum vkd3d_shader_spirv_extension spirv_extensions[4];
+    enum vkd3d_shader_spirv_extension spirv_extensions[5];
     struct vkd3d_shader_varying_map varying_map[12];
     struct vkd3d_shader_resource_binding *binding;
     struct vkd3d_shader_parameter1 parameters[41];
@@ -626,6 +628,8 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     spirv_info.extensions = spirv_extensions;
     spirv_info.extension_count = 0;
 
+    if (runner->caps.shader_caps[SHADER_CAP_NO_REFACTORING])
+        spirv_extensions[spirv_info.extension_count++] = VKD3D_SHADER_SPIRV_EXTENSION_KHR_FLOAT_CONTROLS;
     if (runner->caps.shader_caps[SHADER_CAP_ROV])
         spirv_extensions[spirv_info.extension_count++] = VKD3D_SHADER_SPIRV_EXTENSION_EXT_FRAGMENT_SHADER_INTERLOCK;
     if (runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX])
@@ -1974,9 +1978,10 @@ static bool check_device_extensions(struct vulkan_shader_runner *runner,
         {VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME},
         {VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME},
         {VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME},
-        {VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME, true},
-        {VK_KHR_MAINTENANCE1_EXTENSION_NAME, true},
         {VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME},
+        {VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME, true},
+        {VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME},
+        {VK_KHR_MAINTENANCE1_EXTENSION_NAME, true},
     };
 
     enabled_extensions->names = calloc(ARRAY_SIZE(device_extensions), sizeof(*enabled_extensions->names));
@@ -2004,14 +2009,16 @@ static bool check_device_extensions(struct vulkan_shader_runner *runner,
                 runner->caps.shader_caps[SHADER_CAP_MIN_LOD_CLAMP] = true;
             if (!strcmp(name, VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
                 runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX] = true;
+            if (!strcmp(name, VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME))
+                runner->demote_to_helper_invocation = true;
             if (!strcmp(name, VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME))
                 runner->caps.shader_caps[SHADER_CAP_STENCIL_EXPORT] = true;
             if (!strcmp(name, VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME))
                 runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX] = true;
-            if (!strcmp(name, VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME))
-                runner->demote_to_helper_invocation = true;
             if (!strcmp(name, VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME))
                 runner->driver_properties = true;
+            if (!strcmp(name, VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME))
+                runner->float_controls = true;
             continue;
         }
 
@@ -2069,6 +2076,13 @@ static void get_physical_device_info(struct vulkan_shader_runner *runner, struct
         info->filter_minmax_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_FILTER_MINMAX_PROPERTIES_EXT;
         info->filter_minmax_properties.pNext = info->properties2.pNext;
         info->properties2.pNext = &info->filter_minmax_properties;
+    }
+
+    if (runner->float_controls)
+    {
+        info->float_controls_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES_KHR;
+        info->float_controls_properties.pNext = info->properties2.pNext;
+        info->properties2.pNext = &info->float_controls_properties;
     }
 
     if (context->vk_api_version >= VK_API_VERSION_1_1)
@@ -2214,6 +2228,11 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
     runner->caps.shader_caps[SHADER_CAP_FOG] = true;
     runner->caps.shader_caps[SHADER_CAP_POINT_SIZE] = true;
     runner->caps.shader_caps[SHADER_CAP_TEXTURE_SWIZZLE] = true;
+    if (runner->float_controls
+            && device_info.float_controls_properties.shaderSignedZeroInfNanPreserveFloat16
+            && device_info.float_controls_properties.shaderSignedZeroInfNanPreserveFloat32
+            && device_info.float_controls_properties.shaderSignedZeroInfNanPreserveFloat64)
+        runner->caps.shader_caps[SHADER_CAP_NO_REFACTORING] = true;
 
     subgroup_properties = &device_info.subgroup_properties;
     if (subgroup_properties->subgroupSize >= 4

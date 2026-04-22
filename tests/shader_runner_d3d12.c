@@ -1361,6 +1361,8 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     runner->caps.shader_caps[SHADER_CAP_INT64] = options1.Int64ShaderOps;
     runner->caps.shader_caps[SHADER_CAP_MESH_SHADER] = options7.MeshShaderTier >= D3D12_MESH_SHADER_TIER_1;
     runner->caps.shader_caps[SHADER_CAP_MIN_LOD_CLAMP] = true;
+    if (are_float_controls_supported(device))
+        runner->caps.shader_caps[SHADER_CAP_NO_REFACTORING] = true;
     runner->caps.shader_caps[SHADER_CAP_ROV] = options.ROVsSupported;
     runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX]
             = options.VPAndRTArrayIndexFromAnyShaderFeedingRasterizerSupportedWithoutGSEmulation;

@@ -150,6 +150,9 @@ static bool init_test_context(struct d3d9_shader_runner *runner)
     if (identifier.VendorId == 0x1414 && identifier.DeviceId == 0x008c)
     {
         trace("Using WARP device.\n");
+        /* The WARP device seems to respect IEEE 754 floating-point rules,
+         * since it runs in the CPU. */
+        runner->caps.shader_caps[SHADER_CAP_NO_REFACTORING] = true;
         runner->caps.tags[SHADER_RUNNER_TAG_WARP].present = true;
         if (!get_dll_version("d3d10warp.dll", &runner->caps.tags[SHADER_RUNNER_TAG_WARP].major,
                 &runner->caps.tags[SHADER_RUNNER_TAG_WARP].minor,

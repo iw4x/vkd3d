@@ -605,6 +605,7 @@ static const char *const shader_cap_strings[] =
     [SHADER_CAP_MESH_SHADER]         = "mesh-shader",
     [SHADER_CAP_MIN_LOD_CLAMP]       = "min-lod-clamp",
     [SHADER_CAP_NATIVE_16_BIT]       = "native-16-bit",
+    [SHADER_CAP_NO_REFACTORING]      = "no-refactoring",
     [SHADER_CAP_POINT_SIZE]          = "point-size",
     [SHADER_CAP_ROV]                 = "rov",
     [SHADER_CAP_RT_VP_ARRAY_INDEX]   = "rt-vp-array-index",

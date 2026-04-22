@@ -360,6 +360,7 @@ static BOOL init_test_context(struct d3d11_shader_runner *runner)
     runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX] = options1.MinMaxFiltering;
     runner->caps.shader_caps[SHADER_CAP_FLOAT64] = doubles.DoublePrecisionFloatShaderOps;
     runner->caps.shader_caps[SHADER_CAP_GEOMETRY_SHADER] = true;
+    runner->caps.shader_caps[SHADER_CAP_NO_REFACTORING] = true;
     runner->caps.shader_caps[SHADER_CAP_ROV] = options2.ROVsSupported;
     runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX] = options3.VPAndRTArrayIndexFromAnyShaderFeedingRasterizer;
     runner->caps.shader_caps[SHADER_CAP_STENCIL_EXPORT] = options2.PSSpecifiedStencilRefSupported;

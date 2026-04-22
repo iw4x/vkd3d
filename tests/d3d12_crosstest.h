@@ -704,6 +704,11 @@ static inline bool is_geometry_shader_supported(ID3D12Device *device)
     return true;
 }
 
+static inline bool are_float_controls_supported(ID3D12Device *device)
+{
+    return true;
+}
+
 static inline void get_texel_buffer_alignment(ID3D12Device *device,
         uint64_t *value, bool *single_texel_align, bool storage)
 {
@@ -1122,6 +1127,41 @@ static inline bool is_geometry_shader_supported(ID3D12Device *device)
     vkGetPhysicalDeviceFeatures(vkd3d_get_vk_physical_device(device), &features);
 
     return features.geometryShader;
+}
+
+static inline bool are_float_controls_supported(ID3D12Device *device)
+{
+    VkPhysicalDevice vk_physical_device = vkd3d_get_vk_physical_device(device);
+    VkPhysicalDeviceProperties2 properties2 = {0};
+
+    vkGetPhysicalDeviceProperties(vk_physical_device, &properties2.properties);
+
+    if (properties2.properties.apiVersion >= VK_API_VERSION_1_2
+            || check_device_extension(vk_physical_device, VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME))
+    {
+        VkInstance vk_instance = vkd3d_instance_get_vk_instance(vkd3d_instance_from_device(device));
+        PFN_vkGetPhysicalDeviceProperties2 pfn_vkGetPhysicalDeviceProperties2;
+        VkPhysicalDeviceFloatControlsProperties float_controls_properties
+                = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES};
+
+        if (properties2.properties.apiVersion >= VK_API_VERSION_1_1)
+            pfn_vkGetPhysicalDeviceProperties2
+                    = (void *)vkGetInstanceProcAddr(vk_instance, "vkGetPhysicalDeviceProperties2");
+        else
+            pfn_vkGetPhysicalDeviceProperties2
+                    = (void *)vkGetInstanceProcAddr(vk_instance, "vkGetPhysicalDeviceProperties2KHR");
+        ok(pfn_vkGetPhysicalDeviceProperties2, "vkGetPhysicalDeviceProperties2 is NULL.\n");
+
+        properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        properties2.pNext = &float_controls_properties;
+        pfn_vkGetPhysicalDeviceProperties2(vk_physical_device, &properties2);
+
+        return float_controls_properties.shaderSignedZeroInfNanPreserveFloat16
+                && float_controls_properties.shaderSignedZeroInfNanPreserveFloat32
+                && float_controls_properties.shaderSignedZeroInfNanPreserveFloat64;
+    }
+
+    return false;
 }
 
 static inline void get_texel_buffer_alignment(ID3D12Device *device,
