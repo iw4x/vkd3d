@@ -3010,6 +3010,7 @@ bool sm4_register_from_semantic_name(const struct vkd3d_shader_version *version,
         {"sv_depth",            true,  VKD3D_SHADER_TYPE_PIXEL,    VKD3DSPR_DEPTHOUT,      false},
         {"sv_target",           true,  VKD3D_SHADER_TYPE_PIXEL,    VKD3DSPR_OUTPUT,        true},
         {"sv_coverage",         true,  VKD3D_SHADER_TYPE_PIXEL,    VKD3DSPR_SAMPLEMASK,    false},
+        {"sv_stencilref",       true,  VKD3D_SHADER_TYPE_PIXEL,    VKD3DSPR_OUTSTENCILREF, false},
     };
 
     for (i = 0; i < ARRAY_SIZE(register_table); ++i)
@@ -3154,6 +3155,7 @@ bool sm4_sysval_semantic_from_semantic_name(enum vkd3d_shader_sysval_semantic *s
         {"depth",                       true,  VKD3D_SHADER_TYPE_PIXEL,     VKD3D_SHADER_SV_DEPTH},
         {"sv_coverage",                 true,  VKD3D_SHADER_TYPE_PIXEL,     VKD3D_SHADER_SV_COVERAGE},
         {"sv_depth",                    true,  VKD3D_SHADER_TYPE_PIXEL,     VKD3D_SHADER_SV_DEPTH},
+        {"sv_stencilref",               true,  VKD3D_SHADER_TYPE_PIXEL,     VKD3D_SHADER_SV_STENCIL_REF},
         {"sv_target",                   true,  VKD3D_SHADER_TYPE_PIXEL,     VKD3D_SHADER_SV_TARGET},
 
         {"sv_instanceid",               false, VKD3D_SHADER_TYPE_VERTEX,    VKD3D_SHADER_SV_INSTANCE_ID},
@@ -4496,6 +4498,8 @@ static void tpf_write_sfi0(struct tpf_compiler *tpf)
 
     if (tpf->program->global_flags & VKD3DSGF_ENABLE_MINIMUM_PRECISION)
         *flags |= DXBC_SFI0_REQUIRES_MINIMUM_PRECISION;
+    if (tpf->program->global_flags & VKD3DSGF_ENABLE_STENCIL_REF)
+        *flags |= DXBC_SFI0_REQUIRES_STENCIL_REF;
 
     /* FIXME: We also emit code that should require UAVS_AT_EVERY_STAGE,
      * STENCIL_REF, and TYPED_UAV_LOAD_ADDITIONAL_FORMATS. */

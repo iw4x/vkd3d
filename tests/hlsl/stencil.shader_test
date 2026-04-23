@@ -33,13 +33,13 @@ probe (32, 32) u8(0x80)
 shader model >= 5.0
 stencil-export
 
-[pixel shader todo]
+[pixel shader]
 void main(out uint o[1] : SV_StencilRef)
 {
     o[0] = 0xff;
 }
 
-[pixel shader todo]
+[pixel shader]
 void main(out uint1 o : SV_StencilRef)
 {
     o = 0xff;
@@ -64,7 +64,7 @@ uint4 main() : SV_StencilRef
     return uint4(0x00, 0x40, 0x80, 0xc0);
 }
 
-[pixel shader todo]
+[pixel shader]
 uint stencil_ref;
 
 uint main() : SV_StencilRef
@@ -78,7 +78,7 @@ depth never
 stencil (always replace replace replace)
 stencil-ref u32(0x40)
 clear dsv f32(0.25) u32(0xcc)
-todo(sm<6 | msl) draw quad
+todo(glsl | msl) draw quad
 copy dsv srv-0
 depth always
 
@@ -93,4 +93,4 @@ uint main(float4 pos : SV_Position) : SV_TARGET
 [test]
 clear rtv-0 f32(0, 0, 0, 0)
 draw quad
-todo(sm<6 | msl) bug(mvk<1.4) probe (32, 32) u8(0xa5)
+todo(glsl | msl) bug(mvk<1.4) probe (32, 32) u8(0xa5)
