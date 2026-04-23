@@ -16073,6 +16073,7 @@ static bool vsir_program_copy_propagate_relative_addresses(struct vsir_copy_prop
                 && vsir_rel_addr_reg_type_is_valid(mov->src[0].reg.type))
         {
             *reg->idx[i].rel_addr = mov->src[0];
+            TRACE("Propagating write to sr%u into relative address.\n", mov->src[0].reg.idx[0].offset);
             progress = true;
         }
     }
@@ -16110,6 +16111,9 @@ static enum vkd3d_result vsir_program_copy_propagation(struct vsir_program *prog
                 continue;
             mov_src = &mov->src[0];
             data_type = src->reg.data_type;
+
+            TRACE("Propagating write to sr%u into %s instruction.\n",
+                    src->reg.idx[0].offset, vsir_opcode_get_name(ins->opcode, "<unknown>"));
 
             src->reg = mov_src->reg;
             src->reg.data_type = data_type;
