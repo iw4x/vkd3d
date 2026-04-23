@@ -3967,7 +3967,7 @@ static void write_sm4_dcl_global_flags(struct tpf_compiler *tpf, uint32_t flags)
     struct sm4_instruction instr =
     {
         .opcode = VKD3D_SM4_OP_DCL_GLOBAL_FLAGS,
-        .extra_bits = flags << VKD3D_SM4_GLOBAL_FLAGS_SHIFT,
+        .extra_bits = (flags << VKD3D_SM4_GLOBAL_FLAGS_SHIFT) & VKD3D_SM4_GLOBAL_FLAGS_MASK,
     };
 
     write_sm4_instruction(tpf, &instr);
@@ -4451,7 +4451,7 @@ static void tpf_write_shdr(struct tpf_compiler *tpf)
     put_u32(&buffer, vkd3d_make_u32((version->major << 4) | version->minor, shader_types[version->type]));
     token_count_position = put_u32(&buffer, 0);
 
-    if (program->global_flags)
+    if (program->global_flags & (VKD3D_SM4_GLOBAL_FLAGS_MASK >> VKD3D_SM4_GLOBAL_FLAGS_SHIFT))
         write_sm4_dcl_global_flags(tpf, program->global_flags);
 
     if (version->type == VKD3D_SHADER_TYPE_HULL)
