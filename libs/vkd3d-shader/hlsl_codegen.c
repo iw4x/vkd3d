@@ -5580,25 +5580,6 @@ static struct hlsl_ir_node *lower_round(struct hlsl_ctx *ctx, struct hlsl_ir_nod
     return hlsl_block_add_binary_expr(ctx, block, HLSL_OP2_ADD, sum, neg);
 }
 
-/* Lower CEIL to FRC */
-static struct hlsl_ir_node *lower_ceil(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, struct hlsl_block *block)
-{
-    struct hlsl_ir_node *arg, *neg, *frc;
-    struct hlsl_ir_expr *expr;
-
-    if (instr->type != HLSL_IR_EXPR)
-        return NULL;
-
-    expr = hlsl_ir_expr(instr);
-    arg = expr->operands[0].node;
-    if (expr->op != HLSL_OP1_CEIL)
-        return NULL;
-
-    neg = hlsl_block_add_unary_expr(ctx, block, HLSL_OP1_NEG, arg, &instr->loc);
-    frc = hlsl_block_add_unary_expr(ctx, block, HLSL_OP1_FRACT, neg, &instr->loc);
-    return hlsl_block_add_binary_expr(ctx, block, HLSL_OP2_ADD, frc, arg);
-}
-
 /* Lower SIN/COS to SINCOS for SM1.  */
 static struct hlsl_ir_node *lower_trig(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
@@ -10430,6 +10411,38 @@ static bool sm1_generate_vsir_instr_expr(struct hlsl_ctx *ctx, struct vsir_progr
 
         case HLSL_OP1_CAST:
             return sm1_generate_vsir_instr_expr_cast(ctx, program, expr);
+
+        case HLSL_OP1_CEIL:
+            if (!hlsl_type_is_floating_point(type))
+                goto err;
+            if (program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX || hlsl_version_ge(ctx, 2, 0))
+            {
+                uint32_t ssa_frc = ctx->ssa_count++;
+
+                /* FIXME: Native frc in vs 1.x has some weird constraints we're not respecting. */
+
+                /* frc sr0, -SRC
+                 * add DST, SRC, sr0
+                 */
+
+                if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_FRC, 1, 1)))
+                    return false;
+                vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], ssa_frc);
+                vsir_src_from_hlsl_node(&ins->src[0], ctx, expr->operands[0].node, ins->dst[0].write_mask);
+                ins->src[0].modifiers = VKD3DSPSM_NEG;
+
+                if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_ADD, 1, 2)))
+                    return false;
+                vsir_dst_from_hlsl_node(&ins->dst[0], ctx, instr);
+                vsir_src_from_hlsl_node(&ins->src[0], ctx, expr->operands[0].node, ins->dst[0].write_mask);
+                vsir_src_operand_init_ssa_f32v4(&ins->src[1], ssa_frc);
+            }
+            else
+            {
+                /* Not supported in native ps 1.x. */
+                goto err;
+            }
+            break;
 
         case HLSL_OP1_COS_REDUCED:
             VKD3D_ASSERT(expr->node.reg.writemask == VKD3DSP_WRITEMASK_0);
@@ -16242,7 +16255,6 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
         replace_ir(ctx, lower_sqrt, body);
         replace_ir(ctx, lower_dot, body);
         replace_ir(ctx, lower_round, body);
-        replace_ir(ctx, lower_ceil, body);
         replace_ir(ctx, lower_trig, body);
         replace_ir(ctx, lower_comparison_operators, body);
         replace_ir(ctx, lower_logic_not, body);
