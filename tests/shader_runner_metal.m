@@ -353,6 +353,17 @@ static void init_resource_texture(struct metal_runner *runner,
 
         case RESOURCE_TYPE_UAV:
             desc.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
+            switch (desc.pixelFormat)
+            {
+                case MTLPixelFormatR32Uint:
+                case MTLPixelFormatR32Sint:
+                case MTLPixelFormatRG32Uint:
+                    desc.usage |= MTLTextureUsageShaderAtomic;
+                    break;
+
+                default:
+                    break;
+            }
             break;
 
         case RESOURCE_TYPE_VERTEX_BUFFER:
