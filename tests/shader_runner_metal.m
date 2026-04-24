@@ -231,7 +231,7 @@ static void trace_messages(const char *messages)
             ++p;
         else
             p = end;
-        trace("    %.*s", (int)(p - line), line);
+        trace("    %.*s%s", (int)(p - line), line, p[-1] != '\n' ? "\n" : "");
     }
 }
 
