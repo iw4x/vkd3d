@@ -19,3 +19,16 @@ float4 main() : sv_target
     const float f;
     return 0;
 }
+
+[pixel shader]
+float4 main() : sv_target
+{
+    float4 a = {1, 2, 3, 4};
+    const float4 v = a;
+
+    return v;
+}
+
+[test]
+draw quad
+todo(sm<6) probe (0, 0) f32(1, 2, 3, 4)
