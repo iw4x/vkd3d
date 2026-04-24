@@ -1064,7 +1064,7 @@ static void vsir_src_operand_init_ssa_f32(struct vsir_src_operand *src, unsigned
     vsir_src_operand_init_ssa_scalar(src, idx, VSIR_DATA_F32);
 }
 
-static void vsir_src_operand_init_ssa_f32v4(struct vsir_src_operand *src, unsigned int idx)
+void vsir_src_operand_init_ssa_f32v4(struct vsir_src_operand *src, unsigned int idx)
 {
     vsir_src_operand_init_ssa(src, idx, VSIR_DATA_F32, VSIR_DIMENSION_VEC4);
 }
@@ -1148,7 +1148,7 @@ static void vsir_dst_operand_init_ssa_f32(struct vsir_dst_operand *dst, unsigned
     vsir_dst_operand_init_ssa_scalar(dst, idx, VSIR_DATA_F32);
 }
 
-static void vsir_dst_operand_init_ssa_f32v4(struct vsir_dst_operand *dst, unsigned int idx)
+void vsir_dst_operand_init_ssa_f32v4(struct vsir_dst_operand *dst, unsigned int idx)
 {
     vsir_dst_operand_init_ssa(dst, idx, VSIR_DATA_F32, VSIR_DIMENSION_VEC4);
 }
