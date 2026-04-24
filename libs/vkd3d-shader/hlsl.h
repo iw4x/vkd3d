@@ -554,6 +554,10 @@ struct hlsl_ir_var
      * sampler and a texture for SM<4 backwards compatibility. */
     bool is_combined_sampler;
 
+    /* Whether the initial value of the variable is a compile-time constant
+     * expression and therefore it could be moved to ctx->static_initializers. */
+    bool is_compile_time_const;
+
     uint32_t is_input_semantic : 1;
     uint32_t is_output_semantic : 1;
     uint32_t is_uniform : 1;

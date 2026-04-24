@@ -544,9 +544,10 @@ static void check_loop_attributes(struct hlsl_ctx *ctx, const struct parse_attri
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX, "Unroll attribute can't be used with 'fastopt' attribute.");
 }
 
-static bool is_static_expression(const struct hlsl_block *block)
+static bool has_side_effects(const struct hlsl_block *block)
 {
     struct hlsl_ir_node *node;
+    struct hlsl_ir_var *var;
 
     LIST_FOR_EACH_ENTRY(node, &block->instrs, struct hlsl_ir_node, entry)
     {
@@ -558,13 +559,58 @@ static bool is_static_expression(const struct hlsl_block *block)
             case HLSL_IR_SAMPLER_STATE:
             case HLSL_IR_STRING_CONSTANT:
             case HLSL_IR_SWIZZLE:
-            case HLSL_IR_LOAD:
             case HLSL_IR_INDEX:
-                continue;
+            case HLSL_IR_LOAD:
+                break;
             case HLSL_IR_STORE:
-                if (hlsl_ir_store(node)->lhs.var->is_synthetic)
+                var = hlsl_ir_store(node)->lhs.var;
+                if (var->is_synthetic)
                     break;
-                /* fall-through */
+                return true;
+            case HLSL_IR_CALL:
+            case HLSL_IR_IF:
+            case HLSL_IR_INTERLOCKED:
+            case HLSL_IR_LOOP:
+            case HLSL_IR_JUMP:
+            case HLSL_IR_RESOURCE_LOAD:
+            case HLSL_IR_RESOURCE_STORE:
+            case HLSL_IR_SWITCH:
+            case HLSL_IR_STATEBLOCK_CONSTANT:
+            case HLSL_IR_SYNC:
+                return true;
+        }
+    }
+
+    return false;
+}
+
+static bool is_compile_time_const(const struct hlsl_block *block, bool default_values)
+{
+    struct hlsl_ir_node *node;
+    struct hlsl_ir_var *var;
+
+    LIST_FOR_EACH_ENTRY(node, &block->instrs, struct hlsl_ir_node, entry)
+    {
+        switch (node->type)
+        {
+            case HLSL_IR_COMPILE:
+            case HLSL_IR_CONSTANT:
+            case HLSL_IR_EXPR:
+            case HLSL_IR_SAMPLER_STATE:
+            case HLSL_IR_STRING_CONSTANT:
+            case HLSL_IR_SWIZZLE:
+            case HLSL_IR_INDEX:
+                break;
+            case HLSL_IR_LOAD:
+                var = hlsl_ir_load(node)->src.var;
+                if (var->is_synthetic || var->is_compile_time_const || (var->default_values && default_values))
+                    break;
+                return false;
+            case HLSL_IR_STORE:
+                var = hlsl_ir_store(node)->lhs.var;
+                if (var->is_synthetic)
+                    break;
+                return false;
             case HLSL_IR_CALL:
             case HLSL_IR_IF:
             case HLSL_IR_INTERLOCKED:
@@ -583,7 +629,8 @@ static bool is_static_expression(const struct hlsl_block *block)
 }
 
 static struct hlsl_default_value evaluate_static_expression(struct hlsl_ctx *ctx,
-        struct hlsl_block *block, struct hlsl_type *dst_type, const struct vkd3d_shader_location *loc)
+        struct hlsl_block *block, struct hlsl_type *dst_type, bool default_values,
+        const struct vkd3d_shader_location *loc)
 {
     struct hlsl_default_value ret = {0};
     struct hlsl_ir_node *node;
@@ -593,7 +640,7 @@ static struct hlsl_default_value evaluate_static_expression(struct hlsl_ctx *ctx
     if (node_from_block(block)->data_type->class == HLSL_CLASS_ERROR)
         return ret;
 
-    if (!is_static_expression(block))
+    if (!is_compile_time_const(block, default_values))
         hlsl_error(ctx, &node_from_block(block)->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
                 "Expected literal expression.");
 
@@ -644,7 +691,7 @@ static unsigned int evaluate_static_expression_as_uint(struct hlsl_ctx *ctx, str
 {
     struct hlsl_default_value res;
 
-    res = evaluate_static_expression(ctx, block, hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT), loc);
+    res = evaluate_static_expression(ctx, block, hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT), false, loc);
     VKD3D_ASSERT(!res.string);
     return res.number.u;
 }
@@ -676,7 +723,7 @@ static struct hlsl_block *create_loop(struct hlsl_ctx *ctx, enum hlsl_loop_type 
             {
                 struct hlsl_block expr;
 
-                if (!is_static_expression(&attr->instrs))
+                if (has_side_effects(&attr->instrs))
                 {
                     hlsl_error(ctx, &attr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
                             "Unroll limit expressions cannot have side effects.");
@@ -2274,7 +2321,7 @@ static void initialize_var_components(struct hlsl_ctx *ctx, struct hlsl_block *i
             {
                 if (!hlsl_clone_block(ctx, &block, instrs))
                     return;
-                default_value = evaluate_static_expression(ctx, &block, dst_comp_type, &src->loc);
+                default_value = evaluate_static_expression(ctx, &block, dst_comp_type, true, &src->loc);
 
                 if (dst->default_values)
                     dst->default_values[*store_index] = default_value;
@@ -2712,7 +2759,7 @@ static struct hlsl_block *initialize_vars(struct hlsl_ctx *ctx, struct list *var
 
             static_initialization = var->storage_modifiers & HLSL_STORAGE_STATIC
                     || (var->data_type->modifiers & HLSL_MODIFIER_CONST
-                    && is_static_expression(v->initializer.instrs));
+                    && is_compile_time_const(v->initializer.instrs, false));
 
             if (is_default_values_initializer)
             {
@@ -2745,6 +2792,7 @@ static struct hlsl_block *initialize_vars(struct hlsl_ctx *ctx, struct list *var
             else if (static_initialization)
             {
                 hlsl_block_add_block(&ctx->static_initializers, v->initializer.instrs);
+                var->is_compile_time_const = true;
             }
             else
             {
@@ -2769,6 +2817,7 @@ static struct hlsl_block *initialize_vars(struct hlsl_ctx *ctx, struct list *var
             zero = hlsl_block_add_uint_constant(ctx, &ctx->static_initializers, 0, &var->loc);
             cast = add_cast(ctx, &ctx->static_initializers, zero, var->data_type, &var->loc);
             hlsl_block_add_simple_store(ctx, &ctx->static_initializers, var, cast);
+            var->is_compile_time_const = true;
         }
         free_parse_variable_def(v);
     }
