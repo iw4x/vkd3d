@@ -145,6 +145,19 @@ static MTLPrimitiveType get_metal_primitive_type(D3D_PRIMITIVE_TOPOLOGY topology
     }
 }
 
+static MTLPrimitiveTopologyClass get_metal_primitive_topology_class(D3D_PRIMITIVE_TOPOLOGY topology)
+{
+    switch (topology)
+    {
+        case D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST:
+        case D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP:
+            return MTLPrimitiveTopologyClassTriangle;
+
+        default:
+            fatal_error("Unhandled topology %#x.\n", topology);
+    }
+}
+
 static MTLSamplerAddressMode get_metal_address_mode(D3D12_TEXTURE_ADDRESS_MODE mode)
 {
     switch (mode)
@@ -818,6 +831,8 @@ static void metal_runner_clear(struct shader_runner *r, struct resource *res,
         descriptor = [MTLRenderPassDescriptor renderPassDescriptor];
         command_buffer = [runner->queue commandBuffer];
 
+        descriptor.renderTargetArrayLength = res->desc.layer_count;
+
         switch (resource->r.desc.type)
         {
             case RESOURCE_TYPE_RENDER_TARGET:
@@ -948,6 +963,7 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
                         fb_width = resource->r.desc.width;
                     if (resource->r.desc.height < fb_height)
                         fb_height = resource->r.desc.height;
+                    pass_desc.renderTargetArrayLength = resource->r.desc.layer_count;
                     break;
 
                 case RESOURCE_TYPE_DEPTH_STENCIL:
@@ -1013,6 +1029,7 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
         }
         pipeline_desc.rasterSampleCount = runner->r.sample_count;
         pipeline_desc.sampleMask = runner->r.sample_mask;
+        pipeline_desc.inputPrimitiveTopology = get_metal_primitive_topology_class(topology);
 
         viewports[0].width = fb_width;
         viewports[0].height = fb_height;
@@ -1335,6 +1352,7 @@ static bool metal_runner_init(struct metal_runner *runner)
     runner->caps.runner = "Metal";
     runner->caps.shader_caps[SHADER_CAP_DESCRIPTORS] = true;
     runner->caps.shader_caps[SHADER_CAP_STENCIL_EXPORT] = true;
+    runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX] = true;
 
     runner->caps.tags[SHADER_RUNNER_TAG_MSL].present = true;
 
