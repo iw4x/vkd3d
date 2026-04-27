@@ -22,13 +22,13 @@
 #include "hlsl.h"
 #include <stdio.h>
 
-void hlsl_note(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
-        enum vkd3d_shader_log_level level, const char *fmt, ...)
+void hlsl_note_(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
+        enum vkd3d_shader_log_level level, const char *function, const char *fmt, ...)
 {
     va_list args;
 
     va_start(args, fmt);
-    vkd3d_shader_vnote(ctx->message_context, loc, level, fmt, args);
+    vkd3d_shader_vnote(ctx->message_context, loc, level, function, fmt, args);
     va_end(args);
 }
 

@@ -1806,8 +1806,10 @@ void hlsl_fixme(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
         const char *fmt, ...) VKD3D_PRINTF_FUNC(3, 4);
 void hlsl_warning(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
         enum vkd3d_shader_error error, const char *fmt, ...) VKD3D_PRINTF_FUNC(4, 5);
-void hlsl_note(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
-        enum vkd3d_shader_log_level level, const char *fmt, ...) VKD3D_PRINTF_FUNC(4, 5);
+#define hlsl_note(ctx, loc, level, ...) \
+        hlsl_note_(ctx, loc, level, __FUNCTION__, __VA_ARGS__)
+void hlsl_note_(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
+        enum vkd3d_shader_log_level level, const char *function, const char *fmt, ...) VKD3D_PRINTF_FUNC(5, 6);
 
 void hlsl_push_scope(struct hlsl_ctx *ctx);
 void hlsl_pop_scope(struct hlsl_ctx *ctx);

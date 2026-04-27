@@ -371,7 +371,7 @@ void vkd3d_shader_string_from_message_context(char **out, struct vkd3d_shader_me
 }
 
 void vkd3d_shader_vnote(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
-        enum vkd3d_shader_log_level level, const char *format, va_list args)
+        enum vkd3d_shader_log_level level, const char *function, const char *format, va_list args)
 {
     struct vkd3d_string_buffer *messages = &context->messages;
     size_t pos = messages->content_size;
@@ -392,7 +392,8 @@ void vkd3d_shader_vnote(struct vkd3d_shader_message_context *context, const stru
     vkd3d_string_buffer_vprintf(messages, format, args);
     vkd3d_string_buffer_printf(messages, "\n");
 
-    WARN("%.*s", (int)(messages->content_size - pos), &messages->buffer[pos]);
+    vkd3d_debug_channel_printf(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME, VKD3D_DEBUG_CLASS_WARN,
+            function, "%.*s", (int)(messages->content_size - pos), &messages->buffer[pos]);
     if (context->log_level < level)
         messages->content_size = pos;
 }
