@@ -458,6 +458,14 @@ static enum msl_data_type msl_print_register_name(struct vkd3d_string_buffer *bu
             vkd3d_string_buffer_printf(buffer, "v_local_thread_index");
             return MSL_DATA_UNION;
 
+        case VKD3DSPR_OUTSTENCILREF:
+            if (gen->program->shader_version.type != VKD3D_SHADER_TYPE_PIXEL)
+                msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
+                        "Internal compiler error: Unhandled stencil reference output in shader type #%x.",
+                        gen->program->shader_version.type);
+            vkd3d_string_buffer_printf(buffer, "o_stencil_ref");
+            return MSL_DATA_UNION;
+
         case VKD3DSPR_UNDEF:
             switch (reg->dimension)
             {
@@ -1957,6 +1965,12 @@ static void msl_generate_output_struct_declarations(struct msl_generator *gen)
         vkd3d_string_buffer_printf(buffer, "uint shader_out_mask [[sample_mask]];\n");
     }
 
+    if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_OUTSTENCILREF))
+    {
+        msl_print_indent(gen->buffer, 1);
+        vkd3d_string_buffer_printf(buffer, "uint shader_out_stencil_ref [[stencil]];\n");
+    }
+
     vkd3d_string_buffer_printf(buffer, "};\n\n");
 }
 
@@ -2132,6 +2146,8 @@ static void msl_generate_entrypoint_epilogue(struct msl_generator *gen)
 
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_SAMPLEMASK))
         vkd3d_string_buffer_printf(gen->buffer, "    output.shader_out_mask = o_mask.u;\n");
+    if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_OUTSTENCILREF))
+        vkd3d_string_buffer_printf(gen->buffer, "    output.shader_out_stencil_ref = o_stencil_ref.u;\n");
 }
 
 static void msl_generate_entrypoint(struct msl_generator *gen)
@@ -2220,6 +2236,8 @@ static void msl_generate_entrypoint(struct msl_generator *gen)
         vkd3d_string_buffer_printf(gen->buffer, "    vkd3d_vec4 v_local_thread_id;\n");
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_LOCALTHREADINDEX))
         vkd3d_string_buffer_printf(gen->buffer, "    vkd3d_vec4 v_local_thread_index;\n");
+    if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_OUTSTENCILREF))
+        vkd3d_string_buffer_printf(gen->buffer, "    vkd3d_scalar o_stencil_ref;\n");
     vkd3d_string_buffer_printf(gen->buffer, "\n");
 
     msl_generate_entrypoint_prologue(gen);
@@ -2239,6 +2257,8 @@ static void msl_generate_entrypoint(struct msl_generator *gen)
         vkd3d_string_buffer_printf(gen->buffer, ", v_local_thread_id");
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_LOCALTHREADINDEX))
         vkd3d_string_buffer_printf(gen->buffer, ", v_local_thread_index");
+    if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_OUTSTENCILREF))
+        vkd3d_string_buffer_printf(gen->buffer, ", o_stencil_ref");
     if (gen->program->descriptors.descriptor_count)
         vkd3d_string_buffer_printf(gen->buffer, ", descriptors");
     vkd3d_string_buffer_printf(gen->buffer, ");\n\n");
@@ -2261,7 +2281,8 @@ static int msl_generator_generate(struct msl_generator *gen, struct vkd3d_shader
     vkd3d_string_buffer_printf(gen->buffer, "#include <metal_stdlib>\n");
     vkd3d_string_buffer_printf(gen->buffer, "using namespace metal;\n\n");
 
-    if (gen->program->global_flags & ~(VKD3DSGF_REFACTORING_ALLOWED | VKD3DSGF_FORCE_EARLY_DEPTH_STENCIL))
+    if (gen->program->global_flags & ~(VKD3DSGF_REFACTORING_ALLOWED
+            | VKD3DSGF_FORCE_EARLY_DEPTH_STENCIL | VKD3DSGF_ENABLE_STENCIL_REF))
         msl_compiler_error(gen, VKD3D_SHADER_ERROR_MSL_INTERNAL,
                 "Internal compiler error: Unhandled global flags %#"PRIx64".", (uint64_t)gen->program->global_flags);
 
@@ -2329,6 +2350,8 @@ static int msl_generator_generate(struct msl_generator *gen, struct vkd3d_shader
         vkd3d_string_buffer_printf(gen->buffer, ", thread vkd3d_vec4 &v_local_thread_id");
     if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_LOCALTHREADINDEX))
         vkd3d_string_buffer_printf(gen->buffer, ", thread vkd3d_vec4 &v_local_thread_index");
+    if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_OUTSTENCILREF))
+        vkd3d_string_buffer_printf(gen->buffer, ", thread vkd3d_scalar &o_stencil_ref");
     if (gen->program->descriptors.descriptor_count)
         vkd3d_string_buffer_printf(gen->buffer, ", constant descriptor *descriptors");
     vkd3d_string_buffer_printf(gen->buffer, ")\n{\n");
