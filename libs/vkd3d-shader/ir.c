@@ -16569,18 +16569,7 @@ static int vsir_operand_compare(const struct vsir_operand *a, const struct vsir_
         VKD3D_ASSERT(a->dimension == VSIR_DIMENSION_SCALAR || a->dimension == VSIR_DIMENSION_VEC4);
         count = a->dimension == VSIR_DIMENSION_VEC4 ? 4 : 1;
 
-        switch (a->data_type)
-        {
-            case VSIR_DATA_F32:
-                return memcmp(a->u.immconst_f32, b->u.immconst_f32, sizeof(a->u.immconst_f32[0]) * count);
-
-            case VSIR_DATA_I32:
-            case VSIR_DATA_U32:
-                return memcmp(a->u.immconst_u32, b->u.immconst_u32, sizeof(a->u.immconst_u32[0]) * count);
-
-            default:
-                vkd3d_unreachable();
-        }
+        return memcmp(a->u.immconst_u32, b->u.immconst_u32, sizeof(a->u.immconst_u32[0]) * count);
     }
     else if (a->type == VKD3DSPR_IMMCONST64)
     {
@@ -16589,18 +16578,7 @@ static int vsir_operand_compare(const struct vsir_operand *a, const struct vsir_
         VKD3D_ASSERT(a->dimension == VSIR_DIMENSION_SCALAR || a->dimension == VSIR_DIMENSION_VEC4);
         count = a->dimension == VSIR_DIMENSION_VEC4 ? 2 : 1;
 
-        switch (a->data_type)
-        {
-            case VSIR_DATA_F64:
-                return memcmp(a->u.immconst_f64, b->u.immconst_f64, sizeof(a->u.immconst_f64[0]) * count);
-
-            case VSIR_DATA_I64:
-            case VSIR_DATA_U64:
-                return memcmp(a->u.immconst_u64, b->u.immconst_u64, sizeof(a->u.immconst_u64[0]) * count);
-
-            default:
-                vkd3d_unreachable();
-        }
+        return memcmp(a->u.immconst_u64, b->u.immconst_u64, sizeof(a->u.immconst_u64[0]) * count);
     }
 
     return 0;
