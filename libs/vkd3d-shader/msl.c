@@ -79,7 +79,7 @@ static void VKD3D_PRINTF_FUNC(3, 4) msl_compiler_error(struct msl_generator *gen
     va_list args;
 
     va_start(args, fmt);
-    vkd3d_shader_verror(gen->message_context, &gen->location, error, fmt, args);
+    vkd3d_shader_verror(gen->message_context, &gen->location, error, __FUNCTION__, fmt, args);
     va_end(args);
     gen->failed = true;
 }

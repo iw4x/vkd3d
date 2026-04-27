@@ -1802,8 +1802,10 @@ struct hlsl_ir_node *hlsl_new_switch(struct hlsl_ctx *ctx, struct hlsl_ir_node *
 
 void hlsl_error(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
         enum vkd3d_shader_error error, const char *fmt, ...) VKD3D_PRINTF_FUNC(4, 5);
-void hlsl_fixme(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
-        const char *fmt, ...) VKD3D_PRINTF_FUNC(3, 4);
+#define hlsl_fixme(ctx, loc, ...) \
+        hlsl_fixme_(ctx, loc,  __FUNCTION__, __VA_ARGS__)
+void hlsl_fixme_(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
+        const char *function, const char *fmt, ...) VKD3D_PRINTF_FUNC(4, 5);
 #define hlsl_warning(ctx, loc, error, ...) \
         hlsl_warning_(ctx, loc, error, __FUNCTION__, __VA_ARGS__)
 void hlsl_warning_(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,

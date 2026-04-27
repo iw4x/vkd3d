@@ -1416,7 +1416,7 @@ static void VKD3D_PRINTF_FUNC(3, 4) tpf_compiler_error(struct tpf_compiler *tpf,
     va_list args;
 
     va_start(args, fmt);
-    vkd3d_shader_verror(tpf->message_context, &tpf->location, error, fmt, args);
+    vkd3d_shader_verror(tpf->message_context, &tpf->location, error, __FUNCTION__, fmt, args);
     va_end(args);
 
     if (!tpf->first_error)

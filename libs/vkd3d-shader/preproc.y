@@ -58,7 +58,7 @@ static void preproc_error(struct preproc_ctx *ctx, const struct vkd3d_shader_loc
     va_list args;
 
     va_start(args, format);
-    vkd3d_shader_verror(ctx->message_context, loc, error, format, args);
+    vkd3d_shader_verror(ctx->message_context, loc, error, __FUNCTION__, format, args);
     va_end(args);
     ctx->error = true;
 }

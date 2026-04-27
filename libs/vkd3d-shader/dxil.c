@@ -11766,7 +11766,6 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
     count = byte_code_size / sizeof(*byte_code);
     if (count < 6)
     {
-        WARN("Invalid data size %zu.\n", byte_code_size);
         vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_DXIL_INVALID_SIZE,
                 "DXIL chunk size %zu is smaller than the DXIL header size.", byte_code_size);
         return VKD3D_ERROR_INVALID_SHADER;
@@ -11779,7 +11778,6 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
 
     if (token_count < 6 || count < token_count)
     {
-        WARN("Invalid token count %u (word count %zu).\n", token_count, count);
         vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_DXIL_INVALID_CHUNK_SIZE,
                 "DXIL chunk token count %#x is invalid (word count %zu).", token_count, count);
         return VKD3D_ERROR_INVALID_SHADER;
@@ -11797,7 +11795,6 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
     chunk_offset = byte_code[4];
     if (chunk_offset < 16 || chunk_offset >= byte_code_size)
     {
-        WARN("Invalid bitcode chunk offset %#x (data size %zu).\n", chunk_offset, byte_code_size);
         vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_DXIL_INVALID_CHUNK_OFFSET,
                 "DXIL bitcode chunk has invalid offset %#x (data size %#zx).", chunk_offset, byte_code_size);
         return VKD3D_ERROR_INVALID_SHADER;
@@ -11805,8 +11802,6 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
     chunk_size = byte_code[5];
     if (chunk_size > byte_code_size - chunk_offset)
     {
-        WARN("Invalid bitcode chunk size %#x (data size %zu, chunk offset %#x).\n",
-                chunk_size, byte_code_size, chunk_offset);
         vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_DXIL_INVALID_CHUNK_SIZE,
                 "DXIL bitcode chunk has invalid size %#x (data size %#zx, chunk offset %#x).",
                 chunk_size, byte_code_size, chunk_offset);
@@ -11829,7 +11824,6 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
 
     if ((abbr = sm6->start[1] & 3) != ENTER_SUBBLOCK)
     {
-        WARN("Initial block abbreviation %u is not ENTER_SUBBLOCK.\n", abbr);
         vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_DXIL_INVALID_BITCODE,
                 "DXIL bitcode chunk has invalid initial block abbreviation %u.", abbr);
         return VKD3D_ERROR_INVALID_SHADER;

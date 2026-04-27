@@ -4631,7 +4631,6 @@ static enum vkd3d_result range_map_set_register_range(struct io_normaliser *norm
     {
         if (range_map[register_idx].component[component_idx].register_count == UINT8_MAX)
         {
-            WARN("Conflicting index ranges.\n");
             vkd3d_shader_error(normaliser->message_context, NULL,
                     VKD3D_SHADER_ERROR_VSIR_INVALID_SIGNATURE, "Conflicting index ranges.");
             return VKD3D_ERROR_INVALID_SHADER;
@@ -4659,7 +4658,6 @@ static enum vkd3d_result range_map_set_register_range(struct io_normaliser *norm
              * The latter is validated in the TPF reader. */
             if (range_map[r].component[c].register_count && is_dcl_indexrange)
             {
-                WARN("Conflicting index ranges.\n");
                 vkd3d_shader_error(normaliser->message_context, NULL,
                         VKD3D_SHADER_ERROR_VSIR_INVALID_SIGNATURE, "Conflicting index ranges.");
                 return VKD3D_ERROR_INVALID_SHADER;
@@ -6028,7 +6026,6 @@ static enum vkd3d_result cf_flattener_iterate_instruction_array(struct cf_flatte
 
                 if (src->swizzle != VKD3D_SHADER_SWIZZLE(X, X, X, X))
                 {
-                    WARN("Unexpected src swizzle %#x.\n", src->swizzle);
                     vkd3d_shader_error(message_context, &instruction->location,
                             VKD3D_SHADER_ERROR_VSIR_INVALID_SWIZZLE,
                             "The swizzle for a switch case value is not scalar X.");
@@ -7396,7 +7393,6 @@ static enum vkd3d_result vsir_cfg_compute_loops(struct vsir_cfg *cfg)
             {
                 struct vkd3d_shader_instruction *begin = vsir_program_iterator_current(&header->begin);
 
-                FIXME("Block %u is header to more than one loop, this is not implemented.\n", header->label);
                 vkd3d_shader_error(cfg->message_context, &begin->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
                         "Block %u is header to more than one loop, this is not implemented.", header->label);
                 return VKD3D_ERROR_NOT_IMPLEMENTED;
@@ -7481,7 +7477,6 @@ static enum vkd3d_result vsir_cfg_sort_nodes(struct vsir_cfg *cfg)
         {
             struct vkd3d_shader_instruction *begin = vsir_program_iterator_current(&block->begin);
 
-            WARN("Unexpected entry point %u.\n", block->label);
             vkd3d_shader_error(cfg->message_context, &begin->location, VKD3D_SHADER_ERROR_VSIR_INVALID_CONTROL_FLOW,
                     "Block %u is unreachable from the entry point.", block->label);
             ret = VKD3D_ERROR_INVALID_SHADER;
@@ -7493,7 +7488,6 @@ static enum vkd3d_result vsir_cfg_sort_nodes(struct vsir_cfg *cfg)
     {
         struct vkd3d_shader_instruction *begin = vsir_program_iterator_current(&cfg->entry->begin);
 
-        WARN("Entry point has %u incoming forward edges.\n", in_degrees[cfg->entry->label - 1]);
         vkd3d_shader_error(cfg->message_context, &begin->location, VKD3D_SHADER_ERROR_VSIR_INVALID_CONTROL_FLOW,
                 "The entry point block has %u incoming forward edges.", in_degrees[cfg->entry->label - 1]);
         ret = VKD3D_ERROR_INVALID_SHADER;
@@ -7599,7 +7593,6 @@ static enum vkd3d_result vsir_cfg_sort_nodes(struct vsir_cfg *cfg)
         struct vkd3d_shader_instruction *begin = vsir_program_iterator_current(&cfg->entry->begin);
 
         /* There is a cycle of forward edges. */
-        WARN("The control flow graph is not reducible.\n");
         vkd3d_shader_error(cfg->message_context, &begin->location, VKD3D_SHADER_ERROR_VSIR_INVALID_CONTROL_FLOW,
                 "The control flow graph is not reducible.");
         ret = VKD3D_ERROR_INVALID_SHADER;
@@ -12093,8 +12086,10 @@ struct validation_context
     } input_signature_data, output_signature_data, patch_constant_signature_data;
 };
 
-static void VKD3D_PRINTF_FUNC(3, 4) validator_error(struct validation_context *ctx,
-        enum vkd3d_shader_error error, const char *format, ...)
+#define validator_error(ctx, error, ...) \
+        validator_error_(ctx, error, __FUNCTION__, __VA_ARGS__)
+static void VKD3D_PRINTF_FUNC(4, 5) validator_error_(struct validation_context *ctx,
+        enum vkd3d_shader_error error, const char *function, const char *format, ...)
 {
     struct vkd3d_string_buffer buf;
     va_list args;
@@ -12107,12 +12102,12 @@ static void VKD3D_PRINTF_FUNC(3, 4) validator_error(struct validation_context *c
 
     if (ctx->invalid_instruction_idx)
     {
-        vkd3d_shader_error(ctx->message_context, &ctx->location, error, "%s", buf.buffer);
+        vkd3d_shader_error_(ctx->message_context, &ctx->location, error, function, "%s", buf.buffer);
         WARN("VSIR validation error: %s\n", buf.buffer);
     }
     else
     {
-        vkd3d_shader_error(ctx->message_context, &ctx->location, error,
+        vkd3d_shader_error_(ctx->message_context, &ctx->location, error, function,
                 "instruction %zu: %s", ctx->instruction_idx + 1, buf.buffer);
         WARN("VSIR validation error: instruction %zu: %s\n", ctx->instruction_idx + 1, buf.buffer);
     }

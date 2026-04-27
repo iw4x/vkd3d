@@ -77,7 +77,7 @@ static void VKD3D_PRINTF_FUNC(3, 4) vkd3d_glsl_compiler_error(
     va_list args;
 
     va_start(args, fmt);
-    vkd3d_shader_verror(generator->message_context, &generator->location, error, fmt, args);
+    vkd3d_shader_verror(generator->message_context, &generator->location, error, __FUNCTION__, fmt, args);
     va_end(args);
     generator->failed = true;
 }

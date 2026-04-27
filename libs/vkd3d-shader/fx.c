@@ -3862,7 +3862,7 @@ static void VKD3D_PRINTF_FUNC(3, 4) fx_parser_error(struct fx_parser *parser, en
     va_list args;
 
     va_start(args, format);
-    vkd3d_shader_verror(parser->message_context, NULL, error, format, args);
+    vkd3d_shader_verror(parser->message_context, NULL, error, __FUNCTION__, format, args);
     va_end(args);
 
     parser->failed = true;

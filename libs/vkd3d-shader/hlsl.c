@@ -38,7 +38,7 @@ void hlsl_error(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
     va_list args;
 
     va_start(args, fmt);
-    vkd3d_shader_verror(ctx->message_context, loc, error, fmt, args);
+    vkd3d_shader_verror(ctx->message_context, loc, error, __FUNCTION__, fmt, args);
     va_end(args);
 
     if (!ctx->result)
@@ -55,7 +55,8 @@ void hlsl_warning_(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc
     va_end(args);
 }
 
-void hlsl_fixme(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc, const char *fmt, ...)
+void hlsl_fixme_(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
+        const char *function, const char *fmt, ...)
 {
     struct vkd3d_string_buffer *string;
     va_list args;
@@ -64,7 +65,8 @@ void hlsl_fixme(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc, c
     string = hlsl_get_string_buffer(ctx);
     vkd3d_string_buffer_printf(string, "Aborting due to not yet implemented feature: ");
     vkd3d_string_buffer_vprintf(string, fmt, args);
-    vkd3d_shader_error(ctx->message_context, loc, VKD3D_SHADER_ERROR_HLSL_NOT_IMPLEMENTED, "%s", string->buffer);
+    vkd3d_shader_error_(ctx->message_context, loc,
+            VKD3D_SHADER_ERROR_HLSL_NOT_IMPLEMENTED, function, "%s", string->buffer);
     hlsl_release_string_buffer(ctx, string);
     va_end(args);
 

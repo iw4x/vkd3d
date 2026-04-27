@@ -1910,10 +1910,12 @@ void vkd3d_shader_message_context_trace_messages_(const struct vkd3d_shader_mess
         const char *function);
 #define vkd3d_shader_message_context_trace_messages(context) \
         vkd3d_shader_message_context_trace_messages_(context, __FUNCTION__)
-void vkd3d_shader_error(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
-        enum vkd3d_shader_error error, const char *format, ...) VKD3D_PRINTF_FUNC(4, 5);
+#define vkd3d_shader_error(context, location, error, ...) \
+        vkd3d_shader_error_(context, location, error, __FUNCTION__, __VA_ARGS__)
+void vkd3d_shader_error_(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
+        enum vkd3d_shader_error error, const char *function, const char *format, ...) VKD3D_PRINTF_FUNC(5, 6);
 void vkd3d_shader_verror(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
-        enum vkd3d_shader_error error, const char *format, va_list args);
+        enum vkd3d_shader_error error, const char *function, const char *format, va_list args);
 void vkd3d_shader_vnote(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
         enum vkd3d_shader_log_level level, const char *function, const char *format, va_list args);
 #define vkd3d_shader_warning(context, location, error, ...) \

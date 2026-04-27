@@ -242,7 +242,7 @@ static void VKD3D_PRINTF_FUNC(3, 4) spirv_parser_error(struct spirv_parser *pars
     va_list args;
 
     va_start(args, format);
-    vkd3d_shader_verror(parser->message_context, &parser->location, error, format, args);
+    vkd3d_shader_verror(parser->message_context, &parser->location, error, __FUNCTION__, format, args);
     va_end(args);
     parser->failed = true;
 }
@@ -3370,7 +3370,7 @@ static void VKD3D_PRINTF_FUNC(3, 4) spirv_compiler_error(struct spirv_compiler *
     va_list args;
 
     va_start(args, format);
-    vkd3d_shader_verror(compiler->message_context, &compiler->location, error, format, args);
+    vkd3d_shader_verror(compiler->message_context, &compiler->location, error, __FUNCTION__, format, args);
     va_end(args);
     compiler->failed = true;
 }
