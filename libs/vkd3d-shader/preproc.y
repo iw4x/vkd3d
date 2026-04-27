@@ -63,13 +63,13 @@ static void preproc_error(struct preproc_ctx *ctx, const struct vkd3d_shader_loc
     ctx->error = true;
 }
 
-void preproc_warning(struct preproc_ctx *ctx, const struct vkd3d_shader_location *loc,
-        enum vkd3d_shader_error error, const char *format, ...)
+void preproc_warning_(struct preproc_ctx *ctx, const struct vkd3d_shader_location *loc,
+        enum vkd3d_shader_error error, const char *function, const char *format, ...)
 {
     va_list args;
 
     va_start(args, format);
-    vkd3d_shader_vwarning(ctx->message_context, loc, error, format, args);
+    vkd3d_shader_vwarning(ctx->message_context, loc, error, function, format, args);
     va_end(args);
 }
 

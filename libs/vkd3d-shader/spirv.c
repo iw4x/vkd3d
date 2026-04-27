@@ -247,13 +247,15 @@ static void VKD3D_PRINTF_FUNC(3, 4) spirv_parser_error(struct spirv_parser *pars
     parser->failed = true;
 }
 
-static void VKD3D_PRINTF_FUNC(3, 4) spirv_parser_warning(struct spirv_parser *parser,
-        enum vkd3d_shader_error error, const char *format, ...)
+#define spirv_parser_warning(parser, error, ...) \
+        spirv_parser_warning_(parser, error, __FUNCTION__, __VA_ARGS__)
+static void VKD3D_PRINTF_FUNC(4, 5) spirv_parser_warning_(struct spirv_parser *parser,
+        enum vkd3d_shader_error error, const char *function, const char *format, ...)
 {
     va_list args;
 
     va_start(args, format);
-    vkd3d_shader_vwarning(parser->message_context, &parser->location, error, format, args);
+    vkd3d_shader_vwarning(parser->message_context, &parser->location, error, function, format, args);
     va_end(args);
 }
 
@@ -3373,13 +3375,15 @@ static void VKD3D_PRINTF_FUNC(3, 4) spirv_compiler_error(struct spirv_compiler *
     compiler->failed = true;
 }
 
-static void VKD3D_PRINTF_FUNC(3, 4) spirv_compiler_warning(struct spirv_compiler *compiler,
-        enum vkd3d_shader_error error, const char *format, ...)
+#define spirv_compiler_warning(compiler, error, ...) \
+        spirv_compiler_warning_(compiler, error, __FUNCTION__, __VA_ARGS__)
+static void VKD3D_PRINTF_FUNC(4, 5) spirv_compiler_warning_(struct spirv_compiler *compiler,
+        enum vkd3d_shader_error error, const char *function, const char *format, ...)
 {
     va_list args;
 
     va_start(args, format);
-    vkd3d_shader_vwarning(compiler->message_context, &compiler->location, error, format, args);
+    vkd3d_shader_vwarning(compiler->message_context, &compiler->location, error, function, format, args);
     va_end(args);
 }
 
@@ -8407,11 +8411,8 @@ static void spirv_compiler_emit_branch(struct spirv_compiler *compiler,
     }
 
     if (!vkd3d_swizzle_is_scalar(src->swizzle, &src->reg))
-    {
-        WARN("Unexpected src swizzle %#x.\n", src->swizzle);
         spirv_compiler_warning(compiler, VKD3D_SHADER_WARNING_SPV_INVALID_SWIZZLE,
                 "The swizzle for a branch condition value is not scalar.");
-    }
 
     condition_id = spirv_compiler_emit_load_src(compiler, &src[0], VKD3DSP_WRITEMASK_0);
     if (src[0].reg.data_type != VSIR_DATA_BOOL)
@@ -8438,11 +8439,8 @@ static void spirv_compiler_emit_switch(struct spirv_compiler *compiler,
     uint32_t *cases;
 
     if (!vkd3d_swizzle_is_scalar(src[0].swizzle, &src[0].reg))
-    {
-        WARN("Unexpected src swizzle %#x.\n", src[0].swizzle);
         spirv_compiler_warning(compiler, VKD3D_SHADER_WARNING_SPV_INVALID_SWIZZLE,
                 "The swizzle for a switch value is not scalar.");
-    }
 
     word_count = instruction->src_count - 3;
     if (!(cases = vkd3d_calloc(word_count, sizeof(*cases))))
@@ -9952,11 +9950,8 @@ static void spirv_compiler_emit_sync(struct spirv_compiler *compiler,
         bool global_uav = flags & VKD3DSSF_GLOBAL_UAV;
 
         if (group_uav && global_uav)
-        {
-            WARN("Invalid UAV sync flag combination; assuming global.\n");
             spirv_compiler_warning(compiler, VKD3D_SHADER_WARNING_SPV_INVALID_UAV_FLAGS,
                     "The flags for a UAV sync instruction are contradictory; assuming global sync.");
-        }
         memory_scope = global_uav ? SpvScopeDevice : SpvScopeWorkgroup;
         memory_semantics |= SpvMemorySemanticsUniformMemoryMask | SpvMemorySemanticsImageMemoryMask;
         flags &= ~(VKD3DSSF_THREAD_GROUP_UAV | VKD3DSSF_GLOBAL_UAV);

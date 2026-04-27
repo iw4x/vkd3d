@@ -399,7 +399,7 @@ void vkd3d_shader_vnote(struct vkd3d_shader_message_context *context, const stru
 }
 
 void vkd3d_shader_vwarning(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
-        enum vkd3d_shader_error error, const char *format, va_list args)
+        enum vkd3d_shader_error error, const char *function, const char *format, va_list args)
 {
     struct vkd3d_string_buffer *messages = &context->messages;
     size_t pos = messages->content_size;
@@ -424,18 +424,19 @@ void vkd3d_shader_vwarning(struct vkd3d_shader_message_context *context, const s
     vkd3d_string_buffer_vprintf(messages, format, args);
     vkd3d_string_buffer_printf(messages, "\n");
 
-    WARN("%.*s", (int)(messages->content_size - pos), &messages->buffer[pos]);
+    vkd3d_debug_channel_printf(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME, VKD3D_DEBUG_CLASS_WARN,
+            function, "%.*s", (int)(messages->content_size - pos), &messages->buffer[pos]);
     if (context->log_level < VKD3D_SHADER_LOG_WARNING)
         messages->content_size = pos;
 }
 
-void vkd3d_shader_warning(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
-        enum vkd3d_shader_error error, const char *format, ...)
+void vkd3d_shader_warning_(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
+        enum vkd3d_shader_error error, const char *function, const char *format, ...)
 {
     va_list args;
 
     va_start(args, format);
-    vkd3d_shader_vwarning(context, location, error, format, args);
+    vkd3d_shader_vwarning(context, location, error, function, format, args);
     va_end(args);
 }
 
@@ -803,13 +804,13 @@ void VKD3D_PRINTF_FUNC(3, 4) vkd3d_shader_parser_error(struct vkd3d_shader_parse
     }
 }
 
-void VKD3D_PRINTF_FUNC(3, 4) vkd3d_shader_parser_warning(struct vkd3d_shader_parser *parser,
-        enum vkd3d_shader_error error, const char *format, ...)
+void VKD3D_PRINTF_FUNC(4, 5) vkd3d_shader_parser_warning_(struct vkd3d_shader_parser *parser,
+        enum vkd3d_shader_error error, const char *function, const char *format, ...)
 {
     va_list args;
 
     va_start(args, format);
-    vkd3d_shader_vwarning(parser->message_context, &parser->location, error, format, args);
+    vkd3d_shader_vwarning(parser->message_context, &parser->location, error, function, format, args);
     va_end(args);
 }
 
@@ -1065,13 +1066,15 @@ static VKD3D_PRINTF_FUNC(3, 4) void vkd3d_shader_scan_error(struct vkd3d_shader_
     va_end(args);
 }
 
-static void VKD3D_PRINTF_FUNC(3, 4) vkd3d_shader_scan_warning(struct vkd3d_shader_scan_context *context,
-        enum vkd3d_shader_error error, const char *format, ...)
+#define vkd3d_shader_scan_warning(context, error, ...) \
+        vkd3d_shader_scan_warning_(context, error, __FUNCTION__, __VA_ARGS__)
+static void VKD3D_PRINTF_FUNC(4, 5) vkd3d_shader_scan_warning_(struct vkd3d_shader_scan_context *context,
+        enum vkd3d_shader_error error, const char *function, const char *format, ...)
 {
     va_list args;
 
     va_start(args, format);
-    vkd3d_shader_vwarning(context->message_context, &context->location, error, format, args);
+    vkd3d_shader_vwarning(context->message_context, &context->location, error, function, format, args);
     va_end(args);
 }
 

@@ -45,13 +45,13 @@ void hlsl_error(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
         ctx->result = VKD3D_ERROR_INVALID_SHADER;
 }
 
-void hlsl_warning(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
-        enum vkd3d_shader_error error, const char *fmt, ...)
+void hlsl_warning_(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
+        enum vkd3d_shader_error error, const char *function, const char *fmt, ...)
 {
     va_list args;
 
     va_start(args, fmt);
-    vkd3d_shader_vwarning(ctx->message_context, loc, error, fmt, args);
+    vkd3d_shader_vwarning(ctx->message_context, loc, error, function, fmt, args);
     va_end(args);
 }
 

@@ -1741,7 +1741,6 @@ static void dxil_record_validate_operand_max_count(const struct dxil_record *rec
     if (record->operand_count <= max_count)
         return;
 
-    WARN("Ignoring %u extra operands for code %u.\n", record->operand_count - max_count, record->code);
     vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
             "Ignoring %u extra operands for record code %u.", record->operand_count - max_count, record->code);
 }
@@ -3677,15 +3676,10 @@ static enum vkd3d_result sm6_parser_init_constexpr_gep(struct sm6_parser *sm6, c
 
         operands[j] = &sm6->values[value];
         if (value > sm6->value_count)
-        {
             operands[j]->type = elem_type;
-        }
         else if (operands[j]->type != elem_type)
-        {
-            WARN("Type mismatch.\n");
             vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
                     "Type mismatch in constexpr GEP elements.");
-        }
     }
 
     *dst = *operands[0];
@@ -3727,15 +3721,10 @@ static enum vkd3d_result sm6_parser_init_constexpr_gep(struct sm6_parser *sm6, c
     }
 
     if (!pointee_type)
-    {
         pointee_type = ptr_type->u.pointer.type;
-    }
     else if (pointee_type != ptr_type->u.pointer.type)
-    {
-        WARN("Explicit pointee type mismatch.\n");
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
                 "Explicit pointee type for constexpr GEP does not match the element type.");
-    }
 
     offset = sm6_value_get_constant_uint(operands[2], sm6);
     if (!(gep_type = sm6_type_get_element_type_at_index(pointee_type, offset)))
@@ -5128,13 +5117,10 @@ static enum vkd3d_shader_opcode map_binary_op(uint64_t code, const struct sm6_ty
                 "An argument to a binary operation is not bool, int16/32/64 or floating point.");
         return VSIR_OP_INVALID;
     }
+
     if (type_a != type_b)
-    {
-        WARN("Type mismatch, type %u width %u vs type %u width %u.\n", type_a->class,
-                type_a->u.width, type_b->class, type_b->u.width);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
                 "Type mismatch in binary operation arguments.");
-    }
 
     *aux_opcode = VSIR_OP_NOP;
 
@@ -5200,11 +5186,8 @@ static enum vkd3d_shader_opcode map_binary_op(uint64_t code, const struct sm6_ty
     }
 
     if (!is_valid)
-    {
-        WARN("Invalid operation %u for type %u, width %u.\n", op, type_a->class, type_a->u.width);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_INVALID_OPERATION,
                 "Binary operation %u is invalid on type class %u, width %u.", op, type_a->class, type_a->u.width);
-    }
 
     return op;
 }
@@ -5299,15 +5282,10 @@ static void sm6_parser_emit_binop(struct sm6_parser *sm6, struct function_emissi
     }
     /* The above flags are very common and cause warning spam. */
     if (flags && silence_warning)
-    {
         TRACE("Ignoring flags %#"PRIx64".\n", flags);
-    }
     else if (flags)
-    {
-        WARN("Ignoring flags %#"PRIx64".\n", flags);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring flags %#"PRIx64" for a binary operation.", flags);
-    }
 
     if (!(src_params = instruction_src_params_alloc(ins, 2, sm6)))
     {
@@ -5798,7 +5776,6 @@ static void sm6_parser_emit_dx_atomic_binop(struct sm6_parser *sm6, enum dx_intr
     {
         if (operands[i]->value_type != VALUE_TYPE_UNDEFINED)
         {
-            WARN("Ignoring unexpected operand.\n");
             vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                     "Ignoring an unexpected defined operand value for atomic instruction %u.", opcode);
             break;
@@ -7916,7 +7893,6 @@ static void sm6_parser_emit_call(struct sm6_parser *sm6, struct function_emissio
     operand_count = type->u.function->param_count;
     if (operand_count > ARRAY_SIZE(operands))
     {
-        WARN("Ignoring %zu operands.\n", operand_count - ARRAY_SIZE(operands));
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring %zu operands for function call.", operand_count - ARRAY_SIZE(operands));
         operand_count = ARRAY_SIZE(operands);
@@ -7928,11 +7904,8 @@ static void sm6_parser_emit_call(struct sm6_parser *sm6, struct function_emissio
             return;
     }
     if ((j = record->operand_count - i))
-    {
-        WARN("Ignoring %u operands beyond the function parameter list.\n", j);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring %u function call operands beyond the parameter list.", j);
-    }
 
     if (!fn_value->u.function.is_prototype)
     {
@@ -9126,14 +9099,12 @@ static void sm6_parser_metadata_attachment_block_init(struct sm6_parser *sm6, co
         record = block->records[i];
         if (record->code != METADATA_ATTACHMENT)
         {
-            WARN("Ignoring record with code %u.\n", record->code);
             vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
                     "Ignoring a metadata attachment record with code %u.", record->code);
             continue;
         }
         if (!(record->operand_count & 1))
         {
-            WARN("Ignoring function attachment.\n");
             vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
                     "Ignoring a metadata function attachment.");
             continue;
@@ -9150,11 +9121,8 @@ static void sm6_parser_metadata_attachment_block_init(struct sm6_parser *sm6, co
         /* 'index' is an instruction index, but records[0] is DECLAREBLOCKS, not an instruction. */
         target_record = target_block->records[index + 1];
         if (target_record->attachment)
-        {
-            WARN("Overwriting record attachment.\n");
             vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
                     "The target record for a metadata attachment already has an attachment.");
-        }
         target_record->attachment = record;
     }
 }
@@ -9206,7 +9174,6 @@ static bool metadata_node_get_unary_uint(const struct sm6_metadata_node *node, u
 {
     if (node->operand_count != 1)
     {
-        FIXME("Ignoring node with %u operands.\n", node->operand_count);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
                 "Ignoring metadata attachment node with %u operands; expected unary.", node->operand_count);
         return false;
@@ -9214,7 +9181,6 @@ static bool metadata_node_get_unary_uint(const struct sm6_metadata_node *node, u
     if (!sm6_metadata_value_is_value(node->operands[0])
             || !sm6_metadata_get_uint_value(sm6, node->operands[0], operand))
     {
-        WARN("Failed to get operand value.\n");
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_ATTACHMENT,
                 "Failed to get a metadata attachment operand value; ignoring the attachment.");
         return false;
@@ -9478,11 +9444,8 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
         }
 
         if (dst->type && fwd_type && dst->type != fwd_type)
-        {
-            WARN("Type mismatch.\n");
             vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
                     "The type of a result value does not match the type defined by a forward reference.");
-        }
 
         sm6->value_count += !!dst->type;
     }
@@ -9982,11 +9945,8 @@ static enum vkd3d_result sm6_parser_metadata_init(struct sm6_parser *sm6, const 
                 m->u.value = value;
 
                 if (value->type != m->value_type)
-                {
-                    WARN("Type mismatch.\n");
                     vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
                             "The type of a metadata value does not match its referenced value at index %u.", value_idx);
-                }
 
                 break;
 
@@ -10136,11 +10096,8 @@ static const struct sm6_metadata_value *sm6_parser_find_named_metadata(struct sm
         if (!node->operand_count)
             return NULL;
         if (node->operand_count > 1)
-        {
-            FIXME("Ignoring %u extra operands for %s.\n", node->operand_count - 1, name);
             vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                     "Ignoring %u extra operands for metadata node %s.", node->operand_count - 1, name);
-        }
         return node->operands[0];
     }
 
@@ -10158,11 +10115,8 @@ static bool sm6_parser_resources_load_register_range(struct sm6_parser *sm6,
         return false;
     }
     if (!sm6_type_is_pointer(node->operands[1]->value_type))
-    {
-        WARN("Resource type is not a pointer.\n");
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_TYPE_MISMATCH,
                 "Resource metadata value type is not a pointer.");
-    }
 
     if (!sm6_metadata_get_uint_value(sm6, node->operands[3], &range->space))
     {
@@ -10242,11 +10196,8 @@ static bool resources_load_additional_values(struct resource_additional_values *
     info->byte_stride = 0;
 
     if (node->operand_count & 1)
-    {
-        WARN("Operand count is not even.\n");
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Operand count for resource descriptor tag/value pairs is not even.");
-    }
     operand_count = node->operand_count & ~1u;
 
     for (i = 0; i < operand_count; i += 2)
@@ -10301,7 +10252,6 @@ static bool resources_load_additional_values(struct resource_additional_values *
                 break;
 
             default:
-                FIXME("Unhandled tag %u, value %u.\n", tag, value);
                 vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                         "Tag %u for resource descriptor additional value %u is unhandled.", tag, value);
                 break;
@@ -10426,11 +10376,8 @@ static enum vkd3d_result sm6_parser_resources_load_srv(struct sm6_parser *sm6,
         return VKD3D_ERROR_INVALID_SHADER;
     }
     if (node->operand_count > 9)
-    {
-        WARN("Ignoring %u extra operands.\n", node->operand_count - 9);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring %u extra operands for an SRV descriptor.", node->operand_count - 9);
-    }
 
     if (!sm6_metadata_get_uint_value(sm6, node->operands[6], &kind))
     {
@@ -10466,7 +10413,6 @@ static enum vkd3d_result sm6_parser_resources_load_srv(struct sm6_parser *sm6,
     }
     else if (!sm6_metadata_value_is_zero_or_undef(node->operands[7]))
     {
-        WARN("Ignoring sample count value.\n");
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring an SRV descriptor sample count metadata value which is not constant zero or undefined.");
     }
@@ -10488,11 +10434,8 @@ static enum vkd3d_result sm6_parser_resources_load_uav(struct sm6_parser *sm6,
         return VKD3D_ERROR_INVALID_SHADER;
     }
     if (node->operand_count > 11)
-    {
-        WARN("Ignoring %u extra operands.\n", node->operand_count - 11);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring %u extra operands for a UAV descriptor.", node->operand_count - 11);
-    }
 
     for (i = 6; i < 10; ++i)
     {
@@ -10542,11 +10485,8 @@ static enum vkd3d_result sm6_parser_resources_load_cbv(struct sm6_parser *sm6,
         return VKD3D_ERROR_INVALID_SHADER;
     }
     if (node->operand_count > 7 && node->operands[7])
-    {
-        WARN("Ignoring %u extra operands.\n", node->operand_count - 7);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring %u extra operands for a CBV descriptor.", node->operand_count - 7);
-    }
 
     if (!sm6_metadata_get_uint_value(sm6, node->operands[6], &buffer_size))
     {
@@ -10589,11 +10529,8 @@ static enum vkd3d_result sm6_parser_resources_load_sampler(struct sm6_parser *sm
         return VKD3D_ERROR_INVALID_SHADER;
     }
     if (node->operand_count > 7 && node->operands[7])
-    {
-        WARN("Ignoring %u extra operands.\n", node->operand_count - 7);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring %u extra operands for a sampler descriptor.", node->operand_count - 7);
-    }
 
     vsir_instruction_init(ins, &sm6->p.location, VSIR_OP_DCL_SAMPLER);
     ins->resource_type = VKD3D_SHADER_RESOURCE_NONE;
@@ -10613,7 +10550,6 @@ static enum vkd3d_result sm6_parser_resources_load_sampler(struct sm6_parser *sm
             ins->flags = VKD3DSI_SAMPLER_COMPARISON_MODE;
             break;
         default:
-            FIXME("Ignoring sampler kind %u.\n", kind);
             vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                     "Ignoring sampler kind %u.", kind);
             break;
@@ -10786,11 +10722,8 @@ static void signature_element_read_additional_element_values(struct signature_el
 
     node = node->operands[10]->u.node;
     if (node->operand_count & 1)
-    {
-        WARN("Operand count is not even.\n");
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Operand count for signature element additional tag/value pairs is not even.");
-    }
     operand_count = node->operand_count & ~1u;
 
     for (i = 0; i < operand_count; i += 2)
@@ -10812,16 +10745,12 @@ static void signature_element_read_additional_element_values(struct signature_el
             case ADDITIONAL_TAG_RELADDR_MASK:
                 /* A mask of components accessed via relative addressing. Seems to replace TPF 'dcl_index_range'. */
                 if (value > VKD3DSP_WRITEMASK_ALL)
-                {
-                    WARN("Invalid relative addressed mask %#x.\n", value);
                     vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_INVALID_MASK,
                             "Mask %#x of relative-addressed components is invalid.", value);
-                }
                 break;
             case ADDITIONAL_TAG_USED_MASK:
                 if (value > VKD3DSP_WRITEMASK_ALL)
                 {
-                    WARN("Invalid used mask %#x.\n", value);
                     vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_INVALID_MASK,
                             "Mask %#x of used components is invalid.", value);
                     value &= VKD3DSP_WRITEMASK_ALL;
@@ -10829,7 +10758,6 @@ static void signature_element_read_additional_element_values(struct signature_el
                 e->used_mask = value;
                 break;
             default:
-                FIXME("Unhandled tag %u, value %u.\n", tag, value);
                 vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                         "Tag %#x for signature element additional value %#x is unhandled.", tag, value);
                 break;
@@ -10892,11 +10820,8 @@ static enum vkd3d_result sm6_parser_read_signature(struct sm6_parser *sm6, const
             goto invalid;
         }
         if (element_node->operand_count > 11)
-        {
-            WARN("Ignoring %u extra operands.\n", element_node->operand_count - 11);
             vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                     "Ignoring %u extra operands for a signature element.", element_node->operand_count - 11);
-        }
 
         for (j = 0; j < 10; ++j)
         {
@@ -11320,12 +11245,9 @@ static void sm6_parser_gs_properties_init(struct sm6_parser *sm6, const struct s
         return;
     }
     if (node->operand_count > ARRAY_SIZE(operands))
-    {
-        WARN("Ignoring %zu extra operands.\n", node->operand_count - ARRAY_SIZE(operands));
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring %zu extra operands for geometry shader properties.",
                 node->operand_count - ARRAY_SIZE(operands));
-    }
 
     for (i = 0; i < node->operand_count; ++i)
     {
@@ -11446,12 +11368,9 @@ static enum vkd3d_tessellator_domain sm6_parser_ds_properties_init(struct sm6_pa
         return 0;
     }
     if (node->operand_count > ARRAY_SIZE(operands))
-    {
-        WARN("Ignoring %zu extra operands.\n", node->operand_count - ARRAY_SIZE(operands));
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring %zu extra operands for domain shader properties.",
                 node->operand_count - ARRAY_SIZE(operands));
-    }
 
     for (i = 0; i < node->operand_count; ++i)
     {
@@ -11495,11 +11414,8 @@ static enum vkd3d_tessellator_domain sm6_parser_hs_properties_init(struct sm6_pa
         return 0;
     }
     if (node->operand_count > 7)
-    {
-        WARN("Ignoring %u extra operands.\n", node->operand_count - 7);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                 "Ignoring %u extra operands for hull shader properties.", node->operand_count - 7);
-    }
 
     m = node->operands[0];
     if (!sm6_metadata_value_is_value(m) || !sm6_value_is_function_dcl(m->u.value))
@@ -11573,11 +11489,8 @@ static enum vkd3d_result sm6_parser_entry_point_init(struct sm6_parser *sm6)
     sm6->entry_point = value->u.function.name;
     if (!sm6_metadata_value_is_string(entry_node->operands[1])
             || strcmp(sm6->entry_point, entry_node->operands[1]->u.string_value))
-    {
-        WARN("Entry point function name %s mismatch.\n", sm6->entry_point);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_ENTRY_POINT_MISMATCH,
                 "Entry point function name %s does not match the name in metadata.", sm6->entry_point);
-    }
 
     if (entry_node->operand_count >= 5 && (m = entry_node->operands[4]))
     {
@@ -11591,11 +11504,8 @@ static enum vkd3d_result sm6_parser_entry_point_init(struct sm6_parser *sm6)
 
         node = m->u.node;
         if (node->operand_count & 1)
-        {
-            WARN("Operand count is not even.\n");
             vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_IGNORING_OPERANDS,
                     "Operand count for shader properties tag/value pairs is not even.");
-        }
         operand_count = node->operand_count & ~1u;
 
         for (i = 0; i < operand_count; i += 2)
@@ -11905,20 +11815,14 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
 
     sm6->start = (const uint32_t *)((const char*)&byte_code[2] + chunk_offset);
     if ((magic = sm6->start[0]) != BITCODE_MAGIC)
-    {
-        WARN("Unknown magic number 0x%08x.\n", magic);
         vkd3d_shader_warning(message_context, &location, VKD3D_SHADER_WARNING_DXIL_UNKNOWN_MAGIC_NUMBER,
                 "DXIL bitcode chunk magic number 0x%08x is not the expected 0x%08x.", magic, BITCODE_MAGIC);
-    }
 
     sm6->end = &sm6->start[(chunk_size + sizeof(*sm6->start) - 1) / sizeof(*sm6->start)];
 
     if ((version.type = version_token >> 16) >= VKD3D_SHADER_TYPE_COUNT)
-    {
-        FIXME("Unknown shader type %#x.\n", version.type);
         vkd3d_shader_warning(message_context, &location, VKD3D_SHADER_WARNING_DXIL_UNKNOWN_SHADER_TYPE,
                 "Unknown shader type %#x.", version.type);
-    }
 
     version.major = VKD3D_SM6_VERSION_MAJOR(version_token);
     version.minor = VKD3D_SM6_VERSION_MINOR(version_token);
@@ -11979,16 +11883,12 @@ static enum vkd3d_result sm6_parser_init(struct sm6_parser *sm6, struct vsir_pro
 
     length = sm6->ptr - sm6->start - block->start;
     if (length != block->length)
-    {
-        WARN("Invalid block length %zu; expected %u.\n", length, block->length);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_INVALID_BLOCK_LENGTH,
                 "Root block ends with length %zu but indicated length is %u.", length, block->length);
-    }
     if (sm6->ptr != sm6->end)
     {
         size_t expected_length = sm6->end - sm6->start;
         length = sm6->ptr - sm6->start;
-        WARN("Invalid module length %zu; expected %zu.\n", length, expected_length);
         vkd3d_shader_parser_warning(&sm6->p, VKD3D_SHADER_WARNING_DXIL_INVALID_MODULE_LENGTH,
                 "Module ends with length %zu but indicated length is %zu.", length, expected_length);
     }

@@ -1804,8 +1804,10 @@ void vkd3d_shader_parser_error(struct vkd3d_shader_parser *parser,
         enum vkd3d_shader_error error, const char *format, ...) VKD3D_PRINTF_FUNC(3, 4);
 void vkd3d_shader_parser_init(struct vkd3d_shader_parser *parser,
         struct vkd3d_shader_message_context *message_context, const char *source_name);
-void vkd3d_shader_parser_warning(struct vkd3d_shader_parser *parser,
-        enum vkd3d_shader_error error, const char *format, ...) VKD3D_PRINTF_FUNC(3, 4);
+#define vkd3d_shader_parser_warning(parser, error, ...) \
+        vkd3d_shader_parser_warning_(parser, error, __FUNCTION__, __VA_ARGS__)
+void vkd3d_shader_parser_warning_(struct vkd3d_shader_parser *parser, enum vkd3d_shader_error error,
+        const char *function, const char *format, ...) VKD3D_PRINTF_FUNC(4, 5);
 
 void vsir_program_trace(struct vsir_program *program);
 
@@ -1914,10 +1916,12 @@ void vkd3d_shader_verror(struct vkd3d_shader_message_context *context, const str
         enum vkd3d_shader_error error, const char *format, va_list args);
 void vkd3d_shader_vnote(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
         enum vkd3d_shader_log_level level, const char *function, const char *format, va_list args);
-void vkd3d_shader_warning(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
-        enum vkd3d_shader_error error, const char *format, ...) VKD3D_PRINTF_FUNC(4, 5);
+#define vkd3d_shader_warning(context, location, error, ...) \
+        vkd3d_shader_warning_(context, location, error, __FUNCTION__, __VA_ARGS__)
+void vkd3d_shader_warning_(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
+        enum vkd3d_shader_error error, const char *function, const char *format, ...) VKD3D_PRINTF_FUNC(5, 6);
 void vkd3d_shader_vwarning(struct vkd3d_shader_message_context *context, const struct vkd3d_shader_location *location,
-        enum vkd3d_shader_error error, const char *format, va_list args);
+        enum vkd3d_shader_error error, const char *function, const char *format, va_list args);
 
 void vkd3d_shader_string_from_message_context(char **out, struct vkd3d_shader_message_context *context);
 

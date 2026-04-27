@@ -2840,11 +2840,8 @@ static bool shader_sm4_parser_validate_signature(struct vkd3d_shader_sm4_parser 
         }
 
         if (!vkd3d_bitmask_is_contiguous(mask = signature->elements[i].mask))
-        {
-            WARN("%s signature element %u mask %#x is not contiguous.\n", name, i, mask);
             vkd3d_shader_parser_warning(&sm4->p, VKD3D_SHADER_WARNING_TPF_MASK_NOT_CONTIGUOUS,
                     "%s signature element %u mask %#x is not contiguous.", name, i, mask);
-        }
 
         if (register_idx != ~0u)
             masks[register_idx] |= mask;
