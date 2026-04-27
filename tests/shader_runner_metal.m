@@ -862,7 +862,7 @@ static void use_graphics_resource(id<MTLCommandEncoder> encoder, id<MTLResource>
 static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY topology,
         unsigned int vertex_count, unsigned int instance_count, unsigned int first_vertex, unsigned int first_instance)
 {
-    MTLViewport viewport = {0.0, 0.0, 0.0, 0.0, 0.0, 1.0};
+    MTLViewport viewports[4] = {{0.0, 0.0, 0.0, 0.0, 0.0, 1.0}};
     MTLRenderPassColorAttachmentDescriptor *attachment;
     unsigned int fb_width, fb_height, vb_idx, i, j;
     struct metal_runner *runner = metal_runner(r);
@@ -1013,8 +1013,19 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
         }
         pipeline_desc.rasterSampleCount = runner->r.sample_count;
         pipeline_desc.sampleMask = runner->r.sample_mask;
-        viewport.width = fb_width;
-        viewport.height = fb_height;
+
+        viewports[0].width = fb_width;
+        viewports[0].height = fb_height;
+
+        for (i = 0; i < runner->r.viewport_count; i++)
+        {
+            viewports[i].width = runner->r.viewports[i].width;
+            viewports[i].height = runner->r.viewports[i].height;
+            viewports[i].originX = runner->r.viewports[i].x;
+            viewports[i].originY = runner->r.viewports[i].y;
+            viewports[i].znear = 0.0f;
+            viewports[i].zfar = 1.0f;
+        }
 
         command_buffer = [runner->queue commandBuffer];
         encoder = [command_buffer renderCommandEncoderWithDescriptor:pass_desc];
@@ -1073,7 +1084,7 @@ static bool metal_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY to
         }
 
         [encoder setRenderPipelineState:pso];
-        [encoder setViewport:viewport];
+        [encoder setViewports:viewports count:max(1, runner->r.viewport_count)];
         [encoder drawPrimitives:get_metal_primitive_type(topology)
                 vertexStart:first_vertex
                 vertexCount:vertex_count
