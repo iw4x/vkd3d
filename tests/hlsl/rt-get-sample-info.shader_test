@@ -54,6 +54,8 @@ shader model = 4.1
 todo(glsl | msl) draw quad
 probe (0, 0) f32(4.0, 4.0, 4.0, 4.0)
 
+[require]
+
 [pixel shader notimpl(sm<4.1) todo]
 uniform uint u;
 
