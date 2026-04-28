@@ -73,13 +73,15 @@ struct msl_resource_type_info
 static void msl_print_subscript(struct vkd3d_string_buffer *buffer, struct msl_generator *gen,
         const struct vsir_src_operand *rel_addr, unsigned int offset);
 
-static void VKD3D_PRINTF_FUNC(3, 4) msl_compiler_error(struct msl_generator *gen,
-        enum vkd3d_shader_error error, const char *fmt, ...)
+#define msl_compiler_error(gen, error, ...) \
+        msl_compiler_error_(gen, error, __FUNCTION__, __VA_ARGS__)
+static void VKD3D_PRINTF_FUNC(4, 5) msl_compiler_error_(struct msl_generator *gen,
+        enum vkd3d_shader_error error, const char *function, const char *fmt, ...)
 {
     va_list args;
 
     va_start(args, fmt);
-    vkd3d_shader_verror(gen->message_context, &gen->location, error, __FUNCTION__, fmt, args);
+    vkd3d_shader_verror(gen->message_context, &gen->location, error, function, fmt, args);
     va_end(args);
     gen->failed = true;
 }
