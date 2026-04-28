@@ -1800,8 +1800,10 @@ struct hlsl_ir_switch_case *hlsl_new_switch_case(struct hlsl_ctx *ctx, unsigned 
 struct hlsl_ir_node *hlsl_new_switch(struct hlsl_ctx *ctx, struct hlsl_ir_node *selector,
         struct list *cases, const struct vkd3d_shader_location *loc);
 
-void hlsl_error(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
-        enum vkd3d_shader_error error, const char *fmt, ...) VKD3D_PRINTF_FUNC(4, 5);
+#define hlsl_error(ctx, loc, error, ...) \
+        hlsl_error_(ctx, loc, error, __FUNCTION__, __VA_ARGS__)
+void hlsl_error_(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
+        enum vkd3d_shader_error error, const char *function, const char *fmt, ...) VKD3D_PRINTF_FUNC(5, 6);
 #define hlsl_fixme(ctx, loc, ...) \
         hlsl_fixme_(ctx, loc,  __FUNCTION__, __VA_ARGS__)
 void hlsl_fixme_(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,

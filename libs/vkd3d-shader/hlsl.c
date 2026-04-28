@@ -32,13 +32,13 @@ void hlsl_note_(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
     va_end(args);
 }
 
-void hlsl_error(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
-        enum vkd3d_shader_error error, const char *fmt, ...)
+void hlsl_error_(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
+        enum vkd3d_shader_error error, const char *function, const char *fmt, ...)
 {
     va_list args;
 
     va_start(args, fmt);
-    vkd3d_shader_verror(ctx->message_context, loc, error, __FUNCTION__, fmt, args);
+    vkd3d_shader_verror(ctx->message_context, loc, error, function, fmt, args);
     va_end(args);
 
     if (!ctx->result)
