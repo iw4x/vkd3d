@@ -1410,13 +1410,15 @@ struct tpf_compiler
     struct dxbc_writer dxbc;
 };
 
-static void VKD3D_PRINTF_FUNC(3, 4) tpf_compiler_error(struct tpf_compiler *tpf,
-        enum vkd3d_shader_error error, const char *fmt, ...)
+#define tpf_compiler_error(tpf, error, ...) \
+        tpf_compiler_error_(tpf, error, __FUNCTION__, __VA_ARGS__)
+static void VKD3D_PRINTF_FUNC(4, 5) tpf_compiler_error_(struct tpf_compiler *tpf,
+        enum vkd3d_shader_error error, const char *function, const char *fmt, ...)
 {
     va_list args;
 
     va_start(args, fmt);
-    vkd3d_shader_verror(tpf->message_context, &tpf->location, error, __FUNCTION__, fmt, args);
+    vkd3d_shader_verror(tpf->message_context, &tpf->location, error, function, fmt, args);
     va_end(args);
 
     if (!tpf->first_error)
