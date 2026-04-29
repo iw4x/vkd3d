@@ -768,13 +768,13 @@ void vkd3d_shader_parser_init(struct vkd3d_shader_parser *parser,
     parser->status = VKD3D_OK;
 }
 
-void VKD3D_PRINTF_FUNC(3, 4) vkd3d_shader_parser_error(struct vkd3d_shader_parser *parser,
-        enum vkd3d_shader_error error, const char *format, ...)
+void VKD3D_PRINTF_FUNC(4, 5) vkd3d_shader_parser_error_(struct vkd3d_shader_parser *parser,
+        enum vkd3d_shader_error error, const char *function, const char *format, ...)
 {
     va_list args;
 
     va_start(args, format);
-    vkd3d_shader_verror(parser->message_context, &parser->location, error, __FUNCTION__, format, args);
+    vkd3d_shader_verror(parser->message_context, &parser->location, error, function, format, args);
     va_end(args);
 
     if (parser->status >= 0)

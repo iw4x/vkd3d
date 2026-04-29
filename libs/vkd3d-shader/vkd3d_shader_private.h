@@ -1800,8 +1800,10 @@ struct vkd3d_shader_parser
     enum vkd3d_result status;
 };
 
-void vkd3d_shader_parser_error(struct vkd3d_shader_parser *parser,
-        enum vkd3d_shader_error error, const char *format, ...) VKD3D_PRINTF_FUNC(3, 4);
+#define vkd3d_shader_parser_error(parser, error, ...) \
+        vkd3d_shader_parser_error_(parser, error, __FUNCTION__, __VA_ARGS__)
+void vkd3d_shader_parser_error_(struct vkd3d_shader_parser *parser, enum vkd3d_shader_error error,
+        const char *function, const char *format, ...) VKD3D_PRINTF_FUNC(4, 5);
 void vkd3d_shader_parser_init(struct vkd3d_shader_parser *parser,
         struct vkd3d_shader_message_context *message_context, const char *source_name);
 #define vkd3d_shader_parser_warning(parser, error, ...) \
