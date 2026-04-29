@@ -2857,16 +2857,18 @@ static void test_signature_reflection(void)
         {"ALPHA",              0, 2, D3D_NAME_UNDEFINED,     D3D_REGISTER_COMPONENT_FLOAT32, 0x1, 0x0},
     };
 
-    static const char ps17_source[] = "void main(float4 x : vpos){}";
+    static const char ps17_source[] = "void main(float4 x : vpos, float y : vface){}";
 
     static const D3D12_SIGNATURE_PARAMETER_DESC ps17_inputs[] =
     {
         {"vpos",           0, 0, D3D_NAME_UNDEFINED,     D3D_REGISTER_COMPONENT_FLOAT32, 0xf},
+        {"vface",          0, 1, D3D_NAME_UNDEFINED,     D3D_REGISTER_COMPONENT_FLOAT32, 0x1},
     };
 
     static const D3D12_SIGNATURE_PARAMETER_DESC ps17_legacy_inputs[] =
     {
         {"SV_Position",    0, 0, D3D_NAME_POSITION,      D3D_REGISTER_COMPONENT_FLOAT32, 0xf},
+        {"SV_IsFrontFace", 0, 1, D3D_NAME_IS_FRONT_FACE, D3D_REGISTER_COMPONENT_UINT32,  0x1},
     };
 
     static const char hs1_source[] =

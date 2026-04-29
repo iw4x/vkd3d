@@ -99,7 +99,7 @@ todo(glsl) probe (480, 240) f32(2.0, 1.0, 0.0, 0.0)
 options: backcompat
 shader model < 6.0
 
-[pixel shader fail todo(sm>=4)]
+[pixel shader fail]
 float4 main(uint a : TEXCOORD, float2 face : vface) : sv_target
 {
     return float4(a, face.x, 0, 0);
@@ -113,9 +113,9 @@ float4 main(uint a : TEXCOORD, float face : vface) : sv_target
 
 [test]
 clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
-if(!mvk) draw triangle list 6
-if(!mvk) todo(sm>=4) probe (160, 240) f32(2.0, -1.0, 0.0, 0.0)
-if(!mvk) todo(sm>=4) probe (480, 240) f32(2.0,  1.0, 0.0, 0.0)
+draw triangle list 6
+probe (160, 240) f32(2.0, -1.0, 0.0, 0.0)
+probe (480, 240) f32(2.0,  1.0, 0.0, 0.0)
 
 % uint, int, and bool are also allowed, but seem to be broken.
 % Instead of returning -1 (or UINT_MAX) the back face returns nonsense values.

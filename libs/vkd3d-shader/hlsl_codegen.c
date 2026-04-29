@@ -582,7 +582,7 @@ static void prepend_input_copy(struct hlsl_ctx *ctx, struct list *semantic_vars,
 
     for (i = 0; i < hlsl_type_major_size(type); ++i)
     {
-        struct hlsl_ir_node *cast;
+        struct hlsl_ir_node *cast, *instr;
         struct hlsl_ir_var *input;
         struct hlsl_ir_load *load;
 
@@ -608,6 +608,33 @@ static void prepend_input_copy(struct hlsl_ctx *ctx, struct list *semantic_vars,
             if (!(load = hlsl_new_load_index(ctx, &prim_deref, idx, loc)))
                 return;
             hlsl_block_add_instr(block, &load->node);
+            instr = &load->node;
+        }
+        else if (ctx->profile->type == VKD3D_SHADER_TYPE_PIXEL && hlsl_version_ge(ctx, 4, 0)
+                && (ctx->compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_MAP_SEMANTIC_NAMES)
+                && !ascii_strcasecmp(semantic->name, "VFACE"))
+        {
+            /* VFACE on sm4 has sm3 semantics, returning 1.0 or -1.0.
+             * Also, the variable can be declared as float (which is not true
+             * of SV_IsFrontFace), but is converted to uint in the signature.
+             * Note that VPOS is not similarly affected,
+             * despite also having different semantics between sm3 and sm4. */
+
+            struct hlsl_ir_node *one, *minusone;
+
+            if (!(input = add_semantic_var(ctx, semantic_vars, var,
+                    hlsl_change_base_type(ctx, vector_type_src, HLSL_TYPE_BOOL),
+                    modifiers, semantic, 0, false, force_align, true, loc)))
+                return;
+            ++semantic->index;
+
+            if (!(load = hlsl_new_var_load(ctx, input, &var->loc)))
+                return;
+            hlsl_block_add_instr(block, &load->node);
+
+            one = hlsl_block_add_float_constant(ctx, block, 1.0f, &var->loc);
+            minusone = hlsl_block_add_float_constant(ctx, block, -1.0f, &var->loc);
+            instr = hlsl_add_conditional(ctx, block, &load->node, one, minusone);
         }
         else
         {
@@ -619,9 +646,10 @@ static void prepend_input_copy(struct hlsl_ctx *ctx, struct list *semantic_vars,
             if (!(load = hlsl_new_var_load(ctx, input, &var->loc)))
                 return;
             hlsl_block_add_instr(block, &load->node);
+            instr = &load->node;
         }
 
-        cast = hlsl_block_add_cast(ctx, block, &load->node, vector_type_dst, &var->loc);
+        cast = hlsl_block_add_cast(ctx, block, instr, vector_type_dst, &var->loc);
 
         if (type->class == HLSL_CLASS_MATRIX)
         {
@@ -9447,6 +9475,8 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
             name = "SV_Depth";
         else if (sysval == VKD3D_SHADER_SV_POSITION && ascii_strcasecmp(name, "SV_Position"))
             name = "SV_Position";
+        else if (sysval == VKD3D_SHADER_SV_IS_FRONT_FACE && ascii_strcasecmp(name, "SV_IsFrontFace"))
+            name = "SV_IsFrontFace";
     }
     else
     {
