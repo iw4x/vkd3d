@@ -1057,13 +1057,15 @@ struct vkd3d_shader_scan_context
     enum vkd3d_shader_tessellator_partitioning partitioning;
 };
 
-static VKD3D_PRINTF_FUNC(3, 4) void vkd3d_shader_scan_error(struct vkd3d_shader_scan_context *context,
-        enum vkd3d_shader_error error, const char *format, ...)
+#define vkd3d_shader_scan_error(context, error, ...) \
+        vkd3d_shader_scan_error_(context, error, __FUNCTION__, __VA_ARGS__)
+static VKD3D_PRINTF_FUNC(4, 5) void vkd3d_shader_scan_error_(struct vkd3d_shader_scan_context *context,
+        enum vkd3d_shader_error error, const char *function, const char *format, ...)
 {
     va_list args;
 
     va_start(args, format);
-    vkd3d_shader_verror(context->message_context, &context->location, error, __FUNCTION__, format, args);
+    vkd3d_shader_verror(context->message_context, &context->location, error, function, format, args);
     va_end(args);
 }
 
