@@ -1536,6 +1536,13 @@ static inline bool hlsl_is_numeric_type(const struct hlsl_type *type)
     return type->class <= HLSL_CLASS_LAST_NUMERIC;
 }
 
+static inline struct hlsl_type *hlsl_change_base_type(const struct hlsl_ctx *ctx,
+        const struct hlsl_type *type, enum hlsl_base_type base_type)
+{
+    VKD3D_ASSERT(hlsl_is_numeric_type(type));
+    return hlsl_get_numeric_type(ctx, type->class, base_type, type->e.numeric.dimx, type->e.numeric.dimy);
+}
+
 static inline bool hlsl_is_vec1(const struct hlsl_type *type)
 {
     return type->class == HLSL_CLASS_SCALAR || (type->class == HLSL_CLASS_VECTOR && type->e.numeric.dimx == 1);

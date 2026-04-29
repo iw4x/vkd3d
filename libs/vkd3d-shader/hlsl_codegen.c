@@ -5947,8 +5947,7 @@ struct hlsl_ir_node *hlsl_add_conditional(struct hlsl_ctx *ctx, struct hlsl_bloc
 
     if (cond_type->e.numeric.type != HLSL_TYPE_BOOL)
     {
-        cond_type = hlsl_get_numeric_type(ctx, cond_type->class, HLSL_TYPE_BOOL,
-                cond_type->e.numeric.dimx, cond_type->e.numeric.dimy);
+        cond_type = hlsl_change_base_type(ctx, cond_type, HLSL_TYPE_BOOL);
         condition = hlsl_block_add_cast(ctx, instrs, condition, cond_type, &condition->loc);
     }
 
@@ -5978,7 +5977,7 @@ static struct hlsl_ir_node *lower_int_division_sm4(struct hlsl_ctx *ctx,
         return NULL;
     if (type->e.numeric.type != HLSL_TYPE_INT)
         return NULL;
-    utype = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_UINT, type->e.numeric.dimx, type->e.numeric.dimy);
+    utype = hlsl_change_base_type(ctx, type, HLSL_TYPE_UINT);
 
     xor = hlsl_block_add_binary_expr(ctx, block, HLSL_OP2_BIT_XOR, arg1, arg2);
 
@@ -6016,7 +6015,7 @@ static struct hlsl_ir_node *lower_int_modulus_sm4(struct hlsl_ctx *ctx,
         return NULL;
     if (type->e.numeric.type != HLSL_TYPE_INT)
         return NULL;
-    utype = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_UINT, type->e.numeric.dimx, type->e.numeric.dimy);
+    utype = hlsl_change_base_type(ctx, type, HLSL_TYPE_UINT);
 
     for (i = 0; i < type->e.numeric.dimx; ++i)
         high_bit_value.u[i].u = 0x80000000;
@@ -6116,7 +6115,7 @@ static struct hlsl_ir_node *lower_float_modulus(struct hlsl_ctx *ctx,
         return NULL;
     if (type->e.numeric.type != HLSL_TYPE_FLOAT)
         return NULL;
-    btype = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_BOOL, type->e.numeric.dimx, type->e.numeric.dimy);
+    btype = hlsl_change_base_type(ctx, type, HLSL_TYPE_BOOL);
 
     mul1 = hlsl_block_add_binary_expr(ctx, block, HLSL_OP2_MUL, arg2, arg1);
     neg1 = hlsl_block_add_unary_expr(ctx, block, HLSL_OP1_NEG, mul1, &instr->loc);
@@ -6159,8 +6158,7 @@ static bool lower_discard_neg(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, 
 
     operands[0] = jump->condition.node;
     operands[1] = zero;
-    cmp_type = hlsl_get_numeric_type(ctx, arg_type->class, HLSL_TYPE_BOOL,
-            arg_type->e.numeric.dimx, arg_type->e.numeric.dimy);
+    cmp_type = hlsl_change_base_type(ctx, arg_type, HLSL_TYPE_BOOL);
     cmp = hlsl_block_add_expr(ctx, &block, HLSL_OP2_LESS, operands, cmp_type, &instr->loc);
 
     bool_false = hlsl_block_add_constant(ctx, &block,

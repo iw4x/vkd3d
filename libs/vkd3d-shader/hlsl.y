@@ -1681,8 +1681,7 @@ static struct hlsl_ir_node *add_unary_logical_expr(struct hlsl_ctx *ctx, struct 
     if (arg->data_type->class == HLSL_CLASS_ERROR)
         return arg;
 
-    bool_type = hlsl_get_numeric_type(ctx, arg->data_type->class, HLSL_TYPE_BOOL,
-            arg->data_type->e.numeric.dimx, arg->data_type->e.numeric.dimy);
+    bool_type = hlsl_change_base_type(ctx, arg->data_type, HLSL_TYPE_BOOL);
     args[0] = add_implicit_conversion(ctx, block, arg, bool_type, loc);
     return add_expr(ctx, block, op, args, bool_type, loc);
 }
@@ -3127,7 +3126,7 @@ static struct hlsl_ir_node *intrinsic_float_convert_arg(struct hlsl_ctx *ctx,
     if (!hlsl_type_is_integer(type))
         return arg;
 
-    type = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_FLOAT, type->e.numeric.dimx, type->e.numeric.dimy);
+    type = hlsl_change_base_type(ctx, type, HLSL_TYPE_FLOAT);
     return add_implicit_conversion(ctx, params->instrs, arg, type, loc);
 }
 
@@ -3210,7 +3209,7 @@ static bool elementwise_intrinsic_float_convert_args(struct hlsl_ctx *ctx,
     if (!(type = elementwise_intrinsic_get_common_type(ctx, params, loc)))
         return false;
     if (hlsl_type_is_integer(type))
-        type = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_FLOAT, type->e.numeric.dimx, type->e.numeric.dimy);
+        type = hlsl_change_base_type(ctx, type, HLSL_TYPE_FLOAT);
 
     convert_args(ctx, params, type, loc);
     return true;
@@ -3224,7 +3223,7 @@ static bool elementwise_intrinsic_int_convert_args(struct hlsl_ctx *ctx,
     if (!(type = elementwise_intrinsic_get_common_type(ctx, params, loc)))
         return false;
 
-    type = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_INT, type->e.numeric.dimx, type->e.numeric.dimy);
+    type = hlsl_change_base_type(ctx, type, HLSL_TYPE_INT);
 
     convert_args(ctx, params, type, loc);
     return true;
@@ -3238,7 +3237,7 @@ static bool elementwise_intrinsic_uint_convert_args(struct hlsl_ctx *ctx,
     if (!(type = elementwise_intrinsic_get_common_type(ctx, params, loc)))
         return false;
 
-    type = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_UINT, type->e.numeric.dimx, type->e.numeric.dimy);
+    type = hlsl_change_base_type(ctx, type, HLSL_TYPE_UINT);
 
     convert_args(ctx, params, type, loc);
     return true;
@@ -3305,14 +3304,6 @@ static bool intrinsic_acos(struct hlsl_ctx *ctx,
     return write_acos_or_asin(ctx, params, loc, false);
 }
 
-/* Find the type corresponding to the given source type, with the same
- * dimensions but a different base type. */
-static struct hlsl_type *convert_numeric_type(const struct hlsl_ctx *ctx,
-        const struct hlsl_type *type, enum hlsl_base_type base_type)
-{
-    return hlsl_get_numeric_type(ctx, type->class, base_type, type->e.numeric.dimx, type->e.numeric.dimy);
-}
-
 static void add_combine_components(struct hlsl_ctx *ctx, const struct parse_initializer *params,
         struct hlsl_ir_node *arg, enum hlsl_ir_expr_op op, const struct vkd3d_shader_location *loc)
 {
@@ -3336,7 +3327,7 @@ static bool intrinsic_all(struct hlsl_ctx *ctx,
     struct hlsl_ir_node *arg = params->args[0], *cast;
     struct hlsl_type *bool_type;
 
-    bool_type = convert_numeric_type(ctx, arg->data_type, HLSL_TYPE_BOOL);
+    bool_type = hlsl_change_base_type(ctx, arg->data_type, HLSL_TYPE_BOOL);
     cast = add_cast(ctx, params->instrs, arg, bool_type, loc);
     add_combine_components(ctx, params, cast, HLSL_OP2_LOGIC_AND, loc);
     return true;
@@ -3348,7 +3339,7 @@ static bool intrinsic_any(struct hlsl_ctx *ctx, const struct parse_initializer *
     struct hlsl_ir_node *arg = params->args[0], *cast;
     struct hlsl_type *bool_type;
 
-    bool_type = convert_numeric_type(ctx, arg->data_type, HLSL_TYPE_BOOL);
+    bool_type = hlsl_change_base_type(ctx, arg->data_type, HLSL_TYPE_BOOL);
     cast = add_cast(ctx, params->instrs, arg, bool_type, loc);
     add_combine_components(ctx, params, cast, HLSL_OP2_LOGIC_OR, loc);
     return true;
@@ -3469,7 +3460,7 @@ static bool intrinsic_asfloat(struct hlsl_ctx *ctx,
                     string->buffer);
         hlsl_release_string_buffer(ctx, string);
     }
-    data_type = convert_numeric_type(ctx, data_type, HLSL_TYPE_FLOAT);
+    data_type = hlsl_change_base_type(ctx, data_type, HLSL_TYPE_FLOAT);
 
     operands[0] = params->args[0];
     return add_expr(ctx, params->instrs, HLSL_OP1_REINTERPRET, operands, data_type, loc);
@@ -3492,7 +3483,7 @@ static bool intrinsic_asint(struct hlsl_ctx *ctx,
                     string->buffer);
         hlsl_release_string_buffer(ctx, string);
     }
-    data_type = convert_numeric_type(ctx, data_type, HLSL_TYPE_INT);
+    data_type = hlsl_change_base_type(ctx, data_type, HLSL_TYPE_INT);
 
     operands[0] = params->args[0];
     return add_expr(ctx, params->instrs, HLSL_OP1_REINTERPRET, operands, data_type, loc);
@@ -3528,7 +3519,7 @@ static bool intrinsic_asuint(struct hlsl_ctx *ctx,
                     string->buffer);
         hlsl_release_string_buffer(ctx, string);
     }
-    data_type = convert_numeric_type(ctx, data_type, HLSL_TYPE_UINT);
+    data_type = hlsl_change_base_type(ctx, data_type, HLSL_TYPE_UINT);
 
     operands[0] = params->args[0];
     return add_expr(ctx, params->instrs, HLSL_OP1_REINTERPRET, operands, data_type, loc);
@@ -3636,7 +3627,7 @@ static bool intrinsic_countbits(struct hlsl_ctx *ctx,
 
     if (!elementwise_intrinsic_uint_convert_args(ctx, params, loc))
         return false;
-    type = convert_numeric_type(ctx, params->args[0]->data_type, HLSL_TYPE_UINT);
+    type = hlsl_change_base_type(ctx, params->args[0]->data_type, HLSL_TYPE_UINT);
 
     operands[0] = params->args[0];
     return add_expr(ctx, params->instrs, HLSL_OP1_COUNTBITS, operands, type, loc);
@@ -3967,7 +3958,7 @@ static bool intrinsic_f16tof32(struct hlsl_ctx *ctx,
     if (!elementwise_intrinsic_uint_convert_args(ctx, params, loc))
         return false;
 
-    type = convert_numeric_type(ctx, params->args[0]->data_type, HLSL_TYPE_FLOAT);
+    type = hlsl_change_base_type(ctx, params->args[0]->data_type, HLSL_TYPE_FLOAT);
 
     operands[0] = params->args[0];
     return add_expr(ctx, params->instrs, HLSL_OP1_F16TOF32, operands, type, loc);
@@ -3982,7 +3973,7 @@ static bool intrinsic_f32tof16(struct hlsl_ctx *ctx,
     if (!elementwise_intrinsic_float_convert_args(ctx, params, loc))
         return false;
 
-    type = convert_numeric_type(ctx, params->args[0]->data_type, HLSL_TYPE_UINT);
+    type = hlsl_change_base_type(ctx, params->args[0]->data_type, HLSL_TYPE_UINT);
 
     operands[0] = params->args[0];
     return add_expr(ctx, params->instrs, HLSL_OP1_F32TOF16, operands, type, loc);
@@ -4009,7 +4000,7 @@ static bool intrinsic_firstbithigh(struct hlsl_ctx *ctx,
         if (!elementwise_intrinsic_int_convert_args(ctx, params, loc))
             return false;
     }
-    type = convert_numeric_type(ctx, type, HLSL_TYPE_UINT);
+    type = hlsl_change_base_type(ctx, type, HLSL_TYPE_UINT);
 
     operands[0] = params->args[0];
     if (hlsl_version_lt(ctx, 5, 0))
@@ -4045,7 +4036,7 @@ static bool intrinsic_firstbitlow(struct hlsl_ctx *ctx,
 
     if (!elementwise_intrinsic_uint_convert_args(ctx, params, loc))
         return false;
-    type = convert_numeric_type(ctx, params->args[0]->data_type, HLSL_TYPE_UINT);
+    type = hlsl_change_base_type(ctx, params->args[0]->data_type, HLSL_TYPE_UINT);
 
     operands[0] = params->args[0];
     return add_expr(ctx, params->instrs, HLSL_OP1_CTZ, operands, type, loc);
@@ -4138,10 +4129,10 @@ static bool intrinsic_frexp(struct hlsl_ctx *ctx,
         hlsl_fixme(ctx, loc, "frexp() on doubles.");
         return false;
     }
-    type = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_FLOAT, type->e.numeric.dimx, type->e.numeric.dimy);
-    uint_dim_type = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_UINT, type->e.numeric.dimx, type->e.numeric.dimy);
-    int_dim_type = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_INT, type->e.numeric.dimx, type->e.numeric.dimy);
-    bool_dim_type = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_BOOL, type->e.numeric.dimx, type->e.numeric.dimy);
+    type = hlsl_change_base_type(ctx, type, HLSL_TYPE_FLOAT);
+    uint_dim_type = hlsl_change_base_type(ctx, type, HLSL_TYPE_UINT);
+    int_dim_type = hlsl_change_base_type(ctx, type, HLSL_TYPE_INT);
+    bool_dim_type = hlsl_change_base_type(ctx, type, HLSL_TYPE_BOOL);
 
     if (!(body = hlsl_sprintf_alloc(ctx, template, type->name, type->name, type->name,
             bool_dim_type->name, uint_dim_type->name, int_dim_type->name, type->name, type->name)))
@@ -4184,11 +4175,8 @@ static bool intrinsic_fwidth(struct hlsl_ctx *ctx,
 static bool intrinsic_isinf(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    struct hlsl_type *type = params->args[0]->data_type, *bool_type;
+    struct hlsl_type *bool_type = hlsl_change_base_type(ctx, params->args[0]->data_type, HLSL_TYPE_BOOL);
     struct hlsl_ir_node *args[HLSL_MAX_OPERANDS] = {0};
-
-    bool_type = hlsl_get_numeric_type(ctx, type->class, HLSL_TYPE_BOOL,
-            type->e.numeric.dimx, type->e.numeric.dimy);
 
     args[0] = params->args[0];
     return !!add_expr(ctx, params->instrs, HLSL_OP1_ISINF, args, bool_type, loc);
@@ -4667,8 +4655,7 @@ static bool intrinsic_sign(struct hlsl_ctx *ctx,
     struct hlsl_ir_node *lt, *neg, *op1, *op2, *zero, *arg = params->args[0];
     static const struct hlsl_constant_value zero_value;
 
-    struct hlsl_type *int_type = hlsl_get_numeric_type(ctx, arg->data_type->class, HLSL_TYPE_INT,
-            arg->data_type->e.numeric.dimx, arg->data_type->e.numeric.dimy);
+    struct hlsl_type *int_type = hlsl_change_base_type(ctx, arg->data_type, HLSL_TYPE_INT);
 
     zero = hlsl_block_add_constant(ctx, params->instrs,
             hlsl_get_scalar_type(ctx, arg->data_type->e.numeric.type), &zero_value, loc);
@@ -5830,16 +5817,14 @@ static bool add_ternary(struct hlsl_ctx *ctx, struct hlsl_block *block,
 
         if (cond_type->e.numeric.dimx == 1 && cond_type->e.numeric.dimy == 1)
         {
-            cond_type = hlsl_get_numeric_type(ctx, common_type->class,
-                    HLSL_TYPE_BOOL, common_type->e.numeric.dimx, common_type->e.numeric.dimy);
+            cond_type = hlsl_change_base_type(ctx, common_type, HLSL_TYPE_BOOL);
             cond = add_implicit_conversion(ctx, block, cond, cond_type, &cond->loc);
         }
         else
         {
             if (common_type->e.numeric.dimx == 1 && common_type->e.numeric.dimy == 1)
             {
-                common_type = hlsl_get_numeric_type(ctx, cond_type->class,
-                        common_type->e.numeric.type, cond_type->e.numeric.dimx, cond_type->e.numeric.dimy);
+                common_type = hlsl_change_base_type(ctx, cond_type, common_type->e.numeric.type);
             }
             else if (cond_type->e.numeric.dimx != common_type->e.numeric.dimx
                     || cond_type->e.numeric.dimy != common_type->e.numeric.dimy)
@@ -5859,8 +5844,7 @@ static bool add_ternary(struct hlsl_ctx *ctx, struct hlsl_block *block,
                 hlsl_release_string_buffer(ctx, value_string);
             }
 
-            cond_type = hlsl_get_numeric_type(ctx, common_type->class, HLSL_TYPE_BOOL,
-                    common_type->e.numeric.dimx, common_type->e.numeric.dimy);
+            cond_type = hlsl_change_base_type(ctx, common_type, HLSL_TYPE_BOOL);
             cond = add_implicit_conversion(ctx, block, cond, cond_type, &cond->loc);
         }
 
@@ -5883,8 +5867,7 @@ static bool add_ternary(struct hlsl_ctx *ctx, struct hlsl_block *block,
             hlsl_release_string_buffer(ctx, second_string);
         }
 
-        cond_type = hlsl_get_numeric_type(ctx, cond_type->class, HLSL_TYPE_BOOL,
-                cond_type->e.numeric.dimx, cond_type->e.numeric.dimy);
+        cond_type = hlsl_change_base_type(ctx, cond_type, HLSL_TYPE_BOOL);
         cond = add_implicit_conversion(ctx, block, cond, cond_type, &cond->loc);
         common_type = first->data_type;
     }
