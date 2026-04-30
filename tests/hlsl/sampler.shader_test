@@ -114,6 +114,50 @@ uniform 0 float4 0 0 -1 0
 draw quad
 probe (0, 0) f32(0.25, 0.0, 0.5, 0)
 
+[srv 0]
+size (2darray, 2, 2, 2)
+0.0 0.0 0.0 0.0     0.0 0.0 0.0 0.0
+0.0 0.0 0.0 0.0     1.0 0.0 1.0 0.0
+
+0.0 1.0 0.0 0.0     0.0 1.0 0.0 0.0
+0.0 1.0 0.0 0.0     1.0 1.0 1.0 0.0
+
+% When a floating-point number is used for the array index, it is rounded to an integer.
+[pixel shader fail(sm<4)]
+SamplerState s;
+Texture2DArray t;
+uniform float array;
+
+float4 main() : sv_target
+{
+    return t.Sample(s, float3(0.5, 0.5, array));
+}
+
+[test]
+write cbv-0 (0) f32(0.0)
+draw quad
+probe (0, 0) f32(0.25, 0.0, 0.25, 0.0)
+
+write cbv-0 (0) f32(0.01)
+draw quad
+probe (0, 0) f32(0.25, 0.0, 0.25, 0.0)
+
+write cbv-0 (0) f32(0.49)
+draw quad
+probe (0, 0) f32(0.25, 0.0, 0.25, 0.0)
+
+write cbv-0 (0) f32(0.51)
+draw quad
+todo(msl) probe (0, 0) f32(0.25, 1.0, 0.25, 0.0)
+
+write cbv-0 (0) f32(0.99)
+draw quad
+todo(msl) probe (0, 0) f32(0.25, 1.0, 0.25, 0.0)
+
+write cbv-0 (0) f32(1.0)
+draw quad
+probe (0, 0) f32(0.25, 1.0, 0.25, 0.0)
+
 [require]
 options: backcompat
 
