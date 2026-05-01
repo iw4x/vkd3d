@@ -1741,15 +1741,12 @@ struct vsir_program
     enum vkd3d_shader_denormal_mode f64_denormal_mode;
 };
 
-enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
-        struct vkd3d_shader_message_context *message_context);
-enum vkd3d_result vsir_update_dcl_temps(struct vsir_program *program,
-        struct vkd3d_shader_message_context *message_context);
-
 struct vkd3d_shader_descriptor_info1 *vsir_program_add_descriptor(struct vsir_program *program,
         enum vkd3d_shader_descriptor_type type, unsigned int register_id, const struct vsir_register_range *range,
         enum vkd3d_shader_resource_type resource_type, enum vsir_data_type resource_data_type);
 bool vsir_program_add_icb(struct vsir_program *program, struct vkd3d_shader_immediate_constant_buffer *icb);
+enum vkd3d_result vsir_program_allocate_temp_registers(struct vsir_program *program, uint64_t config_flags,
+        const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_message_context *message_context);
 void vsir_program_cleanup(struct vsir_program *program);
 const struct vkd3d_shader_parameter1 *vsir_program_get_parameter(
         const struct vsir_program *program, enum vkd3d_shader_parameter_name name);

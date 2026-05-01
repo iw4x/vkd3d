@@ -2442,7 +2442,7 @@ int msl_compile(struct vsir_program *program, uint64_t config_flags,
     if ((ret = vsir_program_transform(program, config_flags, compile_info, message_context)) < 0)
         return ret;
 
-    if ((ret = vsir_allocate_temp_registers(program, message_context)) < 0)
+    if ((ret = vsir_program_allocate_temp_registers(program, config_flags, compile_info, message_context)) < 0)
         return ret;
 
     VKD3D_ASSERT(program->normalisation_level == VSIR_NORMALISED_SM6);

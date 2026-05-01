@@ -11949,7 +11949,7 @@ static enum vkd3d_result temp_allocator_compute_allocation_map(struct temp_alloc
  * registers is zero-based and contiguous.
  * The intent for temp contraction is that HLSL will output each distinct
  * variable to a unique temp ID. */
-enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
+static enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
         struct vkd3d_shader_message_context *message_context)
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
@@ -12013,7 +12013,7 @@ enum vkd3d_result vsir_allocate_temp_registers(struct vsir_program *program,
  * register used by any instruction, update the dcl_temps at the beginning
  * of each phase, and then reset the temp count back to 0 for the next
  * phase (if any). */
-enum vkd3d_result vsir_update_dcl_temps(struct vsir_program *program,
+static enum vkd3d_result vsir_update_dcl_temps(struct vsir_program *program,
         struct vkd3d_shader_message_context *message_context)
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
@@ -16885,6 +16885,34 @@ enum vkd3d_result vsir_program_optimize(struct vsir_program *program, uint64_t c
 
     vsir_transformation_context_init(&ctx, program, config_flags, compile_info, message_context);
     vsir_optimize(&ctx);
+
+    if (TRACE_ON() && ctx.result >= 0)
+        vsir_program_trace(program);
+
+    return ctx.result;
+}
+
+static enum vkd3d_result vsir_allocate_temp_registers_transform(struct vsir_program *program,
+        struct vsir_transformation_context *ctx)
+{
+    enum vkd3d_result ret;
+
+    if ((ret = vsir_allocate_temp_registers(program, ctx->message_context)) < 0)
+        return ret;
+    if (ctx->compile_info->target_type == VKD3D_SHADER_TARGET_DXBC_TPF)
+        ret = vsir_update_dcl_temps(program, ctx->message_context);
+
+    return ret;
+}
+
+/* Wrapper for vsir_allocate_temp_registers() that also performs validation. */
+enum vkd3d_result vsir_program_allocate_temp_registers(struct vsir_program *program, uint64_t config_flags,
+        const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_message_context *message_context)
+{
+    struct vsir_transformation_context ctx;
+
+    vsir_transformation_context_init(&ctx, program, config_flags, compile_info, message_context);
+    vsir_transform(&ctx, vsir_allocate_temp_registers_transform);
 
     if (TRACE_ON() && ctx.result >= 0)
         vsir_program_trace(program);

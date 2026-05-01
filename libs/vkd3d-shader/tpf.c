@@ -4563,10 +4563,7 @@ int tpf_compile(struct vsir_program *program, uint64_t config_flags,
     if ((ret = vsir_program_optimize(program, config_flags, compile_info, message_context)))
         return ret;
 
-    if ((ret = vsir_allocate_temp_registers(program, message_context)))
-        return ret;
-
-    if ((ret = vsir_update_dcl_temps(program, message_context)))
+    if ((ret = vsir_program_allocate_temp_registers(program, config_flags, compile_info, message_context)) < 0)
         return ret;
 
     tpf.program = program;

@@ -2351,7 +2351,7 @@ int d3dbc_compile(struct vsir_program *program, uint64_t config_flags,
     if ((result = vsir_program_optimize(program, config_flags, compile_info, message_context)))
         return result;
 
-    if ((result = vsir_allocate_temp_registers(program, message_context)))
+    if ((result = vsir_program_allocate_temp_registers(program, config_flags, compile_info, message_context)) < 0)
         return result;
 
     d3dbc.program = program;
