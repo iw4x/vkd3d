@@ -22,6 +22,13 @@
 #include "vkd3d_shader.h"
 #include <sys/stat.h>
 
+/* S_ISREG may not be defined when building for Windows. MinGW provides a more
+ * POSIX-like environment that does define S_ISREG, but the Wine/msvcrt
+ * headers do not. */
+#ifndef S_ISREG
+# define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
+
 static inline enum vkd3d_result vkd3d_shader_parse_dxbc_source_type(const struct vkd3d_shader_code *dxbc,
         enum vkd3d_shader_source_type *type, char **messages)
 {

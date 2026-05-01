@@ -48,10 +48,6 @@ int preproc_yylex(PREPROC_YYSTYPE *yylval_param, PREPROC_YYLTYPE *yylloc_param, 
 
 #define YYLLOC_DEFAULT(cur, rhs, n) (cur) = YYRHSLOC(rhs, !!n)
 
-#ifndef S_ISREG
-# define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
-#endif
-
 #define preproc_error(ctx, loc, error, ...) \
         preproc_error_(ctx, loc, error, __FUNCTION__, __VA_ARGS__)
 static void VKD3D_PRINTF_FUNC(5, 6) preproc_error_(struct preproc_ctx *ctx, const struct vkd3d_shader_location *loc,
