@@ -2550,7 +2550,7 @@ static void test_hlsl_locale(void)
 
     gl_draw_triangle(vs_id, fs_id);
     gl_get_backbuffer_color(&context, 0, 0, &colour);
-    todo ok(compare_vec4(&colour, &(struct vec4){0.25f, 0.5f, 0.75f, 1.0f}, 0),
+    ok(compare_vec4(&colour, &(struct vec4){0.25f, 0.5f, 0.75f, 1.0f}, 0),
             "Got colour {%.8e, %.8e, %.8e, %.8e}.\n", colour.x, colour.y, colour.z, colour.w);
 
     setlocale(LC_ALL, locale);

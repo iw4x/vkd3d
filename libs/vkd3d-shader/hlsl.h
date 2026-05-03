@@ -1137,6 +1137,8 @@ struct hlsl_ctx
      *   scanner is declared as reentrant, which is the case. */
     void *scanner;
 
+    vkd3d_locale c_locale;
+
     /* Pointer to the current scope; changes as the parser reads the code. */
     struct hlsl_scope *cur_scope;
     /* Scope of global variables. */

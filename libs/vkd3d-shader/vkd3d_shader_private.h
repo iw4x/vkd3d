@@ -55,6 +55,10 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <string.h>
+#ifdef HAVE_XLOCALE_H
+#include <xlocale.h>
+#endif
+#include <locale.h>
 
 #define VKD3D_VEC4_SIZE 4
 #define VKD3D_DVEC2_SIZE 2
@@ -1897,6 +1901,13 @@ static inline size_t bytecode_get_size(struct vkd3d_bytecode_buffer *buffer)
     return buffer->size;
 }
 
+#ifdef _WIN32
+# define vkd3d_locale _locale_t
+#else
+# define vkd3d_locale locale_t
+#endif
+
+float vkd3d_parse_float(const char *s, vkd3d_locale l);
 uint32_t vkd3d_parse_integer(const char *s);
 
 struct vkd3d_shader_message_context
