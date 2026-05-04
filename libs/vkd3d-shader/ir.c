@@ -11279,6 +11279,8 @@ struct liveness_tracker
 
 static void liveness_track_src(struct liveness_tracker *tracker, struct vsir_src_operand *src, unsigned int index)
 {
+    struct liveness_tracker_reg *reg;
+
     for (unsigned int k = 0; k < src->reg.idx_count; ++k)
     {
         if (src->reg.idx[k].rel_addr)
@@ -11286,14 +11288,21 @@ static void liveness_track_src(struct liveness_tracker *tracker, struct vsir_src
     }
 
     if (src->reg.type == VKD3DSPR_SSA)
-    {
-        tracker->ssa_regs[src->reg.idx[0].offset].last_read = index;
-        tracker->ssa_regs[src->reg.idx[0].offset].last_access = index;
-    }
+        reg = &tracker->ssa_regs[src->reg.idx[0].offset];
     else if (src->reg.type == VKD3DSPR_TEMP)
+        reg = &tracker->temp_regs[src->reg.idx[0].offset];
+    else
+        return;
+
+    reg->last_read = index;
+    reg->last_access = index;
+    if (!reg->written)
     {
-        tracker->temp_regs[src->reg.idx[0].offset].last_read = index;
-        tracker->temp_regs[src->reg.idx[0].offset].last_access = index;
+        WARN("Register %s%u used uninitialised in instruction %u. Recording implicit write.\n",
+                vsir_register_type_get_name(src->reg.type, NULL), src->reg.idx[0].offset, index);
+        reg->first_write = index;
+        reg->last_access = index;
+        reg->written = true;
     }
 }
 
@@ -11734,8 +11743,10 @@ static void temp_allocator_open_register(struct temp_allocator *allocator, struc
              * We currently only handle cases where the mask is zero-based and
              * contiguous, so we need to fill in the missing components to
              * ensure this. */
-            uint8_t mask = (1u << (vkd3d_log2i(liveness_reg->mask) + 1)) - 1;
+            uint8_t mask = 0;
 
+            if (liveness_reg->mask)
+                mask = (1u << (vkd3d_log2i(liveness_reg->mask) + 1)) - 1;
             if (vkd3d_popcount(available_mask) >= vkd3d_popcount(mask))
             {
                 if (mask != liveness_reg->mask)
