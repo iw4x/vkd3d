@@ -1,3 +1,6 @@
+[header]
+test-shader-models (6.0 6.6)
+
 [require]
 shader model >= 4.0
 
@@ -22,7 +25,7 @@ float4 main() : SV_Target
 
 [test]
 uniform 0 float4 1.0 2.0 3.0 4.0
-draw quad
+todo(sm>=6.6) draw quad
 probe (0, 0) f32(2.0, 3.0, 4.0, 5.0)
 
 [require]
@@ -56,21 +59,21 @@ float4 main() : SV_Target
 }
 
 [test]
-draw quad
+todo(sm>=6.6) draw quad
 probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
 
 [descriptors]
 t[1:1], space 0, srv 2
 
 [test]
-draw quad
+todo(sm>=6.6) draw quad
 probe (0, 0) f32(3.0, 3.0, 3.0, 3.0)
 
 [descriptors]
 t[1:2], space 0, srv 0
 
 [test]
-draw quad
+todo(sm>=6.6) draw quad
 probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 
 [require]
