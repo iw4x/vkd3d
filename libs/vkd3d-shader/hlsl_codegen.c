@@ -5075,16 +5075,24 @@ static struct hlsl_ir_node *lower_nonconstant_array_loads(struct hlsl_ctx *ctx,
     return hlsl_block_add_simple_load(ctx, block, var, &instr->loc);
 }
 
-static struct hlsl_type *clone_texture_array_as_combined_sampler_array(struct hlsl_ctx *ctx, struct hlsl_type *type)
+static struct hlsl_type *clone_texture_array_as_combined_sampler_array(struct hlsl_ctx *ctx,
+        struct hlsl_type *type, const struct vkd3d_shader_location *loc)
 {
     struct hlsl_type *sampler_type;
 
     if (type->class == HLSL_CLASS_ARRAY)
     {
-        if (!(sampler_type = clone_texture_array_as_combined_sampler_array(ctx, type->e.array.type)))
+        if (!(sampler_type = clone_texture_array_as_combined_sampler_array(ctx, type->e.array.type, loc)))
             return NULL;
 
         return hlsl_new_array_type(ctx, sampler_type, type->e.array.elements_count, HLSL_ARRAY_GENERIC);
+    }
+
+    if (type->sampler_dim > HLSL_SAMPLER_DIM_LAST_SAMPLER)
+    {
+        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                "Cannot create a combined sampler from a %s.", debug_hlsl_type(ctx, type));
+        return NULL;
     }
 
     return ctx->builtin_types.sampler[type->sampler_dim];
@@ -5154,7 +5162,7 @@ static bool lower_separate_samples(struct hlsl_ctx *ctx, struct hlsl_ir_node *in
 
     if (!(var = hlsl_get_var(ctx->globals, name->buffer)))
     {
-        if (!(sampler_type = clone_texture_array_as_combined_sampler_array(ctx, resource->data_type)))
+        if (!(sampler_type = clone_texture_array_as_combined_sampler_array(ctx, resource->data_type, &instr->loc)))
         {
             hlsl_release_string_buffer(ctx, name);
             return false;
