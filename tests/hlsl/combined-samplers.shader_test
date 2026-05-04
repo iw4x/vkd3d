@@ -225,6 +225,15 @@ draw quad
 if(sm<4)  probe (0, 0) rgba(4351, 4351, 4351, 1111)
 if(sm>=4) probe (0, 0) rgba(3125, 3125, 3125, 1111)
 
+[pixel shader fail(sm<4)]
+SamplerState s;
+Texture2DArray t;
+uniform float array;
+
+float4 main() : sv_target
+{
+    return t.Sample(s, float3(0.5, 0.5, array));
+}
 
 [require]
 shader model >= 5.0
