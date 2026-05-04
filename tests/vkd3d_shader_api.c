@@ -2467,6 +2467,97 @@ static void test_query_denormal_mode(void)
     }
 }
 
+static void test_hlsl_locale(void)
+{
+#ifdef HAVE_OPENGL
+    struct vkd3d_shader_spirv_target_info spirv_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_SPIRV_TARGET_INFO};
+    struct vkd3d_shader_hlsl_source_info hlsl_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_HLSL_SOURCE_INFO};
+    struct vkd3d_shader_compile_info info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO};
+    struct vkd3d_shader_code vs_spirv, ps_spirv;
+    struct gl_test_context context = {0};
+    GLuint vs_id, fs_id;
+    const char *locale;
+    struct vec4 colour;
+    char *messages;
+    GLint status;
+    int ret;
+
+    static const char vs_code[] =
+        "float4 main(uint id : SV_VertexID) : SV_Position\n"
+        "{\n"
+        "    float2 coords = float2((id << 1) & 2, id & 2);\n"
+        "    return float4(coords * float2(2, -2) + float2(-1, 1), 0, 1);\n"
+        "}";
+
+    static const char ps_code[] =
+        "float4 main() : SV_Target\n"
+        "{\n"
+        "    return float4(0.25, 0.5, 0.75, 1.0);\n"
+        "}";
+
+    /* As in several other locales, the decimal separator is ',' in
+     * ru_RU.UTF-8, so functions like atof() and strtof() would parse "0.75"
+     * as 0.0f. */
+    if (!(locale = setlocale(LC_ALL, "ru_RU.UTF-8")))
+    {
+        skip("ru_RU.UTF-8 locale not available, skipping test.\n");
+        return;
+    }
+
+    if (!init_gl_test_context(&context))
+    {
+        setlocale(LC_ALL, locale);
+        return;
+    }
+
+    info.next = &hlsl_info;
+    info.source_type = VKD3D_SHADER_SOURCE_HLSL;
+    info.target_type = VKD3D_SHADER_TARGET_SPIRV_BINARY;
+    info.log_level = VKD3D_SHADER_LOG_WARNING;
+
+    hlsl_info.next = &spirv_info;
+    hlsl_info.entry_point = "main";
+
+    spirv_info.environment = VKD3D_SHADER_SPIRV_ENVIRONMENT_OPENGL_4_5;
+
+    info.source.code = vs_code;
+    info.source.size = strlen(vs_code);
+    hlsl_info.profile = "vs_4_0";
+    ret = vkd3d_shader_compile(&info, &vs_spirv, &messages);
+    ok(!ret, "Failed to compile, error %d.\n", ret);
+    ok(!messages, "Got unexpected messages.\n");
+
+    vs_id = glCreateShader(GL_VERTEX_SHADER);
+    glShaderBinary(1, &vs_id, GL_SHADER_BINARY_FORMAT_SPIR_V, vs_spirv.code, vs_spirv.size);
+    p_glSpecializeShader(vs_id, "main", 0, NULL, NULL);
+    glGetShaderiv(vs_id, GL_COMPILE_STATUS, &status);
+    ok(status, "Failed to compile vertex shader.\n");
+    vkd3d_shader_free_shader_code(&vs_spirv);
+
+    info.source.code = ps_code;
+    info.source.size = strlen(ps_code);
+    hlsl_info.profile = "ps_4_0";
+    ret = vkd3d_shader_compile(&info, &ps_spirv, &messages);
+    ok(!ret, "Failed to compile, error %d.\n", ret);
+    ok(!messages, "Got unexpected messages.\n");
+
+    fs_id = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderBinary(1, &fs_id, GL_SHADER_BINARY_FORMAT_SPIR_V, ps_spirv.code, ps_spirv.size);
+    p_glSpecializeShader(fs_id, "main", 0, NULL, NULL);
+    glGetShaderiv(fs_id, GL_COMPILE_STATUS, &status);
+    ok(status, "Failed to compile fragment shader.\n");
+    vkd3d_shader_free_shader_code(&ps_spirv);
+
+    gl_draw_triangle(vs_id, fs_id);
+    gl_get_backbuffer_color(&context, 0, 0, &colour);
+    todo ok(compare_vec4(&colour, &(struct vec4){0.25f, 0.5f, 0.75f, 1.0f}, 0),
+            "Got colour {%.8e, %.8e, %.8e, %.8e}.\n", colour.x, colour.y, colour.z, colour.w);
+
+    setlocale(LC_ALL, locale);
+    destroy_gl_test_context(&context);
+#endif
+}
+
 START_TEST(vkd3d_shader_api)
 {
     setlocale(LC_ALL, "");
@@ -2485,4 +2576,5 @@ START_TEST(vkd3d_shader_api)
     run_test(test_parameters);
     run_test(test_scan_thread_group_size);
     run_test(test_query_denormal_mode);
+    run_test(test_hlsl_locale);
 }
