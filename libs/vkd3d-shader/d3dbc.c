@@ -233,7 +233,12 @@ struct d3dbc_instruction
     uint32_t flags;
     bool coissue;
 
-    struct vkd3d_shader_semantic semantic;
+    struct d3dbc_semantic
+    {
+        enum vkd3d_decl_usage usage;
+        unsigned int usage_idx;
+        enum vkd3d_sm1_resource_type resource_type;
+    } semantic;
 
     bool predicated;
     struct vsir_src_operand predicate;
@@ -319,7 +324,7 @@ static const struct vkd3d_sm1_opcode_info vs_opcode_table[] =
     {VKD3D_SM1_OP_M3x3,         1, 2, VSIR_OP_M3x3},
     {VKD3D_SM1_OP_M3x2,         1, 2, VSIR_OP_M3x2},
     /* Declarations */
-    {VKD3D_SM1_OP_DCL,          0, 0, VSIR_OP_DCL},
+    {VKD3D_SM1_OP_DCL,          1, 0, VSIR_OP_DCL},
     /* Constant definitions */
     {VKD3D_SM1_OP_DEF,          1, 1, VSIR_OP_DEF},
     {VKD3D_SM1_OP_DEFB,         1, 1, VSIR_OP_DEFB,         {2, 0}},
@@ -381,7 +386,7 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     {VKD3D_SM1_OP_M3x3,         1, 2, VSIR_OP_M3x3,         {2, 0}},
     {VKD3D_SM1_OP_M3x2,         1, 2, VSIR_OP_M3x2,         {2, 0}},
     /* Declarations */
-    {VKD3D_SM1_OP_DCL,          0, 0, VSIR_OP_DCL,          {2, 0}},
+    {VKD3D_SM1_OP_DCL,          1, 0, VSIR_OP_DCL,          {2, 0}},
     /* Constant definitions */
     {VKD3D_SM1_OP_DEF,          1, 1, VSIR_OP_DEF},
     {VKD3D_SM1_OP_DEFB,         1, 1, VSIR_OP_DEFB,         {2, 0}},
@@ -1093,12 +1098,10 @@ static void shader_sm1_skip_opcode(const struct vkd3d_shader_sm1_parser *sm1, co
         return;
     }
 
-    /* DCL instructions do not have sources or destinations, but they
-     * read two tokens to a semantic. See
-     * shader_sm1_read_semantic(). */
+    /* DCL instructions read an extra token for the semantic. */
     if (opcode_info->vkd3d_opcode == VSIR_OP_DCL)
     {
-        *ptr += 2;
+        *ptr += 1;
     }
     /* Somewhat similarly, DEF and DEFI have a single source, but need to read
      * four tokens for that source. See shader_sm1_read_immconst().
@@ -1155,13 +1158,11 @@ static void d3dbc_read_dst_operand(struct vkd3d_shader_sm1_parser *d3dbc,
 }
 
 static void shader_sm1_read_semantic(struct vkd3d_shader_sm1_parser *sm1,
-        const uint32_t **ptr, struct vkd3d_shader_semantic *semantic)
+        const uint32_t **ptr, struct d3dbc_semantic *semantic)
 {
-    enum vkd3d_sm1_resource_type resource_type;
-    struct vsir_register_range *range;
-    uint32_t usage_token, dst_token;
+    uint32_t usage_token;
 
-    if (*ptr >= sm1->end || sm1->end - *ptr < 2)
+    if (*ptr >= sm1->end)
     {
         vkd3d_shader_parser_error(&sm1->p, VKD3D_SHADER_ERROR_D3DBC_UNEXPECTED_EOF,
                 "Attempted to read a declaration instruction, but not enough tokens are remaining.");
@@ -1170,29 +1171,10 @@ static void shader_sm1_read_semantic(struct vkd3d_shader_sm1_parser *sm1,
     }
 
     usage_token = read_u32(ptr);
-    dst_token = read_u32(ptr);
 
     semantic->usage = (usage_token & VKD3D_SM1_DCL_USAGE_MASK) >> VKD3D_SM1_DCL_USAGE_SHIFT;
     semantic->usage_idx = (usage_token & VKD3D_SM1_DCL_USAGE_INDEX_MASK) >> VKD3D_SM1_DCL_USAGE_INDEX_SHIFT;
-    resource_type = (usage_token & VKD3D_SM1_RESOURCE_TYPE_MASK) >> VKD3D_SM1_RESOURCE_TYPE_SHIFT;
-    if (resource_type >= ARRAY_SIZE(resource_type_table))
-    {
-        vkd3d_shader_parser_error(&sm1->p, VKD3D_SHADER_ERROR_D3DBC_INVALID_RESOURCE_TYPE,
-                "Invalid resource type %#x.", resource_type);
-        semantic->resource_type = VKD3D_SHADER_RESOURCE_NONE;
-    }
-    else
-    {
-        semantic->resource_type = resource_type_table[resource_type];
-    }
-    semantic->resource_data_type[0] = VSIR_DATA_F32;
-    semantic->resource_data_type[1] = VSIR_DATA_F32;
-    semantic->resource_data_type[2] = VSIR_DATA_F32;
-    semantic->resource_data_type[3] = VSIR_DATA_F32;
-    d3dbc_parse_dst_operand(sm1, dst_token, NULL, &semantic->resource.reg);
-    range = &semantic->resource.range;
-    range->space = 0;
-    range->first = range->last = semantic->resource.reg.reg.idx[0].offset;
+    semantic->resource_type = (usage_token & VKD3D_SM1_RESOURCE_TYPE_MASK) >> VKD3D_SM1_RESOURCE_TYPE_SHIFT;
 }
 
 static void shader_sm1_read_immconst(struct vkd3d_shader_sm1_parser *sm1, const uint32_t **ptr,
@@ -1400,6 +1382,7 @@ static bool d3dbc_parse_instruction(struct vkd3d_shader_sm1_parser *sm1,
     if (ins->opcode == VKD3D_SM1_OP_DCL)
     {
         shader_sm1_read_semantic(sm1, &p, &ins->semantic);
+        d3dbc_read_dst_operand(sm1, &p, dst);
     }
     else if (ins->opcode == VKD3D_SM1_OP_DEF)
     {
@@ -1466,25 +1449,41 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
         const struct vkd3d_sm1_opcode_info *opcode_info, struct vkd3d_shader_instruction *ins)
 {
     struct vsir_program *program = parser->program;
+    struct vkd3d_shader_semantic *semantic;
     struct vsir_src_operand *predicate;
     unsigned int resource_idx, i;
-
-    if (!vsir_instruction_init_with_params(program, ins, &parser->p.location,
-            opcode_info->vkd3d_opcode, d3dbc_ins->dst_count, d3dbc_ins->src_count))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-    memcpy(ins->dst, d3dbc_ins->dst, d3dbc_ins->dst_count * sizeof(*ins->dst));
-    memcpy(ins->src, d3dbc_ins->src, d3dbc_ins->src_count * sizeof(*ins->src));
 
     switch (d3dbc_ins->opcode)
     {
         case VKD3D_SM1_OP_DCL:
-            ins->declaration.semantic = d3dbc_ins->semantic;
+            vsir_instruction_init(ins, &parser->p.location, VSIR_OP_DCL);
 
-            add_signature_element_from_semantic(parser, &ins->declaration.semantic);
-            if (ins->declaration.semantic.resource_type)
+            semantic = &ins->declaration.semantic;
+            semantic->usage = d3dbc_ins->semantic.usage;
+            semantic->usage_idx = d3dbc_ins->semantic.usage_idx;
+
+            if (d3dbc_ins->semantic.resource_type >= ARRAY_SIZE(resource_type_table))
             {
-                resource_idx = d3dbc_ins->semantic.resource.range.first;
-                d3dbc_add_combined_sampler_descriptor(parser, resource_idx, d3dbc_ins->semantic.resource_type);
+                vkd3d_shader_parser_error(&parser->p, VKD3D_SHADER_ERROR_D3DBC_INVALID_RESOURCE_TYPE,
+                        "Invalid resource type %#x.", d3dbc_ins->semantic.resource_type);
+                semantic->resource_type = VKD3D_SHADER_RESOURCE_NONE;
+            }
+            else
+            {
+                semantic->resource_type = resource_type_table[d3dbc_ins->semantic.resource_type];
+            }
+            for (i = 0; i < 4; ++i)
+            {
+                semantic->resource_data_type[i] = VSIR_DATA_F32;
+            }
+            semantic->resource.reg = d3dbc_ins->dst[0];
+            resource_idx = d3dbc_ins->dst[0].reg.idx[0].offset;
+            semantic->resource.range.first = semantic->resource.range.last = resource_idx;
+
+            add_signature_element_from_semantic(parser, semantic);
+            if (semantic->resource_type)
+            {
+                d3dbc_add_combined_sampler_descriptor(parser, resource_idx, semantic->resource_type);
                 parser->texture_descriptors |= (1u << resource_idx);
             }
 
@@ -1495,10 +1494,22 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
         case VKD3D_SM1_OP_DEF:
         case VKD3D_SM1_OP_DEFB:
         case VKD3D_SM1_OP_DEFI:
+            if (!vsir_instruction_init_with_params(program, ins,
+                    &parser->p.location, opcode_info->vkd3d_opcode, 1, 1))
+                return VKD3D_ERROR_OUT_OF_MEMORY;
+            ins->dst[0] = d3dbc_ins->dst[0];
+            ins->src[0] = d3dbc_ins->src[0];
+
             d3dbc_scan_register(parser, &ins->dst[0].reg, ins->dst[0].write_mask, true, 1);
             break;
 
         default:
+            if (!vsir_instruction_init_with_params(program, ins, &parser->p.location,
+                    opcode_info->vkd3d_opcode, d3dbc_ins->dst_count, d3dbc_ins->src_count))
+                return VKD3D_ERROR_OUT_OF_MEMORY;
+            memcpy(ins->dst, d3dbc_ins->dst, d3dbc_ins->dst_count * sizeof(*ins->dst));
+            memcpy(ins->src, d3dbc_ins->src, d3dbc_ins->src_count * sizeof(*ins->src));
+
             if (ins->dst_count)
                 d3dbc_scan_register(parser, &ins->dst[0].reg, ins->dst[0].write_mask, false, 1);
 
