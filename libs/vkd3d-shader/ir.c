@@ -11477,9 +11477,9 @@ static enum vkd3d_result track_liveness(struct vsir_program *program, struct liv
 
                     if (reg->first_write > loop_start)
                         reg->first_write = loop_start;
-                    if (reg->last_access < i)
+                    if (reg->last_access > loop_start && reg->last_access < i)
                         reg->last_access = i;
-                    if (reg->last_read < i)
+                    if (reg->last_read > loop_start && reg->last_read < i)
                         reg->last_read = i;
                 }
             }
