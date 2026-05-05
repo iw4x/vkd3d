@@ -11435,42 +11435,44 @@ static enum vkd3d_result track_liveness(struct vsir_program *program, struct liv
         }
         else if (ins->opcode == VSIR_OP_ENDLOOP || ins->opcode == VSIR_OP_ENDREP)
         {
-            if (!--loop_depth)
+            --loop_depth;
+
+            /* SSA registers should always be written before they are read.
+             * Moreover, if they are written in a loop, all reads must be
+             * inside the same loop. However, reads can be inside a loop
+             * that follows the write.
+             *
+             * In this case, the register must not be scratched between
+             * iterations of the loop, so we need to extend the liveness
+             * to the end of the loop. We track the beginning of each
+             * immediate child loop that follows the write, and if the last
+             * access was after that loop began, extend it to the loop end.
+             *
+             * For temps, we don't have these restrictions. A temp can be
+             * written at the end of the loop and read earlier in the same
+             * loop, and the value has to be preserved, so we need to extend
+             * both the first write and last access. It may be possible to
+             * be more sophisticated, but many of the cases that matter are
+             * affected by other optimizations such as copy propagation
+             * anyway.
+             */
+            for (unsigned int j = 0; j < program->ssa_count; ++j)
             {
-                /* SSA registers should always be written before they are read.
-                 * Moreover, if they are written in a loop, all reads must be
-                 * inside the same loop. However, reads can be inside a loop
-                 * that follows the write.
-                 *
-                 * In this case, the register must not be scratched between
-                 * iterations of the loop, so we need to extend the liveness
-                 * to the end of the loop. We track the beginning of each
-                 * immediate child loop that follows the write, and if the last
-                 * access was after that loop began, extend it to the loop end.
-                 *
-                 * For temps, we don't have these restrictions. A temp can be
-                 * written at the end of the loop and read earlier in the same
-                 * loop, and the value has to be preserved, so we need to extend
-                 * both the first write and last access. It may be possible to
-                 * be more sophisticated, but many of the cases that matter are
-                 * affected by other optimizations such as copy propagation
-                 * anyway.
-                 */
-                for (unsigned int j = 0; j < program->ssa_count; ++j)
+                struct liveness_tracker_reg *reg = &tracker->ssa_regs[j];
+
+                if (reg->written && reg->interior_loop_depth == loop_depth + 1)
                 {
-                    struct liveness_tracker_reg *reg = &tracker->ssa_regs[j];
+                    if (reg->last_access > reg->interior_loop_start)
+                        reg->last_access = i;
+                    if (reg->last_read > reg->interior_loop_start)
+                        reg->last_read = i;
 
-                    if (reg->written && reg->interior_loop_depth == loop_depth + 1)
-                    {
-                        if (reg->last_access > reg->interior_loop_start)
-                            reg->last_access = i;
-                        if (reg->last_read > reg->interior_loop_start)
-                            reg->last_read = i;
-
-                        reg->interior_loop_depth = 0;
-                    }
+                    reg->interior_loop_depth = 0;
                 }
+            }
 
+            if (!loop_depth)
+            {
                 for (unsigned int j = 0; j < program->temp_count; ++j)
                 {
                     struct liveness_tracker_reg *reg = &tracker->temp_regs[j];
