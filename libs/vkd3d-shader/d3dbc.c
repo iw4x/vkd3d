@@ -1319,7 +1319,6 @@ static bool d3dbc_parse_instruction(struct vkd3d_shader_sm1_parser *sm1,
 {
     const struct vkd3d_sm1_opcode_info *opcode_info;
     struct vsir_program *program = sm1->program;
-    unsigned int vsir_dst_count, vsir_src_count;
     const uint32_t **ptr = &sm1->ptr;
     struct vsir_src_operand *src;
     struct vsir_dst_operand *dst;
@@ -1350,22 +1349,11 @@ static bool d3dbc_parse_instruction(struct vkd3d_shader_sm1_parser *sm1,
     }
     *ret_opcode_info = opcode_info;
 
-    if (opcode_info->vkd3d_opcode == VSIR_OP_TEXKILL)
-    {
-        vsir_src_count = 1;
-        vsir_dst_count = 0;
-    }
-    else
-    {
-        vsir_src_count = opcode_info->src_count;
-        vsir_dst_count = opcode_info->dst_count;
-    }
-
     ins->flags = (opcode_token & VKD3D_SM1_INSTRUCTION_FLAGS_MASK) >> VKD3D_SM1_INSTRUCTION_FLAGS_SHIFT;
     ins->coissue = opcode_token & VKD3D_SM1_COISSUE;
     ins->predicated = (opcode_token & VKD3D_SM1_INSTRUCTION_PREDICATED);
-    ins->dst_count = vsir_dst_count;
-    ins->src_count = vsir_src_count;
+    ins->dst_count = opcode_info->dst_count;
+    ins->src_count = opcode_info->src_count;
     dst = ins->dst;
     src = ins->src;
 
@@ -1398,25 +1386,6 @@ static bool d3dbc_parse_instruction(struct vkd3d_shader_sm1_parser *sm1,
     {
         d3dbc_read_dst_operand(sm1, &p, dst);
         shader_sm1_read_immconst(sm1, &p, &src[0], VSIR_DIMENSION_VEC4, VSIR_DATA_I32);
-    }
-    else if (ins->opcode == VKD3D_SM1_OP_TEXKILL)
-    {
-        /* TEXKILL, uniquely, encodes its argument as a destination, when it is
-         * semantically a source. Since we have multiple passes which operate
-         * generically on sources or destinations, normalize that. */
-        struct vsir_dst_operand tmp_dst;
-        const struct vsir_operand *reg;
-
-        reg = &tmp_dst.reg;
-        d3dbc_read_dst_operand(sm1, &p, &tmp_dst);
-        d3dbc_scan_register(sm1, reg, tmp_dst.write_mask, false, 1);
-
-        vsir_src_operand_init(&src[0], reg->type, reg->data_type, reg->idx_count);
-        src[0].reg = *reg;
-        src[0].swizzle = vsir_swizzle_from_writemask(tmp_dst.write_mask);
-
-        if (ins->predicated)
-            d3dbc_read_src_operand(sm1, &p, &ins->predicate);
     }
     else
     {
@@ -1451,6 +1420,7 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
     struct vsir_program *program = parser->program;
     struct vkd3d_shader_semantic *semantic;
     struct vsir_src_operand *predicate;
+    const struct vsir_operand *reg;
     unsigned int resource_idx, i;
 
     switch (d3dbc_ins->opcode)
@@ -1501,6 +1471,21 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
             ins->src[0] = d3dbc_ins->src[0];
 
             d3dbc_scan_register(parser, &ins->dst[0].reg, ins->dst[0].write_mask, true, 1);
+            break;
+
+        /* TEXKILL, uniquely, encodes its argument as a destination, when it
+         * is semantically a source. Since we have multiple passes which
+         * operate generically on sources or destinations, normalise that. */
+        case VKD3D_SM1_OP_TEXKILL:
+            if (!vsir_instruction_init_with_params(program, ins, &parser->p.location,
+                    opcode_info->vkd3d_opcode, 0, 1))
+                return VKD3D_ERROR_OUT_OF_MEMORY;
+
+            reg = &d3dbc_ins->dst[0].reg;
+            vsir_src_operand_init(&ins->src[0], reg->type, reg->data_type, reg->idx_count);
+            ins->src[0].reg = *reg;
+            ins->src[0].swizzle = vsir_swizzle_from_writemask(d3dbc_ins->dst[0].write_mask);
+            d3dbc_scan_register(parser, &ins->src[0].reg, mask_from_swizzle(ins->src[0].swizzle), false, 1);
             break;
 
         default:
