@@ -976,6 +976,13 @@ static void d3dbc_scan_register(struct vkd3d_shader_sm1_parser *d3dbc,
                 bitmap_set(program->io_dcls, VKD3DSPR_DEPTHOUT);
                 break;
 
+            case VKD3DSPR_RASTOUT:
+                if (register_index == VSIR_RASTOUT_POINT_SIZE)
+                    program->has_point_size = true;
+                if (register_index == VSIR_RASTOUT_FOG)
+                    program->has_fog = true;
+                break;
+
             default:
                 break;
         }
@@ -1123,11 +1130,6 @@ static void d3dbc_read_dst_operand(struct vkd3d_shader_sm1_parser *d3dbc,
         d3dbc_parse_src_operand(d3dbc, addr_token, NULL, dst_rel_addr);
     }
     d3dbc_parse_dst_operand(d3dbc, token, dst_rel_addr, dst);
-
-    if (dst->reg.type == VKD3DSPR_RASTOUT && dst->reg.idx[0].offset == VSIR_RASTOUT_POINT_SIZE)
-        d3dbc->program->has_point_size = true;
-    if (dst->reg.type == VKD3DSPR_RASTOUT && dst->reg.idx[0].offset == VSIR_RASTOUT_FOG)
-        d3dbc->program->has_fog = true;
 }
 
 static void shader_sm1_read_semantic(struct vkd3d_shader_sm1_parser *sm1,
