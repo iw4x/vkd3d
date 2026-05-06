@@ -240,6 +240,13 @@ struct d3dbc_instruction
         enum vkd3d_sm1_resource_type resource_type;
     } semantic;
 
+    union d3dbc_immediate_constant
+    {
+        float f32[4];
+        int32_t i32[4];
+        uint32_t b32;
+    } immconst;
+
     bool predicated;
     struct vsir_src_operand predicate;
 
@@ -326,9 +333,9 @@ static const struct vkd3d_sm1_opcode_info vs_opcode_table[] =
     /* Declarations */
     {VKD3D_SM1_OP_DCL,          1, 0, VSIR_OP_DCL},
     /* Constant definitions */
-    {VKD3D_SM1_OP_DEF,          1, 1, VSIR_OP_DEF},
-    {VKD3D_SM1_OP_DEFB,         1, 1, VSIR_OP_DEFB,         {2, 0}},
-    {VKD3D_SM1_OP_DEFI,         1, 1, VSIR_OP_DEFI,         {2, 0}},
+    {VKD3D_SM1_OP_DEF,          1, 0, VSIR_OP_DEF},
+    {VKD3D_SM1_OP_DEFB,         1, 0, VSIR_OP_DEFB,         {2, 0}},
+    {VKD3D_SM1_OP_DEFI,         1, 0, VSIR_OP_DEFI,         {2, 0}},
     /* Control flow */
     {VKD3D_SM1_OP_REP,          0, 1, VSIR_OP_REP,          {2, 0}},
     {VKD3D_SM1_OP_ENDREP,       0, 0, VSIR_OP_ENDREP,       {2, 0}},
@@ -388,9 +395,9 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     /* Declarations */
     {VKD3D_SM1_OP_DCL,          1, 0, VSIR_OP_DCL,          {2, 0}},
     /* Constant definitions */
-    {VKD3D_SM1_OP_DEF,          1, 1, VSIR_OP_DEF},
-    {VKD3D_SM1_OP_DEFB,         1, 1, VSIR_OP_DEFB,         {2, 0}},
-    {VKD3D_SM1_OP_DEFI,         1, 1, VSIR_OP_DEFI,         {2, 1}},
+    {VKD3D_SM1_OP_DEF,          1, 0, VSIR_OP_DEF},
+    {VKD3D_SM1_OP_DEFB,         1, 0, VSIR_OP_DEFB,         {2, 0}},
+    {VKD3D_SM1_OP_DEFI,         1, 0, VSIR_OP_DEFI,         {2, 1}},
     /* Control flow */
     {VKD3D_SM1_OP_REP,          0, 1, VSIR_OP_REP,          {2, 1}},
     {VKD3D_SM1_OP_ENDREP,       0, 0, VSIR_OP_ENDREP,       {2, 1}},
@@ -1103,13 +1110,11 @@ static void shader_sm1_skip_opcode(const struct vkd3d_shader_sm1_parser *sm1, co
     {
         *ptr += 1;
     }
-    /* Somewhat similarly, DEF and DEFI have a single source, but need to read
-     * four tokens for that source. See shader_sm1_read_immconst().
-     * Technically shader model 1 doesn't have integer registers or DEFI; we
-     * handle it here anyway because it's easy. */
-    else if (opcode_info->vkd3d_opcode == VSIR_OP_DEF || opcode_info->vkd3d_opcode == VSIR_OP_DEFI)
+    /* We don't count DEF instructions as having a source, but they do have
+     * four tokens of float constants. */
+    else if (opcode_info->vkd3d_opcode == VSIR_OP_DEF)
     {
-        *ptr += 3;
+        *ptr += 4;
     }
 
     *ptr += (opcode_info->dst_count + opcode_info->src_count);
@@ -1177,10 +1182,10 @@ static void shader_sm1_read_semantic(struct vkd3d_shader_sm1_parser *sm1,
     semantic->resource_type = (usage_token & VKD3D_SM1_RESOURCE_TYPE_MASK) >> VKD3D_SM1_RESOURCE_TYPE_SHIFT;
 }
 
-static void shader_sm1_read_immconst(struct vkd3d_shader_sm1_parser *sm1, const uint32_t **ptr,
-        struct vsir_src_operand *src, enum vsir_dimension dimension, enum vsir_data_type data_type)
+static void shader_sm1_read_immconst(struct vkd3d_shader_sm1_parser *sm1,
+        const uint32_t **ptr, union d3dbc_immediate_constant *c, enum vkd3d_sm1_opcode opcode)
 {
-    unsigned int count = dimension == VSIR_DIMENSION_VEC4 ? 4 : 1;
+    unsigned int count = opcode == VKD3D_SM1_OP_DEFB ? 1 : 4;
 
     if (*ptr >= sm1->end || sm1->end - *ptr < count)
     {
@@ -1191,12 +1196,7 @@ static void shader_sm1_read_immconst(struct vkd3d_shader_sm1_parser *sm1, const 
         return;
     }
 
-    vsir_src_operand_init(src, VSIR_REGISTER_IMMCONST, data_type, 0);
-    src->reg.dimension = dimension;
-    memcpy(src->reg.u.immconst_u32, *ptr, count * sizeof(uint32_t));
-    if (dimension == VSIR_DIMENSION_VEC4)
-        src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
-
+    memcpy(c, *ptr, count * sizeof(uint32_t));
     *ptr += count;
 }
 
@@ -1372,20 +1372,12 @@ static bool d3dbc_parse_instruction(struct vkd3d_shader_sm1_parser *sm1,
         shader_sm1_read_semantic(sm1, &p, &ins->semantic);
         d3dbc_read_dst_operand(sm1, &p, dst);
     }
-    else if (ins->opcode == VKD3D_SM1_OP_DEF)
+    else if (ins->opcode == VKD3D_SM1_OP_DEF
+            || ins->opcode == VKD3D_SM1_OP_DEFI
+            || ins->opcode == VKD3D_SM1_OP_DEFB)
     {
         d3dbc_read_dst_operand(sm1, &p, dst);
-        shader_sm1_read_immconst(sm1, &p, &src[0], VSIR_DIMENSION_VEC4, VSIR_DATA_F32);
-    }
-    else if (ins->opcode == VKD3D_SM1_OP_DEFB)
-    {
-        d3dbc_read_dst_operand(sm1, &p, dst);
-        shader_sm1_read_immconst(sm1, &p, &src[0], VSIR_DIMENSION_SCALAR, VSIR_DATA_U32);
-    }
-    else if (ins->opcode == VKD3D_SM1_OP_DEFI)
-    {
-        d3dbc_read_dst_operand(sm1, &p, dst);
-        shader_sm1_read_immconst(sm1, &p, &src[0], VSIR_DIMENSION_VEC4, VSIR_DATA_I32);
+        shader_sm1_read_immconst(sm1, &p, &ins->immconst, ins->opcode);
     }
     else
     {
@@ -1468,7 +1460,27 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
                     &parser->p.location, opcode_info->vkd3d_opcode, 1, 1))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
             ins->dst[0] = d3dbc_ins->dst[0];
-            ins->src[0] = d3dbc_ins->src[0];
+
+            if (d3dbc_ins->opcode == VKD3D_SM1_OP_DEF)
+            {
+                vsir_src_operand_init(&ins->src[0], VSIR_REGISTER_IMMCONST, VSIR_DATA_F32, 0);
+                ins->src[0].reg.dimension = VSIR_DIMENSION_VEC4;
+                memcpy(ins->src[0].reg.u.immconst_f32, d3dbc_ins->immconst.f32, sizeof(d3dbc_ins->immconst.f32));
+                ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+            }
+            else if (d3dbc_ins->opcode == VKD3D_SM1_OP_DEFB)
+            {
+                vsir_src_operand_init(&ins->src[0], VSIR_REGISTER_IMMCONST, VSIR_DATA_U32, 0);
+                ins->src[0].reg.dimension = VSIR_DIMENSION_SCALAR;
+                ins->src[0].reg.u.immconst_u32[0] = d3dbc_ins->immconst.b32;
+            }
+            else if (d3dbc_ins->opcode == VKD3D_SM1_OP_DEFI)
+            {
+                vsir_src_operand_init(&ins->src[0], VSIR_REGISTER_IMMCONST, VSIR_DATA_I32, 0);
+                ins->src[0].reg.dimension = VSIR_DIMENSION_VEC4;
+                memcpy(ins->src[0].reg.u.immconst_u32, d3dbc_ins->immconst.i32, sizeof(d3dbc_ins->immconst.i32));
+                ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+            }
 
             d3dbc_scan_register(parser, &ins->dst[0].reg, ins->dst[0].write_mask, true, 1);
             break;
