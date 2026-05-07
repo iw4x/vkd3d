@@ -1552,10 +1552,6 @@ static void shader_dump_instruction(struct vkd3d_d3d_asm_compiler *compiler, con
 
     compiler->current = ins;
 
-    /* PixWin marks instructions with the coissue flag with a '+' */
-    if (ins->coissue)
-        vkd3d_string_buffer_printf(buffer, "+");
-
     shader_print_opcode(compiler, ins->opcode);
 
     switch (ins->opcode)

@@ -2656,7 +2656,6 @@ static void shader_sm4_read_instruction(struct vkd3d_shader_sm4_parser *sm4, str
         sm4->phase = ins->opcode;
     sm4->has_control_point_phase |= vsir_opcode_is_control_point_phase(ins->opcode);
     ins->flags = 0;
-    ins->coissue = false;
     ins->raw = false;
     ins->structured = false;
     ins->dst_count = opcode_info_get_dst_count(opcode_info);

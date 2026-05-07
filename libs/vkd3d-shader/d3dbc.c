@@ -1653,8 +1653,6 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
             ins->flags = d3dbc_ins->flags;
     }
 
-    ins->coissue = d3dbc_ins->coissue;
-
     if (program->shader_version.major == 1)
         d3dbc_update_descriptors(parser, ins);
 

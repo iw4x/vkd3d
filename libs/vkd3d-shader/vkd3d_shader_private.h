@@ -1455,7 +1455,7 @@ struct vsir_instruction
     enum vkd3d_shader_resource_type resource_type;
     unsigned int resource_stride;
     enum vsir_data_type resource_data_type[VKD3D_VEC4_SIZE];
-    bool coissue, structured, raw;
+    bool structured, raw;
     union
     {
         enum vsir_global_flags global_flags;
