@@ -460,8 +460,6 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_TEX                             ] = "tex",
         [VSIR_OP_TEXBEM                          ] = "texbem",
         [VSIR_OP_TEXBEML                         ] = "texbeml",
-        [VSIR_OP_TEXCOORD                        ] = "texcoord",
-        [VSIR_OP_TEXCRD                          ] = "texcrd",
         [VSIR_OP_TEXDEPTH                        ] = "texdepth",
         [VSIR_OP_TEXDP3                          ] = "texdp3",
         [VSIR_OP_TEXDP3TEX                       ] = "texdp3tex",
@@ -2410,14 +2408,6 @@ fail:
     return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
-static enum vkd3d_result vsir_program_lower_texcrd(struct vsir_program *program,
-        struct vsir_instruction *ins, struct vkd3d_shader_message_context *message_context)
-{
-    /* texcrd DST, t# -> mov DST, t# */
-    ins->opcode = VSIR_OP_MOV;
-    return VKD3D_OK;
-}
-
 static enum vkd3d_result vsir_program_lower_texdepth(struct vsir_program *program,
         struct vsir_program_iterator *texdepth, struct vkd3d_shader_message_context *message_context)
 {
@@ -2810,31 +2800,6 @@ static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program,
         ins->src = srcs;
         ins->src_count = 3;
     }
-
-    return VKD3D_OK;
-}
-
-static enum vkd3d_result vsir_program_lower_texcoord(struct vsir_program *program, struct vsir_instruction *ins)
-{
-    unsigned int idx = ins->dst[0].reg.idx[0].offset;
-    struct vsir_src_operand *srcs;
-
-    /* texcoord t# -> saturate t#, t#
-     * Note that the t# destination will subsequently be turned into a temp. */
-
-    VKD3D_ASSERT(!program->normalisation_flags.normalised_io);
-
-    if (!(srcs = vsir_program_get_src_operands(program, 1)))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-
-    vsir_src_operand_init(&srcs[0], VSIR_REGISTER_TEXTURE, VSIR_DATA_F32, 1);
-    srcs[0].reg.idx[0].offset = idx;
-    srcs[0].reg.dimension = VSIR_DIMENSION_VEC4;
-    srcs[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
-
-    ins->opcode = VSIR_OP_SATURATE;
-    ins->src = srcs;
-    ins->src_count = 1;
 
     return VKD3D_OK;
 }
@@ -3367,15 +3332,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
             case VSIR_OP_TEXBEM:
             case VSIR_OP_TEXBEML:
                 ret = vsir_program_lower_texbem(program, &it, message_context);
-                break;
-
-            case VSIR_OP_TEXCOORD:
-                if ((ret = vsir_program_lower_texcoord(program, ins)) < 0)
-                    return ret;
-                break;
-
-            case VSIR_OP_TEXCRD:
-                ret = vsir_program_lower_texcrd(program, ins, message_context);
                 break;
 
             case VSIR_OP_TEXDEPTH:
@@ -11202,8 +11158,6 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_TEX:
         case VSIR_OP_TEXBEM:
         case VSIR_OP_TEXBEML:
-        case VSIR_OP_TEXCOORD:
-        case VSIR_OP_TEXCRD:
         case VSIR_OP_TEXDEPTH:
         case VSIR_OP_TEXDP3:
         case VSIR_OP_TEXDP3TEX:
@@ -11366,8 +11320,6 @@ static void liveness_track_dst(struct liveness_tracker *tracker, struct vsir_dst
         case VSIR_OP_TEX:
         case VSIR_OP_TEXBEM:
         case VSIR_OP_TEXBEML:
-        case VSIR_OP_TEXCOORD:
-        case VSIR_OP_TEXCRD:
         case VSIR_OP_TEXDEPTH:
         case VSIR_OP_TEXDP3:
         case VSIR_OP_TEXDP3TEX:
@@ -15700,8 +15652,6 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_TEX:
         case VSIR_OP_TEXBEM:
         case VSIR_OP_TEXBEML:
-        case VSIR_OP_TEXCOORD:
-        case VSIR_OP_TEXCRD:
         case VSIR_OP_TEXDEPTH:
         case VSIR_OP_TEXDP3:
         case VSIR_OP_TEXDP3TEX:

@@ -476,8 +476,8 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     {VKD3D_SM1_OP_ENDLOOP,      0, 0, "endloop",        VSIR_OP_ENDLOOP,      {3, 0}},
     {VKD3D_SM1_OP_LABEL,        0, 1, "label",          VSIR_OP_LABEL,        {2, 1}},
     /* Texture */
-    {VKD3D_SM1_OP_TEXCOORD,     1, 0, "texcoord",       VSIR_OP_TEXCOORD,     {0, 0}, {1, 3}},
-    {VKD3D_SM1_OP_TEXCOORD,     1, 1, "texcrd",         VSIR_OP_TEXCRD,       {1, 4}, {1, 4}},
+    {VKD3D_SM1_OP_TEXCOORD,     1, 0, "texcoord",       VSIR_OP_NOP,          {0, 0}, {1, 3}},
+    {VKD3D_SM1_OP_TEXCOORD,     1, 1, "texcrd",         VSIR_OP_NOP,          {1, 4}, {1, 4}},
     {VKD3D_SM1_OP_TEXKILL,      1, 0, "texkill",        VSIR_OP_TEXKILL,      {1, 0}},
     {VKD3D_SM1_OP_TEX,          1, 0, "tex",            VSIR_OP_TEX,          {0, 0}, {1, 3}},
     {VKD3D_SM1_OP_TEX,          1, 1, "texld",          VSIR_OP_TEXLD,        {1, 4}, {1, 4}},
@@ -1812,6 +1812,33 @@ static enum vkd3d_result d3dbc_read_pow(struct vkd3d_shader_sm1_parser *parser,
     return VKD3D_OK;
 }
 
+static enum vkd3d_result d3dbc_read_texcoord(struct vkd3d_shader_sm1_parser *parser,
+        const struct d3dbc_instruction *d3dbc_ins)
+{
+    struct vsir_instruction *ins;
+
+    if (vkd3d_shader_ver_ge(&parser->program->shader_version, 1, 4))
+    {
+        /* texcrd DST, SRC -> mov DST, SRC */
+
+        if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MOV, 1, 1)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
+        vsir_src_operand_from_d3dbc(parser, &ins->src[0], &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0]);
+    }
+    else
+    {
+        /* texcoord t# -> saturate t#, t# */
+
+        if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_SATURATE, 1, 1)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
+        vsir_operand_from_d3dbc(parser, &ins->src[0].reg, &d3dbc_ins->dst[0].o, &d3dbc_ins->dst_rel_addr[0]);
+        ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+    }
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_parser *parser,
         const struct d3dbc_instruction *d3dbc_ins, const struct vkd3d_sm1_opcode_info *opcode_info)
 {
@@ -1914,6 +1941,9 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
 
         case VKD3D_SM1_OP_POW:
             return d3dbc_read_pow(parser, d3dbc_ins);
+
+        case VKD3D_SM1_OP_TEXCOORD:
+            return d3dbc_read_texcoord(parser, d3dbc_ins);
 
         /* TEXKILL, uniquely, encodes its argument as a destination, when it
          * is semantically a source. Since we have multiple passes which
