@@ -1539,7 +1539,6 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
 {
     struct vsir_program *program = parser->program;
     struct vkd3d_shader_semantic *semantic;
-    struct vsir_src_operand *predicate;
     unsigned int resource_idx, i;
 
     if (d3dbc_ins->opcode != VKD3D_SM1_OP_DCL)
@@ -1655,15 +1654,6 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
     }
 
     ins->coissue = d3dbc_ins->coissue;
-    if (d3dbc_ins->predicated)
-    {
-        if (!(ins->predicate = predicate = vsir_program_get_src_operands(program, 1)))
-        {
-            vkd3d_shader_parser_error(&parser->p, VKD3D_SHADER_ERROR_D3DBC_OUT_OF_MEMORY, "Out of memory.");
-            return VKD3D_ERROR_OUT_OF_MEMORY;
-        }
-        vsir_src_operand_from_d3dbc(parser, predicate, &d3dbc_ins->predicate, NULL);
-    }
 
     if (program->shader_version.major == 1)
         d3dbc_update_descriptors(parser, ins);

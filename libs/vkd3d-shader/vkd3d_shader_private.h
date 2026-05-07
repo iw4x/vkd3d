@@ -1456,7 +1456,6 @@ struct vsir_instruction
     unsigned int resource_stride;
     enum vsir_data_type resource_data_type[VKD3D_VEC4_SIZE];
     bool coissue, structured, raw;
-    const struct vsir_src_operand *predicate;
     union
     {
         enum vsir_global_flags global_flags;

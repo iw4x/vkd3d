@@ -2659,7 +2659,6 @@ static void shader_sm4_read_instruction(struct vkd3d_shader_sm4_parser *sm4, str
     ins->coissue = false;
     ins->raw = false;
     ins->structured = false;
-    ins->predicate = NULL;
     ins->dst_count = opcode_info_get_dst_count(opcode_info);
     ins->src_count = opcode_info_get_src_count(opcode_info);
     ins->src = src = vsir_program_get_src_operands(program, ins->src_count);
