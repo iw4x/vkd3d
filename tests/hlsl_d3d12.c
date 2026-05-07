@@ -4932,7 +4932,7 @@ static void test_disassemble_shader(void)
         vkd3d_test_push_context("Test %u", i);
 
         hr = D3DDisassemble(tests[i].shader, tests[i].size, 0, NULL, &blob);
-        todo_if (i == 3 || i == 5 || i == 6) ok(hr == S_OK, "Got hr %#x.\n", hr);
+        todo_if (i == 3 || i == 6) ok(hr == S_OK, "Got hr %#x.\n", hr);
         if (FAILED(hr))
         {
             vkd3d_test_pop_context();
@@ -4970,7 +4970,7 @@ static void test_disassemble_shader(void)
         normalized[normalized_size++] = 0;
 
         ret = strcmp(normalized, tests[i].output);
-        todo ok(!ret, "Output didn't match.\n");
+        todo_if (i == 4) ok(!ret, "Output didn't match.\n");
         if (ret)
             trace("Got output:\n%s", normalized);
         free(normalized);

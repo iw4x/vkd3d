@@ -272,8 +272,8 @@ static void test_d3dbc(void)
     static const char expected[] = "vs_1_0\n";
     static const char expected_dcl_def[] =
         "vs_1_1\n"
-        "dcl_position0 v0\n"
-        "def c0 = 1.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00\n";
+        "dcl_position v0\n"
+        "def c0, 1.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00\n";
 
     info.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO;
     info.next = NULL;
