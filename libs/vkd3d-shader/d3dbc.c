@@ -496,7 +496,7 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     {VKD3D_SM1_OP_TEXLDD,       1, 4, "texldd",         VSIR_OP_TEXLDD,       {2, 1}},
     {VKD3D_SM1_OP_SETP,         1, 2, "setp",           VSIR_OP_SETP,         {2, 1}},
     {VKD3D_SM1_OP_TEXLDL,       1, 2, "texldl",         VSIR_OP_TEXLDL,       {3, 0}},
-    {VKD3D_SM1_OP_PHASE,        0, 0, "phase",          VSIR_OP_PHASE,        {1, 4}, {1, 4}},
+    {VKD3D_SM1_OP_PHASE,        0, 0, "phase",          VSIR_OP_NOP,          {1, 4}, {1, 4}},
     {0,                         0, 0, "???",            VSIR_OP_INVALID},
 };
 

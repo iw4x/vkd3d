@@ -553,7 +553,6 @@ enum vsir_opcode
     VSIR_OP_NRM,
     VSIR_OP_OR,
     VSIR_OP_ORD,
-    VSIR_OP_PHASE,
     VSIR_OP_PHI,
     VSIR_OP_POW,
     VSIR_OP_QUAD_READ_ACROSS_D,

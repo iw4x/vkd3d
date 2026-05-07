@@ -418,7 +418,6 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_NRM                             ] = "nrm",
         [VSIR_OP_OR                              ] = "or",
         [VSIR_OP_ORD                             ] = "ord",
-        [VSIR_OP_PHASE                           ] = "phase",
         [VSIR_OP_PHI                             ] = "phi",
         [VSIR_OP_POW                             ] = "pow",
         [VSIR_OP_QUAD_READ_ACROSS_D              ] = "quad_read_across_d",
@@ -3818,11 +3817,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_NRM:
                 ret = vsir_program_lower_nrm(program, &it);
-                break;
-
-            case VSIR_OP_PHASE:
-                vsir_instruction_make_nop(ins);
-                ret = VKD3D_OK;
                 break;
 
             case VSIR_OP_POW:
@@ -11831,7 +11825,6 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_NOP:
         /* NRM writemask must be .xyz or .xyzw. */
         case VSIR_OP_NRM:
-        case VSIR_OP_PHASE:
         case VSIR_OP_REP:
         case VSIR_OP_RET:
         case VSIR_OP_RETP:
@@ -16537,7 +16530,6 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_IMM_ATOMIC_XOR:
         case VSIR_OP_LABEL:
         case VSIR_OP_LOOP:
-        case VSIR_OP_PHASE:
         case VSIR_OP_REP:
         case VSIR_OP_RET:
         case VSIR_OP_RETP:
