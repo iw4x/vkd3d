@@ -1064,6 +1064,11 @@ static bool gl_runner_dispatch(struct shader_runner *r, unsigned int x, unsigned
     return true;
 }
 
+static bool gl_runner_dispatch_mesh(struct shader_runner *r, unsigned int x, unsigned int y, unsigned int z)
+{
+    fatal_error("Mesh shaders are not supported.\n");
+}
+
 static GLenum get_topology_gl(D3D_PRIMITIVE_TOPOLOGY topology)
 {
     switch (topology)
@@ -1727,6 +1732,7 @@ static const struct shader_runner_ops gl_runner_ops =
     .create_resource = gl_runner_create_resource,
     .destroy_resource = gl_runner_destroy_resource,
     .dispatch = gl_runner_dispatch,
+    .dispatch_mesh = gl_runner_dispatch_mesh,
     .clear = gl_runner_clear,
     .draw = gl_runner_draw,
     .copy = gl_runner_copy,

@@ -215,6 +215,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/matrix-indexing.shader_test \
 	tests/hlsl/matrix-semantics.shader_test \
 	tests/hlsl/max-min.shader_test \
+	tests/hlsl/mesh.shader_test \
 	tests/hlsl/minimum-precision.shader_test \
 	tests/hlsl/modf.shader_test \
 	tests/hlsl/mul.shader_test \

@@ -1513,6 +1513,11 @@ out:
     return ret;
 }
 
+static bool vulkan_runner_dispatch_mesh(struct shader_runner *r, unsigned int x, unsigned int y, unsigned int z)
+{
+    fatal_error("Mesh shaders are not supported.\n");
+}
+
 static void vulkan_runner_clear(struct shader_runner *r, struct resource *res,
         const struct vec4 *clear_value, uint32_t stencil)
 {
@@ -1865,6 +1870,7 @@ static const struct shader_runner_ops vulkan_runner_ops =
     .create_resource = vulkan_runner_create_resource,
     .destroy_resource = vulkan_runner_destroy_resource,
     .dispatch = vulkan_runner_dispatch,
+    .dispatch_mesh = vulkan_runner_dispatch_mesh,
     .clear = vulkan_runner_clear,
     .draw = vulkan_runner_draw,
     .copy = vulkan_runner_copy,

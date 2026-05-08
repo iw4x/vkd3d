@@ -114,6 +114,7 @@ static const char *const sm_strings_dot[] =
     [SHADER_MODEL_6_0] = "6.0",
     [SHADER_MODEL_6_1] = "6.1",
     [SHADER_MODEL_6_2] = "6.2",
+    [SHADER_MODEL_6_5] = "6.5",
     [SHADER_MODEL_6_6] = "6.6",
 };
 
@@ -128,6 +129,7 @@ static const char *const sm_strings_underscore[] =
     [SHADER_MODEL_6_0] = "6_0",
     [SHADER_MODEL_6_1] = "6_1",
     [SHADER_MODEL_6_2] = "6_2",
+    [SHADER_MODEL_6_5] = "6_5",
     [SHADER_MODEL_6_6] = "6_6",
 };
 
@@ -587,6 +589,7 @@ static const char *const shader_cap_strings[] =
     [SHADER_CAP_FOG]                 = "fog",
     [SHADER_CAP_GEOMETRY_SHADER]     = "geometry-shader",
     [SHADER_CAP_INT64]               = "int64",
+    [SHADER_CAP_MESH_SHADER]         = "mesh-shader",
     [SHADER_CAP_MIN_LOD_CLAMP]       = "min-lod-clamp",
     [SHADER_CAP_NATIVE_16_BIT]       = "native-16-bit",
     [SHADER_CAP_POINT_SIZE]          = "point-size",
@@ -1661,7 +1664,29 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         return;
     }
 
-    if (match_string(line, "dispatch", &line))
+    if (match_string(line, "dispatch-mesh", &line))
+    {
+        unsigned int x, y, z;
+
+        ret = sscanf(line, "%u %u %u", &x, &y, &z);
+        if (ret < 3)
+            fatal_error("Malformed dispatch-mesh arguments '%s'.\n", line);
+
+        set_default_target(runner);
+
+        runner->sample_count = 1;
+        for (unsigned int i = 0; i < runner->resource_count; ++i)
+        {
+            if (runner->resources[i]->desc.type == RESOURCE_TYPE_RENDER_TARGET
+                    || runner->resources[i]->desc.type == RESOURCE_TYPE_DEPTH_STENCIL)
+                runner->sample_count = max(runner->sample_count, runner->resources[i]->desc.sample_count);
+        }
+
+        runner->last_render_failed = !runner->ops->dispatch_mesh(runner, x, y, z);
+        todo_if(runner->is_todo) bug_if(runner->is_bug)
+        ok(!runner->last_render_failed, "Dispatch mesh failed.\n");
+    }
+    else if (match_string(line, "dispatch", &line))
     {
         unsigned int x, y, z;
 
@@ -2413,6 +2438,8 @@ const char *shader_type_string(enum shader_type type)
         [SHADER_TYPE_DS] = "ds",
         [SHADER_TYPE_GS] = "gs",
         [SHADER_TYPE_FX] = "fx",
+        [SHADER_TYPE_AS] = "as",
+        [SHADER_TYPE_MS] = "ms",
     };
     assert(type < ARRAY_SIZE(shader_types));
     return shader_types[type];
@@ -3225,7 +3252,8 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
             block_start_line_number = line_number;
             update_line_number_context(testname, line_number, runner->shader_model);
 
-            if (match_string(line, "[compute shader", &line))
+            if (match_string(line, "[compute-shader", &line)
+                    || match_string(line, "[compute shader", &line))
             {
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_CS;
@@ -3241,12 +3269,14 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 runner->skip_directives = false;
                 missing_caps = false;
             }
-            else if (match_string(line, "[pixel shader", &line))
+            else if (match_string(line, "[pixel-shader", &line)
+                    || match_string(line, "[pixel shader", &line))
             {
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_PS;
             }
-            else if (sscanf(line, "[sampler %u]\n", &index))
+            else if (sscanf(line, "[sampler-%u]\n", &index)
+                    || sscanf(line, "[sampler %u]\n", &index))
             {
                 state = STATE_SAMPLER;
 
@@ -3264,7 +3294,8 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 current_sampler->v_address = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
                 current_sampler->w_address = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
             }
-            else if (sscanf(line, "[rtv %u]\n", &index))
+            else if (sscanf(line, "[rtv-%u]\n", &index)
+                    || sscanf(line, "[rtv %u]\n", &index))
             {
                 state = STATE_RESOURCE;
 
@@ -3289,7 +3320,8 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 current_resource.desc.texel_size = 4;
                 current_resource.desc.level_count = 1;
             }
-            else if (sscanf(line, "[srv %u]\n", &index))
+            else if (sscanf(line, "[srv-%u]\n", &index)
+                    || sscanf(line, "[srv %u]\n", &index))
             {
                 state = STATE_RESOURCE;
 
@@ -3301,7 +3333,8 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 current_resource.desc.texel_size = 16;
                 current_resource.desc.level_count = 1;
             }
-            else if (sscanf(line, "[uav %u]\n", &index))
+            else if (sscanf(line, "[uav-%u]\n", &index)
+                    || sscanf(line, "[uav %u]\n", &index))
             {
                 state = STATE_RESOURCE;
 
@@ -3313,7 +3346,8 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 current_resource.desc.texel_size = 16;
                 current_resource.desc.level_count = 1;
             }
-            else if (sscanf(line, "[vb %u]\n", &index))
+            else if (sscanf(line, "[vb-%u]\n", &index)
+                    || sscanf(line, "[vb %u]\n", &index))
             {
                 state = STATE_RESOURCE;
 
@@ -3338,7 +3372,8 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
             {
                 state = STATE_PREPROC_INVALID;
             }
-            else if (match_string(line, "[vertex shader", &line))
+            else if (match_string(line, "[vertex-shader", &line)
+                    || match_string(line, "[vertex shader", &line))
             {
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_VS;
@@ -3348,22 +3383,36 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_FX;
             }
-            else if (match_string(line, "[hull shader", &line))
+            else if (match_string(line, "[hull-shader", &line)
+                    || match_string(line, "[hull shader", &line))
             {
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_HS;
             }
-            else if (match_string(line, "[domain shader", &line))
+            else if (match_string(line, "[domain-shader", &line)
+                    || match_string(line, "[domain shader", &line))
             {
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_DS;
             }
-            else if (match_string(line, "[geometry shader", &line))
+            else if (match_string(line, "[geometry-shader", &line)
+                    || match_string(line, "[geometry shader", &line))
             {
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_GS;
             }
-            else if (!strcmp(line, "[input layout]\n"))
+            else if (match_string(line, "[amplification-shader", &line))
+            {
+                state = STATE_SHADER;
+                shader_type = SHADER_TYPE_AS;
+            }
+            else if (match_string(line, "[mesh-shader", &line))
+            {
+                state = STATE_SHADER;
+                shader_type = SHADER_TYPE_MS;
+            }
+            else if (!strcmp(line, "[input-layout]\n")
+                    || !strcmp(line, "[input layout]\n"))
             {
                 state = STATE_INPUT_LAYOUT;
 

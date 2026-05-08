@@ -47,6 +47,7 @@ enum shader_model
     SHADER_MODEL_6_0,
     SHADER_MODEL_6_1,
     SHADER_MODEL_6_2,
+    SHADER_MODEL_6_5,
     SHADER_MODEL_6_6,
     SHADER_MODEL_MAX = SHADER_MODEL_6_6,
 };
@@ -60,6 +61,8 @@ enum shader_type
     SHADER_TYPE_DS,
     SHADER_TYPE_GS,
     SHADER_TYPE_FX,
+    SHADER_TYPE_AS,
+    SHADER_TYPE_MS,
     SHADER_TYPE_COUNT,
 };
 
@@ -170,6 +173,7 @@ enum shader_cap
     SHADER_CAP_FOG,
     SHADER_CAP_GEOMETRY_SHADER,
     SHADER_CAP_INT64,
+    SHADER_CAP_MESH_SHADER,
     SHADER_CAP_MIN_LOD_CLAMP,
     SHADER_CAP_NATIVE_16_BIT,
     SHADER_CAP_POINT_SIZE,
@@ -365,6 +369,7 @@ struct shader_runner_ops
             unsigned int instance_count, unsigned int first_vertex, unsigned int first_instance);
     bool (*copy)(struct shader_runner *runner, struct resource *src, struct resource *dst);
     bool (*dispatch)(struct shader_runner *runner, unsigned int x, unsigned int y, unsigned int z);
+    bool (*dispatch_mesh)(struct shader_runner *runner, unsigned int x, unsigned int y, unsigned int z);
     struct resource_readback *(*get_resource_readback)(struct shader_runner *runner,
             struct resource *resource, unsigned int sub_resource_idx);
     void (*release_readback)(struct shader_runner *runner, struct resource_readback *rb);

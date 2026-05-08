@@ -790,6 +790,11 @@ static bool d3d11_runner_dispatch(struct shader_runner *r, unsigned int x, unsig
     return true;
 }
 
+static bool d3d11_runner_dispatch_mesh(struct shader_runner *r, unsigned int x, unsigned int y, unsigned int z)
+{
+    fatal_error("Mesh shaders are not supported.\n");
+}
+
 static void d3d11_runner_clear(struct shader_runner *r, struct resource *res,
         const struct vec4 *clear_value, uint32_t stencil)
 {
@@ -1202,6 +1207,7 @@ static const struct shader_runner_ops d3d11_runner_ops =
     .create_resource = d3d11_runner_create_resource,
     .destroy_resource = d3d11_runner_destroy_resource,
     .dispatch = d3d11_runner_dispatch,
+    .dispatch_mesh = d3d11_runner_dispatch_mesh,
     .clear = d3d11_runner_clear,
     .draw = d3d11_runner_draw,
     .copy = d3d11_runner_copy,

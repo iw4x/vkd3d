@@ -438,6 +438,11 @@ static bool d3d9_runner_dispatch(struct shader_runner *r, unsigned int x, unsign
     fatal_error("Compute shaders are not supported.\n");
 }
 
+static bool d3d9_runner_dispatch_mesh(struct shader_runner *r, unsigned int x, unsigned int y, unsigned int z)
+{
+    fatal_error("Mesh shaders are not supported.\n");
+}
+
 static uint32_t d3d_color_from_vec4(const struct vec4 *v)
 {
     return vkd3d_make_u32(vkd3d_make_u16(v->z * 255.0f, v->y * 255.0f),
@@ -892,6 +897,7 @@ static const struct shader_runner_ops d3d9_runner_ops =
     .create_resource = d3d9_runner_create_resource,
     .destroy_resource = d3d9_runner_destroy_resource,
     .dispatch = d3d9_runner_dispatch,
+    .dispatch_mesh = d3d9_runner_dispatch_mesh,
     .clear = d3d9_runner_clear,
     .draw = d3d9_runner_draw,
     .copy = d3d9_runner_copy,
