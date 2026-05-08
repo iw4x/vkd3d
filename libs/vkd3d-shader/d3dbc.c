@@ -1542,6 +1542,22 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
     struct vsir_src_operand *predicate;
     unsigned int resource_idx, i;
 
+    if (d3dbc_ins->opcode != VKD3D_SM1_OP_DCL)
+    {
+        bool is_def = (d3dbc_ins->opcode == VKD3D_SM1_OP_DEF
+                || d3dbc_ins->opcode == VKD3D_SM1_OP_DEFB
+                || d3dbc_ins->opcode == VKD3D_SM1_OP_DEFI);
+
+        if (d3dbc_ins->dst_count)
+            d3dbc_scan_operand(parser, &d3dbc_ins->dst[0].o, d3dbc_ins->dst[0].write_mask, is_def, 1);
+
+        for (i = 0; i < d3dbc_ins->src_count; ++i)
+        {
+            d3dbc_scan_operand(parser, &d3dbc_ins->src[i].o, mask_from_swizzle(d3dbc_ins->src[i].swizzle),
+                    false, d3dbc_get_src_register_count(ins->opcode, i));
+        }
+    }
+
     switch (d3dbc_ins->opcode)
     {
         case VKD3D_SM1_OP_DCL:
@@ -1609,8 +1625,6 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
                 memcpy(ins->src[0].reg.u.immconst_u32, d3dbc_ins->immconst.i32, sizeof(d3dbc_ins->immconst.i32));
                 ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
             }
-
-            d3dbc_scan_operand(parser, &d3dbc_ins->dst[0].o, ins->dst[0].write_mask, true, 1);
             break;
 
         /* TEXKILL, uniquely, encodes its argument as a destination, when it
@@ -1623,7 +1637,6 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
 
             vsir_operand_from_d3dbc(parser, &ins->src[0].reg, &d3dbc_ins->dst[0].o, &d3dbc_ins->dst_rel_addr[0]);
             ins->src[0].swizzle = vsir_swizzle_from_writemask(d3dbc_ins->dst[0].write_mask);
-            d3dbc_scan_operand(parser, &d3dbc_ins->dst[0].o, mask_from_swizzle(ins->src[0].swizzle), false, 1);
             break;
 
         default:
@@ -1636,15 +1649,6 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
             for (i = 0; i < d3dbc_ins->src_count; ++i)
             {
                 vsir_src_operand_from_d3dbc(parser, &ins->src[i], &d3dbc_ins->src[i], &d3dbc_ins->src_rel_addr[i]);
-            }
-
-            if (ins->dst_count)
-                d3dbc_scan_operand(parser, &d3dbc_ins->dst[0].o, d3dbc_ins->dst[0].write_mask, false, 1);
-
-            for (i = 0; i < ins->src_count; ++i)
-            {
-                d3dbc_scan_operand(parser, &d3dbc_ins->src[i].o, mask_from_swizzle(d3dbc_ins->src[i].swizzle),
-                        false, d3dbc_get_src_register_count(ins->opcode, i));
             }
 
             ins->flags = d3dbc_ins->flags;
