@@ -16656,7 +16656,6 @@ static bool is_read_only(const struct vsir_program *program, enum vsir_register_
         case VSIR_REGISTER_IDXTEMP:
         case VSIR_REGISTER_LOOP:
         case VSIR_REGISTER_TEMP:
-        case VSIR_REGISTER_TEMPFLOAT16:
             return false;
 
         case VSIR_REGISTER_TEXTURE:
@@ -16940,7 +16939,6 @@ static bool is_write_only(enum vsir_register_type type)
         case VSIR_REGISTER_IDXTEMP:
         case VSIR_REGISTER_LOOP:
         case VSIR_REGISTER_TEMP:
-        case VSIR_REGISTER_TEMPFLOAT16:
         case VSIR_REGISTER_TEXTURE:
             return false;
 

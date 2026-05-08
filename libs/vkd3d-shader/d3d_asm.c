@@ -2267,7 +2267,6 @@ static void shader_print_io_declaration(struct vkd3d_string_buffer *buffer, enum
         X(COMBINED_SAMPLER)
         X(CONSTBOOL)
         X(LOOP)
-        X(TEMPFLOAT16)
         X(MISCTYPE)
         X(LABEL)
         X(PREDICATE)
