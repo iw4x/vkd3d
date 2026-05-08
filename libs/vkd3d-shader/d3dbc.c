@@ -227,9 +227,32 @@ enum vkd3d_sm1_opcode
     VKD3D_SM1_OP_END          = 0Xffff,
 };
 
+enum d3dbc_register_type
+{
+    D3DBC_REGISTER_INVALID = 0,
+    D3DBC_REGISTER_TEMP,
+    D3DBC_REGISTER_INPUT,
+    D3DBC_REGISTER_CONST,
+    D3DBC_REGISTER_ADDR,
+    D3DBC_REGISTER_TEXTURE,
+    D3DBC_REGISTER_RASTOUT,
+    D3DBC_REGISTER_ATTROUT,
+    D3DBC_REGISTER_TEXCRDOUT,
+    D3DBC_REGISTER_OUTPUT,
+    D3DBC_REGISTER_CONSTINT,
+    D3DBC_REGISTER_COLOROUT,
+    D3DBC_REGISTER_DEPTHOUT,
+    D3DBC_REGISTER_SAMPLER,
+    D3DBC_REGISTER_CONSTBOOL,
+    D3DBC_REGISTER_LOOP,
+    D3DBC_REGISTER_MISCTYPE,
+    D3DBC_REGISTER_LABEL,
+    D3DBC_REGISTER_PREDICATE,
+};
+
 struct d3dbc_operand
 {
-    enum vsir_register_type type;
+    enum d3dbc_register_type type;
     unsigned int index;
     bool has_rel_addr;
 };
@@ -560,12 +583,12 @@ static uint32_t swizzle_from_sm1(uint32_t swizzle)
 /* D3DBC doesn't have the concept of index count. All registers implicitly have
  * exactly one index. However for some register types the index doesn't make
  * sense, so we remove it. */
-static unsigned int idx_count_from_reg_type(enum vsir_register_type reg_type)
+static unsigned int idx_count_from_reg_type(enum d3dbc_register_type reg_type)
 {
     switch (reg_type)
     {
-        case VSIR_REGISTER_DEPTHOUT:
-        case VSIR_REGISTER_ADDR:
+        case D3DBC_REGISTER_DEPTHOUT:
+        case D3DBC_REGISTER_ADDR:
             return 0;
 
         default:
@@ -573,46 +596,60 @@ static unsigned int idx_count_from_reg_type(enum vsir_register_type reg_type)
     }
 }
 
-static enum vsir_register_type parse_register_type(
+static enum d3dbc_register_type parse_register_type(
         struct vkd3d_shader_sm1_parser *sm1, uint32_t param, unsigned int *index_offset)
 {
     enum vkd3d_sm1_register_type d3dbc_type = ((param & VKD3D_SM1_REGISTER_TYPE_MASK) >> VKD3D_SM1_REGISTER_TYPE_SHIFT)
             | ((param & VKD3D_SM1_REGISTER_TYPE_MASK2) >> VKD3D_SM1_REGISTER_TYPE_SHIFT2);
+
+    static const enum d3dbc_register_type types[] =
+    {
+        [VKD3D_SM1_REG_TEMP]        = D3DBC_REGISTER_TEMP,
+        [VKD3D_SM1_REG_INPUT]       = D3DBC_REGISTER_INPUT,
+        [VKD3D_SM1_REG_CONST]       = D3DBC_REGISTER_CONST,
+        [VKD3D_SM1_REG_RASTOUT]     = D3DBC_REGISTER_RASTOUT,
+        [VKD3D_SM1_REG_ATTROUT]     = D3DBC_REGISTER_ATTROUT,
+        [VKD3D_SM1_REG_CONSTINT]    = D3DBC_REGISTER_CONSTINT,
+        [VKD3D_SM1_REG_COLOROUT]    = D3DBC_REGISTER_COLOROUT,
+        [VKD3D_SM1_REG_DEPTHOUT]    = D3DBC_REGISTER_DEPTHOUT,
+        [VKD3D_SM1_REG_SAMPLER]     = D3DBC_REGISTER_SAMPLER,
+        [VKD3D_SM1_REG_CONSTBOOL]   = D3DBC_REGISTER_CONSTBOOL,
+        [VKD3D_SM1_REG_LOOP]        = D3DBC_REGISTER_LOOP,
+        [VKD3D_SM1_REG_MISCTYPE]    = D3DBC_REGISTER_MISCTYPE,
+        [VKD3D_SM1_REG_LABEL]       = D3DBC_REGISTER_LABEL,
+        [VKD3D_SM1_REG_PREDICATE]   = D3DBC_REGISTER_PREDICATE,
+    };
 
     *index_offset = 0;
 
     if (d3dbc_type == VKD3D_SM1_REG_CONST2)
     {
         *index_offset = 2048;
-        return VSIR_REGISTER_CONST;
+        return D3DBC_REGISTER_CONST;
     }
 
     if (d3dbc_type == VKD3D_SM1_REG_CONST3)
     {
         *index_offset = 4096;
-        return VSIR_REGISTER_CONST;
+        return D3DBC_REGISTER_CONST;
     }
 
     if (d3dbc_type == VKD3D_SM1_REG_CONST4)
     {
         *index_offset = 6144;
-        return VSIR_REGISTER_CONST;
+        return D3DBC_REGISTER_CONST;
     }
 
     if (d3dbc_type == VKD3D_SM1_REG_ADDR)
         return sm1->program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL
-                ? VSIR_REGISTER_TEXTURE : VSIR_REGISTER_ADDR;
+                ? D3DBC_REGISTER_TEXTURE : D3DBC_REGISTER_ADDR;
     if (d3dbc_type == VKD3D_SM1_REG_TEXCRDOUT)
         return vkd3d_shader_ver_ge(&sm1->program->shader_version, 3, 0)
-                ? VSIR_REGISTER_OUTPUT : VSIR_REGISTER_TEXCRDOUT;
+                ? D3DBC_REGISTER_OUTPUT : D3DBC_REGISTER_TEXCRDOUT;
 
-    for (unsigned int i = 0; i < ARRAY_SIZE(register_types); ++i)
-    {
-        if (register_types[i].d3dbc_type == d3dbc_type)
-            return register_types[i].vsir_type;
-    }
-
-    return VSIR_REGISTER_INVALID;
+    if ((uint32_t)d3dbc_type < ARRAY_SIZE(types))
+        return types[d3dbc_type];
+    return D3DBC_REGISTER_INVALID;
 }
 
 static void d3dbc_parse_operand(struct vkd3d_shader_sm1_parser *parser,
@@ -1404,8 +1441,31 @@ static void vsir_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, stru
 {
     unsigned int index_count;
 
+    static const enum vsir_register_type types[] =
+    {
+        [D3DBC_REGISTER_INVALID]      = VSIR_REGISTER_INVALID,
+        [D3DBC_REGISTER_TEMP]         = VSIR_REGISTER_TEMP,
+        [D3DBC_REGISTER_INPUT]        = VSIR_REGISTER_INPUT,
+        [D3DBC_REGISTER_CONST]        = VSIR_REGISTER_CONST,
+        [D3DBC_REGISTER_ADDR]         = VSIR_REGISTER_ADDR,
+        [D3DBC_REGISTER_TEXTURE]      = VSIR_REGISTER_TEXTURE,
+        [D3DBC_REGISTER_RASTOUT]      = VSIR_REGISTER_RASTOUT,
+        [D3DBC_REGISTER_ATTROUT]      = VSIR_REGISTER_ATTROUT,
+        [D3DBC_REGISTER_TEXCRDOUT]    = VSIR_REGISTER_TEXCRDOUT,
+        [D3DBC_REGISTER_OUTPUT]       = VSIR_REGISTER_OUTPUT,
+        [D3DBC_REGISTER_CONSTINT]     = VSIR_REGISTER_CONSTINT,
+        [D3DBC_REGISTER_COLOROUT]     = VSIR_REGISTER_COLOROUT,
+        [D3DBC_REGISTER_DEPTHOUT]     = VSIR_REGISTER_DEPTHOUT,
+        [D3DBC_REGISTER_SAMPLER]      = VSIR_REGISTER_COMBINED_SAMPLER,
+        [D3DBC_REGISTER_CONSTBOOL]    = VSIR_REGISTER_CONSTBOOL,
+        [D3DBC_REGISTER_LOOP]         = VSIR_REGISTER_LOOP,
+        [D3DBC_REGISTER_MISCTYPE]     = VSIR_REGISTER_MISCTYPE,
+        [D3DBC_REGISTER_LABEL]        = VSIR_REGISTER_LABEL,
+        [D3DBC_REGISTER_PREDICATE]    = VSIR_REGISTER_PREDICATE,
+    };
+
     index_count = idx_count_from_reg_type(d3dbc->type);
-    vsir_operand_init(vsir, d3dbc->type, VSIR_DATA_F32, index_count);
+    vsir_operand_init(vsir, types[d3dbc->type], VSIR_DATA_F32, index_count);
     if (index_count == 1)
     {
         vsir->idx[0].offset = d3dbc->index;
@@ -1423,16 +1483,16 @@ static void vsir_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, stru
         }
     }
 
-    if (d3dbc->type == VSIR_REGISTER_COMBINED_SAMPLER)
+    if (d3dbc->type == D3DBC_REGISTER_SAMPLER)
         vsir->dimension = VSIR_DIMENSION_NONE;
-    else if (d3dbc->type == VSIR_REGISTER_DEPTHOUT)
+    else if (d3dbc->type == D3DBC_REGISTER_DEPTHOUT)
         vsir->dimension = VSIR_DIMENSION_SCALAR;
     else
         vsir->dimension = VSIR_DIMENSION_VEC4;
 
-    if (d3dbc->type == VSIR_REGISTER_CONSTINT)
+    if (d3dbc->type == D3DBC_REGISTER_CONSTINT)
         vsir->data_type = VSIR_DATA_U32;
-    else if (d3dbc->type == VSIR_REGISTER_CONSTBOOL)
+    else if (d3dbc->type == D3DBC_REGISTER_CONSTBOOL)
         vsir->data_type = VSIR_DATA_BOOL;
 }
 
