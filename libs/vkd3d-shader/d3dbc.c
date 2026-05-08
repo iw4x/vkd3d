@@ -576,7 +576,7 @@ static void d3dbc_parse_operand(struct vkd3d_shader_sm1_parser *d3dbc,
         reg->idx[0].offset = index_offset + (param & VKD3D_SM1_REGISTER_NUMBER_MASK);
         reg->idx[0].rel_addr = rel_addr;
     }
-    if (reg->type == VKD3DSPR_SAMPLER)
+    if (reg->type == VKD3DSPR_COMBINED_SAMPLER)
         reg->dimension = VSIR_DIMENSION_NONE;
     else if (reg->type == VKD3DSPR_DEPTHOUT)
         reg->dimension = VSIR_DIMENSION_SCALAR;
@@ -593,7 +593,10 @@ static void d3dbc_parse_src_operand(struct vkd3d_shader_sm1_parser *d3dbc,
         uint32_t param, struct vsir_src_operand *rel_addr, struct vsir_src_operand *src)
 {
     d3dbc_parse_operand(d3dbc, &src->reg, param, rel_addr);
-    src->swizzle = swizzle_from_sm1((param & VKD3D_SM1_SWIZZLE_MASK) >> VKD3D_SM1_SWIZZLE_SHIFT);
+    if (src->reg.dimension == VSIR_DIMENSION_VEC4)
+        src->swizzle = swizzle_from_sm1((param & VKD3D_SM1_SWIZZLE_MASK) >> VKD3D_SM1_SWIZZLE_SHIFT);
+    else
+        src->swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
     src->modifiers = (param & VKD3D_SM1_SRC_MODIFIER_MASK) >> VKD3D_SM1_SRC_MODIFIER_SHIFT;
 }
 
