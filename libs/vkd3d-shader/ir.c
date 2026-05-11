@@ -3101,23 +3101,27 @@ static bool vsir_operand_replace_loop_register_with_temp(struct vsir_operand *re
         return true;
     }
 
-    if (reg->idx[0].rel_addr && reg->idx[0].rel_addr->reg.type == VSIR_REGISTER_LOOP)
+    for (unsigned int j = 0; j < reg->idx_count; ++j)
     {
-        if (!vsir_operand_clone_indirect_indices(reg, program))
-            return false;
-        if (reg->type == VSIR_REGISTER_INPUT)
+        if (reg->idx[j].rel_addr && reg->idx[j].rel_addr->reg.type == VSIR_REGISTER_LOOP)
         {
-            reg->type = VSIR_REGISTER_IDXTEMP;
-            reg->idx_count = 2;
-            reg->idx[1].offset = reg->idx[0].offset;
-            reg->idx[1].rel_addr = reg->idx[0].rel_addr;
-            vsir_src_operand_init_temp_u32(reg->idx[1].rel_addr, temp_id);
-            reg->idx[0].offset = idxtemp_idx;
-            reg->idx[0].rel_addr = NULL;
-        }
-        else
-        {
-            vsir_src_operand_init_temp_u32(reg->idx[0].rel_addr, temp_id);
+            if (!vsir_operand_clone_indirect_indices(reg, program))
+                return false;
+            if (reg->type == VSIR_REGISTER_INPUT)
+            {
+                VKD3D_ASSERT(j == 0);
+                reg->type = VSIR_REGISTER_IDXTEMP;
+                reg->idx_count = 2;
+                reg->idx[1].offset = reg->idx[0].offset;
+                reg->idx[1].rel_addr = reg->idx[0].rel_addr;
+                vsir_src_operand_init_temp_u32(reg->idx[1].rel_addr, temp_id);
+                reg->idx[0].offset = idxtemp_idx;
+                reg->idx[0].rel_addr = NULL;
+            }
+            else
+            {
+                vsir_src_operand_init_temp_u32(reg->idx[j].rel_addr, temp_id);
+            }
         }
     }
 
@@ -5615,134 +5619,6 @@ static enum vkd3d_result vsir_program_normalise_io_registers(struct vsir_program
     program->normalisation_level = VSIR_NORMALISED_SM6;
     program->normalisation_flags.normalised_io = true;
     return normaliser.result;
-}
-
-struct flat_constant_def
-{
-    enum vkd3d_shader_d3dbc_constant_register set;
-    uint32_t index;
-    uint32_t value[4];
-};
-
-struct flat_constants_normaliser
-{
-    struct flat_constant_def *defs;
-    size_t def_count, defs_capacity;
-};
-
-static bool get_flat_constant_register_type(const struct vsir_operand *reg,
-        enum vkd3d_shader_d3dbc_constant_register *set, uint32_t *index, struct vsir_src_operand **rel_addr)
-{
-    static const struct
-    {
-        enum vsir_register_type type;
-        enum vkd3d_shader_d3dbc_constant_register set;
-    }
-    regs[] =
-    {
-        {VSIR_REGISTER_CONST,     VKD3D_SHADER_D3DBC_FLOAT_CONSTANT_REGISTER},
-        {VSIR_REGISTER_CONSTINT,  VKD3D_SHADER_D3DBC_INT_CONSTANT_REGISTER},
-        {VSIR_REGISTER_CONSTBOOL, VKD3D_SHADER_D3DBC_BOOL_CONSTANT_REGISTER},
-    };
-
-    unsigned int i;
-
-    for (i = 0; i < ARRAY_SIZE(regs); ++i)
-    {
-        if (reg->type == regs[i].type)
-        {
-            if (rel_addr)
-                *rel_addr = reg->idx[0].rel_addr;
-            *set = regs[i].set;
-            *index = reg->idx[0].offset;
-            return true;
-        }
-    }
-
-    return false;
-}
-
-static void shader_register_normalise_flat_constants(struct vsir_src_operand *src,
-        const struct flat_constants_normaliser *normaliser)
-{
-    enum vkd3d_shader_d3dbc_constant_register set;
-    struct vsir_src_operand *rel_addr;
-    unsigned int c;
-    uint32_t index;
-    size_t i, j;
-
-    if (!get_flat_constant_register_type(&src->reg, &set, &index, &rel_addr))
-        return;
-
-    for (i = 0; i < normaliser->def_count; ++i)
-    {
-        if (normaliser->defs[i].set == set && normaliser->defs[i].index == index)
-        {
-            src->reg.type = VSIR_REGISTER_IMMCONST;
-            src->reg.idx_count = 0;
-            src->reg.dimension = VSIR_DIMENSION_VEC4;
-            for (j = 0; j < 4; ++j)
-            {
-                c = vsir_swizzle_get_component(src->swizzle, j);
-                src->reg.u.immconst_u32[j] = normaliser->defs[i].value[c];
-            }
-            src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
-            return;
-        }
-    }
-
-    src->reg.type = VSIR_REGISTER_CONSTBUFFER;
-    src->reg.idx[0].offset = set; /* register ID */
-    src->reg.idx[0].rel_addr = NULL;
-    src->reg.idx[1].offset = set; /* register index */
-    src->reg.idx[1].rel_addr = NULL;
-    src->reg.idx[2].offset = index; /* buffer index */
-    src->reg.idx[2].rel_addr = rel_addr;
-    src->reg.idx_count = 3;
-}
-
-static enum vkd3d_result vsir_program_normalise_flat_constants(struct vsir_program *program,
-        struct vsir_transformation_context *ctx)
-{
-    struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
-    struct flat_constants_normaliser normaliser = {0};
-    struct vsir_instruction *ins;
-    unsigned int i;
-
-    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
-    {
-        if (ins->opcode == VSIR_OP_DEF || ins->opcode == VSIR_OP_DEFI || ins->opcode == VSIR_OP_DEFB)
-        {
-            struct flat_constant_def *def;
-
-            if (!vkd3d_array_reserve((void **)&normaliser.defs, &normaliser.defs_capacity,
-                    normaliser.def_count + 1, sizeof(*normaliser.defs)))
-            {
-                vkd3d_free(normaliser.defs);
-                return VKD3D_ERROR_OUT_OF_MEMORY;
-            }
-
-            def = &normaliser.defs[normaliser.def_count++];
-
-            get_flat_constant_register_type(&ins->dst[0].reg, &def->set, &def->index, NULL);
-            for (i = 0; i < 4; ++i)
-            {
-                def->value[i] = ins->src[0].reg.u.immconst_u32[i];
-            }
-
-            vsir_instruction_make_nop(ins);
-        }
-        else
-        {
-            for (i = 0; i < ins->src_count; ++i)
-            {
-                shader_register_normalise_flat_constants(&ins->src[i], &normaliser);
-            }
-        }
-    }
-
-    vkd3d_free(normaliser.defs);
-    return VKD3D_OK;
 }
 
 static enum vkd3d_result vsir_program_remove_dead_code(struct vsir_program *program,
@@ -17271,7 +17147,6 @@ enum vkd3d_result vsir_program_transform(struct vsir_program *program, uint64_t 
 
         vsir_transform(&ctx, instruction_array_normalise_hull_shader_control_point_io);
         vsir_transform(&ctx, vsir_program_normalise_io_registers);
-        vsir_transform(&ctx, vsir_program_normalise_flat_constants);
 
         vsir_optimize(&ctx);
 
