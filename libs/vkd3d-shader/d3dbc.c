@@ -1293,7 +1293,7 @@ static void shader_sm1_read_comment(struct vkd3d_shader_sm1_parser *sm1)
     }
 }
 
-static void d3dbc_update_descriptors(struct vkd3d_shader_sm1_parser *d3dbc, const struct vsir_instruction *ins)
+static void d3dbc_update_descriptors(struct vkd3d_shader_sm1_parser *d3dbc, const struct d3dbc_instruction *ins)
 {
     enum vkd3d_shader_resource_type type = VKD3D_SHADER_RESOURCE_TEXTURE_2D;
     const struct vkd3d_shader_d3dbc_source_info *source_info;
@@ -1301,19 +1301,18 @@ static void d3dbc_update_descriptors(struct vkd3d_shader_sm1_parser *d3dbc, cons
 
     switch (ins->opcode)
     {
-        case VSIR_OP_TEX:
-        case VSIR_OP_TEXBEM:
-        case VSIR_OP_TEXBEML:
-        case VSIR_OP_TEXDP3TEX:
-        case VSIR_OP_TEXLD:
-        case VSIR_OP_TEXM3x2TEX:
-        case VSIR_OP_TEXM3x3SPEC:
-        case VSIR_OP_TEXM3x3TEX:
-        case VSIR_OP_TEXM3x3VSPEC:
-        case VSIR_OP_TEXREG2AR:
-        case VSIR_OP_TEXREG2GB:
-        case VSIR_OP_TEXREG2RGB:
-            sampler_idx = ins->dst[0].reg.idx[0].offset;
+        case VKD3D_SM1_OP_TEX:
+        case VKD3D_SM1_OP_TEXBEM:
+        case VKD3D_SM1_OP_TEXBEML:
+        case VKD3D_SM1_OP_TEXDP3TEX:
+        case VKD3D_SM1_OP_TEXM3x2TEX:
+        case VKD3D_SM1_OP_TEXM3x3SPEC:
+        case VKD3D_SM1_OP_TEXM3x3TEX:
+        case VKD3D_SM1_OP_TEXM3x3VSPEC:
+        case VKD3D_SM1_OP_TEXREG2AR:
+        case VKD3D_SM1_OP_TEXREG2GB:
+        case VKD3D_SM1_OP_TEXREG2RGB:
+            sampler_idx = ins->dst[0].o.index;
             if ((d3dbc->texture_descriptors & (1u << sampler_idx)))
                 break;
 
@@ -1540,6 +1539,9 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
     struct vkd3d_shader_semantic *semantic;
     unsigned int resource_idx, i;
 
+    if (program->shader_version.major == 1)
+        d3dbc_update_descriptors(parser, d3dbc_ins);
+
     if (d3dbc_ins->opcode != VKD3D_SM1_OP_DCL)
     {
         bool is_def = (d3dbc_ins->opcode == VKD3D_SM1_OP_DEF
@@ -1651,10 +1653,6 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
 
             ins->flags = d3dbc_ins->flags;
     }
-
-    if (program->shader_version.major == 1)
-        d3dbc_update_descriptors(parser, ins);
-
     return VKD3D_OK;
 }
 
