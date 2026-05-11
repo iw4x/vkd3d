@@ -1329,9 +1329,9 @@ static void d3dbc_update_descriptors(struct vkd3d_shader_sm1_parser *d3dbc, cons
     }
 }
 
-static void shader_sm1_validate_instruction(struct vkd3d_shader_sm1_parser *sm1, struct vsir_instruction *ins)
+static void shader_sm1_validate_instruction(struct vkd3d_shader_sm1_parser *sm1, struct d3dbc_instruction *ins)
 {
-    if ((ins->opcode == VSIR_OP_BREAKP || ins->opcode == VSIR_OP_IF) && ins->flags)
+    if ((ins->opcode == VKD3D_SM1_OP_BREAKP || ins->opcode == VKD3D_SM1_OP_IF) && ins->flags)
     {
         vkd3d_shader_parser_warning(&sm1->p, VKD3D_SHADER_WARNING_D3DBC_IGNORED_INSTRUCTION_FLAGS,
                 "Ignoring unexpected instruction flags %#x.", ins->flags);
@@ -1655,8 +1655,6 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
     if (program->shader_version.major == 1)
         d3dbc_update_descriptors(parser, ins);
 
-    shader_sm1_validate_instruction(parser, ins);
-
     return VKD3D_OK;
 }
 
@@ -1797,6 +1795,8 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
             vsir_program_cleanup(program);
             return VKD3D_ERROR_INVALID_SHADER;
         }
+
+        shader_sm1_validate_instruction(&sm1, &d3dbc_ins);
 
         if (!(ins = vsir_program_append(program)))
         {
