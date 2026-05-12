@@ -227,6 +227,8 @@ static const struct format_info *get_format_info(enum DXGI_FORMAT format, bool i
         {DXGI_FORMAT_R32G32_FLOAT,       2, false, false, GL_RG32F,              GL_RG,              GL_FLOAT},
         {DXGI_FORMAT_R32G32_UINT,        2, true,  false, GL_RG32UI,             GL_RG_INTEGER,      GL_UNSIGNED_INT},
         {DXGI_FORMAT_R32G32_SINT,        2, true,  false, GL_RG32I,              GL_RG_INTEGER,      GL_INT},
+        {DXGI_FORMAT_R8G8B8A8_UNORM,     4, true,  false, GL_RGBA8,              GL_RGBA,            GL_UNSIGNED_BYTE},
+        {DXGI_FORMAT_R8G8B8A8_UINT,      4, true,  false, GL_RGBA8UI,            GL_RGBA_INTEGER,    GL_UNSIGNED_BYTE},
         {DXGI_FORMAT_R32_FLOAT,          1, false, false, GL_R32F,               GL_RED,             GL_FLOAT},
         {DXGI_FORMAT_R32_FLOAT,          1, false, true,  GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT},
         {DXGI_FORMAT_D32_FLOAT,          1, false, true,  GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT},
@@ -300,6 +302,8 @@ static bool gl_runner_init(struct gl_runner *runner, enum shading_language langu
         DXGI_FORMAT_R32G32B32A32_FLOAT,
         DXGI_FORMAT_R32G32B32A32_UINT,
         DXGI_FORMAT_R32G32B32A32_SINT,
+        DXGI_FORMAT_R8G8B8A8_UNORM,
+        DXGI_FORMAT_R8G8B8A8_UINT,
     };
 
     if (language == GLSL && !check_glsl_support())

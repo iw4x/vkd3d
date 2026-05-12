@@ -97,6 +97,8 @@ static MTLPixelFormat get_metal_pixel_format(DXGI_FORMAT format)
             return MTLPixelFormatDepth32Float;
         case DXGI_FORMAT_R8G8B8A8_UNORM:
             return MTLPixelFormatRGBA8Unorm;
+        case DXGI_FORMAT_R8G8B8A8_UINT:
+            return MTLPixelFormatRGBA8Uint;
         case DXGI_FORMAT_R8_UINT:
             return MTLPixelFormatR8Uint;
         case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:

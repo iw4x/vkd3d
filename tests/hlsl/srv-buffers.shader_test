@@ -67,6 +67,144 @@ float4 main() : sv_target
 draw quad
 probe (0, 0) f32(8.0, 9.0, 10.0, 11.0)
 
+[pixel-shader]
+Buffer<float4> buffer;
+
+float4 main() : sv_target
+{
+    return buffer[1];
+}
+
+[test]
+draw quad
+probe (0, 0) f32(4.0, 5.0, 6.0, 7.0)
+
+[pixel-shader]
+Buffer<float4> buffer;
+
+float4 main() : sv_target
+{
+    return buffer[2];
+}
+
+[test]
+draw quad
+probe (0, 0) f32(8.0, 9.0, 10.0, 11.0)
+
+[srv-0]
+size (buffer, 4)
+format r8g8b8a8-unorm
+
+0x01020304
+0x05060708
+0x11121314
+0x15161718
+
+[pixel-shader]
+Buffer<snorm float4> buffer;
+
+float4 main() : sv_target
+{
+    return buffer[1];
+}
+
+[test]
+draw quad
+probe (0, 0) f32(3.13725509e-02, 2.74509806e-02, 2.35294122e-02, 1.96078438e-02) 1
+
+[pixel-shader]
+Buffer<unorm float4> buffer;
+
+float4 main() : sv_target
+{
+    return buffer[2];
+}
+
+[test]
+draw quad
+probe (0, 0) f32(7.84313753e-02, 7.45098069e-02, 7.05882385e-02, 6.66666701e-02)
+
+[pixel-shader]
+Buffer<float4> buffer;
+
+float4 main() : sv_target
+{
+    return buffer[1];
+}
+
+[test]
+draw quad
+probe (0, 0) f32(3.13725509e-02, 2.74509806e-02, 2.35294122e-02, 1.96078438e-02) 1
+
+[pixel-shader]
+Buffer<float4> buffer;
+
+float4 main() : sv_target
+{
+    return buffer[2];
+}
+
+[test]
+draw quad
+probe (0, 0) f32(7.84313753e-02, 7.45098069e-02, 7.05882385e-02, 6.66666701e-02)
+
+[srv-0]
+size (buffer, 4)
+format r8g8b8a8-uint
+
+0x01020304
+0x05060708
+0x11121314
+0x15161718
+
+[pixel-shader]
+Buffer<snorm float4> buffer;
+
+float4 main() : sv_target
+{
+    return buffer[1];
+}
+
+[test]
+draw quad
+probe (0, 0) u32(8, 7, 6, 5)
+
+[pixel shader]
+Buffer<unorm float4> buffer;
+
+float4 main() : sv_target
+{
+    return buffer[2];
+}
+
+[test]
+draw quad
+probe (0, 0) u32(0x14, 0x13, 0x12, 0x11)
+
+[pixel shader]
+Buffer<float4> buffer;
+
+float4 main() : sv_target
+{
+    return buffer[1];
+}
+
+[test]
+draw quad
+probe (0, 0) u32(8, 7, 6, 5)
+
+[pixel shader]
+Buffer<float4> buffer;
+
+float4 main() : sv_target
+{
+    return buffer[2];
+}
+
+[test]
+draw quad
+probe (0, 0) u32(0x14, 0x13, 0x12, 0x11)
+
 [srv 0]
 size (2d, 1, 1)
 -1.0 -1.0 -1.0 -1.0

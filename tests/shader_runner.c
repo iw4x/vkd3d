@@ -536,6 +536,7 @@ format_info[] =
     {"r32-uint",                 4, DXGI_FORMAT_R32_UINT},
     {"r32-typeless",             4, DXGI_FORMAT_R32_TYPELESS},
     {"r8g8b8a8-unorm",           4, DXGI_FORMAT_R8G8B8A8_UNORM},
+    {"r8g8b8a8-uint",            4, DXGI_FORMAT_R8G8B8A8_UINT},
     {"r8-uint",                  1, DXGI_FORMAT_R8_UINT},
     {"d32-float-s8x24-uint",     8, DXGI_FORMAT_D32_FLOAT_S8X24_UINT},
     {"x32-typeless-g8x24-uint",  8, DXGI_FORMAT_X32_TYPELESS_G8X24_UINT},

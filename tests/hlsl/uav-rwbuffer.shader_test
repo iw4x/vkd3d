@@ -344,3 +344,247 @@ uint4 main() : sv_target
 [test]
 draw quad
 probe (0, 0) u32(0, 1, 10, 100)
+
+[require]
+shader model >= 5.0
+format r32g32b32a32-float uav-load
+format r8g8b8a8-unorm uav-load
+format r8g8b8a8-uint uav-load
+
+[rtv-0]
+format r32g32b32a32-float
+size (2d, 640, 480)
+
+[uav-1]
+size (buffer, 4)
+format r32g32b32a32-float
+
+ 0.0  1.0  2.0  3.0
+ 4.0  5.0  6.0  7.0
+ 8.0  9.0 10.0 11.0
+12.0 13.0 14.0 15.0
+
+[pixel-shader]
+RWBuffer<float4> buffer : register(u1);
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    if (pos.x == 0.5 && pos.y == 0.5)
+        buffer[0] = buffer[0] * 2 + 0.25;
+    return buffer[1];
+}
+
+[test]
+todo(msl) draw quad
+probe (0, 0) f32(4.0, 5.0, 6.0, 7.0)
+probe uav-1 (0) f32(0.25, 2.25, 4.25, 6.25)
+
+[pixel-shader]
+RWBuffer<float4> buffer : register(u1);
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    if (pos.x == 0.5 && pos.y == 0.5)
+        buffer[3] = buffer[3] * 2 + 0.25;
+    return buffer[2];
+}
+
+[test]
+todo(msl) draw quad
+probe (0, 0) f32(8.0, 9.0, 10.0, 11.0)
+probe uav-1 (3) f32(24.25, 26.25, 28.25, 30.25)
+
+[uav-1]
+size (buffer, 4)
+format r32g32b32a32-float
+
+ 0.0  1.0  2.0  3.0
+ 4.0  5.0  6.0  7.0
+ 8.0  9.0 10.0 11.0
+12.0 13.0 14.0 15.0
+
+[pixel-shader]
+RWBuffer<snorm float4> buffer : register(u1);
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    if (pos.x == 0.5 && pos.y == 0.5)
+        buffer[0] = buffer[0] * 2 + 0.25;
+    return buffer[1];
+}
+
+[test]
+todo(msl) draw quad
+probe (0, 0) f32(4.0, 5.0, 6.0, 7.0)
+probe uav-1 (0) f32(0.25, 2.25, 4.25, 6.25)
+
+[pixel-shader]
+RWBuffer<unorm float4> buffer : register(u1);
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    if (pos.x == 0.5 && pos.y == 0.5)
+        buffer[3] = buffer[3] * 2 + 0.25;
+    return buffer[2];
+}
+
+[test]
+todo(msl) draw quad
+probe (0, 0) f32(8.0, 9.0, 10.0, 11.0)
+probe uav-1 (3) f32(24.25, 26.25, 28.25, 30.25)
+
+[uav-1]
+size (buffer, 4)
+format r8g8b8a8-unorm
+
+0x01020304
+0x05060708
+0x11121314
+0x15161718
+
+[pixel-shader]
+RWBuffer<snorm float4> buffer : register(u1);
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    if (pos.x == 0.5 && pos.y == 0.5)
+        buffer[0] = buffer[0] * 2 + 0.25;
+    return buffer[1];
+}
+
+[test]
+todo(msl) draw quad
+probe (0, 0) f32(3.13725509e-02, 2.74509806e-02, 2.35294122e-02, 1.96078438e-02) 1
+probe uav-1 (0) u32(0x42444648)
+
+[pixel-shader]
+RWBuffer<unorm float4> buffer : register(u1);
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    if (pos.x == 0.5 && pos.y == 0.5)
+        buffer[3] = buffer[3] * 2 + 0.25;
+    return buffer[2];
+}
+
+[test]
+todo(msl) draw quad
+probe (0, 0) f32(7.84313753e-02, 7.45098069e-02, 7.05882385e-02, 6.66666701e-02)
+probe uav-1 (3) u32(0x6a6c6e70)
+
+[uav-1]
+size (buffer, 4)
+format r8g8b8a8-unorm
+
+0x01020304
+0x05060708
+0x11121314
+0x15161718
+
+[pixel-shader]
+RWBuffer<float4> buffer : register(u1);
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    if (pos.x == 0.5 && pos.y == 0.5)
+        buffer[0] = buffer[0] * 2 + 0.25;
+    return buffer[1];
+}
+
+[test]
+todo(msl) draw quad
+probe (0, 0) f32(3.13725509e-02, 2.74509806e-02, 2.35294122e-02, 1.96078438e-02) 1
+probe uav-1 (0) u32(0x42444648)
+
+[pixel-shader]
+RWBuffer<float4> buffer : register(u1);
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    if (pos.x == 0.5 && pos.y == 0.5)
+        buffer[3] = buffer[3] * 2 + 0.25;
+    return buffer[2];
+}
+
+[test]
+todo(msl) draw quad
+probe (0, 0) f32(7.84313753e-02, 7.45098069e-02, 7.05882385e-02, 6.66666701e-02)
+probe uav-1 (3) u32(0x6a6c6e70)
+
+[uav-1]
+size (buffer, 4)
+format r8g8b8a8-uint
+
+0x01020304
+0x05060708
+0x11121314
+0x15161718
+
+[pixel-shader]
+RWBuffer<snorm float4> buffer : register(u1);
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    if (pos.x == 0.5 && pos.y == 0.5)
+        buffer[0] = asfloat(asuint(buffer[0]) + 0x20);
+    return buffer[1];
+}
+
+[test]
+todo(msl) draw quad
+probe (0, 0) u32(8, 7, 6, 5)
+probe uav-1 (0) u32(0x21222324)
+
+[pixel-shader]
+RWBuffer<unorm float4> buffer : register(u1);
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    if (pos.x == 0.5 && pos.y == 0.5)
+        buffer[3] = asfloat(asuint(buffer[3]) + 0x20);
+    return buffer[2];
+}
+
+[test]
+todo(msl) draw quad
+probe (0, 0) u32(0x14, 0x13, 0x12, 0x11)
+probe uav-1 (3) u32(0x35363738)
+
+[uav-1]
+size (buffer, 4)
+format r8g8b8a8-uint
+
+0x01020304
+0x05060708
+0x11121314
+0x15161718
+
+[pixel-shader]
+RWBuffer<float4> buffer : register(u1);
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    if (pos.x == 0.5 && pos.y == 0.5)
+        buffer[0] = asfloat(asuint(buffer[0]) + 0x20);
+    return buffer[1];
+}
+
+[test]
+todo(msl) draw quad
+probe (0, 0) u32(8, 7, 6, 5)
+probe uav-1 (0) u32(0x21222324)
+
+[pixel-shader]
+RWBuffer<float4> buffer : register(u1);
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    if (pos.x == 0.5 && pos.y == 0.5)
+        buffer[3] = asfloat(asuint(buffer[3]) + 0x20);
+    return buffer[2];
+}
+
+[test]
+todo(msl) draw quad
+probe (0, 0) u32(0x14, 0x13, 0x12, 0x11)
+probe uav-1 (3) u32(0x35363738)
