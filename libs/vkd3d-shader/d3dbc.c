@@ -1203,7 +1203,8 @@ static void shader_sm1_read_immconst(struct vkd3d_shader_sm1_parser *sm1, const 
     vsir_src_operand_init(src, VKD3DSPR_IMMCONST, data_type, 0);
     src->reg.dimension = dimension;
     memcpy(src->reg.u.immconst_u32, *ptr, count * sizeof(uint32_t));
-    src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
+    if (dimension == VSIR_DIMENSION_VEC4)
+        src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
 
     *ptr += count;
 }
