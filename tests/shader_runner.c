@@ -1231,6 +1231,13 @@ static bool parse_resource_reference(const char **const line, enum resource_type
         return true;
     }
 
+    if (match_string(*line, "cbv-bool", line))
+    {
+        *type = RESOURCE_TYPE_UNIFORM_BUFFER;
+        *slot = VKD3D_SHADER_D3DBC_BOOL_CONSTANT_REGISTER;
+        return true;
+    }
+
     if (sscanf(*line, " cbv-%u%n", slot, &len) == 1)
     {
         *type = RESOURCE_TYPE_UNIFORM_BUFFER;

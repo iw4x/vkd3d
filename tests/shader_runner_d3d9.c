@@ -523,6 +523,15 @@ static bool d3d9_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pri
         ok(hr == D3D_OK, "Failed to set integer constants, hr %#lx.\n", hr);
     }
 
+    u = &runner->r.uniform_buffers[VKD3D_SHADER_D3DBC_BOOL_CONSTANT_REGISTER];
+    if (u->count)
+    {
+        hr = IDirect3DDevice9_SetVertexShaderConstantB(device, 0, (const BOOL *)u->elements, u->count);
+        ok(hr == D3D_OK, "Failed to set bool constants, hr %#lx.\n", hr);
+        hr = IDirect3DDevice9_SetPixelShaderConstantB(device, 0, (const BOOL *)u->elements, u->count);
+        ok(hr == D3D_OK, "Failed to set bool constants, hr %#lx.\n", hr);
+    }
+
     decl_elements = calloc(runner->r.input.element_count + 1, sizeof(*decl_elements));
     for (i = 0; i < runner->r.input.element_count; ++i)
     {
