@@ -529,7 +529,6 @@ enum vsir_opcode
     VSIR_OP_LOG,
     VSIR_OP_LOGP,
     VSIR_OP_LOOP,
-    VSIR_OP_LRP,
     VSIR_OP_LTO,
     VSIR_OP_LTU,
     VSIR_OP_M3x2,

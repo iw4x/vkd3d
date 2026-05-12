@@ -394,7 +394,6 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_LOG                             ] = "log",
         [VSIR_OP_LOGP                            ] = "logp",
         [VSIR_OP_LOOP                            ] = "loop",
-        [VSIR_OP_LRP                             ] = "lrp",
         [VSIR_OP_LTO                             ] = "lt",
         [VSIR_OP_LTU                             ] = "lt_unord",
         [VSIR_OP_M3x2                            ] = "m3x2",
@@ -1767,57 +1766,6 @@ static enum vkd3d_result vsir_program_lower_ifc(struct vsir_program *program,
     vsir_instruction_make_nop(ifc);
 
     return VKD3D_OK;
-}
-
-static enum vkd3d_result vsir_program_lower_lrp(struct vsir_program *program, struct vsir_program_iterator *lrp)
-{
-    struct vsir_instruction *ins = vsir_program_iterator_current(lrp);
-    const struct vkd3d_shader_location location = ins->location;
-    const struct vsir_src_operand *src = ins->src;
-    const struct vsir_dst_operand *dst = ins->dst;
-    struct vsir_program_iterator it;
-    unsigned int neg_id, mad_id;
-
-    /* lrp DST, SRC0, SRC1, SRC2
-     *      ->
-     * neg srNEG, SRC0
-     * mad srMAD, srNEG, SRC2, SRC2
-     * mad DST, SRC0, SRC1, srMAD */
-
-    if (!(ins = vsir_program_iterator_insert_before(lrp, &it, 2)))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_NEG, 1, 1))
-        goto fail;
-    neg_id = program->ssa_count++;
-    vsir_dst_operand_init_ssa(&ins->dst[0], neg_id, src[0].reg.data_type, src[0].reg.dimension);
-    ins->src[0] = src[0];
-
-    ins = vsir_program_iterator_next(&it);
-    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MAD, 1, 3))
-        goto fail;
-    mad_id = program->ssa_count++;
-    vsir_dst_operand_init_ssa(&ins->dst[0], mad_id, src[2].reg.data_type, src[2].reg.dimension);
-    vsir_src_operand_init_ssa(&ins->src[0], neg_id, src[0].reg.data_type, src[0].reg.dimension);
-    ins->src[1] = src[2];
-    ins->src[2] = src[2];
-
-    ins = vsir_program_iterator_next(&it);
-    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MAD, 1, 3))
-        goto fail;
-    ins->dst[0] = dst[0];
-    ins->src[0] = src[0];
-    ins->src[1] = src[1];
-    vsir_src_operand_init_ssa(&ins->src[2], mad_id, src[2].reg.data_type, src[2].reg.dimension);
-    /* Copy rel_addrs in second use of SRC0, to avoid multiple owners. */
-    if (!vsir_operand_clone_indirect_indices(&ins->src[0].reg, program))
-        goto fail;
-
-    return VKD3D_OK;
-
-fail:
-    vsir_program_iterator_nop_range(&it, lrp, &location);
-
-    return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
 static enum vkd3d_result vsir_program_lower_mnxn(struct vsir_program *program, struct vsir_program_iterator *mnxn)
@@ -3618,10 +3566,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_IFC:
                 ret = vsir_program_lower_ifc(program, &it, &tmp_idx, message_context);
-                break;
-
-            case VSIR_OP_LRP:
-                ret = vsir_program_lower_lrp(program, &it);
                 break;
 
             case VSIR_OP_M3x2:
@@ -11416,7 +11360,6 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_ITOI:
         case VSIR_OP_LOG:
         case VSIR_OP_LOGP:
-        case VSIR_OP_LRP:
         case VSIR_OP_LTO:
         case VSIR_OP_LTU:
         case VSIR_OP_MAD:
@@ -16070,7 +16013,6 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_LOD:
         case VSIR_OP_LOG:
         case VSIR_OP_LOGP:
-        case VSIR_OP_LRP:
         case VSIR_OP_LTO:
         case VSIR_OP_LTU:
         case VSIR_OP_M3x2:

@@ -368,7 +368,7 @@ static const struct vkd3d_sm1_opcode_info vs_opcode_table[] =
     {VKD3D_SM1_OP_LOGP,         1, 1, "logp",           VSIR_OP_LOGP},
     {VKD3D_SM1_OP_LIT,          1, 1, "lit",            VSIR_OP_LIT},
     {VKD3D_SM1_OP_DST,          1, 2, "dst",            VSIR_OP_DST},
-    {VKD3D_SM1_OP_LRP,          1, 3, "lrp",            VSIR_OP_LRP,          {2, 0}},
+    {VKD3D_SM1_OP_LRP,          1, 3, "lrp",            VSIR_OP_NOP,          {2, 0}},
     {VKD3D_SM1_OP_FRC,          1, 1, "frc",            VSIR_OP_FRC},
     {VKD3D_SM1_OP_POW,          1, 2, "pow",            VSIR_OP_POW,          {2, 0}},
     {VKD3D_SM1_OP_CRS,          1, 2, "crs",            VSIR_OP_CRS,          {2, 0}},
@@ -429,7 +429,7 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     {VKD3D_SM1_OP_ABS,          1, 1, "abs",            VSIR_OP_ABS,          {2, 0}},
     {VKD3D_SM1_OP_EXP,          1, 1, "exp",            VSIR_OP_EXP,          {2, 0}},
     {VKD3D_SM1_OP_LOG,          1, 1, "log",            VSIR_OP_LOG,          {2, 0}},
-    {VKD3D_SM1_OP_LRP,          1, 3, "lrp",            VSIR_OP_LRP},
+    {VKD3D_SM1_OP_LRP,          1, 3, "lrp",            VSIR_OP_NOP},
     {VKD3D_SM1_OP_FRC,          1, 1, "frc",            VSIR_OP_FRC,          {2, 0}},
     {VKD3D_SM1_OP_CND,          1, 3, "cnd",            VSIR_OP_CND,          {1, 0}, {1, 4}},
     {VKD3D_SM1_OP_CMP,          1, 3, "cmp",            VSIR_OP_CMP,          {1, 2}},
@@ -1551,6 +1551,42 @@ static struct vsir_instruction *d3dbc_append_instruction(struct vkd3d_shader_sm1
     return ins;
 }
 
+static enum vkd3d_result d3dbc_read_lrp(struct vkd3d_shader_sm1_parser *parser,
+        const struct d3dbc_instruction *d3dbc_ins)
+{
+    struct vsir_instruction *ins;
+    unsigned int neg_id, mad_id;
+
+    /* lrp DST, SRC0, SRC1, SRC2
+     *  ->
+     * neg srNEG, SRC0
+     * mad srMAD, srNEG, SRC2, SRC2
+     * mad DST, SRC0, SRC1, srMAD */
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_NEG, 1, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    neg_id = parser->program->ssa_count++;
+    vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], neg_id);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[0], &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0]);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MAD, 1, 3)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    mad_id = parser->program->ssa_count++;
+    vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], mad_id);
+    vsir_src_operand_init_ssa_f32v4(&ins->src[0], neg_id);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[1], &d3dbc_ins->src[2], &d3dbc_ins->src_rel_addr[2]);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[2], &d3dbc_ins->src[2], &d3dbc_ins->src_rel_addr[2]);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MAD, 1, 3)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[0], &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0]);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[1], &d3dbc_ins->src[1], &d3dbc_ins->src_rel_addr[1]);
+    vsir_src_operand_init_ssa_f32v4(&ins->src[2], mad_id);
+
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_parser *parser,
         const struct d3dbc_instruction *d3dbc_ins, const struct vkd3d_sm1_opcode_info *opcode_info)
 {
@@ -1646,6 +1682,9 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
                 ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
             }
             break;
+
+        case VKD3D_SM1_OP_LRP:
+            return d3dbc_read_lrp(parser, d3dbc_ins);
 
         /* TEXKILL, uniquely, encodes its argument as a destination, when it
          * is semantically a source. Since we have multiple passes which
