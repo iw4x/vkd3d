@@ -13,7 +13,7 @@ set -Eeuxo pipefail
 rm -fr build
 mkdir build
 cd build
-../configure CROSSCC64="x86_64-w64-mingw32-gcc -Wno-array-bounds -Werror" CROSSCC32="i686-w64-mingw32-gcc -Wno-array-bounds -Werror" && \
+../configure CROSSCC64="x86_64-w64-mingw32-gcc -Wno-array-bounds -Werror -DVKD3D_AGILITY_SDK_VERSION=619" CROSSCC32="i686-w64-mingw32-gcc -Wno-array-bounds -Werror -DVKD3D_AGILITY_SDK_VERSION=619" && \
     make -j$(nproc) crosstest || \
         touch ../pipeline_failed
 

@@ -160,6 +160,18 @@ static bool run_tests_for_directory(const char *commit_dir)
             fprintf(stderr, "Cannot copy dxcompiler.dll, last error %ld.\n", GetLastError());
             ret = false;
         }
+        sprintf(dest_filename, "artifacts\\%s\\tests\\d3d12core.dll", commit_dir);
+        if (!CopyFileA(".\\agility\\build\\native\\bin\\x64\\d3d12core.dll", dest_filename, FALSE))
+        {
+            fprintf(stderr, "Cannot copy d3d12core.dll, last error %ld.\n", GetLastError());
+            ret = false;
+        }
+        sprintf(dest_filename, "artifacts\\%s\\tests\\d3d12sdklayers.dll", commit_dir);
+        if (!CopyFileA(".\\agility\\build\\native\\bin\\x64\\d3d12sdklayers.dll", dest_filename, FALSE))
+        {
+            fprintf(stderr, "Cannot copy d3d12sdklayers.dll, last error %ld.\n", GetLastError());
+            ret = false;
+        }
     }
     else
     {
@@ -173,6 +185,18 @@ static bool run_tests_for_directory(const char *commit_dir)
         if (!CopyFileA(".\\dxc\\bin\\x86\\dxcompiler.dll", dest_filename, FALSE))
         {
             fprintf(stderr, "Cannot copy dxcompiler.dll, last error %ld.\n", GetLastError());
+            ret = false;
+        }
+        sprintf(dest_filename, "artifacts\\%s\\tests\\d3d12core.dll", commit_dir);
+        if (!CopyFileA(".\\agility\\build\\native\\bin\\win32\\d3d12core.dll", dest_filename, FALSE))
+        {
+            fprintf(stderr, "Cannot copy d3d12core.dll, last error %ld.\n", GetLastError());
+            ret = false;
+        }
+        sprintf(dest_filename, "artifacts\\%s\\tests\\d3d12sdklayers.dll", commit_dir);
+        if (!CopyFileA(".\\agility\\build\\native\\bin\\win32\\d3d12sdklayers.dll", dest_filename, FALSE))
+        {
+            fprintf(stderr, "Cannot copy d3d12sdklayers.dll, last error %ld.\n", GetLastError());
             ret = false;
         }
     }
