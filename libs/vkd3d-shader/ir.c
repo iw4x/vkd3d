@@ -396,11 +396,6 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_LOOP                            ] = "loop",
         [VSIR_OP_LTO                             ] = "lt",
         [VSIR_OP_LTU                             ] = "lt_unord",
-        [VSIR_OP_M3x2                            ] = "m3x2",
-        [VSIR_OP_M3x3                            ] = "m3x3",
-        [VSIR_OP_M3x4                            ] = "m3x4",
-        [VSIR_OP_M4x3                            ] = "m4x3",
-        [VSIR_OP_M4x4                            ] = "m4x4",
         [VSIR_OP_MAD                             ] = "mad",
         [VSIR_OP_MAX                             ] = "max",
         [VSIR_OP_MIN                             ] = "min",
@@ -1766,84 +1761,6 @@ static enum vkd3d_result vsir_program_lower_ifc(struct vsir_program *program,
     vsir_instruction_make_nop(ifc);
 
     return VKD3D_OK;
-}
-
-static enum vkd3d_result vsir_program_lower_mnxn(struct vsir_program *program, struct vsir_program_iterator *mnxn)
-{
-    struct vsir_instruction *ins = vsir_program_iterator_current(mnxn);
-    const struct vkd3d_shader_location location = ins->location;
-    const struct vsir_src_operand *src = ins->src;
-    const struct vsir_dst_operand *dst = ins->dst;
-    struct vsir_program_iterator it;
-    enum vsir_opcode opcode;
-    unsigned int reg_count;
-
-    /* mNxM DST, SRC0, SRC1
-     *      ->
-     * dpN DST.x, SRC0, SRC1
-     * ...
-     * dpN DST.(M-1), SRC0, SRC1+(M-1) */
-
-    switch (ins->opcode)
-    {
-        case VSIR_OP_M3x2:
-            reg_count = 2;
-            opcode = VSIR_OP_DP3;
-            break;
-        case VSIR_OP_M3x3:
-            reg_count = 3;
-            opcode = VSIR_OP_DP3;
-            break;
-        case VSIR_OP_M3x4:
-            reg_count = 4;
-            opcode = VSIR_OP_DP3;
-            break;
-        case VSIR_OP_M4x3:
-            reg_count = 3;
-            opcode = VSIR_OP_DP4;
-            break;
-        case VSIR_OP_M4x4:
-            reg_count = 4;
-            opcode = VSIR_OP_DP4;
-            break;
-        default:
-            vkd3d_unreachable();
-    }
-
-    VKD3D_ASSERT(dst[0].write_mask == ((1u << reg_count) - 1));
-    VKD3D_ASSERT(src[1].reg.idx_count == 1);
-
-    if (!(ins = vsir_program_iterator_insert_before(mnxn, &it, reg_count - 1)))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-
-    for (unsigned int i = 0; i < reg_count; ++i)
-    {
-        if (!vsir_instruction_init_with_params(program, ins, &location, opcode, 1, 2))
-            goto fail;
-        ins->dst[0] = dst[0];
-        ins->dst[0].write_mask = (VKD3DSP_WRITEMASK_0 << i);
-
-        ins->src[0] = src[0];
-        ins->src[1] = src[1];
-        ins->src[1].reg.idx[0].offset += i;
-
-        /* Copy rel_addrs to avoid multiple owners. */
-        if (!vsir_operand_clone_indirect_indices(&ins->dst[0].reg, program))
-            goto fail;
-        if (!vsir_operand_clone_indirect_indices(&ins->src[0].reg, program))
-            goto fail;
-        if (!vsir_operand_clone_indirect_indices(&ins->src[1].reg, program))
-            goto fail;
-
-        ins = vsir_program_iterator_next(&it);
-    }
-
-    return VKD3D_OK;
-
-fail:
-    vsir_program_iterator_nop_range(&it, mnxn, &location);
-
-    return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
 static enum vkd3d_result vsir_program_lower_nrm(struct vsir_program *program, struct vsir_program_iterator *nrm)
@@ -3566,14 +3483,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_IFC:
                 ret = vsir_program_lower_ifc(program, &it, &tmp_idx, message_context);
-                break;
-
-            case VSIR_OP_M3x2:
-            case VSIR_OP_M3x3:
-            case VSIR_OP_M3x4:
-            case VSIR_OP_M4x3:
-            case VSIR_OP_M4x4:
-                ret = vsir_program_lower_mnxn(program, &it);
                 break;
 
             case VSIR_OP_NRM:
@@ -11545,11 +11454,6 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_LABEL:
         case VSIR_OP_LOOP:
         case VSIR_OP_LIT:
-        case VSIR_OP_M3x2:
-        case VSIR_OP_M3x3:
-        case VSIR_OP_M3x4:
-        case VSIR_OP_M4x3:
-        case VSIR_OP_M4x4:
         case VSIR_OP_NOP:
         /* NRM writemask must be .xyz or .xyzw. */
         case VSIR_OP_NRM:
@@ -11727,11 +11631,6 @@ static void liveness_track_dst(struct liveness_tracker *tracker, struct vsir_dst
         case VSIR_OP_CRS:
         case VSIR_OP_DST:
         case VSIR_OP_LIT:
-        case VSIR_OP_M3x2:
-        case VSIR_OP_M3x3:
-        case VSIR_OP_M3x4:
-        case VSIR_OP_M4x3:
-        case VSIR_OP_M4x4:
         case VSIR_OP_NRM:
         case VSIR_OP_TEX:
         case VSIR_OP_TEXBEM:
@@ -16015,11 +15914,6 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_LOGP:
         case VSIR_OP_LTO:
         case VSIR_OP_LTU:
-        case VSIR_OP_M3x2:
-        case VSIR_OP_M3x3:
-        case VSIR_OP_M3x4:
-        case VSIR_OP_M4x3:
-        case VSIR_OP_M4x4:
         case VSIR_OP_MAD:
         case VSIR_OP_MAX:
         case VSIR_OP_MIN:

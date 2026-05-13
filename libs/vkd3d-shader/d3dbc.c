@@ -378,11 +378,11 @@ static const struct vkd3d_sm1_opcode_info vs_opcode_table[] =
     {VKD3D_SM1_OP_SINCOS,       1, 3, "sincos",         VSIR_OP_SINCOS,       {2, 0}, {2, 1}},
     {VKD3D_SM1_OP_SINCOS,       1, 1, "sincos",         VSIR_OP_SINCOS,       {3, 0}},
     /* Matrix */
-    {VKD3D_SM1_OP_M4x4,         1, 2, "m4x4",           VSIR_OP_M4x4},
-    {VKD3D_SM1_OP_M4x3,         1, 2, "m4x3",           VSIR_OP_M4x3},
-    {VKD3D_SM1_OP_M3x4,         1, 2, "m3x4",           VSIR_OP_M3x4},
-    {VKD3D_SM1_OP_M3x3,         1, 2, "m3x3",           VSIR_OP_M3x3},
-    {VKD3D_SM1_OP_M3x2,         1, 2, "m3x2",           VSIR_OP_M3x2},
+    {VKD3D_SM1_OP_M4x4,         1, 2, "m4x4",           VSIR_OP_NOP},
+    {VKD3D_SM1_OP_M4x3,         1, 2, "m4x3",           VSIR_OP_NOP},
+    {VKD3D_SM1_OP_M3x4,         1, 2, "m3x4",           VSIR_OP_NOP},
+    {VKD3D_SM1_OP_M3x3,         1, 2, "m3x3",           VSIR_OP_NOP},
+    {VKD3D_SM1_OP_M3x2,         1, 2, "m3x2",           VSIR_OP_NOP},
     /* Declarations */
     {VKD3D_SM1_OP_DCL,          1, 0, "dcl",            VSIR_OP_DCL},
     /* Constant definitions */
@@ -440,11 +440,11 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     {VKD3D_SM1_OP_SINCOS,       1, 1, "sincos",         VSIR_OP_SINCOS,       {3, 0}},
     {VKD3D_SM1_OP_DP2ADD,       1, 3, "dp2add",         VSIR_OP_DP2ADD,       {2, 0}},
     /* Matrix */
-    {VKD3D_SM1_OP_M4x4,         1, 2, "m4x4",           VSIR_OP_M4x4,         {2, 0}},
-    {VKD3D_SM1_OP_M4x3,         1, 2, "m4x3",           VSIR_OP_M4x3,         {2, 0}},
-    {VKD3D_SM1_OP_M3x4,         1, 2, "m3x4",           VSIR_OP_M3x4,         {2, 0}},
-    {VKD3D_SM1_OP_M3x3,         1, 2, "m3x3",           VSIR_OP_M3x3,         {2, 0}},
-    {VKD3D_SM1_OP_M3x2,         1, 2, "m3x2",           VSIR_OP_M3x2,         {2, 0}},
+    {VKD3D_SM1_OP_M4x4,         1, 2, "m4x4",           VSIR_OP_NOP,          {2, 0}},
+    {VKD3D_SM1_OP_M4x3,         1, 2, "m4x3",           VSIR_OP_NOP,          {2, 0}},
+    {VKD3D_SM1_OP_M3x4,         1, 2, "m3x4",           VSIR_OP_NOP,          {2, 0}},
+    {VKD3D_SM1_OP_M3x3,         1, 2, "m3x3",           VSIR_OP_NOP,          {2, 0}},
+    {VKD3D_SM1_OP_M3x2,         1, 2, "m3x2",           VSIR_OP_NOP,          {2, 0}},
     /* Declarations */
     {VKD3D_SM1_OP_DCL,          1, 0, "dcl",            VSIR_OP_DCL,          {2, 0}},
     /* Constant definitions */
@@ -997,17 +997,17 @@ static void record_constant_register(struct vkd3d_shader_sm1_parser *sm1,
     }
 }
 
-static unsigned int d3dbc_get_src_register_count(enum vsir_opcode opcode, unsigned int src_idx)
+static unsigned int d3dbc_get_src_register_count(enum vkd3d_sm1_opcode opcode, unsigned int src_idx)
 {
     switch (opcode)
     {
-        case VSIR_OP_M3x2:
+        case VKD3D_SM1_OP_M3x2:
             return (src_idx == 1) ? 2 : 1;
-        case VSIR_OP_M3x3:
-        case VSIR_OP_M4x3:
+        case VKD3D_SM1_OP_M3x3:
+        case VKD3D_SM1_OP_M4x3:
             return (src_idx == 1) ? 3 : 1;
-        case VSIR_OP_M3x4:
-        case VSIR_OP_M4x4:
+        case VKD3D_SM1_OP_M3x4:
+        case VKD3D_SM1_OP_M4x4:
             return (src_idx == 1) ? 4 : 1;
         default:
             return 1;
@@ -1587,6 +1587,36 @@ static enum vkd3d_result d3dbc_read_lrp(struct vkd3d_shader_sm1_parser *parser,
     return VKD3D_OK;
 }
 
+static enum vkd3d_result d3dbc_read_mnxn(struct vkd3d_shader_sm1_parser *parser,
+        const struct d3dbc_instruction *d3dbc_ins, enum vsir_opcode opcode, unsigned int row_count)
+{
+    struct d3dbc_src_operand src = d3dbc_ins->src[1];
+    struct vsir_instruction *ins;
+    unsigned int i;
+
+    /* mNxM DST, SRC0, SRC1
+     *      ->
+     * dpN DST.x, SRC0, SRC1
+     * ...
+     * dpN DST.(M-1), SRC0, SRC1[M-1] */
+
+    VKD3D_ASSERT(d3dbc_ins->dst[0].write_mask == (1u << row_count) - 1);
+
+    for (i = 0; i < row_count; ++i)
+    {
+        if (!(ins = d3dbc_append_instruction(parser, opcode, 1, 2)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
+        ins->dst[0].write_mask = (1u << i);
+        vsir_src_operand_from_d3dbc(parser, &ins->src[0], &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0]);
+        vsir_src_operand_from_d3dbc(parser, &ins->src[1], &src, &d3dbc_ins->src_rel_addr[1]);
+
+        ++src.o.index;
+    }
+
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_parser *parser,
         const struct d3dbc_instruction *d3dbc_ins, const struct vkd3d_sm1_opcode_info *opcode_info)
 {
@@ -1610,7 +1640,7 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
         for (i = 0; i < d3dbc_ins->src_count; ++i)
         {
             d3dbc_scan_operand(parser, &d3dbc_ins->src[i].o, mask_from_swizzle(d3dbc_ins->src[i].swizzle),
-                    false, d3dbc_get_src_register_count(opcode_info->vsir_opcode, i));
+                    false, d3dbc_get_src_register_count(d3dbc_ins->opcode, i));
         }
     }
 
@@ -1685,6 +1715,21 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
 
         case VKD3D_SM1_OP_LRP:
             return d3dbc_read_lrp(parser, d3dbc_ins);
+
+        case VKD3D_SM1_OP_M3x2:
+            return d3dbc_read_mnxn(parser, d3dbc_ins, VSIR_OP_DP3, 2);
+
+        case VKD3D_SM1_OP_M3x3:
+            return d3dbc_read_mnxn(parser, d3dbc_ins, VSIR_OP_DP3, 3);
+
+        case VKD3D_SM1_OP_M3x4:
+            return d3dbc_read_mnxn(parser, d3dbc_ins, VSIR_OP_DP3, 4);
+
+        case VKD3D_SM1_OP_M4x3:
+            return d3dbc_read_mnxn(parser, d3dbc_ins, VSIR_OP_DP4, 3);
+
+        case VKD3D_SM1_OP_M4x4:
+            return d3dbc_read_mnxn(parser, d3dbc_ins, VSIR_OP_DP4, 4);
 
         /* TEXKILL, uniquely, encodes its argument as a destination, when it
          * is semantically a source. Since we have multiple passes which
