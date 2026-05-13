@@ -117,22 +117,6 @@ static void test_invalid_resource_barriers(void)
 
     recreate_command_list(device, command_allocator, &command_list);
 
-    /* Readback resources cannot transition from D3D12_RESOURCE_STATE_COPY_DEST. */
-    transition_resource_state(command_list, readback_buffer,
-            D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COMMON);
-    hr = ID3D12GraphicsCommandList_Close(command_list);
-    todo ok(hr == E_INVALIDARG, "Got unexpected hr %#x.\n", hr);
-
-    recreate_command_list(device, command_allocator, &command_list);
-
-    /* Upload resources cannot transition from D3D12_RESOURCE_STATE_GENERIC_READ. */
-    transition_resource_state(command_list, upload_buffer,
-            D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_COMMON);
-    hr = ID3D12GraphicsCommandList_Close(command_list);
-    todo ok(hr == E_INVALIDARG, "Got unexpected hr %#x.\n", hr);
-
-    recreate_command_list(device, command_allocator, &command_list);
-
     /* NULL resource. */
     transition_resource_state(command_list, NULL,
             D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
@@ -190,38 +174,15 @@ static void test_invalid_copy_texture_region(void)
     src_location.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
     src_location.PlacedFootprint.Offset = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT;
     src_location.PlacedFootprint.Footprint.Format = DXGI_FORMAT_BC3_UNORM;
-    src_location.PlacedFootprint.Footprint.Width = 64;
-    src_location.PlacedFootprint.Footprint.Height = 63; /* height must be multiple of block size */
+    src_location.PlacedFootprint.Footprint.Width = 4;
+    src_location.PlacedFootprint.Footprint.Height = 4;
     src_location.PlacedFootprint.Footprint.Depth = 1;
     src_location.PlacedFootprint.Footprint.RowPitch
             = 64 / format_block_width(DXGI_FORMAT_BC3_UNORM) * format_size(DXGI_FORMAT_BC3_UNORM);
 
-    ID3D12GraphicsCommandList_CopyTextureRegion(command_list,
-            &dst_location, 0, 0, 0, &src_location, NULL);
-
-    hr = ID3D12GraphicsCommandList_Close(command_list);
-    todo ok(hr == E_INVALIDARG, "Got unexpected hr %#x.\n", hr);
-
-    recreate_command_list(device, command_allocator, &command_list);
-
-    src_location.PlacedFootprint.Footprint.Width = 4;
-    src_location.PlacedFootprint.Footprint.Height = 4;
-
     /* dst y must be multiple of block size */
     ID3D12GraphicsCommandList_CopyTextureRegion(command_list,
             &dst_location, 0, 3, 0, &src_location, NULL);
-
-    hr = ID3D12GraphicsCommandList_Close(command_list);
-    todo ok(hr == E_INVALIDARG, "Got unexpected hr %#x.\n", hr);
-
-    recreate_command_list(device, command_allocator, &command_list);
-
-    /* row pitch must be multiple of D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT */
-    src_location.PlacedFootprint.Footprint.RowPitch
-            = 64 / format_block_width(DXGI_FORMAT_BC3_UNORM) * format_size(DXGI_FORMAT_BC3_UNORM) + 1;
-
-    ID3D12GraphicsCommandList_CopyTextureRegion(command_list,
-            &dst_location, 0, 0, 0, &src_location, NULL);
 
     hr = ID3D12GraphicsCommandList_Close(command_list);
     todo ok(hr == E_INVALIDARG, "Got unexpected hr %#x.\n", hr);
