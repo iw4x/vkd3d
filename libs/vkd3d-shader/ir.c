@@ -409,7 +409,6 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_NEU                             ] = "ne",
         [VSIR_OP_NOP                             ] = "nop",
         [VSIR_OP_NOT                             ] = "not",
-        [VSIR_OP_NRM                             ] = "nrm",
         [VSIR_OP_OR                              ] = "or",
         [VSIR_OP_ORD                             ] = "ord",
         [VSIR_OP_PHI                             ] = "phi",
@@ -1283,7 +1282,7 @@ static void vsir_src_operand_init_sampler(struct vsir_src_operand *src, unsigned
     src->reg.dimension = VSIR_DIMENSION_NONE;
 }
 
-static void vsir_src_operand_init_ssa(struct vsir_src_operand *src, unsigned int idx,
+void vsir_src_operand_init_ssa(struct vsir_src_operand *src, unsigned int idx,
         enum vsir_data_type data_type, enum vsir_dimension dimension)
 {
     vsir_src_operand_init(src, VSIR_REGISTER_SSA, data_type, 1);
@@ -1307,7 +1306,7 @@ static void vsir_src_operand_init_ssa_bool(struct vsir_src_operand *src, unsigne
     vsir_src_operand_init_ssa_scalar(src, idx, VSIR_DATA_BOOL);
 }
 
-static void vsir_src_operand_init_ssa_f32(struct vsir_src_operand *src, unsigned int idx)
+void vsir_src_operand_init_ssa_f32(struct vsir_src_operand *src, unsigned int idx)
 {
     vsir_src_operand_init_ssa_scalar(src, idx, VSIR_DATA_F32);
 }
@@ -1390,7 +1389,7 @@ static void vsir_dst_operand_init_ssa_bool(struct vsir_dst_operand *dst, unsigne
     vsir_dst_operand_init_ssa_scalar(dst, idx, VSIR_DATA_BOOL);
 }
 
-static void vsir_dst_operand_init_ssa_f32(struct vsir_dst_operand *dst, unsigned int idx)
+void vsir_dst_operand_init_ssa_f32(struct vsir_dst_operand *dst, unsigned int idx)
 {
     vsir_dst_operand_init_ssa_scalar(dst, idx, VSIR_DATA_F32);
 }
@@ -1761,62 +1760,6 @@ static enum vkd3d_result vsir_program_lower_ifc(struct vsir_program *program,
     vsir_instruction_make_nop(ifc);
 
     return VKD3D_OK;
-}
-
-static enum vkd3d_result vsir_program_lower_nrm(struct vsir_program *program, struct vsir_program_iterator *nrm)
-{
-    struct vsir_instruction *ins = vsir_program_iterator_current(nrm);
-    const struct vkd3d_shader_location location = ins->location;
-    const struct vsir_src_operand *src = ins->src;
-    const struct vsir_dst_operand *dst = ins->dst;
-    unsigned int dot_id, rsq_id, mul_id;
-    struct vsir_program_iterator it;
-
-    /* nrm DST, SRC
-     *      ->
-     * dp3 srDOT, SRC, SRC
-     * rsq srRSQ, srDOT
-     * mul srMUL, srRSQ, SRC
-     * movc DST, srDOT, srMUL, srDOT */
-
-    if (!(ins = vsir_program_iterator_insert_before(nrm, &it, 3)))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_DP3, 1, 2))
-        goto fail;
-    dot_id = program->ssa_count++;
-    vsir_dst_operand_init_ssa(&ins->dst[0], dot_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
-    ins->src[0] = src[0];
-    ins->src[1] = src[0];
-
-    ins = vsir_program_iterator_next(&it);
-    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_RSQ, 1, 1))
-        goto fail;
-    rsq_id = program->ssa_count++;
-    vsir_dst_operand_init_ssa(&ins->dst[0], rsq_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
-    vsir_src_operand_init_ssa(&ins->src[0], dot_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
-
-    ins = vsir_program_iterator_next(&it);
-    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MUL, 1, 2))
-        goto fail;
-    mul_id = program->ssa_count++;
-    vsir_dst_operand_init_ssa(&ins->dst[0], mul_id, src[0].reg.data_type, dst[0].reg.dimension);
-    vsir_src_operand_init_ssa(&ins->src[0], rsq_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
-    ins->src[1] = src[0];
-
-    ins = vsir_program_iterator_next(&it);
-    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MOVC, 1, 3))
-        goto fail;
-    ins->dst[0] = dst[0];
-    vsir_src_operand_init_ssa(&ins->src[0], dot_id, VSIR_DATA_U32, VSIR_DIMENSION_SCALAR);
-    vsir_src_operand_init_ssa(&ins->src[1], mul_id, src[0].reg.data_type, dst[0].reg.dimension);
-    vsir_src_operand_init_ssa(&ins->src[2], dot_id, src[0].reg.data_type, VSIR_DIMENSION_SCALAR);
-
-    return VKD3D_OK;
-
-fail:
-    vsir_program_iterator_nop_range(&it, nrm, &location);
-
-    return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
 static enum vkd3d_result vsir_program_lower_pow(struct vsir_program *program, struct vsir_program_iterator *pow)
@@ -3487,10 +3430,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_IFC:
                 ret = vsir_program_lower_ifc(program, &it, &tmp_idx, message_context);
-                break;
-
-            case VSIR_OP_NRM:
-                ret = vsir_program_lower_nrm(program, &it);
                 break;
 
             case VSIR_OP_POW:
@@ -11331,8 +11270,6 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_LOOP:
         case VSIR_OP_LIT:
         case VSIR_OP_NOP:
-        /* NRM writemask must be .xyz or .xyzw. */
-        case VSIR_OP_NRM:
         case VSIR_OP_REP:
         case VSIR_OP_RET:
         case VSIR_OP_RETP:
@@ -11507,7 +11444,6 @@ static void liveness_track_dst(struct liveness_tracker *tracker, struct vsir_dst
         case VSIR_OP_CRS:
         case VSIR_OP_DST:
         case VSIR_OP_LIT:
-        case VSIR_OP_NRM:
         case VSIR_OP_TEX:
         case VSIR_OP_TEXBEM:
         case VSIR_OP_TEXBEML:
@@ -15803,7 +15739,6 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_NEU:
         case VSIR_OP_NOP:
         case VSIR_OP_NOT:
-        case VSIR_OP_NRM:
         case VSIR_OP_OR:
         case VSIR_OP_ORD:
         case VSIR_OP_PHI:
