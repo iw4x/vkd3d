@@ -378,7 +378,7 @@ static const struct vkd3d_sm1_opcode_info vs_opcode_table[] =
     {VKD3D_SM1_OP_DST,          1, 2, "dst",            VSIR_OP_DST},
     {VKD3D_SM1_OP_LRP,          1, 3, "lrp",            VSIR_OP_NOP,          {2, 0}},
     {VKD3D_SM1_OP_FRC,          1, 1, "frc",            VSIR_OP_FRC},
-    {VKD3D_SM1_OP_POW,          1, 2, "pow",            VSIR_OP_POW,          {2, 0}},
+    {VKD3D_SM1_OP_POW,          1, 2, "pow",            VSIR_OP_NOP,          {2, 0}},
     {VKD3D_SM1_OP_CRS,          1, 2, "crs",            VSIR_OP_CRS,          {2, 0}},
     {VKD3D_SM1_OP_SGN,          1, 3, "sgn",            VSIR_OP_SGN,          {2, 0}, {2, 1}},
     {VKD3D_SM1_OP_SGN,          1, 1, "sgn",            VSIR_OP_SGN,          {3, 0}},
@@ -441,7 +441,7 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     {VKD3D_SM1_OP_FRC,          1, 1, "frc",            VSIR_OP_FRC,          {2, 0}},
     {VKD3D_SM1_OP_CND,          1, 3, "cnd",            VSIR_OP_CND,          {1, 0}, {1, 4}},
     {VKD3D_SM1_OP_CMP,          1, 3, "cmp",            VSIR_OP_CMP,          {1, 2}},
-    {VKD3D_SM1_OP_POW,          1, 2, "pow",            VSIR_OP_POW,          {2, 0}},
+    {VKD3D_SM1_OP_POW,          1, 2, "pow",            VSIR_OP_NOP,          {2, 0}},
     {VKD3D_SM1_OP_CRS,          1, 2, "crs",            VSIR_OP_CRS,          {2, 0}},
     {VKD3D_SM1_OP_NRM,          1, 1, "nrm",            VSIR_OP_NOP,          {2, 0}},
     {VKD3D_SM1_OP_SINCOS,       1, 3, "sincos",         VSIR_OP_SINCOS,       {2, 0}, {2, 1}},
@@ -1755,6 +1755,63 @@ static enum vkd3d_result d3dbc_read_nrm(struct vkd3d_shader_sm1_parser *parser,
     return VKD3D_OK;
 }
 
+static enum vkd3d_result d3dbc_read_pow(struct vkd3d_shader_sm1_parser *parser,
+        const struct d3dbc_instruction *d3dbc_ins)
+{
+    unsigned int abs_id, log_id, ne_id, movc_id, mul_id;
+    struct vsir_instruction *ins;
+
+    /* pow DST, SRC0, SRC1
+     *      ->
+     * abs srABS, SRC0.x
+     * log srLOG, srABS
+     * ne srNE, SRC1.x, l(0.0f)
+     * movc srMOVC, srNE, srLOG, srABS
+     * mul srMUL, srMOVC, SRC1.x
+     * exp DST, srMUL */
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_ABS, 1, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    abs_id = parser->program->ssa_count++;
+    vsir_dst_operand_init_ssa_f32(&ins->dst[0], abs_id);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[0], &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0]);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_LOG, 1, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    log_id = parser->program->ssa_count++;
+    vsir_dst_operand_init_ssa_f32(&ins->dst[0], log_id);
+    vsir_src_operand_init_ssa_f32(&ins->src[0], abs_id);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_NEU, 1, 2)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    ne_id = parser->program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], ne_id, VSIR_DATA_U32, VSIR_DIMENSION_SCALAR);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[0], &d3dbc_ins->src[1], &d3dbc_ins->src_rel_addr[1]);
+    vsir_src_operand_init_const_f32(&ins->src[1], 0.0f);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MOVC, 1, 3)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    movc_id = parser->program->ssa_count++;
+    vsir_dst_operand_init_ssa_f32(&ins->dst[0], movc_id);
+    vsir_src_operand_init_ssa(&ins->src[0], ne_id, VSIR_DATA_U32, VSIR_DIMENSION_SCALAR);
+    vsir_src_operand_init_ssa_f32(&ins->src[1], log_id);
+    vsir_src_operand_init_ssa_f32(&ins->src[2], abs_id);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MUL, 1, 2)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    mul_id = parser->program->ssa_count++;
+    vsir_dst_operand_init_ssa_f32(&ins->dst[0], mul_id);
+    vsir_src_operand_init_ssa_f32(&ins->src[0], movc_id);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[1], &d3dbc_ins->src[1], &d3dbc_ins->src_rel_addr[1]);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_EXP, 1, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
+    vsir_src_operand_init_ssa_f32(&ins->src[0], mul_id);
+
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_parser *parser,
         const struct d3dbc_instruction *d3dbc_ins, const struct vkd3d_sm1_opcode_info *opcode_info)
 {
@@ -1854,6 +1911,9 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
 
         case VKD3D_SM1_OP_NRM:
             return d3dbc_read_nrm(parser, d3dbc_ins);
+
+        case VKD3D_SM1_OP_POW:
+            return d3dbc_read_pow(parser, d3dbc_ins);
 
         /* TEXKILL, uniquely, encodes its argument as a destination, when it
          * is semantically a source. Since we have multiple passes which

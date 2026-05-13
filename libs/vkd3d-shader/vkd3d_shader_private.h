@@ -547,7 +547,6 @@ enum vsir_opcode
     VSIR_OP_OR,
     VSIR_OP_ORD,
     VSIR_OP_PHI,
-    VSIR_OP_POW,
     VSIR_OP_QUAD_READ_ACROSS_D,
     VSIR_OP_QUAD_READ_ACROSS_X,
     VSIR_OP_QUAD_READ_ACROSS_Y,
@@ -1161,6 +1160,8 @@ struct vsir_dst_operand
 void vsir_dst_operand_init(struct vsir_dst_operand *dst, enum vsir_register_type reg_type,
         enum vsir_data_type data_type, unsigned int idx_count);
 void vsir_dst_operand_init_null(struct vsir_dst_operand *dst);
+void vsir_dst_operand_init_ssa(struct vsir_dst_operand *dst, unsigned int idx,
+        enum vsir_data_type data_type, enum vsir_dimension dimension);
 void vsir_dst_operand_init_ssa_f32(struct vsir_dst_operand *dst, unsigned int idx);
 void vsir_dst_operand_init_ssa_f32v4(struct vsir_dst_operand *dst, unsigned int idx);
 void vsir_dst_operand_init_temp_f32v4(struct vsir_dst_operand *dst, unsigned int idx);
