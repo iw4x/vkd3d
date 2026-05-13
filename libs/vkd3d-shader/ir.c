@@ -15024,7 +15024,7 @@ static void vsir_validate_texdepth(struct validation_context *ctx,
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_OPCODE,
                 "TEXDEPTH cannot be used in version %u.%u.", version->major, version->minor);
 
-    if (instruction->dst[0].write_mask != 0x3)
+    if (instruction->dst[0].write_mask != VKD3DSP_WRITEMASK_ALL)
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_WRITE_MASK,
                 "Invalid TEXDEPTH write mask %#x.", instruction->dst[0].write_mask);
 
