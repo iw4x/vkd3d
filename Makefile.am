@@ -53,6 +53,7 @@ vkd3d_cross_tests = \
 
 vkd3d_shader_tests = \
 	tests/d3dbc/bool.shader_test \
+	tests/d3dbc/bump.shader_test \
 	tests/d3dbc/dp2add.shader_test \
 	tests/d3dbc/loop.shader_test \
 	tests/d3dbc/lrp.shader_test \
@@ -85,7 +86,6 @@ vkd3d_shader_tests = \
 	tests/hlsl/bitwise.shader_test \
 	tests/hlsl/bool-cast.shader_test \
 	tests/hlsl/bool-semantics.shader_test \
-	tests/hlsl/bump.shader_test \
 	tests/hlsl/calculate-lod.shader_test \
 	tests/hlsl/cast-64-bit.shader_test \
 	tests/hlsl/cast-broadcast.shader_test \
