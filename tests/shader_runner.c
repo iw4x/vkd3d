@@ -112,6 +112,7 @@ static const char *const sm_strings_dot[] =
     [SHADER_MODEL_5_0] = "5.0",
     [SHADER_MODEL_5_1] = "5.1",
     [SHADER_MODEL_6_0] = "6.0",
+    [SHADER_MODEL_6_1] = "6.1",
     [SHADER_MODEL_6_2] = "6.2",
     [SHADER_MODEL_6_6] = "6.6",
 };
@@ -125,6 +126,7 @@ static const char *const sm_strings_underscore[] =
     [SHADER_MODEL_5_0] = "5_0",
     [SHADER_MODEL_5_1] = "5_1",
     [SHADER_MODEL_6_0] = "6_0",
+    [SHADER_MODEL_6_1] = "6_1",
     [SHADER_MODEL_6_2] = "6_2",
     [SHADER_MODEL_6_6] = "6_6",
 };
@@ -574,6 +576,7 @@ static DXGI_FORMAT parse_format(const char *line, unsigned int *texel_size, bool
 
 static const char *const shader_cap_strings[] =
 {
+    [SHADER_CAP_BARYCENTRICS]        = "barycentrics",
     [SHADER_CAP_CLIP_PLANES]         = "clip-planes",
     [SHADER_CAP_CULL_DISTANCE]       = "cull-distance",
     [SHADER_CAP_DEPTH_BOUNDS]        = "depth-bounds",

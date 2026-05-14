@@ -1155,6 +1155,7 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
 {
     ID3D12Device *device = runner->test_context.device;
     D3D12_FEATURE_DATA_D3D12_OPTIONS4 options4;
+    D3D12_FEATURE_DATA_D3D12_OPTIONS3 options3;
     D3D12_FEATURE_DATA_D3D12_OPTIONS2 options2;
     D3D12_FEATURE_DATA_D3D12_OPTIONS1 options1;
     D3D12_FEATURE_DATA_D3D12_OPTIONS options;
@@ -1189,6 +1190,8 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     ok(hr == S_OK, "Failed to check feature options1 support, hr %#x.\n", hr);
     hr = ID3D12Device_CheckFeatureSupport(device, D3D12_FEATURE_D3D12_OPTIONS2, &options2, sizeof(options2));
     ok(hr == S_OK, "Failed to check feature options2 support, hr %#x.\n", hr);
+    hr = ID3D12Device_CheckFeatureSupport(device, D3D12_FEATURE_D3D12_OPTIONS3, &options3, sizeof(options3));
+    ok(hr == S_OK, "Failed to check feature options3 support, hr %#x.\n", hr);
     hr = ID3D12Device_CheckFeatureSupport(device, D3D12_FEATURE_D3D12_OPTIONS4, &options4, sizeof(options4));
     ok(hr == S_OK, "Failed to check feature options4 support, hr %#x.\n", hr);
 
@@ -1200,6 +1203,7 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     runner->caps.compiler = using_dxcompiler ? "dxcompiler" : HLSL_COMPILER;
     runner->caps.minimum_shader_model = minimum_shader_model;
     runner->caps.maximum_shader_model = maximum_shader_model;
+    runner->caps.shader_caps[SHADER_CAP_BARYCENTRICS] = options3.BarycentricsSupported;
     if (is_cull_distance_supported(device))
         runner->caps.shader_caps[SHADER_CAP_CULL_DISTANCE] = true;
     runner->caps.shader_caps[SHADER_CAP_DEPTH_BOUNDS] = options2.DepthBoundsTestSupported;
@@ -1274,6 +1278,7 @@ static enum shader_model get_supported_shader_model(ID3D12Device *device)
     {
         [SHADER_MODEL_5_1] = D3D_SHADER_MODEL_5_1,
         [SHADER_MODEL_6_0] = D3D_SHADER_MODEL_6_0,
+        [SHADER_MODEL_6_1] = D3D_SHADER_MODEL_6_1,
         [SHADER_MODEL_6_2] = D3D_SHADER_MODEL_6_2,
         [SHADER_MODEL_6_6] = D3D_SHADER_MODEL_6_6,
     };
