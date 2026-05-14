@@ -16,5 +16,5 @@ shader model = 5.1
 0100003e                                                        % ret
 
 [test]
-todo draw quad
+todo(glsl | msl) draw quad
 probe (0, 0) f32(0.0, 1.0, 0.0, 1.0)
