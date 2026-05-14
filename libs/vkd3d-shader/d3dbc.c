@@ -482,8 +482,8 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     {VKD3D_SM1_OP_TEX,          1, 0, "tex",            VSIR_OP_TEX,          {0, 0}, {1, 3}},
     {VKD3D_SM1_OP_TEX,          1, 1, "texld",          VSIR_OP_TEXLD,        {1, 4}, {1, 4}},
     {VKD3D_SM1_OP_TEX,          1, 2, "texld",          VSIR_OP_TEXLD,        {2, 0}},
-    {VKD3D_SM1_OP_TEXBEM,       1, 1, "texbem",         VSIR_OP_TEXBEM,       {0, 0}, {1, 3}},
-    {VKD3D_SM1_OP_TEXBEML,      1, 1, "texbeml",        VSIR_OP_TEXBEML,      {1, 0}, {1, 3}},
+    {VKD3D_SM1_OP_TEXBEM,       1, 1, "texbem",         VSIR_OP_NOP,          {0, 0}, {1, 3}},
+    {VKD3D_SM1_OP_TEXBEML,      1, 1, "texbeml",        VSIR_OP_NOP,          {1, 0}, {1, 3}},
     {VKD3D_SM1_OP_TEXREG2AR,    1, 1, "texreg2ar",      VSIR_OP_TEXREG2AR,    {1, 0}, {1, 3}},
     {VKD3D_SM1_OP_TEXREG2GB,    1, 1, "texreg2gb",      VSIR_OP_TEXREG2GB,    {1, 0}, {1, 3}},
     {VKD3D_SM1_OP_TEXREG2RGB,   1, 1, "texreg2rgb",     VSIR_OP_TEXREG2RGB,   {1, 2}, {1, 3}},
@@ -499,7 +499,7 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     {VKD3D_SM1_OP_TEXDP3,       1, 1, "texdp3",         VSIR_OP_TEXDP3,       {1, 2}, {1, 3}},
     {VKD3D_SM1_OP_TEXM3x3,      1, 1, "texm3x3",        VSIR_OP_TEXM3x3,      {1, 2}, {1, 3}},
     {VKD3D_SM1_OP_TEXDEPTH,     1, 0, "texdepth",       VSIR_OP_TEXDEPTH,     {1, 4}, {1, 4}},
-    {VKD3D_SM1_OP_BEM,          1, 2, "bem",            VSIR_OP_BEM,          {1, 4}, {1, 4}},
+    {VKD3D_SM1_OP_BEM,          1, 2, "bem",            VSIR_OP_NOP,          {1, 4}, {1, 4}},
     {VKD3D_SM1_OP_DSX,          1, 1, "dsx",            VSIR_OP_DSX,          {2, 1}},
     {VKD3D_SM1_OP_DSY,          1, 1, "dsy",            VSIR_OP_DSY,          {2, 1}},
     {VKD3D_SM1_OP_TEXLDD,       1, 4, "texldd",         VSIR_OP_TEXLDD,       {2, 1}},
@@ -1628,6 +1628,199 @@ static struct vsir_instruction *d3dbc_append_instruction(struct vkd3d_shader_sm1
     return ins;
 }
 
+static struct vsir_instruction *generate_bump_coords(struct vkd3d_shader_sm1_parser *parser,
+        unsigned int idx, const struct vsir_src_operand *coords,
+        const struct d3dbc_src_operand *perturbation, const struct d3dbc_src_operand *perturbation_rel_addr)
+{
+    enum vkd3d_shader_swizzle_component x = vsir_swizzle_get_component(perturbation->swizzle, 0);
+    enum vkd3d_shader_swizzle_component y = vsir_swizzle_get_component(perturbation->swizzle, 1);
+    unsigned int temp_id = parser->program->ssa_count++;
+    struct vsir_instruction *ins;
+
+    /* mad    srTMP.xy, PERTURBATION.xx, BUMP_MATRIX#.xy, COORDS.xy
+     * mad    _____.xy, PERTURBATION.yy, BUMP_MATRIX#.zw, srTMP.xy
+     *
+     * The destination is left blank to be set by the caller. */
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MAD, 1, 3)))
+        return NULL;
+    vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], temp_id);
+    ins->dst[0].write_mask = 0x3;
+    vsir_src_operand_from_d3dbc(parser, &ins->src[0], perturbation, perturbation_rel_addr);
+    ins->src[0].swizzle = vkd3d_shader_create_swizzle(x, x, x, x);
+    vsir_src_operand_init_parameter_vec4(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_0 + idx, VSIR_DATA_F32);
+    ins->src[2] = *coords;
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MAD, 1, 3)))
+        return NULL;
+    vsir_src_operand_from_d3dbc(parser, &ins->src[0], perturbation, perturbation_rel_addr);
+    ins->src[0].swizzle = vkd3d_shader_create_swizzle(y, y, y, y);
+    vsir_src_operand_init_parameter_vec4(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_0 + idx, VSIR_DATA_F32);
+    ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(Z, W, W, W);
+    vsir_src_operand_init_ssa_f32v4(&ins->src[2], temp_id);
+    ins->src[2].swizzle = VKD3D_SHADER_SWIZZLE(X, Y, Y, Y);
+
+    return ins;
+}
+
+static enum vkd3d_result d3dbc_read_bem(struct vkd3d_shader_sm1_parser *parser,
+        const struct d3dbc_instruction *d3dbc_ins)
+{
+    struct vsir_src_operand coords;
+    struct vsir_instruction *ins;
+
+    /* bem DST.xy, SRC0, SRC1
+     *      ->
+     * mad srTMP.xy, SRC1.xx, BUMP_MATRIX#.xy, SRC0.xy
+     * mad   DST.xy, SRC1.yy, BUMP_MATRIX#.zw, srTMP.xy */
+
+    vsir_src_operand_from_d3dbc(parser, &coords, &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0]);
+
+    if (!(ins = generate_bump_coords(parser, d3dbc_ins->dst[0].o.index,
+            &coords, &d3dbc_ins->src[1], &d3dbc_ins->src_rel_addr[1])))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
+
+    return VKD3D_OK;
+}
+
+static bool is_texture_projected(struct vkd3d_shader_sm1_parser *parser, unsigned int index)
+{
+    const struct vkd3d_shader_parameter1 *parameter;
+
+    if (!(parameter = vsir_program_get_parameter(parser->program, VKD3D_SHADER_PARAMETER_NAME_PROJECTED_TEXTURE_MASK)))
+        return false;
+
+    if (parameter->type != VKD3D_SHADER_PARAMETER_TYPE_IMMEDIATE_CONSTANT)
+    {
+        vkd3d_shader_parser_error(&parser->p, VKD3D_SHADER_ERROR_D3DBC_NOT_IMPLEMENTED,
+                "Unsupported projected texture mask parameter type %#x.", parameter->type);
+        return false;
+    }
+
+    if (parameter->data_type != VKD3D_SHADER_PARAMETER_DATA_TYPE_UINT32)
+    {
+        vkd3d_shader_parser_error(&parser->p, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
+                "Invalid projected texture mask parameter data type %#x.", parameter->data_type);
+        return false;
+    }
+
+    return parameter->u.immediate_constant.u.u32 & (1u << index);
+}
+
+static enum vkd3d_result d3dbc_read_texbem(struct vkd3d_shader_sm1_parser *parser,
+        const struct d3dbc_instruction *d3dbc_ins)
+{
+    bool is_texbeml = (d3dbc_ins->opcode == VKD3D_SM1_OP_TEXBEML);
+    struct vsir_program *program = parser->program;
+    unsigned int idx = d3dbc_ins->dst[0].o.index;
+    const struct vsir_descriptor *descriptor;
+    struct vsir_src_operand coords;
+    struct vsir_instruction *ins;
+    unsigned int coords_id;
+
+    /* texbem t#, SRC
+     *      is equivalent to
+     * bem srCOORDS.xy, t#, SRC
+     * texld t#, srCOORDS
+     *      ->
+     * mad    srTMP.xy, SRC.xx, BUMP_MATRIX#.xy, t#.xy
+     * mad srCOORDS.xy, SRC.yy, BUMP_MATRIX#.zw, srTMP.xy
+     * sample t#, srCOORDS, resource#, sampler#
+     *
+     * Luminance then adds:
+     *
+     * mad srLUM.x, SRC.z, BUMP_LUMINANCE_SCALE#, BUMP_LUMINANCE_OFFSET#
+     * mul t#, t#, srLUM.xxxx
+     *
+     * If projecting, we replace srCOORDS calculation with
+     *
+     * div srPROJ, t#, t#.w
+     * bem srCOORDS.xy, srPROJ.xy, SRC
+     *
+     * Note that the t# destination will subsequently be turned into a temp. */
+
+    descriptor = vkd3d_shader_find_descriptor(&program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, idx);
+    if (descriptor->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE)
+    {
+        vkd3d_shader_parser_error(&parser->p, VKD3D_SHADER_ERROR_D3DBC_NOT_IMPLEMENTED,
+                "Unhandled TEXBEM(L) with a comparison sampler.");
+        return VKD3D_ERROR_NOT_IMPLEMENTED;
+    }
+
+    descriptor = vkd3d_shader_find_descriptor(&program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, idx);
+    if (descriptor->resource_type != VKD3D_SHADER_RESOURCE_TEXTURE_2D)
+    {
+        vkd3d_shader_parser_error(&parser->p, VKD3D_SHADER_ERROR_D3DBC_NOT_IMPLEMENTED,
+                "Unhandled TEXBEM(L) with resource dimension %#x.", descriptor->resource_type);
+        return VKD3D_ERROR_NOT_IMPLEMENTED;
+    }
+
+    if (is_texture_projected(parser, idx))
+    {
+        unsigned int ssa_proj = program->ssa_count++;
+
+        if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_DIV, 1, 2)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], ssa_proj);
+        vsir_operand_from_d3dbc(parser, &ins->src[0].reg, &d3dbc_ins->dst[0].o, &d3dbc_ins->dst_rel_addr[0]);
+        ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+        vsir_operand_from_d3dbc(parser, &ins->src[1].reg, &d3dbc_ins->dst[0].o, &d3dbc_ins->src_rel_addr[1]);
+        ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(W, W, W, W);
+
+        vsir_src_operand_init_ssa_f32v4(&coords, ssa_proj);
+    }
+    else
+    {
+        memset(&coords, 0, sizeof(coords));
+        vsir_operand_from_d3dbc(parser, &coords.reg, &d3dbc_ins->dst[0].o, &d3dbc_ins->dst_rel_addr[0]);
+        coords.swizzle = VKD3D_SHADER_NO_SWIZZLE;
+    }
+
+    if (!(ins = generate_bump_coords(parser, idx, &coords, &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0])))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    coords_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], coords_id);
+    ins->dst[0].write_mask = 0x3;
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_SAMPLE, 1, 3)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_src_operand_init_ssa_f32v4(&ins->src[0], coords_id);
+    ins->src[0].swizzle = VKD3D_SHADER_SWIZZLE(X, Y, Y, Y);
+    vsir_src_operand_init_resource(&ins->src[1], idx, idx);
+    vsir_src_operand_init_sampler(&ins->src[2], idx, idx);
+
+    if (is_texbeml)
+    {
+        enum vkd3d_shader_swizzle_component z = vsir_swizzle_get_component(d3dbc_ins->src[0].swizzle, 2);
+        unsigned int luminance_id = program->ssa_count++;
+        unsigned int sample_id = program->ssa_count++;
+
+        vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], sample_id);
+
+        if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MAD, 1, 3)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], luminance_id);
+        ins->dst[0].write_mask = 0x1;
+        vsir_src_operand_from_d3dbc(parser, &ins->src[0], &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0]);
+        ins->src[0].swizzle = vkd3d_shader_create_swizzle(z, z, z, z);
+        vsir_src_operand_init_parameter(&ins->src[1],
+                VKD3D_SHADER_PARAMETER_NAME_BUMP_LUMINANCE_SCALE_0 + idx, VSIR_DATA_F32);
+        vsir_src_operand_init_parameter(&ins->src[2],
+                VKD3D_SHADER_PARAMETER_NAME_BUMP_LUMINANCE_OFFSET_0 + idx, VSIR_DATA_F32);
+
+        if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MUL, 1, 2)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        vsir_src_operand_init_ssa_f32v4(&ins->src[0], sample_id);
+        vsir_src_operand_init_ssa_f32v4(&ins->src[1], luminance_id);
+        ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+    }
+
+    vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
+
+    return VKD3D_OK;
+}
+
 static void d3dbc_record_def(struct vkd3d_shader_sm1_parser *parser,
         const struct d3dbc_instruction *ins, enum vkd3d_shader_d3dbc_constant_register set)
 {
@@ -1868,6 +2061,9 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
 
     switch (d3dbc_ins->opcode)
     {
+        case VKD3D_SM1_OP_BEM:
+            return d3dbc_read_bem(parser, d3dbc_ins);
+
         case VKD3D_SM1_OP_DCL:
             if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_DCL, 0, 0)))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -1941,6 +2137,10 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
 
         case VKD3D_SM1_OP_POW:
             return d3dbc_read_pow(parser, d3dbc_ins);
+
+        case VKD3D_SM1_OP_TEXBEM:
+        case VKD3D_SM1_OP_TEXBEML:
+            return d3dbc_read_texbem(parser, d3dbc_ins);
 
         case VKD3D_SM1_OP_TEXCOORD:
             return d3dbc_read_texcoord(parser, d3dbc_ins);

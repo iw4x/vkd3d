@@ -205,7 +205,6 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_ATOMIC_UMAX                     ] = "atomic_umax",
         [VSIR_OP_ATOMIC_UMIN                     ] = "atomic_umin",
         [VSIR_OP_ATOMIC_XOR                      ] = "atomic_xor",
-        [VSIR_OP_BEM                             ] = "bem",
         [VSIR_OP_BFI                             ] = "bfi",
         [VSIR_OP_BFREV                           ] = "bfrev",
         [VSIR_OP_BRANCH                          ] = "branch",
@@ -458,8 +457,6 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_SYNC                            ] = "sync",
         [VSIR_OP_TAN                             ] = "tan",
         [VSIR_OP_TEX                             ] = "tex",
-        [VSIR_OP_TEXBEM                          ] = "texbem",
-        [VSIR_OP_TEXBEML                         ] = "texbeml",
         [VSIR_OP_TEXDEPTH                        ] = "texdepth",
         [VSIR_OP_TEXDP3                          ] = "texdp3",
         [VSIR_OP_TEXDP3TEX                       ] = "texdp3tex",
@@ -1248,13 +1245,13 @@ void vsir_src_operand_init_label(struct vsir_src_operand *src, unsigned int labe
     src->reg.idx[0].offset = label_id;
 }
 
-static void vsir_src_operand_init_parameter(struct vsir_src_operand *src, uint32_t idx, enum vsir_data_type type)
+void vsir_src_operand_init_parameter(struct vsir_src_operand *src, uint32_t idx, enum vsir_data_type type)
 {
     vsir_src_operand_init(src, VSIR_REGISTER_PARAMETER, type, 1);
     src->reg.idx[0].offset = idx;
 }
 
-static void vsir_src_operand_init_parameter_vec4(struct vsir_src_operand *src, uint32_t idx, enum vsir_data_type type)
+void vsir_src_operand_init_parameter_vec4(struct vsir_src_operand *src, uint32_t idx, enum vsir_data_type type)
 {
     vsir_src_operand_init(src, VSIR_REGISTER_PARAMETER, type, 1);
     src->reg.idx[0].offset = idx;
@@ -1262,7 +1259,7 @@ static void vsir_src_operand_init_parameter_vec4(struct vsir_src_operand *src, u
     src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
 }
 
-static void vsir_src_operand_init_resource(struct vsir_src_operand *src, unsigned int id, unsigned int idx)
+void vsir_src_operand_init_resource(struct vsir_src_operand *src, unsigned int id, unsigned int idx)
 {
     vsir_src_operand_init(src, VSIR_REGISTER_RESOURCE, VSIR_DATA_UNUSED, 2);
     src->reg.idx[0].offset = id;
@@ -1271,7 +1268,7 @@ static void vsir_src_operand_init_resource(struct vsir_src_operand *src, unsigne
     src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
 }
 
-static void vsir_src_operand_init_sampler(struct vsir_src_operand *src, unsigned int id, unsigned int idx)
+void vsir_src_operand_init_sampler(struct vsir_src_operand *src, unsigned int id, unsigned int idx)
 {
     vsir_src_operand_init(src, VSIR_REGISTER_SAMPLER, VSIR_DATA_UNUSED, 2);
     src->reg.idx[0].offset = id;
@@ -2804,75 +2801,6 @@ static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program,
     return VKD3D_OK;
 }
 
-static struct vsir_instruction *generate_bump_coords(struct vsir_program *program,
-        struct vsir_program_iterator *it, uint32_t idx, const struct vsir_src_operand *coords,
-        const struct vsir_src_operand *perturbation, const struct vkd3d_shader_location *loc)
-{
-    uint32_t ssa_temp, ssa_coords;
-    struct vsir_instruction *ins;
-
-    /* We generate the following code:
-     *
-     * mad    srTMP.xy, PERTURBATION.xx, BUMP_MATRIX#.xy, COORDS.xy
-     * mad srCOORDS.xy, PERTURBATION.yy, BUMP_MATRIX#.zw, srTMP.xy
-     */
-
-    ssa_temp = program->ssa_count++;
-    ssa_coords = program->ssa_count++;
-
-    ins = vsir_program_iterator_current(it);
-    if (!vsir_instruction_init_with_params(program, ins, loc, VSIR_OP_MAD, 1, 3))
-        return false;
-    vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], ssa_temp);
-    ins->dst[0].write_mask = VKD3DSP_WRITEMASK_0 | VKD3DSP_WRITEMASK_1;
-    ins->src[0] = *perturbation;
-    ins->src[0].swizzle = vsir_combine_swizzles(perturbation->swizzle, VKD3D_SHADER_SWIZZLE(X, X, X, X));
-    vsir_src_operand_init_parameter_vec4(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_0 + idx, VSIR_DATA_F32);
-    ins->src[2] = *coords;
-    /* Copy rel_addrs in copy of *perturbation, to avoid multiple owners. */
-    if (!vsir_operand_clone_indirect_indices(&ins->src[0].reg, program))
-        return false;
-
-    ins = vsir_program_iterator_next(it);
-    if (!vsir_instruction_init_with_params(program, ins, loc, VSIR_OP_MAD, 1, 3))
-        return false;
-    vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], ssa_coords);
-    ins->dst[0].write_mask = VKD3DSP_WRITEMASK_0 | VKD3DSP_WRITEMASK_1;
-    ins->src[0] = *perturbation;
-    ins->src[0].swizzle = vsir_combine_swizzles(perturbation->swizzle, VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y));
-    vsir_src_operand_init_parameter_vec4(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_0 + idx, VSIR_DATA_F32);
-    ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(Z, W, W, W);
-    vsir_src_operand_init_ssa_f32v4(&ins->src[2], ssa_temp);
-    ins->src[2].swizzle = VKD3D_SHADER_SWIZZLE(X, Y, Y, Y);
-    /* Copy rel_addrs in copy of *perturbation, to avoid multiple owners. */
-    if (!vsir_operand_clone_indirect_indices(&ins->src[0].reg, program))
-        return false;
-
-    return ins;
-}
-
-static enum vkd3d_result vsir_program_lower_bem(struct vsir_program *program, struct vsir_program_iterator *it)
-{
-    struct vsir_instruction *ins = vsir_program_iterator_current(it);
-    const struct vkd3d_shader_location location = ins->location;
-    const struct vsir_src_operand *src = ins->src;
-    const struct vsir_dst_operand *dst = ins->dst;
-
-    /* bem DST.xy, SRC0, SRC1
-     *      ->
-     * mad srTMP.xy, SRC1.xx, BUMP_MATRIX#.xy, SRC0.xy
-     * mad   DST.xy, SRC1.yy, BUMP_MATRIX#.zw, srTMP.xy */
-
-    if (!vsir_program_iterator_insert_after(it, 1))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-
-    if (!(ins = generate_bump_coords(program, it, dst[0].reg.idx[0].offset, &src[0], &src[1], &location)))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-
-    ins->dst[0] = dst[0];
-    return VKD3D_OK;
-}
-
 static enum vkd3d_result vsir_program_lower_rep(struct vsir_program *program, struct vsir_program_iterator *rep)
 {
     struct vsir_instruction *ins = vsir_program_iterator_current(rep);
@@ -3081,137 +3009,6 @@ fail:
     return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
-static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
-        struct vsir_program_iterator *it, struct vkd3d_shader_message_context *message_context)
-{
-    struct vsir_instruction *ins = vsir_program_iterator_current(it);
-    const struct vkd3d_shader_location location = ins->location;
-    bool is_texbeml = (ins->opcode == VSIR_OP_TEXBEML);
-    unsigned int idx = ins->dst[0].reg.idx[0].offset;
-    uint32_t ssa_coords, ssa_luminance, ssa_sample;
-    const struct vsir_src_operand *src = ins->src;
-    const struct vsir_descriptor *descriptor;
-    struct vsir_src_operand orig_coords;
-    bool projected;
-
-    /* texbem t#, SRC
-     *      ->
-     * bem srCOORDS.xy, t#, SRC
-     * texld t#, srCOORDS
-     *      ->
-     * mad    srTMP.xy, SRC.xx, BUMP_MATRIX#.xy, t#.xy
-     * mad srCOORDS.xy, SRC.yy, BUMP_MATRIX#.zw, srTMP.xy
-     * sample t#, srCOORDS, resource#, sampler#
-     *
-     * Luminance then adds:
-     *
-     * mad srLUM.x, SRC.z, BUMP_LUMINANCE_SCALE#, BUMP_LUMINANCE_OFFSET#
-     * mul t#, t#, srLUM.xxxx
-     *
-     * If projecting, we replace srCOORDS calculation with
-     *
-     * div srPROJ, t#, t#.w
-     * bem srCOORDS.xy, srPROJ.xy, SRC
-     *
-     * Note that the t# destination will subsequently be turned into a temp. */
-
-    descriptor = vkd3d_shader_find_descriptor(&program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, idx);
-    if (descriptor->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE)
-    {
-        vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
-                "Unhandled TEXBEM(L) with a comparison sampler.");
-        return VKD3D_ERROR_NOT_IMPLEMENTED;
-    }
-
-    descriptor = vkd3d_shader_find_descriptor(&program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, idx);
-    if (descriptor->resource_type != VKD3D_SHADER_RESOURCE_TEXTURE_2D)
-    {
-        vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
-                "Unhandled TEXBEM(L) with resource dimension %#x.", descriptor->resource_type);
-        return VKD3D_ERROR_NOT_IMPLEMENTED;
-    }
-
-    projected = is_texture_projected(program, message_context, idx);
-    if (!vsir_program_iterator_insert_after(it, 2 + (is_texbeml ? 2 : 0) + (projected ? 1 : 0)))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-
-    vsir_src_operand_init(&orig_coords, VSIR_REGISTER_TEXTURE, VSIR_DATA_F32, 1);
-    orig_coords.reg.idx[0].offset = idx;
-    orig_coords.reg.dimension = VSIR_DIMENSION_VEC4;
-    orig_coords.swizzle = VKD3D_SHADER_NO_SWIZZLE;
-
-    if (projected)
-    {
-        uint32_t ssa_proj = program->ssa_count++;
-
-        ins = vsir_program_iterator_current(it);
-        if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_DIV, 1, 2))
-            return VKD3D_ERROR_OUT_OF_MEMORY;
-        vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], ssa_proj);
-        ins->src[0] = orig_coords;
-        ins->src[1] = ins->src[0];
-        ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(W, W, W, W);
-
-        vsir_src_operand_init_ssa_f32v4(&orig_coords, ssa_proj);
-
-        vsir_program_iterator_next(it);
-    }
-
-    if (!(ins = generate_bump_coords(program, it, idx, &orig_coords, &src[0], &location)))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-    ssa_coords = ins->dst[0].reg.idx[0].offset;
-
-    ins = vsir_program_iterator_next(it);
-    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_SAMPLE, 1, 3))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-    vsir_dst_operand_init(&ins->dst[0], VSIR_REGISTER_TEXTURE, VSIR_DATA_F32, 1);
-    ins->dst[0].reg.idx[0].offset = idx;
-    ins->dst[0].reg.dimension = VSIR_DIMENSION_VEC4;
-    ins->dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
-    vsir_src_operand_init_ssa_f32v4(&ins->src[0], ssa_coords);
-    ins->src[0].swizzle = VKD3D_SHADER_SWIZZLE(X, Y, Y, Y);
-    vsir_src_operand_init_resource(&ins->src[1], idx, idx);
-    vsir_src_operand_init_sampler(&ins->src[2], idx, idx);
-
-    if (is_texbeml)
-    {
-        enum vkd3d_shader_swizzle_component z = vsir_swizzle_get_component(src[0].swizzle, 2);
-
-        ssa_sample = program->ssa_count++;
-        ssa_luminance = program->ssa_count++;
-
-        /* Replace t# destination of the SAMPLE instruction with an SSA value. */
-        vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], ssa_sample);
-
-        ins = vsir_program_iterator_next(it);
-        if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MAD, 1, 3))
-            return VKD3D_ERROR_OUT_OF_MEMORY;
-        vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], ssa_luminance);
-        ins->dst[0].write_mask = VKD3DSP_WRITEMASK_0;
-        ins->src[0] = src[0];
-        ins->src[0].swizzle = vkd3d_shader_create_swizzle(z, z, z, z);
-        vsir_src_operand_init_parameter(&ins->src[1],
-                VKD3D_SHADER_PARAMETER_NAME_BUMP_LUMINANCE_SCALE_0 + idx, VSIR_DATA_F32);
-        vsir_src_operand_init_parameter(&ins->src[2],
-                VKD3D_SHADER_PARAMETER_NAME_BUMP_LUMINANCE_OFFSET_0 + idx, VSIR_DATA_F32);
-        /* Copy rel_addrs in additional use of SRC0, to avoid multiple owners. */
-        if (!vsir_operand_clone_indirect_indices(&ins->src[0].reg, program))
-            return VKD3D_ERROR_OUT_OF_MEMORY;
-
-        ins = vsir_program_iterator_next(it);
-        if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MUL, 1, 2))
-            return VKD3D_ERROR_OUT_OF_MEMORY;
-        vsir_dst_operand_init(&ins->dst[0], VSIR_REGISTER_TEXTURE, VSIR_DATA_F32, 1);
-        ins->dst[0].reg.idx[0].offset = idx;
-        ins->dst[0].reg.dimension = VSIR_DIMENSION_VEC4;
-        ins->dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
-        vsir_src_operand_init_ssa_f32v4(&ins->src[0], ssa_sample);
-        vsir_src_operand_init_ssa_f32v4(&ins->src[1], ssa_luminance);
-        ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
-    }
-    return VKD3D_OK;
-}
-
 static enum vkd3d_result vsir_program_lower_dcl_input(struct vsir_program *program,
         struct vsir_instruction *ins, struct vsir_transformation_context *ctx)
 {
@@ -3296,10 +3093,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
         switch (ins->opcode)
         {
-            case VSIR_OP_BEM:
-                ret = vsir_program_lower_bem(program, &it);
-                break;
-
             case VSIR_OP_BREAKC:
                 ret = vsir_program_lower_breakc(program, &it, message_context);
                 break;
@@ -3327,11 +3120,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_SUB:
                 ret = vsir_program_lower_sub(program, &it);
-                break;
-
-            case VSIR_OP_TEXBEM:
-            case VSIR_OP_TEXBEML:
-                ret = vsir_program_lower_texbem(program, &it, message_context);
                 break;
 
             case VSIR_OP_TEXDEPTH:
@@ -11040,7 +10828,6 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_ATOMIC_UMAX:
         case VSIR_OP_ATOMIC_UMIN:
         case VSIR_OP_ATOMIC_XOR:
-        case VSIR_OP_BEM:
         case VSIR_OP_BRANCH:
         case VSIR_OP_BREAK:
         case VSIR_OP_BREAKC:
@@ -11156,8 +10943,6 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_SWITCH_MONOLITHIC:
         case VSIR_OP_SYNC:
         case VSIR_OP_TEX:
-        case VSIR_OP_TEXBEM:
-        case VSIR_OP_TEXBEML:
         case VSIR_OP_TEXDEPTH:
         case VSIR_OP_TEXDP3:
         case VSIR_OP_TEXDP3TEX:
@@ -11313,13 +11098,10 @@ static void liveness_track_dst(struct liveness_tracker *tracker, struct vsir_dst
 
     switch (opcode)
     {
-        case VSIR_OP_BEM:
         case VSIR_OP_CRS:
         case VSIR_OP_DST:
         case VSIR_OP_LIT:
         case VSIR_OP_TEX:
-        case VSIR_OP_TEXBEM:
-        case VSIR_OP_TEXBEML:
         case VSIR_OP_TEXDEPTH:
         case VSIR_OP_TEXDP3:
         case VSIR_OP_TEXDP3TEX:
@@ -14141,27 +13923,6 @@ static void vsir_validate_shift_operation(struct validation_context *ctx,
                 vsir_opcode_get_name(instruction->opcode, "<unknown>"), instruction->opcode);
 }
 
-static void vsir_validate_bem(struct validation_context *ctx, const struct vsir_instruction *instruction)
-{
-    const struct vkd3d_shader_version *version = &ctx->program->shader_version;
-
-    if (version->type != VKD3D_SHADER_TYPE_PIXEL)
-        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
-                "BEM cannot be used in shader type %#x.", version->type);
-
-    if (version->major != 1 || version->minor != 4)
-        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_OPCODE,
-                "BEM cannot be used in version %u.%u.", version->major, version->minor);
-
-    if (instruction->dst[0].write_mask != 0x3)
-        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_WRITE_MASK,
-                "Invalid BEM write mask %#x.", instruction->dst[0].write_mask);
-
-    /* Strictly not an elementwise operation, but we expect all the arguments
-     * to be float. */
-    vsir_validate_float_elementwise_operation(ctx, instruction);
-}
-
 static void vsir_validate_branch(struct validation_context *ctx, const struct vsir_instruction *instruction)
 {
     size_t i;
@@ -15023,7 +14784,6 @@ static const struct vsir_validator_instruction_desc vsir_validator_instructions[
     [VSIR_OP_AND] =                              {1,   2, vsir_validate_logic_elementwise_operation},
     [VSIR_OP_ASIN] =                             {1,   1, vsir_validate_float_elementwise_operation},
     [VSIR_OP_ATAN] =                             {1,   1, vsir_validate_float_elementwise_operation},
-    [VSIR_OP_BEM] =                              {1,   2, vsir_validate_bem},
     [VSIR_OP_BRANCH] =                           {0, ~0u, vsir_validate_branch},
     [VSIR_OP_DADD] =                             {1,   2, vsir_validate_double_elementwise_operation},
     [VSIR_OP_DCL_GS_INSTANCES] =                 {0,   0, vsir_validate_dcl_gs_instances},
@@ -15488,7 +15248,6 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_AND:
         case VSIR_OP_ASIN:
         case VSIR_OP_ATAN:
-        case VSIR_OP_BEM:
         case VSIR_OP_BFI:
         case VSIR_OP_BFREV:
         case VSIR_OP_BUFINFO:
@@ -15650,8 +15409,6 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_SWAPC:
         case VSIR_OP_TAN:
         case VSIR_OP_TEX:
-        case VSIR_OP_TEXBEM:
-        case VSIR_OP_TEXBEML:
         case VSIR_OP_TEXDEPTH:
         case VSIR_OP_TEXDP3:
         case VSIR_OP_TEXDP3TEX:

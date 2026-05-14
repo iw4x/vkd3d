@@ -340,7 +340,6 @@ enum vsir_opcode
     VSIR_OP_ATOMIC_UMAX,
     VSIR_OP_ATOMIC_UMIN,
     VSIR_OP_ATOMIC_XOR,
-    VSIR_OP_BEM,
     VSIR_OP_BFI,
     VSIR_OP_BFREV,
     VSIR_OP_BRANCH,
@@ -593,8 +592,6 @@ enum vsir_opcode
     VSIR_OP_SYNC,
     VSIR_OP_TAN,
     VSIR_OP_TEX,
-    VSIR_OP_TEXBEM,
-    VSIR_OP_TEXBEML,
     VSIR_OP_TEXDEPTH,
     VSIR_OP_TEXDP3,
     VSIR_OP_TEXDP3TEX,
@@ -1180,6 +1177,10 @@ void vsir_src_operand_init(struct vsir_src_operand *src, enum vsir_register_type
         enum vsir_data_type data_type, unsigned int idx_count);
 void vsir_src_operand_init_const_f32(struct vsir_src_operand *src, float value);
 void vsir_src_operand_init_label(struct vsir_src_operand *src, unsigned int label_id);
+void vsir_src_operand_init_parameter(struct vsir_src_operand *src, uint32_t idx, enum vsir_data_type type);
+void vsir_src_operand_init_parameter_vec4(struct vsir_src_operand *src, uint32_t idx, enum vsir_data_type type);
+void vsir_src_operand_init_resource(struct vsir_src_operand *src, unsigned int id, unsigned int idx);
+void vsir_src_operand_init_sampler(struct vsir_src_operand *src, unsigned int id, unsigned int idx);
 void vsir_src_operand_init_ssa(struct vsir_src_operand *src, unsigned int idx,
         enum vsir_data_type data_type, enum vsir_dimension dimension);
 void vsir_src_operand_init_ssa_f32(struct vsir_src_operand *src, unsigned int idx);
