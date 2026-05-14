@@ -344,7 +344,8 @@ vkd3d_shader_tests = \
 	tests/preproc-ifdef.shader_test \
 	tests/preproc-invalid.shader_test \
 	tests/preproc-macro.shader_test \
-	tests/preproc-misc.shader_test
+	tests/preproc-misc.shader_test \
+	tests/tpf/all-resources-bound.shader_test
 
 vkd3d_test_headers = \
 	tests/d3d12_crosstest.h \
