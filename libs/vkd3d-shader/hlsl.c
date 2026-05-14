@@ -1458,11 +1458,7 @@ struct hlsl_type *hlsl_type_clone(struct hlsl_ctx *ctx, struct hlsl_type *old,
                     return NULL;
                 }
                 dst_field->name = hlsl_strdup(ctx, src_field->name);
-                if (src_field->semantic.name)
-                {
-                    dst_field->semantic.name = hlsl_strdup(ctx, src_field->semantic.name);
-                    dst_field->semantic.index = src_field->semantic.index;
-                }
+                hlsl_clone_semantic(ctx, &dst_field->semantic, &src_field->semantic);
             }
             break;
         }
