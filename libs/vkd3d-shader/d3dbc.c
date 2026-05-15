@@ -498,7 +498,7 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     {VKD3D_SM1_OP_TEXM3x2DEPTH, 1, 1, "texm3x2depth",   VSIR_OP_TEXM3x2DEPTH, {1, 3}, {1, 3}},
     {VKD3D_SM1_OP_TEXDP3,       1, 1, "texdp3",         VSIR_OP_TEXDP3,       {1, 2}, {1, 3}},
     {VKD3D_SM1_OP_TEXM3x3,      1, 1, "texm3x3",        VSIR_OP_TEXM3x3,      {1, 2}, {1, 3}},
-    {VKD3D_SM1_OP_TEXDEPTH,     1, 0, "texdepth",       VSIR_OP_TEXDEPTH,     {1, 4}, {1, 4}},
+    {VKD3D_SM1_OP_TEXDEPTH,     1, 0, "texdepth",       VSIR_OP_NOP,          {1, 4}, {1, 4}},
     {VKD3D_SM1_OP_BEM,          1, 2, "bem",            VSIR_OP_NOP,          {1, 4}, {1, 4}},
     {VKD3D_SM1_OP_DSX,          1, 1, "dsx",            VSIR_OP_DSX,          {2, 1}},
     {VKD3D_SM1_OP_DSY,          1, 1, "dsy",            VSIR_OP_DSY,          {2, 1}},
@@ -2032,6 +2032,54 @@ static enum vkd3d_result d3dbc_read_texcoord(struct vkd3d_shader_sm1_parser *par
     return VKD3D_OK;
 }
 
+static enum vkd3d_result d3dbc_read_texdepth(struct vkd3d_shader_sm1_parser *parser,
+        const struct d3dbc_instruction *d3dbc_ins)
+{
+    unsigned int ssa_eq, ssa_div, ssa_sat;
+    struct vsir_instruction *ins;
+
+    /* texdepth r5
+     *      ->
+     * eq srEQ, r5.y, 0.0
+     * div srDIV, r5.x, r5.y
+     * saturate srSAT, srDIV
+     * movc oDepth, srEQ, 1.0, srSAT */
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_EQO, 1, 2)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    ssa_eq = parser->program->ssa_count++;
+    vsir_dst_operand_init_ssa_bool(&ins->dst[0], ssa_eq);
+    vsir_src_operand_init_temp_f32v4(&ins->src[0], 5);
+    ins->src[0].swizzle = VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y);
+    vsir_src_operand_init_const_f32(&ins->src[1], 0.0f);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_DIV, 1, 2)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    ssa_div = parser->program->ssa_count++;
+    vsir_dst_operand_init_ssa_f32(&ins->dst[0], ssa_div);
+    vsir_src_operand_init_temp_f32v4(&ins->src[0], 5);
+    ins->src[0].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+    vsir_src_operand_init_temp_f32v4(&ins->src[1], 5);
+    ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_SATURATE, 1, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    ssa_sat = parser->program->ssa_count++;
+    vsir_dst_operand_init_ssa_f32(&ins->dst[0], ssa_sat);
+    vsir_src_operand_init_ssa_f32(&ins->src[0], ssa_div);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MOVC, 1, 3)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_operand_init(&ins->dst[0], VSIR_REGISTER_DEPTHOUT, VSIR_DATA_F32, 0);
+    ins->dst[0].reg.dimension = VSIR_DIMENSION_SCALAR;
+    vsir_src_operand_init_ssa_bool(&ins->src[0], ssa_eq);
+    vsir_src_operand_init_const_f32(&ins->src[1], 1.0f);
+    vsir_src_operand_init_ssa_f32(&ins->src[2], ssa_sat);
+
+    bitmap_set(parser->program->io_dcls, VSIR_REGISTER_DEPTHOUT);
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_parser *parser,
         const struct d3dbc_instruction *d3dbc_ins, const struct vkd3d_sm1_opcode_info *opcode_info)
 {
@@ -2144,6 +2192,9 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
 
         case VKD3D_SM1_OP_TEXCOORD:
             return d3dbc_read_texcoord(parser, d3dbc_ins);
+
+        case VKD3D_SM1_OP_TEXDEPTH:
+            return d3dbc_read_texdepth(parser, d3dbc_ins);
 
         /* TEXKILL, uniquely, encodes its argument as a destination, when it
          * is semantically a source. Since we have multiple passes which

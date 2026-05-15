@@ -457,7 +457,6 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_SYNC                            ] = "sync",
         [VSIR_OP_TAN                             ] = "tan",
         [VSIR_OP_TEX                             ] = "tex",
-        [VSIR_OP_TEXDEPTH                        ] = "texdepth",
         [VSIR_OP_TEXDP3                          ] = "texdp3",
         [VSIR_OP_TEXDP3TEX                       ] = "texdp3tex",
         [VSIR_OP_TEXKILL                         ] = "texkill",
@@ -1295,7 +1294,7 @@ static void vsir_src_operand_init_ssa_scalar(struct vsir_src_operand *src,
     vsir_src_operand_init_ssa(src, idx, data_type, VSIR_DIMENSION_SCALAR);
 }
 
-static void vsir_src_operand_init_ssa_bool(struct vsir_src_operand *src, unsigned int idx)
+void vsir_src_operand_init_ssa_bool(struct vsir_src_operand *src, unsigned int idx)
 {
     vsir_src_operand_init_ssa_scalar(src, idx, VSIR_DATA_BOOL);
 }
@@ -1378,7 +1377,7 @@ static void vsir_dst_operand_init_ssa_scalar(struct vsir_dst_operand *dst,
     vsir_dst_operand_init_ssa(dst, idx, data_type, VSIR_DIMENSION_SCALAR);
 }
 
-static void vsir_dst_operand_init_ssa_bool(struct vsir_dst_operand *dst, unsigned int idx)
+void vsir_dst_operand_init_ssa_bool(struct vsir_dst_operand *dst, unsigned int idx)
 {
     vsir_dst_operand_init_ssa_scalar(dst, idx, VSIR_DATA_BOOL);
 }
@@ -2405,66 +2404,6 @@ fail:
     return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
-static enum vkd3d_result vsir_program_lower_texdepth(struct vsir_program *program,
-        struct vsir_program_iterator *texdepth, struct vkd3d_shader_message_context *message_context)
-{
-    struct vsir_instruction *ins = vsir_program_iterator_current(texdepth);
-    const struct vkd3d_shader_location location = ins->location;
-    uint32_t ssa_eq, ssa_div, ssa_sat;
-    struct vsir_program_iterator it;
-
-    /* texdepth r5
-     *      ->
-     * eq srEQ, r5.y, 0.0
-     * div srDIV, r5.x, r5.y
-     * saturate srSAT, srDIV
-     * movc oDepth, srEQ, 1.0, srSAT */
-
-    if (!(ins = vsir_program_iterator_insert_before(texdepth, &it, 3)))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_EQO, 1, 2))
-        goto fail;
-    ssa_eq = program->ssa_count++;
-    vsir_dst_operand_init_ssa_bool(&ins->dst[0], ssa_eq);
-    vsir_src_operand_init_temp_f32v4(&ins->src[0], 5);
-    ins->src[0].swizzle = VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y);
-    vsir_src_operand_init_const_f32(&ins->src[1], 0.0f);
-
-    ins = vsir_program_iterator_next(&it);
-    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_DIV, 1, 2))
-        goto fail;
-    ssa_div = program->ssa_count++;
-    vsir_dst_operand_init_ssa_f32(&ins->dst[0], ssa_div);
-    vsir_src_operand_init_temp_f32v4(&ins->src[0], 5);
-    ins->src[0].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
-    vsir_src_operand_init_temp_f32v4(&ins->src[1], 5);
-    ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y);
-
-    ins = vsir_program_iterator_next(&it);
-    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_SATURATE, 1, 1))
-        goto fail;
-    ssa_sat = program->ssa_count++;
-    vsir_dst_operand_init_ssa_f32(&ins->dst[0], ssa_sat);
-    vsir_src_operand_init_ssa_f32(&ins->src[0], ssa_div);
-
-    ins = vsir_program_iterator_next(&it);
-    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MOVC, 1, 3))
-        goto fail;
-    vsir_dst_operand_init(&ins->dst[0], VSIR_REGISTER_DEPTHOUT, VSIR_DATA_F32, 0);
-    ins->dst[0].reg.dimension = VSIR_DIMENSION_SCALAR;
-    vsir_src_operand_init_ssa_bool(&ins->src[0], ssa_eq);
-    vsir_src_operand_init_const_f32(&ins->src[1], 1.0f);
-    vsir_src_operand_init_ssa_f32(&ins->src[2], ssa_sat);
-
-    bitmap_set(program->io_dcls, VSIR_REGISTER_DEPTHOUT);
-    return VKD3D_OK;
-
-fail:
-    vsir_program_iterator_nop_range(&it, texdepth, &location);
-
-    return VKD3D_ERROR_OUT_OF_MEMORY;
-}
-
 static enum vkd3d_result vsir_program_lower_texld_sm1(struct vsir_program *program,
         struct vsir_instruction *ins, struct vkd3d_shader_message_context *message_context)
 {
@@ -3120,10 +3059,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_SUB:
                 ret = vsir_program_lower_sub(program, &it);
-                break;
-
-            case VSIR_OP_TEXDEPTH:
-                ret = vsir_program_lower_texdepth(program, &it, message_context);
                 break;
 
             case VSIR_OP_TEXKILL:
@@ -10943,7 +10878,6 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_SWITCH_MONOLITHIC:
         case VSIR_OP_SYNC:
         case VSIR_OP_TEX:
-        case VSIR_OP_TEXDEPTH:
         case VSIR_OP_TEXDP3:
         case VSIR_OP_TEXDP3TEX:
         case VSIR_OP_TEXKILL:
@@ -11102,7 +11036,6 @@ static void liveness_track_dst(struct liveness_tracker *tracker, struct vsir_dst
         case VSIR_OP_DST:
         case VSIR_OP_LIT:
         case VSIR_OP_TEX:
-        case VSIR_OP_TEXDEPTH:
         case VSIR_OP_TEXDP3:
         case VSIR_OP_TEXDP3TEX:
         case VSIR_OP_TEXLD:
@@ -14730,34 +14663,6 @@ static void vsir_validate_switch_monolithic(struct validation_context *ctx,
     ctx->inside_block = false;
 }
 
-static void vsir_validate_texdepth(struct validation_context *ctx, const struct vsir_instruction *instruction)
-{
-    const struct vkd3d_shader_version *version = &ctx->program->shader_version;
-
-    if (version->type != VKD3D_SHADER_TYPE_PIXEL)
-        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
-                "TEXDEPTH cannot be used in shader type %#x.", version->type);
-
-    if (version->major != 1 || version->minor != 4)
-        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_OPCODE,
-                "TEXDEPTH cannot be used in version %u.%u.", version->major, version->minor);
-
-    if (instruction->dst[0].write_mask != VKD3DSP_WRITEMASK_ALL)
-        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_WRITE_MASK,
-                "Invalid TEXDEPTH write mask %#x.", instruction->dst[0].write_mask);
-
-    if (instruction->dst[0].reg.type != VSIR_REGISTER_TEMP)
-        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
-                "Invalid TEXDEPTH register type %#x.", instruction->dst[0].reg.type);
-
-    if (instruction->dst[0].reg.idx[0].offset != 5)
-        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_INDEX,
-                "Invalid TEXDEPTH register index %u.", instruction->dst[0].reg.idx[0].offset);
-
-    /* Strictly not an elementwise operation, but we expect the dest to be float. */
-    vsir_validate_float_elementwise_operation(ctx, instruction);
-}
-
 static void vsir_validate_ushr(struct validation_context *ctx, const struct vsir_instruction *instruction)
 {
     static const bool types[VSIR_DATA_TYPE_COUNT] =
@@ -14891,7 +14796,6 @@ static const struct vsir_validator_instruction_desc vsir_validator_instructions[
     [VSIR_OP_SATURATE] =                         {1,   1, vsir_validate_float_or_double_elementwise_operation},
     [VSIR_OP_SWITCH] =                           {0,   1, vsir_validate_switch},
     [VSIR_OP_SWITCH_MONOLITHIC] =                {0, ~0u, vsir_validate_switch_monolithic},
-    [VSIR_OP_TEXDEPTH] =                         {1,   0, vsir_validate_texdepth},
     [VSIR_OP_USHR] =                             {1,   2, vsir_validate_ushr},
 };
 
@@ -15409,7 +15313,6 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_SWAPC:
         case VSIR_OP_TAN:
         case VSIR_OP_TEX:
-        case VSIR_OP_TEXDEPTH:
         case VSIR_OP_TEXDP3:
         case VSIR_OP_TEXDP3TEX:
         case VSIR_OP_TEXLD:
