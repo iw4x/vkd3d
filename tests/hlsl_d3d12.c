@@ -3939,6 +3939,7 @@ static void test_default_include_path(void)
     ok(hr == E_FAIL, "Got hr %#x.\n", hr);
     ok(!blob, "Got blob %p.\n", blob);
     ok(!!errors, "Got errors %p.\n", errors);
+    ID3D10Blob_Release(errors);
 #endif
 
     blob = NULL;
