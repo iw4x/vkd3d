@@ -2120,14 +2120,6 @@ enum vkd3d_result d3d_asm_compile(struct vsir_program *program, const struct vkd
     if (formatting & VKD3D_SHADER_COMPILE_OPTION_FORMATTING_IO_SIGNATURES && shader_version->major >= 4)
         compiler.flags |= VSIR_ASM_FLAG_DUMP_SIGNATURES;
 
-    if (compiler.flags & VSIR_ASM_FLAG_ALLOCATE_TEMPS)
-    {
-        if ((result = vsir_allocate_temp_registers(program, message_context)) < 0)
-            return result;
-        if ((result = vsir_update_dcl_temps(program, message_context)))
-            return result;
-    }
-
     buffer = &compiler.buffer;
     vkd3d_string_buffer_init(buffer);
 

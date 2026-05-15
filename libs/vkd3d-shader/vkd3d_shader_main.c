@@ -1897,29 +1897,70 @@ int vkd3d_shader_scan(const struct vkd3d_shader_compile_info *compile_info, char
     return ret;
 }
 
+static int vsir_program_disassemble(struct vsir_program *program, const struct vkd3d_shader_code *reflection_data,
+        uint64_t config_flags, const struct vkd3d_shader_compile_info *compile_info,
+        struct vkd3d_shader_code *out, struct vkd3d_shader_message_context *message_context)
+{
+    struct vkd3d_shader_compile_info info2 = *compile_info;
+    struct vkd3d_shader_code byte_code;
+    struct vsir_program program2;
+    int ret;
+
+    if ((ret = vsir_program_scan(program, &info2, message_context, true)) < 0)
+        return ret;
+
+    if (program->shader_version.major >= 6 || compile_info->source_type == VKD3D_SHADER_SOURCE_DXBC_TPF
+            || compile_info->source_type == VKD3D_SHADER_SOURCE_D3D_BYTECODE)
+        return d3d_asm_compile(program, compile_info, out, VSIR_ASM_FLAG_NONE, message_context);
+
+    if (program->shader_version.major >= 4)
+    {
+        info2.target_type = VKD3D_SHADER_TARGET_DXBC_TPF;
+        if ((ret = tpf_compile(program, config_flags, &info2, reflection_data, &byte_code, message_context)) < 0)
+            return ret;
+
+        info2.source_type = VKD3D_SHADER_SOURCE_DXBC_TPF;
+        info2.target_type = VKD3D_SHADER_TARGET_D3D_ASM;
+        info2.source = byte_code;
+        ret = tpf_parse(&info2, config_flags, message_context, &program2);
+    }
+    else
+    {
+        info2.target_type = VKD3D_SHADER_TARGET_D3D_BYTECODE;
+        if ((ret = d3dbc_compile(program, config_flags, &info2, reflection_data, &byte_code, message_context)) < 0)
+            return ret;
+
+        info2.source_type = VKD3D_SHADER_SOURCE_D3D_BYTECODE;
+        info2.target_type = VKD3D_SHADER_TARGET_D3D_ASM;
+        info2.source = byte_code;
+        ret = d3dbc_parse(&info2, config_flags, message_context, &program2);
+    }
+
+    if (ret < 0)
+    {
+        vkd3d_shader_free_shader_code(&byte_code);
+        return ret;
+    }
+
+    ret = d3d_asm_compile(&program2, &info2, out, VSIR_ASM_FLAG_NONE, message_context);
+    vsir_program_cleanup(&program2);
+    vkd3d_shader_free_shader_code(&byte_code);
+
+    return ret;
+}
+
 int vsir_program_compile(struct vsir_program *program, const struct vkd3d_shader_code *reflection_data,
         uint64_t config_flags, const struct vkd3d_shader_compile_info *compile_info,
         struct vkd3d_shader_code *out, struct vkd3d_shader_message_context *message_context)
 {
     struct vkd3d_shader_scan_combined_resource_sampler_info combined_sampler_info;
     struct vkd3d_shader_compile_info scan_info;
-    enum vsir_asm_flags asm_flags;
     int ret;
 
     scan_info = *compile_info;
 
     switch (compile_info->target_type)
     {
-        case VKD3D_SHADER_TARGET_D3D_ASM:
-            if ((ret = vsir_program_scan(program, &scan_info, message_context, true)) < 0)
-                return ret;
-            asm_flags = VSIR_ASM_FLAG_NONE;
-            if (program->shader_version.major < 6 && compile_info->source_type != VKD3D_SHADER_SOURCE_DXBC_TPF
-                    && compile_info->source_type != VKD3D_SHADER_SOURCE_D3D_BYTECODE)
-                asm_flags |= VSIR_ASM_FLAG_ALLOCATE_TEMPS;
-            ret = d3d_asm_compile(program, compile_info, out, asm_flags, message_context);
-            break;
-
         case VKD3D_SHADER_TARGET_D3D_BYTECODE:
             if ((ret = vsir_program_scan(program, &scan_info, message_context, true)) < 0)
                 return ret;
@@ -2029,7 +2070,12 @@ int vkd3d_shader_compile(const struct vkd3d_shader_compile_info *compile_info,
         if (!(ret = vsir_parse(compile_info, config_flags, &dump_data,
                 &message_context, &program, &reflection_data)))
         {
-            ret = vsir_program_compile(&program, &reflection_data, config_flags, compile_info, out, &message_context);
+            if (compile_info->target_type == VKD3D_SHADER_TARGET_D3D_ASM)
+                ret = vsir_program_disassemble(&program, &reflection_data,
+                        config_flags, compile_info, out, &message_context);
+            else
+                ret = vsir_program_compile(&program, &reflection_data,
+                        config_flags, compile_info, out, &message_context);
             vkd3d_shader_free_shader_code(&reflection_data);
             vsir_program_cleanup(&program);
         }
