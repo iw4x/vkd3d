@@ -16670,10 +16670,8 @@ static int vsir_cse_expr_key_compare(const void *key, const struct rb_entry *e)
     return memcmp(a->resource_data_type, b->resource_data_type, sizeof(a->resource_data_type));
 }
 
-static void vsir_cse_expr_free(struct rb_entry *e, void *context)
+static void vsir_cse_expr_destroy(struct vsir_cse_expr *expr)
 {
-    struct vsir_cse_expr *expr = RB_ENTRY_VALUE(e, struct vsir_cse_expr, entry);
-
     vkd3d_free(expr->ins.src);
     vkd3d_free(expr);
 }
@@ -16737,6 +16735,13 @@ struct vsir_cse_state
     unsigned int depth;
 };
 
+static void vsir_cse_free_expr(struct rb_entry *e, void *context)
+{
+    struct vsir_cse_expr *expr = RB_ENTRY_VALUE(e, struct vsir_cse_expr, entry);
+
+    vsir_cse_expr_destroy(expr);
+}
+
 static struct vsir_cse_expr *vsir_cse_find_expr(struct vsir_cse_state *state, const struct vsir_cse_expr *key)
 {
     for (int i = state->depth; i >= 0; --i)
@@ -16781,7 +16786,7 @@ static enum vkd3d_result vsir_program_cse(struct vsir_program *program,
             case VSIR_OP_ENDIF:
             case VSIR_OP_ENDLOOP:
             case VSIR_OP_ENDSWITCH:
-                rb_destroy(&state.expr_tables[state.depth], vsir_cse_expr_free, NULL);
+                rb_destroy(&state.expr_tables[state.depth], vsir_cse_free_expr, NULL);
                 --state.depth;
                 continue;
 
@@ -16791,7 +16796,7 @@ static enum vkd3d_result vsir_program_cse(struct vsir_program *program,
             case VSIR_OP_HS_CONTROL_POINT_PHASE:
             case VSIR_OP_HS_FORK_PHASE:
             case VSIR_OP_HS_JOIN_PHASE:
-                rb_destroy(&state.expr_tables[state.depth], vsir_cse_expr_free, NULL);
+                rb_destroy(&state.expr_tables[state.depth], vsir_cse_free_expr, NULL);
                 rb_init(&state.expr_tables[state.depth], vsir_cse_expr_key_compare);
                 continue;
 
@@ -16816,6 +16821,8 @@ static enum vkd3d_result vsir_program_cse(struct vsir_program *program,
         {
             struct vkd3d_shader_instruction *mov;
 
+            vsir_cse_expr_destroy(expr);
+
             /* Replace the current instruction with a MOV from the existing SSA. */
             if (!vsir_program_iterator_insert_after(&it, 1))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -16833,7 +16840,6 @@ static enum vkd3d_result vsir_program_cse(struct vsir_program *program,
             mov->src[0].swizzle = vsir_swizzle_from_writemask(prev_expr->ins.dst->write_mask);
 
             vkd3d_shader_instruction_make_nop(ins);
-            vkd3d_free(expr);
             ctx->progress = true;
 
             TRACE("Replaced @%u with a mov from @%u.\n", ins_idx, prev_expr->ins_index);
@@ -16841,12 +16847,19 @@ static enum vkd3d_result vsir_program_cse(struct vsir_program *program,
         else if (ins->dst[0].reg.type == VKD3DSPR_SSA)
         {
             if (rb_put(&state.expr_tables[state.depth], expr, &expr->entry) == -1)
+            {
+                vsir_cse_expr_destroy(expr);
                 return VKD3D_ERROR_OUT_OF_MEMORY;
+            }
+        }
+        else
+        {
+            vsir_cse_expr_destroy(expr);
         }
     }
 
     VKD3D_ASSERT(state.depth == 0);
-    rb_destroy(&state.expr_tables[0], vsir_cse_expr_free, NULL);
+    rb_destroy(&state.expr_tables[0], vsir_cse_free_expr, NULL);
     vkd3d_free(state.expr_tables);
 
     return VKD3D_OK;
