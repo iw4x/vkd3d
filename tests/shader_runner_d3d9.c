@@ -367,7 +367,7 @@ static struct resource *d3d9_runner_create_resource(struct shader_runner *r, con
             break;
 
         case RESOURCE_TYPE_VERTEX_BUFFER:
-            hr = IDirect3DDevice9_CreateVertexBuffer(device, params->data_size,
+            hr = IDirect3DDevice9_CreateVertexBuffer(device, params->desc.width * params->desc.texel_size,
                     D3DUSAGE_DYNAMIC, 0, D3DPOOL_DEFAULT, &resource->vb, NULL);
             ok(hr == D3D_OK, "Failed to create vertex buffer, hr %#lx.\n", hr);
 

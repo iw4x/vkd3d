@@ -1760,6 +1760,7 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         params.desc.type = RESOURCE_TYPE_VERTEX_BUFFER;
         params.desc.dimension = RESOURCE_DIMENSION_BUFFER;
         params.desc.width = sizeof(quad);
+        params.desc.texel_size = 1;
         params.data = malloc(sizeof(quad));
         memcpy(params.data, quad, sizeof(quad));
         params.data_size = sizeof(quad);
@@ -3126,7 +3127,10 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
 
                 case STATE_RESOURCE:
                     if (current_resource.desc.type == RESOURCE_TYPE_VERTEX_BUFFER)
+                    {
                         current_resource.desc.width = current_resource.data_size;
+                        current_resource.desc.texel_size = 1;
+                    }
 
                     if (current_resource.desc.type == RESOURCE_TYPE_UAV)
                         assert_that(current_resource.explicit_format, "Format must be specified for UAV resources.\n");

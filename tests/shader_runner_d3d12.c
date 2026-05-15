@@ -145,7 +145,8 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
         case RESOURCE_TYPE_TEXTURE:
             if (params->desc.dimension == RESOURCE_DIMENSION_BUFFER)
             {
-                resource->resource = create_default_buffer(device, params->data_size, 0, initial_state);
+                resource->resource = create_default_buffer(device,
+                        params->desc.width * params->desc.texel_size, 0, initial_state);
                 if (params->data)
                 {
                     upload_buffer_data_with_states(resource->resource, 0, params->data_size, resource_data[0].pData,
@@ -192,7 +193,7 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
         case RESOURCE_TYPE_UAV:
             if (params->desc.dimension == RESOURCE_DIMENSION_BUFFER)
             {
-                resource->resource = create_default_buffer(device, params->data_size,
+                resource->resource = create_default_buffer(device, params->desc.width * params->desc.texel_size,
                         D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, initial_state);
                 if (params->data)
                 {

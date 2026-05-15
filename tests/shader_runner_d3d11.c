@@ -589,8 +589,8 @@ static void init_resource_srv_buffer(struct d3d11_shader_runner *runner, struct 
     ID3D11Device *device = runner->device;
     HRESULT hr;
 
-    resource->buffer = create_buffer(device, D3D11_BIND_SHADER_RESOURCE, params->data_size, params->is_raw,
-            params->stride, params->data);
+    resource->buffer = create_buffer(device, D3D11_BIND_SHADER_RESOURCE, params->desc.width * params->desc.texel_size,
+            params->is_raw, params->stride, params->data);
     resource->resource = (ID3D11Resource *)resource->buffer;
 
     srv_desc.Format = params->desc.format;
@@ -598,14 +598,14 @@ static void init_resource_srv_buffer(struct d3d11_shader_runner *runner, struct 
     {
         srv_desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
         srv_desc.BufferEx.FirstElement = 0;
-        srv_desc.BufferEx.NumElements = params->data_size / params->desc.texel_size;
+        srv_desc.BufferEx.NumElements = params->desc.width;
         srv_desc.BufferEx.Flags = D3D11_BUFFEREX_SRV_FLAG_RAW;
     }
     else
     {
         srv_desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
         srv_desc.Buffer.FirstElement = 0;
-        srv_desc.Buffer.NumElements = params->data_size / params->desc.texel_size;
+        srv_desc.Buffer.NumElements = params->desc.width;
     }
     hr = ID3D11Device_CreateShaderResourceView(device, resource->resource, &srv_desc, &resource->srv);
     ok(hr == S_OK, "Failed to create view, hr %#lx.\n", hr);
@@ -618,15 +618,15 @@ static void init_resource_uav_buffer(struct d3d11_shader_runner *runner, struct 
     ID3D11Device *device = runner->device;
     HRESULT hr;
 
-    resource->buffer = create_buffer(device, D3D11_BIND_UNORDERED_ACCESS, params->data_size, params->is_raw,
-            params->stride, params->data);
+    resource->buffer = create_buffer(device, D3D11_BIND_UNORDERED_ACCESS, params->desc.width * params->desc.texel_size,
+            params->is_raw, params->stride, params->data);
     resource->resource = (ID3D11Resource *)resource->buffer;
     resource->is_uav_counter = params->is_uav_counter;
 
     uav_desc.Format = params->desc.format;
     uav_desc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
     uav_desc.Buffer.FirstElement = 0;
-    uav_desc.Buffer.NumElements = params->data_size / params->desc.texel_size;
+    uav_desc.Buffer.NumElements = params->desc.width;
     if (params->is_raw)
         uav_desc.Buffer.Flags = D3D11_BUFFER_UAV_FLAG_RAW;
     else if (params->is_uav_counter)
@@ -671,8 +671,8 @@ static struct resource *d3d11_runner_create_resource(struct shader_runner *r, co
             break;
 
         case RESOURCE_TYPE_VERTEX_BUFFER:
-            resource->buffer = create_buffer(device, D3D11_BIND_VERTEX_BUFFER, params->data_size, params->is_raw,
-                    params->stride, params->data);
+            resource->buffer = create_buffer(device, D3D11_BIND_VERTEX_BUFFER,
+                    params->desc.width * params->desc.texel_size, params->is_raw, params->stride, params->data);
             resource->resource = (ID3D11Resource *)resource->buffer;
             break;
 

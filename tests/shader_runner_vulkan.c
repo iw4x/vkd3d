@@ -260,7 +260,7 @@ static void resource_init_buffer(struct vulkan_shader_runner *runner, struct vul
     if (format == VK_FORMAT_UNDEFINED && params->stride)
         format = VK_FORMAT_R32_UINT;
 
-    resource->buffer = create_vulkan_buffer(context, params->data_size, usage,
+    resource->buffer = create_vulkan_buffer(context, params->desc.width * params->desc.texel_size, usage,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &resource->memory);
     resource->buffer_view = create_vulkan_buffer_view(context, resource->buffer, format, 0);
 
@@ -323,7 +323,7 @@ static struct resource *vulkan_runner_create_resource(struct shader_runner *r, c
             break;
 
         case RESOURCE_TYPE_VERTEX_BUFFER:
-            resource->buffer = create_vulkan_buffer(context, params->data_size,
+            resource->buffer = create_vulkan_buffer(context, params->desc.width * params->desc.texel_size,
                     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &resource->memory);
 
             VK_CALL(vkMapMemory(device, resource->memory, 0, VK_WHOLE_SIZE, 0, &data));

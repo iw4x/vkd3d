@@ -599,7 +599,9 @@ static void init_resource_buffer(struct gl_resource *resource, const struct reso
 
     glGenBuffers(1, &resource->id);
     glBindBuffer(target, resource->id);
-    glBufferData(target, params->data_size, params->data, GL_STATIC_DRAW);
+    glBufferData(target, params->desc.width * params->desc.texel_size, NULL, GL_STATIC_DRAW);
+    if (params->data)
+        glBufferSubData(target, 0, params->data_size, params->data);
 
     glGenTextures(1, &resource->tbo_id);
     glBindTexture(target, resource->tbo_id);
@@ -628,7 +630,9 @@ static struct resource *gl_runner_create_resource(struct shader_runner *r, const
         case RESOURCE_TYPE_VERTEX_BUFFER:
             glGenBuffers(1, &resource->id);
             glBindBuffer(GL_ARRAY_BUFFER, resource->id);
-            glBufferData(GL_ARRAY_BUFFER, params->data_size, params->data, GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, params->desc.width * params->desc.texel_size, NULL, GL_STATIC_DRAW);
+            if (params->data)
+                glBufferSubData(GL_ARRAY_BUFFER, 0, params->data_size, params->data);
             break;
 
         case RESOURCE_TYPE_UNIFORM_BUFFER:

@@ -263,7 +263,7 @@ static void init_resource_buffer(struct metal_runner *runner,
 {
     id<MTLDevice> device = runner->device;
 
-    resource->buffer = [device newBufferWithLength:params->data_size
+    resource->buffer = [device newBufferWithLength:params->desc.width * params->desc.texel_size
             options:DEFAULT_BUFFER_RESOURCE_OPTIONS | MTLResourceStorageModePrivate];
 
     if (params->data)
