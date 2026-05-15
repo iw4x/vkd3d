@@ -2465,6 +2465,9 @@ static void test_query_denormal_mode(void)
 
         vkd3d_test_pop_context();
     }
+
+    if (dxc_compiler)
+        IDxcCompiler3_Release(dxc_compiler);
 }
 
 static void test_hlsl_locale(void)
