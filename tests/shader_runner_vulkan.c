@@ -507,22 +507,21 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     enum vkd3d_shader_spirv_extension spirv_extensions[4];
     struct vkd3d_shader_varying_map varying_map[12];
     struct vkd3d_shader_resource_binding *binding;
-    struct vkd3d_shader_compile_option options[3];
     struct vkd3d_shader_parameter1 parameters[41];
     uint32_t offset, size;
     unsigned int i;
     char *messages;
     int ret;
 
-    options[0].name = VKD3D_SHADER_COMPILE_OPTION_API_VERSION;
-    options[0].value = VKD3D_SHADER_API_VERSION_CURRENT;
-    options[1].name = VKD3D_SHADER_COMPILE_OPTION_FEATURE;
-    options[1].value = shader_runner_caps_get_feature_flags(&runner->caps);
-    options[2].name = VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV;
-    if (runner->caps.format_caps[DXGI_FORMAT_UNKNOWN] & FORMAT_CAP_UAV_LOAD)
-        options[2].value = VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV_READ_FORMAT_UNKNOWN;
-    else
-        options[2].value = VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV_READ_FORMAT_R32;
+    const struct vkd3d_shader_compile_option options[] =
+    {
+        {VKD3D_SHADER_COMPILE_OPTION_API_VERSION, VKD3D_SHADER_API_VERSION_CURRENT},
+        {VKD3D_SHADER_COMPILE_OPTION_FEATURE, shader_runner_caps_get_feature_flags(&runner->caps)},
+        {VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV, shader_runner_caps_get_typed_uav_compile_option(&runner->caps)},
+        {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16, VKD3D_SHADER_DENORMAL_MODE_ANY},
+        {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32, VKD3D_SHADER_DENORMAL_MODE_ANY},
+        {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64, VKD3D_SHADER_DENORMAL_MODE_ANY},
+    };
 
     info.next = &spirv_info;
     info.source.code = ID3D10Blob_GetBufferPointer(runner->d3d_blobs[type]);

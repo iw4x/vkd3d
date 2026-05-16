@@ -233,6 +233,13 @@ static inline unsigned int shader_runner_caps_get_feature_flags(const struct sha
     return flags;
 }
 
+static inline unsigned int shader_runner_caps_get_typed_uav_compile_option(const struct shader_runner_caps *caps)
+{
+    return caps->format_caps[DXGI_FORMAT_UNKNOWN] & FORMAT_CAP_UAV_LOAD
+            ? VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV_READ_FORMAT_UNKNOWN
+            : VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV_READ_FORMAT_R32;
+}
+
 enum fog_mode
 {
     FOG_MODE_NONE = 0,
