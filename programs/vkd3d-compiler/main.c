@@ -885,6 +885,9 @@ int main(int argc, char **argv)
             || options.target_type->type == VKD3D_SHADER_TARGET_SPIRV_TEXT)
         add_compile_option(&options, VKD3D_SHADER_COMPILE_OPTION_FEATURE,
                 VKD3D_SHADER_COMPILE_OPTION_FEATURE_INT64 | VKD3D_SHADER_COMPILE_OPTION_FEATURE_FLOAT64);
+    add_compile_option(&options, VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16, VKD3D_SHADER_DENORMAL_MODE_ANY);
+    add_compile_option(&options, VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32, VKD3D_SHADER_DENORMAL_MODE_ANY);
+    add_compile_option(&options, VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64, VKD3D_SHADER_DENORMAL_MODE_ANY);
 
     info.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO;
     info.next = &hlsl_source_info;
