@@ -6144,12 +6144,12 @@ static void spirv_compiler_emit_denormal_mode(struct spirv_compiler *compiler,
         return;
     }
 
-    if (compiler->program->f16_denormal_mode == VKD3D_SHADER_DENORMAL_MODE_PRESERVE)
+    if (mode == VKD3D_SHADER_DENORMAL_MODE_PRESERVE)
     {
         vkd3d_spirv_enable_capability(&compiler->spirv_builder, SpvCapabilityDenormPreserve);
         spirv_compiler_emit_execution_mode(compiler, SpvExecutionModeDenormPreserve, &bit_width, 1);
     }
-    else if (compiler->program->f16_denormal_mode == VKD3D_SHADER_DENORMAL_MODE_FLUSH_TO_ZERO)
+    else if (mode == VKD3D_SHADER_DENORMAL_MODE_FLUSH_TO_ZERO)
     {
         vkd3d_spirv_enable_capability(&compiler->spirv_builder, SpvCapabilityDenormFlushToZero);
         spirv_compiler_emit_execution_mode(compiler, SpvExecutionModeDenormFlushToZero, &bit_width, 1);
