@@ -27,8 +27,7 @@ float vkd3d_parse_float(const char *s, vkd3d_locale l)
 {
 #ifdef HAVE_STRTOF_L
     return strtof_l(s, NULL, l);
-/* MinGW 14 has _strtof_l(), but it's broken. */
-#elif HAVE__STRTOF_L && (!__MINGW32__ || __GNUC__ > 14)
+#elif HAVE__STRTOF_L
     return _strtof_l(s, NULL, l);
 #elif HAVE__STRTOD_L
     return _strtod_l(s, NULL, l);

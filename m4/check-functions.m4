@@ -1,12 +1,13 @@
 dnl VKD3D_CHECK_FUNC
 AC_DEFUN([VKD3D_CHECK_FUNC],
-[AC_MSG_CHECKING([for $2])
-AC_LINK_IFELSE([AC_LANG_SOURCE([int main(void) { return [$3]; }])],
-               [AC_MSG_RESULT([yes])
-               AC_DEFINE([$1],
-                         [1],
-                         [Define to 1 if you have $2.])],
-               [AC_MSG_RESULT([no])])])
+         [AC_MSG_CHECKING([for $2])
+          AC_LINK_IFELSE([AC_LANG_SOURCE([$3
+                                          int main(void) { return [$4]; }])],
+                         [AC_MSG_RESULT([yes])
+                          AC_DEFINE([$1],
+                                    [1],
+                                    [Define to 1 if you have $2.])],
+                         [AC_MSG_RESULT([no])])])
 
 dnl VKD3D_CHECK_LIB_FUNCS
 AC_DEFUN([VKD3D_CHECK_LIB_FUNCS],

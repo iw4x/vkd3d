@@ -173,18 +173,22 @@ AS_IF([test "x$with_xcb" != "xno"],
                                 [HAVE_XCB=no])])
 
 dnl Check for functions
-VKD3D_CHECK_FUNC([HAVE_BUILTIN_CLZ], [__builtin_clz], [__builtin_clz(0)])
-VKD3D_CHECK_FUNC([HAVE_BUILTIN_CTZ], [__builtin_ctz], [__builtin_ctz(0)])
-VKD3D_CHECK_FUNC([HAVE_BUILTIN_POPCOUNT], [__builtin_popcount], [__builtin_popcount(0)])
-VKD3D_CHECK_FUNC([HAVE_BUILTIN_ADD_OVERFLOW], [__builtin_add_overflow], [__builtin_add_overflow(0, 0, (int *)0)])
-VKD3D_CHECK_FUNC([HAVE_SYNC_ADD_AND_FETCH], [__sync_add_and_fetch], [__sync_add_and_fetch((int *)0, 0)])
-VKD3D_CHECK_FUNC([HAVE_SYNC_BOOL_COMPARE_AND_SWAP], [__sync_bool_compare_and_swap], [__sync_bool_compare_and_swap((int *)0, 0, 0)])
-VKD3D_CHECK_FUNC([HAVE_ATOMIC_EXCHANGE_N], [__atomic_exchange_n], [__atomic_exchange_n((int *)0, 0, 0)])
+VKD3D_CHECK_FUNC([HAVE_BUILTIN_CLZ], [__builtin_clz], [], [__builtin_clz(0)])
+VKD3D_CHECK_FUNC([HAVE_BUILTIN_CTZ], [__builtin_ctz], [], [__builtin_ctz(0)])
+VKD3D_CHECK_FUNC([HAVE_BUILTIN_POPCOUNT], [__builtin_popcount], [], [__builtin_popcount(0)])
+VKD3D_CHECK_FUNC([HAVE_BUILTIN_ADD_OVERFLOW], [__builtin_add_overflow], [], [__builtin_add_overflow(0, 0, (int *)0)])
+VKD3D_CHECK_FUNC([HAVE__STRTOD_L], [_strtod_l], [#include <stdlib.h>], [_strtod_l(NULL, NULL, (_locale_t)0)])
+VKD3D_CHECK_FUNC([HAVE__STRTOF_L], [_strtof_l], [#include <stdlib.h>], [_strtof_l(NULL, NULL, (_locale_t)0)])
+VKD3D_CHECK_FUNC([HAVE_STRTOF_L], [strtof_l], [#include <stdlib.h>
+                                               #ifdef HAVE_XLOCALE_H
+                                               # include <xlocale.h>
+                                               #endif],
+                                              [strtof_l(NULL, NULL, (locale_t)0)])
+VKD3D_CHECK_FUNC([HAVE_SYNC_ADD_AND_FETCH], [__sync_add_and_fetch], [], [__sync_add_and_fetch((int *)0, 0)])
+VKD3D_CHECK_FUNC([HAVE_SYNC_BOOL_COMPARE_AND_SWAP], [__sync_bool_compare_and_swap], [], [__sync_bool_compare_and_swap((int *)0, 0, 0)])
+VKD3D_CHECK_FUNC([HAVE_ATOMIC_EXCHANGE_N], [__atomic_exchange_n], [], [__atomic_exchange_n((int *)0, 0, 0)])
 AC_CHECK_FUNCS([gettid])
 AC_CHECK_FUNCS([pthread_threadid_np])
-AC_CHECK_FUNCS([_strtod_l])
-AC_CHECK_FUNCS([_strtof_l])
-AC_CHECK_FUNCS([strtof_l])
 
 dnl Makefiles
 case $host_os in
