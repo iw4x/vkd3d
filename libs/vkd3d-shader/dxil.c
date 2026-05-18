@@ -750,7 +750,6 @@ struct sm6_value
     const struct sm6_type *type;
     enum sm6_value_type value_type;
     unsigned int structure_stride;
-    bool is_back_ref;
     bool non_uniform;
     union
     {
@@ -3765,7 +3764,6 @@ static enum vkd3d_result sm6_parser_constants_init(struct sm6_parser *sm6, const
 
         dst = sm6_parser_get_current_value(sm6);
         dst->type = type;
-        dst->is_back_ref = true;
 
         switch (record->code)
         {
@@ -4233,7 +4231,6 @@ static bool sm6_parser_declare_global(struct sm6_parser *sm6, const struct dxil_
 
     dst = sm6_parser_get_current_value(sm6);
     dst->type = type;
-    dst->is_back_ref = true;
 
     if (is_constant && !init)
     {
@@ -9318,7 +9315,6 @@ static enum vkd3d_result sm6_parser_function_init(struct sm6_parser *sm6,
         dst = sm6_parser_get_current_value(sm6);
         fwd_type = dst->type;
         dst->type = NULL;
-        dst->is_back_ref = true;
         is_terminator = false;
 
         record = block->records[i];
