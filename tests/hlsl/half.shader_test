@@ -6,6 +6,45 @@ float4 main() : sv_target
     return 0;
 }
 
+[pixel-shader fail(sm<6) todo]
+static half4 h = {0.4, 0.2, 0.1, 0.3};
+
+float4 main() : sv_target
+{
+    return 0;
+}
+
+% While half scalar and half vector globals are not allowed without the
+% backwards compatibility flag, halfs in arrays or structs are allowed.
+[pixel-shader]
+struct apple
+{
+    float a;
+    half h;
+} ap;
+
+half b[4];
+
+float4 main() : sv_target
+{
+    return float4(b[0], b[1], ap.h, b[3]);
+}
+
+[test]
+if(sm>=4) write cbv-0  (0) f32(1.0, 2.0, 0.0, 0.0)
+if(sm>=4) write cbv-0  (4) f32(3.0)
+if(sm>=4) write cbv-0  (8) f32(4.0)
+if(sm>=4) write cbv-0 (12) f32(5.0)
+if(sm>=4) write cbv-0 (16) f32(6.0)
+if(sm<4) write cbv-f32  (0) f32(3.0)
+if(sm<4) write cbv-f32  (4) f32(4.0)
+if(sm<4) write cbv-f32  (8) f32(5.0)
+if(sm<4) write cbv-f32 (12) f32(6.0)
+if(sm<4) write cbv-f32 (16) f32(1.0)
+if(sm<4) write cbv-f32 (20) f32(2.0)
+draw quad
+probe (0, 0) f32(3.0, 4.0, 2.0, 6.0)
+
 [pixel shader]
 float4 var;
 
@@ -19,6 +58,34 @@ float4 main() : sv_target
 uniform 0 float4 1.0 2.0 3.0 4.0
 draw quad
 probe (0, 0) f32(1.5, 2.5, 3.5, 4.5)
+
+[pixel-shader fail(sm>=6)]
+float4 main(uniform half4 h) : sv_target
+{
+    return h + 0.5;
+}
+
+[test]
+write cbv-f32 (0) f32(4.0, 3.0, 2.0, 1.0)
+draw quad
+probe (0, 0) f32(4.5, 3.5, 2.5, 1.5)
+
+[vertex-shader]
+void main(half4 pos : POSITION, out half4 out_pos : SV_POSITION, out float4 tc : TEXCOORD)
+{
+    out_pos = pos;
+    tc = float4(0.1, 0.2, 0.3, 0.4);
+}
+
+[pixel-shader]
+float4 main(float4 pos : sv_position, half4 tc : TEXCOORD) : sv_target
+{
+    return tc;
+}
+
+[test]
+draw quad
+probe (0, 0) f32(0.1, 0.2, 0.3, 0.4)
 
 [require]
 shader model >= 2.0
@@ -53,7 +120,50 @@ float4 main() : sv_target
 [test]
 uniform 0 float 10.0
 draw quad
-probe (0, 0) rgba (10.0, 10.0, 10.0, 10.0)
+probe (0, 0) f32(10.0, 10.0, 10.0, 10.0)
+
+[pixel-shader]
+static half4 h = {0.4, 0.2, 0.1, 0.3};
+
+float4 main() : sv_target
+{
+    return h;
+}
+
+[test]
+draw quad
+probe (0, 0) f32(0.4, 0.2, 0.1, 0.3)
+
+[pixel-shader todo(sm>=4)]
+half4 aa;
+
+float4 main() : sv_target
+{
+    half4 bb = half4(11, 22, 33, 44);
+
+    return aa * bb;
+}
+
+[test]
+write cbv-f32 (0) f32(10.0, 20.0, 30.0, 40.0)
+todo(sm>=4 & sm<6) draw quad
+probe (0, 0) f32(110.0, 440.0, 990.0, 1760.0)
+
+[pixel-shader todo(sm>=4)]
+float4 aa;
+
+float4 main() : sv_target
+{
+    half4 bb = aa * 20;
+    half4 cc = half4(1000, 2000, 3000, 4000);
+
+    return bb + cc;
+}
+
+[test]
+write cbv-f32 (0) f32(1.0, 2.0, 3.0, 4.0)
+todo(sm>=4 & sm<6) draw quad
+probe (0, 0) f32(1020, 2040, 3060, 4080)
 
 [require]
 shader model >= 4.0
