@@ -70,6 +70,7 @@ enum
     OPTION_CHILD_EFFECT,
     OPTION_ENTRY,
     OPTION_FRAGMENT_COORDINATE_ORIGIN,
+    OPTION_ALLOW_HALF_GLOBALS,
     OPTION_INCLUDE_EMPTY_BUFFERS,
     OPTION_MATRIX_STORAGE_ORDER,
     OPTION_OUTPUT,
@@ -221,6 +222,8 @@ static void print_usage(const char *program_name)
         "  --fx-include-empty-buffers\n"
         "                        Write empty constant buffers descriptions. This option\n"
         "                        is only meaningful for fx_4_0 and fx_4_1 profiles.\n"
+        "  --allow-half-globals  Allow half globals in shader model 1-5 target profiles,\n"
+        "                        by handling them as floats.\n"
         "  --matrix-storage-order=<order>\n"
         "                        Specify the default matrix storage order. Valid values\n"
         "                        are 'column' (default) and 'row'.\n"
@@ -490,6 +493,7 @@ static bool parse_command_line(int argc, char **argv, struct options *options)
     {
         {"help",                       no_argument,       NULL, OPTION_HELP},
         {"alias-double-as-float",      no_argument,       NULL, OPTION_ALIAS_DOUBLE_AS_FLOAT},
+        {"allow-half-globals",         no_argument,       NULL, OPTION_ALLOW_HALF_GLOBALS},
         {"buffer-uav",                 required_argument, NULL, OPTION_BUFFER_UAV},
         {"child-effect",               no_argument,       NULL, OPTION_CHILD_EFFECT},
         {"entry",                      required_argument, NULL, OPTION_ENTRY},
@@ -604,6 +608,10 @@ static bool parse_command_line(int argc, char **argv, struct options *options)
 
             case OPTION_ALIAS_DOUBLE_AS_FLOAT:
                 compat_options |= VKD3D_SHADER_COMPILE_OPTION_DOUBLE_AS_FLOAT_ALIAS;
+                break;
+
+            case OPTION_ALLOW_HALF_GLOBALS:
+                compat_options |= VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_ALLOW_HALF_GLOBALS;
                 break;
 
             case OPTION_STRIP_DEBUG:
