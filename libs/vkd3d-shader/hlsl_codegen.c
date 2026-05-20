@@ -12209,6 +12209,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
         case HLSL_OP1_NEG:
             switch (dst_type->e.numeric.type)
             {
+                case HLSL_TYPE_HALF:
                 case HLSL_TYPE_FLOAT:
                     generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_MOV, VKD3DSPSM_NEG, 0, true);
                     return true;
@@ -12228,6 +12229,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             switch (dst_type->e.numeric.type)
             {
                 case HLSL_TYPE_FLOAT:
+                case HLSL_TYPE_HALF:
                     /* SM5 comes with a RCP opcode */
                     if (hlsl_version_ge(ctx, 5, 0))
                         generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_RCP, 0, 0, true);
@@ -12277,6 +12279,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
         case HLSL_OP2_ADD:
             switch (dst_type->e.numeric.type)
             {
+                case HLSL_TYPE_HALF:
                 case HLSL_TYPE_FLOAT:
                     generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_ADD, 0, 0, true);
                     return true;
@@ -12311,6 +12314,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             switch (dst_type->e.numeric.type)
             {
                 case HLSL_TYPE_FLOAT:
+                case HLSL_TYPE_HALF:
                     generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_DIV, 0, 0, true);
                     return true;
 
@@ -12328,6 +12332,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             switch (dst_type->e.numeric.type)
             {
                 case HLSL_TYPE_FLOAT:
+                case HLSL_TYPE_HALF:
                     switch (expr->operands[0].node->data_type->e.numeric.dimx)
                     {
                         case 4:
@@ -12358,6 +12363,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             switch (src_type->e.numeric.type)
             {
                 case HLSL_TYPE_FLOAT:
+                case HLSL_TYPE_HALF:
                     generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_EQO, 0, 0, true);
                     return true;
 
@@ -12380,6 +12386,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             switch (src_type->e.numeric.type)
             {
                 case HLSL_TYPE_FLOAT:
+                case HLSL_TYPE_HALF:
                     generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_GEO, 0, 0, true);
                     return true;
 
@@ -12405,6 +12412,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             switch (src_type->e.numeric.type)
             {
                 case HLSL_TYPE_FLOAT:
+                case HLSL_TYPE_HALF:
                     generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_LTO, 0, 0, true);
                     return true;
 
@@ -12444,6 +12452,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             switch (dst_type->e.numeric.type)
             {
                 case HLSL_TYPE_FLOAT:
+                case HLSL_TYPE_HALF:
                     generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_MAD, 0, 0, true);
                     return true;
 
@@ -12462,6 +12471,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             switch (dst_type->e.numeric.type)
             {
                 case HLSL_TYPE_FLOAT:
+                case HLSL_TYPE_HALF:
                     generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_MAX, 0, 0, true);
                     return true;
 
@@ -12483,6 +12493,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             switch (dst_type->e.numeric.type)
             {
                 case HLSL_TYPE_FLOAT:
+                case HLSL_TYPE_HALF:
                     generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_MIN, 0, 0, true);
                     return true;
 
@@ -12517,6 +12528,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             switch (dst_type->e.numeric.type)
             {
                 case HLSL_TYPE_FLOAT:
+                case HLSL_TYPE_HALF:
                     generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_MUL, 0, 0, true);
                     return true;
 
@@ -12539,6 +12551,7 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             switch (src_type->e.numeric.type)
             {
                 case HLSL_TYPE_FLOAT:
+                case HLSL_TYPE_HALF:
                     generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_NEU, 0, 0, true);
                     return true;
 

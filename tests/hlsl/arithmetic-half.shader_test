@@ -1,4 +1,4 @@
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 a, b;
 
 float4 main() : sv_target
@@ -17,10 +17,10 @@ float4 main() : sv_target
 [test]
 write cbv-f32 (0) f32(0.1, 0.2, 1.5, 4.2)
 write cbv-f32 (4) f32(0.5, 3.0, -2.5, 8.0)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 probe (0, 0) f32(0.6, -2.8, -3.75, 0.525)
 
-[pixel-shader todo(sm>=4 & sm<6)]
+[pixel-shader]
 float4 a, b;
 
 float4 main() : sv_target
@@ -37,7 +37,7 @@ float4 main() : sv_target
 [test]
 write cbv-f32 (0) f32(0.1, 0.2, 1.5, 4.2)
 write cbv-f32 (4) f32(-0.5, 3.0, -2.5, 8.0)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 probe (0, 0) f32(-0.5, 0.2, 1.5, 8.0)
 
 [pixel-shader todo]
