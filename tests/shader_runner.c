@@ -580,6 +580,7 @@ static const char *const shader_cap_strings[] =
     [SHADER_CAP_CLIP_PLANES]         = "clip-planes",
     [SHADER_CAP_CULL_DISTANCE]       = "cull-distance",
     [SHADER_CAP_DEPTH_BOUNDS]        = "depth-bounds",
+    [SHADER_CAP_DESCRIPTOR_INDEXING] = "descriptor-indexing",
     [SHADER_CAP_DESCRIPTORS]         = "descriptors",
     [SHADER_CAP_FILTER_MINMAX]       = "filter-minmax",
     [SHADER_CAP_FLOAT64]             = "float64",

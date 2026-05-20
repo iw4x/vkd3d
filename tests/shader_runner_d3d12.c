@@ -1208,6 +1208,8 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     if (is_cull_distance_supported(device))
         runner->caps.shader_caps[SHADER_CAP_CULL_DISTANCE] = true;
     runner->caps.shader_caps[SHADER_CAP_DEPTH_BOUNDS] = options2.DepthBoundsTestSupported;
+    if (is_descriptor_indexing_supported(device))
+        runner->caps.shader_caps[SHADER_CAP_DESCRIPTOR_INDEXING] = true;
     runner->caps.shader_caps[SHADER_CAP_DESCRIPTORS] = true;
     runner->caps.shader_caps[SHADER_CAP_FILTER_MINMAX] = true;
     runner->caps.shader_caps[SHADER_CAP_FLOAT64] = options.DoublePrecisionFloatShaderOps;

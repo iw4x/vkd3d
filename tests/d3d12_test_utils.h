@@ -1424,4 +1424,31 @@ static inline D3D12_GPU_DESCRIPTOR_HANDLE get_gpu_sampler_handle(struct test_con
     return get_gpu_handle(context->device, heap, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, offset);
 }
 
+static inline bool is_descriptor_indexing_supported(ID3D12Device *device)
+{
+    D3D12_ROOT_SIGNATURE_DESC desc = {0};
+    D3D12_DESCRIPTOR_RANGE range = {0};
+    D3D12_ROOT_PARAMETER param = {0};
+    ID3D12RootSignature *signature;
+
+    range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+    range.NumDescriptors = UINT_MAX;
+
+    param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    param.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    param.DescriptorTable.NumDescriptorRanges = 1;
+    param.DescriptorTable.pDescriptorRanges = &range;
+
+    desc.NumParameters = 1;
+    desc.pParameters = &param;
+
+    if (SUCCEEDED(create_root_signature(device, &desc, &signature)))
+    {
+        ID3D12RootSignature_Release(signature);
+        return true;
+    }
+
+    return false;
+}
+
 #endif  /* __VKD3D_D3D12_TEST_UTILS_H */
