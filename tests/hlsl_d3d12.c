@@ -3830,9 +3830,12 @@ static void ensure_temp_dir(void)
 
 static void delete_temp_dir(void)
 {
+    int ret;
+
     if (!temp_dir_init)
         return;
-    rmdir(temp_dir);
+    ret = rmdir(temp_dir);
+    ok(!ret, "Failed to delete \"%s\"\n", temp_dir);
     temp_dir_init = false;
 }
 
@@ -3876,6 +3879,7 @@ static void create_directory(const char *name, char *out_path)
 static void delete_directory(const char *name)
 {
     char path[PATH_MAX];
+    int ret;
 
     if (!temp_dir[0])
         return;
@@ -3883,12 +3887,14 @@ static void delete_directory(const char *name)
     strcpy(path, temp_dir);
     strcat(path, name);
 
-    rmdir(path);
+    ret = rmdir(path);
+    ok(!ret, "Failed to delete \"%s\"\n", path);
 }
 
 static void delete_file(const char *name)
 {
     char path[PATH_MAX];
+    int ret;
 
     if (!temp_dir[0])
         return;
@@ -3896,7 +3902,8 @@ static void delete_file(const char *name)
     strcpy(path, temp_dir);
     strcat(path, name);
 
-    remove(path);
+    ret = remove(path);
+    ok(!ret, "Failed to delete \"%s\"\n", path);
 }
 
 static void test_default_include_path(void)
@@ -4013,6 +4020,7 @@ static void test_default_include_path(void)
     size = ID3D10Blob_GetBufferSize(blob);
     ok(vkd3d_memmem(code, size, "42", 1), "Incorrect file included.\n");
     ID3D10Blob_Release(blob);
+    chdir(cwd);
 
     delete_file("sources/source.ps");
     delete_file("sources/include1.h");
