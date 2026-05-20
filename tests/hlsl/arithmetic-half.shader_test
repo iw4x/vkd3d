@@ -1,0 +1,59 @@
+[pixel-shader todo(sm>=4)]
+float4 a, b;
+
+float4 main() : sv_target
+{
+    half4 aa = a;
+    half4 bb = b;
+    half4 res;
+
+    res.x = aa.x + bb.x;
+    res.y = aa.y - bb.y;
+    res.z = aa.z * bb.z;
+    res.w = aa.w / bb.w;
+    return res;
+}
+
+[test]
+write cbv-f32 (0) f32(0.1, 0.2, 1.5, 4.2)
+write cbv-f32 (4) f32(0.5, 3.0, -2.5, 8.0)
+todo(sm>=4 & sm<6) draw quad
+probe (0, 0) f32(0.6, -2.8, -3.75, 0.525)
+
+[pixel-shader todo(sm>=4 & sm<6)]
+float4 a, b;
+
+float4 main() : sv_target
+{
+    half4 aa = a;
+    half4 bb = b;
+    half4 res;
+
+    res.xy = min(aa.xy, bb.xy);
+    res.zw = max(aa.zw, bb.zw);
+    return res;
+}
+
+[test]
+write cbv-f32 (0) f32(0.1, 0.2, 1.5, 4.2)
+write cbv-f32 (4) f32(-0.5, 3.0, -2.5, 8.0)
+todo(sm>=4 & sm<6) draw quad
+probe (0, 0) f32(-0.5, 0.2, 1.5, 8.0)
+
+[pixel-shader todo]
+float4 a, b;
+
+float4 main() : sv_target
+{
+    half4 aa = a;
+    half4 bb = b;
+    half4 res = round(aa % bb * 100);
+
+    return res;
+}
+
+[test]
+write cbv-f32 (0) f32(0.1, -4.2, 2.5, 4.2)
+write cbv-f32 (4) f32(-0.5, 3.0, 1.6, 1.4)
+todo(sm<6) draw quad
+probe (0, 0) f32(10, -120, 90, 0)

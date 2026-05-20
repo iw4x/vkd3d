@@ -71,6 +71,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/any.shader_test \
 	tests/hlsl/arithmetic-float-uniform.shader_test \
 	tests/hlsl/arithmetic-float.shader_test \
+	tests/hlsl/arithmetic-half.shader_test \
 	tests/hlsl/arithmetic-int-uniform.shader_test \
 	tests/hlsl/arithmetic-int.shader_test \
 	tests/hlsl/arithmetic-uint.shader_test \
