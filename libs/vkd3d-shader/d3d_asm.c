@@ -75,6 +75,7 @@ static void shader_dump_global_flags(struct vkd3d_d3d_asm_compiler *compiler, en
         {VKD3DSGF_ENABLE_VP_AND_RT_ARRAY_INDEX,      "viewportAndRTArrayIndex"},
         {VKD3DSGF_ENABLE_STENCIL_REF,                "stencilRef"},
         {VKD3DSGF_ENABLE_RELAXED_TYPED_UAV_FORMATS,  "UAVLoadAdditionalFormats"},
+        {VKD3DSGF_ENABLE_UP_TO_64_UAVS,              "64UAVs"},
         {VKD3DSGF_ENABLE_UAVS_AT_EVERY_STAGE,        "UAVsAtEveryStage"},
         {VKD3DSGF_ENABLE_RASTERIZER_ORDERED_VIEWS,   "ROVs"},
         {VKD3DSGF_ENABLE_WAVE_INTRINSICS,            "waveOps"},
