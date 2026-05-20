@@ -2281,7 +2281,8 @@ static int msl_generator_generate(struct msl_generator *gen, struct vkd3d_shader
     static const uint64_t ignored_flags = VKD3DSGF_REFACTORING_ALLOWED
             | VKD3DSGF_FORCE_EARLY_DEPTH_STENCIL
             | VKD3DSGF_BIND_FOR_DURATION
-            | VKD3DSGF_ENABLE_STENCIL_REF;
+            | VKD3DSGF_ENABLE_STENCIL_REF
+            | VKD3DSGF_ENABLE_UP_TO_64_UAVS;
 
     MESSAGE("Generating a MSL shader. This is unsupported; you get to keep all the pieces if it breaks.\n");
 
