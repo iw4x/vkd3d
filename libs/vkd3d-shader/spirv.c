@@ -6177,6 +6177,7 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
             | VKD3DSGF_BIND_FOR_DURATION
             | VKD3DSGF_ENABLE_VP_AND_RT_ARRAY_INDEX
             | VKD3DSGF_ENABLE_STENCIL_REF
+            | VKD3DSGF_ENABLE_UP_TO_64_UAVS
             | VKD3DSGF_ENABLE_UAVS_AT_EVERY_STAGE
             | VKD3DSGF_ENABLE_RASTERIZER_ORDERED_VIEWS;
 
