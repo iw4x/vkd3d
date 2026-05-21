@@ -10564,7 +10564,6 @@ static void test_shader_instructions(void)
             struct uvec4 u;
             struct ivec4 i;
         } output;
-        bool skip_on_warp;
         bool is_mesa_bug;
     }
     tests[] =
@@ -10607,24 +10606,24 @@ static void test_shader_instructions(void)
 
         /* Ordered/unordered comparisons were broken on Mesa. They are fixed at least from 23.1.7. */
         {&ps_if_return, {{0.0f, 0.0f, 0.0f, 0.0f}}, {{0.0f, 0.0f, 0.0f, 0.0f}}},
-        {&ps_if_return, {{ NAN, 0.0f, 0.0f, 0.0f}}, {{1.0f, 0.0f, 0.0f, 0.0f}}, false, true},
+        {&ps_if_return, {{ NAN, 0.0f, 0.0f, 0.0f}}, {{1.0f, 0.0f, 0.0f, 0.0f}}, true},
         {&ps_if_return, {{3.0f, 0.0f, 0.0f, 0.0f}}, {{0.0f, 0.0f, 0.0f, 0.0f}}},
         {&ps_if_return, {{4.0f, 0.0f, 0.0f, 0.0f}}, {{1.0f, 0.0f, 0.0f, 0.0f}}},
-        {&ps_if_return, {{4.0f,  NAN, 0.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f, 0.0f}}, false, true},
+        {&ps_if_return, {{4.0f,  NAN, 0.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f, 0.0f}}, true},
         {&ps_if_return, {{4.0f, 3.0f, 0.0f, 0.0f}}, {{1.0f, 0.0f, 0.0f, 0.0f}}},
         {&ps_if_return, {{4.0f, 4.0f, 0.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f, 0.0f}}},
-        {&ps_if_return, {{4.0f, 4.0f,  NAN, 0.0f}}, {{1.0f, 1.0f, 1.0f, 0.0f}}, false, true},
+        {&ps_if_return, {{4.0f, 4.0f,  NAN, 0.0f}}, {{1.0f, 1.0f, 1.0f, 0.0f}}, true},
         {&ps_if_return, {{4.0f, 4.0f, 3.0f, 0.0f}}, {{1.0f, 1.0f, 1.0f, 0.0f}}},
         {&ps_if_return, {{4.0f, 4.0f, 4.0f, 0.0f}}, {{1.0f, 1.0f, 0.0f, 0.0f}}},
         {&ps_if_return, {{4.0f, 4.0f, 5.0f, 0.0f}}, {{1.0f, 1.0f, 0.0f, 0.0f}}},
-        {&ps_if_return, {{4.0f, 4.0f, 0.0f,  NAN}}, {{1.0f, 1.0f, 1.0f, 1.0f}}, false, true},
+        {&ps_if_return, {{4.0f, 4.0f, 0.0f,  NAN}}, {{1.0f, 1.0f, 1.0f, 1.0f}}, true},
         {&ps_if_return, {{4.0f, 4.0f, 0.0f, 1.0f}}, {{1.0f, 1.0f, 1.0f, 0.0f}}},
         {&ps_if_return, {{4.0f, 4.0f, 0.0f, 2.0f}}, {{1.0f, 1.0f, 1.0f, 0.0f}}},
         {&ps_if_return, {{4.0f, 4.0f, 0.0f, 3.0f}}, {{1.0f, 1.0f, 1.0f, 0.0f}}},
         {&ps_if_return, {{4.0f, 4.0f, 0.0f, 4.0f}}, {{1.0f, 1.0f, 1.0f, 0.0f}}},
         {&ps_if_return, {{4.0f, 4.0f, 0.0f, 5.0f}}, {{1.0f, 1.0f, 1.0f, 1.0f}}},
         {&ps_if_return, {{5.0f, 4.0f, 0.0f, 5.0f}}, {{1.0f, 1.0f, 1.0f, 0.0f}}},
-        {&ps_if_return, {{ NAN,  NAN,  NAN,  NAN}}, {{1.0f, 1.0f, 1.0f, 1.0f}}, false, true},
+        {&ps_if_return, {{ NAN,  NAN,  NAN,  NAN}}, {{1.0f, 1.0f, 1.0f, 1.0f}}, true},
 
         {&ps_nested_if, {{0.0f, 0.0f, 0.0f}}, {{0.0f, 0.0f, 0.0f, 1.0f}}},
         {&ps_nested_if, {{0.0f, 0.0f, 1.0f}}, {{1.0f, 0.0f, 0.0f, 1.0f}}},
@@ -10656,7 +10655,7 @@ static void test_shader_instructions(void)
         {&ps_breakc_nz, {{0}}, {{0.0f, 1.0f, 0.0f, 1.0f}}},
         {&ps_breakc_z,  {{0}}, {{0.0f, 1.0f, 0.0f, 1.0f}}},
 
-        {&ps_continue,     {{0}}, {{254.0f}}, true},
+        {&ps_continue,     {{0}}, {{254.0f}}},
         {&ps_continuec_nz, {{0}}, {{509.0f}}},
 
         {&ps_retc_nz, {{  0.0f}}, {{1.0f}}},
@@ -11364,12 +11363,6 @@ static void test_shader_instructions(void)
     current_ps = NULL;
     for (i = 0; i < ARRAY_SIZE(tests); ++i)
     {
-        if (tests[i].skip_on_warp && test_options.use_warp_device)
-        {
-            skip("Skipping shader '%s' test on WARP.\n", tests[i].ps->name);
-            continue;
-        }
-
         vkd3d_test_push_context("%u:%s", i, tests[i].ps->name);
 
         if (current_ps != tests[i].ps)
