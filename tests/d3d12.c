@@ -36640,6 +36640,13 @@ static void test_hull_shader_relative_addressing(void)
     command_list = context.list;
     queue = context.queue;
 
+    if (is_amd_windows_device(context.device))
+    {
+        skip("Skipping on the Windows AMD driver because of invalid results.\n");
+        destroy_test_context(&context);
+        return;
+    }
+
     root_parameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
     root_parameters[0].Constants.ShaderRegister = 0;
     root_parameters[0].Constants.RegisterSpace = 0;
