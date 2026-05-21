@@ -38335,6 +38335,7 @@ static void test_shader_cache(void)
     ID3D12ShaderCacheSession *session, *session2;
     D3D12_SHADER_CACHE_SESSION_DESC desc = {0};
     struct test_context context;
+    unsigned int i, last_key;
     ID3D12Device9 *device;
     IUnknown *unk, *unk2;
     HRESULT hr;
@@ -38347,7 +38348,7 @@ static void test_shader_cache(void)
     char blob1[20 * 1024];
     char blob2[20 * 1024];
     char blob3[30 * 1024];
-    char blob4[40 * 1024];
+    char blob4[150 * 1024];
 
     if (!init_test_context(&context, NULL))
         return;
@@ -38401,8 +38402,9 @@ static void test_shader_cache(void)
     ok(!desc.Version, "Got Version %"PRId64".\n", desc.Version);
     ok(desc.MaximumInMemoryCacheSizeBytes == 1024 * 1024, "Got MaximumInMemoryCacheSizeBytes %u.\n",
             desc.MaximumInMemoryCacheSizeBytes);
-    ok(desc.MaximumValueFileSizeBytes == 128 * 1024 * 1024, "Got MaximumValueFileSizeBytes %u.\n",
-            desc.MaximumValueFileSizeBytes);
+    /* Some implementations return a default value, others zero. */
+    ok(desc.MaximumValueFileSizeBytes == 0 || desc.MaximumValueFileSizeBytes == 128 * 1024 * 1024,
+            "Got MaximumValueFileSizeBytes %u.\n", desc.MaximumValueFileSizeBytes);
 
     /* A memory size larger than disk size is valid. UINT_MAX is OK for memory size. */
     memset(&desc, 0, sizeof(desc));
@@ -38415,8 +38417,9 @@ static void test_shader_cache(void)
     ID3D12ShaderCacheSession_Release(session);
     ok(desc.MaximumInMemoryCacheSizeBytes == UINT_MAX, "Got MaximumInMemoryCacheSizeBytes %u.\n",
             desc.MaximumInMemoryCacheSizeBytes);
-    ok(desc.MaximumValueFileSizeBytes == 128 * 1024 * 1024, "Got MaximumValueFileSizeBytes %u.\n",
-            desc.MaximumValueFileSizeBytes);
+    /* Some implementations return a default value, others zero. */
+    ok(desc.MaximumValueFileSizeBytes == 0 || desc.MaximumValueFileSizeBytes == 128 * 1024 * 1024,
+            "Got MaximumValueFileSizeBytes %u.\n", desc.MaximumValueFileSizeBytes);
 
     /* MaximumValueFileSizeBytes is limited to 1 GiB regardless of cache type. */
     desc.MaximumValueFileSizeBytes = 1024 * 1024 * 1024;
@@ -38434,8 +38437,8 @@ static void test_shader_cache(void)
 
     memset(&desc, 0, sizeof(desc));
     desc.Identifier = test_guid;
-    desc.MaximumValueFileSizeBytes = 1;
-    desc.MaximumInMemoryCacheSizeBytes = 1;
+    desc.MaximumValueFileSizeBytes = 50 * 1024;
+    desc.MaximumInMemoryCacheSizeBytes = 50 * 1024;
     hr = ID3D12Device9_CreateShaderCacheSession(device, &desc,
             &IID_ID3D12ShaderCacheSession, (void **)&session);
     ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
@@ -38443,9 +38446,9 @@ static void test_shader_cache(void)
     {
         desc = ID3D12ShaderCacheSession_GetDesc(session);
         ID3D12ShaderCacheSession_Release(session);
-        ok(desc.MaximumInMemoryCacheSizeBytes == 1, "Got MaximumInMemoryCacheSizeBytes %u.\n",
+        ok(desc.MaximumInMemoryCacheSizeBytes == 50 * 1024, "Got MaximumInMemoryCacheSizeBytes %u.\n",
                 desc.MaximumInMemoryCacheSizeBytes);
-        ok(desc.MaximumValueFileSizeBytes == 1, "Got MaximumValueFileSizeBytes %u.\n",
+        ok(desc.MaximumValueFileSizeBytes == 50 * 1024, "Got MaximumValueFileSizeBytes %u.\n",
                 desc.MaximumValueFileSizeBytes);
     }
 
@@ -38469,7 +38472,7 @@ static void test_shader_cache(void)
     desc.Identifier = test_guid;
     desc.Mode = D3D12_SHADER_CACHE_MODE_MEMORY;
     desc.Version = 12344;
-    desc.MaximumInMemoryCacheSizeBytes = 32 * 1024;
+    desc.MaximumInMemoryCacheSizeBytes = 100 * 1024;
     hr = ID3D12Device9_CreateShaderCacheSession(device, &desc, &IID_IUnknown, (void **)&unk);
     ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
 
@@ -38623,33 +38626,58 @@ static void test_shader_cache(void)
         ok(blob3[0] == 'C', "Output buffer was modified.\n");
 
         /* Test evicition due to lack of room in the cache. */
-        hr = ID3D12ShaderCacheSession_StoreValue(session, key2, sizeof(key2), blob2, sizeof(blob2));
+        hr = ID3D12ShaderCacheSession_StoreValue(session, key2, sizeof(key2), blob1, sizeof(blob1));
         ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
         value_size = sizeof(blob3);
         hr = ID3D12ShaderCacheSession_FindValue(session, key2, sizeof(key2), blob3, &value_size);
         ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
-        ok(value_size == sizeof(blob2), "Got unexpected size %#x.\n", value_size);
-        value_size = sizeof(blob3);
-        hr = ID3D12ShaderCacheSession_FindValue(session, key1, sizeof(key1), blob3, &value_size);
+        ok(value_size == sizeof(blob1), "Got unexpected size %#x.\n", value_size);
+
+        for (i = 0; i < 10; ++i)
+        {
+            vkd3d_test_push_context("round %u", i);
+            hr = ID3D12ShaderCacheSession_StoreValue(session, &i, sizeof(i), blob1, sizeof(blob1));
+            ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
+            value_size = sizeof(blob3);
+            hr = ID3D12ShaderCacheSession_FindValue(session, &i, sizeof(i), blob3, &value_size);
+            ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
+            ok(value_size == sizeof(blob1), "Got unexpected size %#x.\n", value_size);
+            hr = ID3D12ShaderCacheSession_FindValue(session, key1, sizeof(key1), blob3, &value_size);
+            ok(hr == S_OK || hr == DXGI_ERROR_NOT_FOUND, "Got unexpected hr %#x.\n", hr);
+            vkd3d_test_pop_context();
+            if (hr == DXGI_ERROR_NOT_FOUND)
+                break;
+        }
         todo ok(hr == DXGI_ERROR_NOT_FOUND, "Got unexpected hr %#x.\n", hr);
+        last_key = i;
 
         /* The full key is stored as well. Use a huge key for a small value. It counts towards the
         * size and will evict existing data. */
-        hr = ID3D12ShaderCacheSession_StoreValue(session, blob1, sizeof(blob1), &desc, sizeof(desc));
-        ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
-        value_size = 0xdeadbeef;
-        hr = ID3D12ShaderCacheSession_FindValue(session, blob1, sizeof(blob1), NULL, &value_size);
-        ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
-        ok(value_size == sizeof(desc), "Got unexpected size %#x.\n", value_size);
-        hr = ID3D12ShaderCacheSession_FindValue(session, key2, sizeof(key2), NULL, &value_size);
-        todo ok(hr == DXGI_ERROR_NOT_FOUND, "Got unexpected hr %#x.\n", hr);
+        for (i = 0; i < 10; ++i)
+        {
+            vkd3d_test_push_context("round %u", i);
+            blob1[sizeof(blob1) - 1] = 'a' + i;
+            hr = ID3D12ShaderCacheSession_StoreValue(session, blob1, sizeof(blob1), &desc, sizeof(desc));
+            ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
+            value_size = 0xdeadbeef;
+            hr = ID3D12ShaderCacheSession_FindValue(session, blob1, sizeof(blob1), NULL, &value_size);
+            ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
+            ok(value_size == sizeof(desc), "Got unexpected size %#x.\n", value_size);
+            hr = ID3D12ShaderCacheSession_FindValue(session, &last_key, sizeof(last_key), NULL, &value_size);
+            ok(hr == S_OK || hr == DXGI_ERROR_NOT_FOUND, "Got unexpected hr %#x.\n", hr);
+            vkd3d_test_pop_context();
+            if (hr == DXGI_ERROR_NOT_FOUND)
+                break;
+        }
+        ok(hr == DXGI_ERROR_NOT_FOUND, "Got unexpected hr %#x.\n", hr);
+        last_key = i;
 
         /* Keys are not truncated. */
         blob1[sizeof(blob1) - 1] = 'X';
         hr = ID3D12ShaderCacheSession_FindValue(session, blob1, sizeof(blob1), NULL, &value_size);
         ok(hr == DXGI_ERROR_NOT_FOUND, "Got unexpected hr %#x.\n", hr);
         /* Make sure the huge key was not accidentally evicted. */
-        blob1[sizeof(blob1) - 1] = '1';
+        blob1[sizeof(blob1) - 1] = 'a' + last_key;
         hr = ID3D12ShaderCacheSession_FindValue(session, blob1, sizeof(blob1), NULL, &value_size);
         ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
 
@@ -38664,13 +38692,16 @@ static void test_shader_cache(void)
 
     if (SUCCEEDED(hr))
     {
-        /* Store a blob that is too big. It goes in at first but gets evicted next time.
-        *
-        * Why are we not getting DXGI_ERROR_CACHE_FULL here? I don't know. */
+        bool rejected;
+        /* Store a blob that is too big. On some implementation it goes in at
+         * first but gets evicted next time, on others it is rejected upfront.
+         * The latter seems to happen on more recent Windows versions, it
+         * might be a bug that eventually got fixed. */
         hr = ID3D12ShaderCacheSession_StoreValue(session, key1, sizeof(key1), blob4, sizeof(blob4));
-        ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
+        ok(hr == S_OK || hr == DXGI_ERROR_CACHE_FULL, "Got unexpected hr %#x.\n", hr);
+        rejected = hr == DXGI_ERROR_CACHE_FULL;
         hr = ID3D12ShaderCacheSession_FindValue(session, key1, sizeof(key1), NULL, &value_size);
-        ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
+        ok(rejected ? hr == DXGI_ERROR_NOT_FOUND : hr == S_OK, "Got unexpected hr %#x.\n", hr);
         hr = ID3D12ShaderCacheSession_StoreValue(session, key2, sizeof(key2), &desc, sizeof(desc));
         ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
         hr = ID3D12ShaderCacheSession_FindValue(session, key1, sizeof(key1), NULL, &value_size);
