@@ -10802,7 +10802,7 @@ static void test_shader_instructions(void)
         } output;
         bool is_float64;
         bool is_todo;
-        bool skip_on_warp;
+        bool skip_on_windows;
         bool todo_on_nvidia;
     }
     uint_tests[] =
@@ -11032,10 +11032,13 @@ static void test_shader_instructions(void)
         {&ps_movc, {{{1, 1, 1, 1}, {1, 2, 3, 4}, {5, 6, 7, 8}}}, {{1, 2, 3, 4}}},
 
         {&ps_dmov,      {.d = {{2.5 + 1.0e-9, -3.5 - 1.0e-9}}},  {.d = {3.5 + 1.0e-9, -2.5 - 1.0e-9}}, true},
+        /* This seems to be a dxilconv.dll failure (used internally by d3d12),
+         * reported as https://github.com/microsoft/DirectXShaderCompiler/issues/8466. */
         {&ps_dadd,      {.d = {{2.5, 0.0}}},  {.d = {2.5 + 1.0000002433080226, 2.5 + 2.000000481493771}}, true, false, true},
         {&ps_dmin_dmax, {.d = {{-1.0, 1.0}}}, {.d = {-1.0, 1.0}}, true},
         {&ps_dfma,      {.d = {{1.0000002433080226, 2.000000481493771}}},
                         {.d = {1.0000002433080226 * 2.000000481493771 + 1.0000002433080226}}, true},
+        /* Likely the same problem as ps_dadd. */
         {&ps_dmovc,     {.d = {{0.5, 0.0}}},  {.d = {4.5, 4.5}}, true, false, true},
         {&ps_dmovc,     {.d = {{1.5, 0.0}}},  {.d = {1.5, 0.0}}, true},
         {&ps_dmodifier, {.d = {{1.5, 0.0}}},  {.d = {1.5f, 2.5f}}, true},
@@ -11413,9 +11416,9 @@ static void test_shader_instructions(void)
     {
         vkd3d_test_push_context("%u:%s", i, uint_tests[i].ps->name);
 
-        if (uint_tests[i].skip_on_warp && test_options.use_warp_device)
+        if (uint_tests[i].skip_on_windows && vkd3d_test_platform_is_windows())
         {
-            skip("Skipping shader '%s' test on WARP.\n", uint_tests[i].ps->name);
+            skip("Skipping shader '%s' test on Windows.\n", uint_tests[i].ps->name);
             vkd3d_test_pop_context();
             continue;
         }
