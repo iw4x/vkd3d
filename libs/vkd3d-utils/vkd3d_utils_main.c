@@ -532,9 +532,9 @@ HRESULT WINAPI D3DCompile(const void *data, SIZE_T data_size, const char *filena
             effect_flags, 0, NULL, 0, shader, error_messages);
 }
 
-HRESULT WINAPI D3DPreprocess(const void *data, SIZE_T size, const char *filename,
+HRESULT WINAPI D3DPreprocessVKD3D(const void *data, SIZE_T size, const char *filename,
         const D3D_SHADER_MACRO *macros, ID3DInclude *include,
-        ID3DBlob **preprocessed_blob, ID3DBlob **messages_blob)
+        ID3DBlob **preprocessed_blob, ID3DBlob **messages_blob, unsigned int compiler_version)
 {
     struct vkd3d_shader_preprocess_info preprocess_info;
     struct vkd3d_shader_compile_info compile_info;
@@ -550,8 +550,10 @@ HRESULT WINAPI D3DPreprocess(const void *data, SIZE_T size, const char *filename
         {VKD3D_SHADER_COMPILE_OPTION_API_VERSION, VKD3D_SHADER_API_VERSION_CURRENT},
     };
 
-    TRACE("data %p, size %"PRIuPTR", filename %s, macros %p, include %p, preprocessed_blob %p, messages_blob %p.\n",
-            data, (uintptr_t)size, debugstr_a(filename), macros, include, preprocessed_blob, messages_blob);
+    TRACE("data %p, size %"PRIuPTR", filename %s, macros %p, include %p, "
+            "preprocessed_blob %p, messages_blob %p, compiler_version %u.\n",
+            data, (uintptr_t)size, debugstr_a(filename), macros, include,
+            preprocessed_blob, messages_blob, compiler_version);
 
     if (messages_blob)
         *messages_blob = NULL;
@@ -623,6 +625,16 @@ HRESULT WINAPI D3DPreprocess(const void *data, SIZE_T size, const char *filename
     }
 
     return hresult_from_vkd3d_result(ret);
+}
+
+HRESULT WINAPI D3DPreprocess(const void *data, SIZE_T size, const char *filename,
+        const D3D_SHADER_MACRO *macros, ID3DInclude *include,
+        ID3DBlob **preprocessed_blob, ID3DBlob **messages_blob)
+{
+    TRACE("data %p, size %"PRIuPTR", filename %s, macros %p, include %p, preprocessed_blob %p, messages_blob %p.\n",
+            data, (uintptr_t)size, debugstr_a(filename), macros, include, preprocessed_blob, messages_blob);
+
+    return D3DPreprocessVKD3D(data, size, filename, macros, include, preprocessed_blob, messages_blob, 47);
 }
 
 /* Events */

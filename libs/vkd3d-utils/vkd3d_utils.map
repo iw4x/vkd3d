@@ -19,6 +19,7 @@ global:
     D3DGetInputSignatureBlob;
     D3DGetOutputSignatureBlob;
     D3DPreprocess;
+    D3DPreprocessVKD3D;
     D3DReflect;
     D3DStripShader;
     vkd3d_create_event;

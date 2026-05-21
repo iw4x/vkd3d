@@ -93,6 +93,12 @@ VKD3D_UTILS_API HRESULT WINAPI D3DCompile2(const void *data, SIZE_T data_size, c
         const void *secondary_data, SIZE_T secondary_data_size, ID3DBlob **shader,
         ID3DBlob **error_messages);
 VKD3D_UTILS_API HRESULT WINAPI D3DCreateBlob(SIZE_T data_size, ID3DBlob **blob);
+/**
+ * D3DPreprocess() targets the behaviour of d3dcompiler_47.dll. To target the
+ * behaviour of other d3dcompiler versions, use D3DCompile2VKD3D().
+ *
+ * \since 1.3
+ */
 VKD3D_UTILS_API HRESULT WINAPI D3DPreprocess(const void *data, SIZE_T size, const char *filename,
         const D3D_SHADER_MACRO *defines, ID3DInclude *include,
         ID3DBlob **shader, ID3DBlob **error_messages);
@@ -136,6 +142,9 @@ VKD3D_UTILS_API HRESULT WINAPI D3DReflect(const void *data, SIZE_T data_size, RE
  * As D3DCompile2(), but with an extra argument that allows targeting
  * different d3dcompiler versions.
  *
+ * This function similarly emulates the behaviour of D3DCompile(), and, when
+ * targeting version 39 or lower, the behaviour of D3DCompileFromMemory().
+ *
  * \param compiler_version The d3dcompiler version to target. This should be
  * set to the numerical value in the d3dcompiler library name. E.g. to target
  * the behaviour of d3dcompiler_36.dll, set this parameter to 36.
@@ -147,6 +156,23 @@ VKD3D_UTILS_API HRESULT WINAPI D3DCompile2VKD3D(const void *data, SIZE_T data_si
         const char *target, UINT flags, UINT effect_flags, UINT secondary_flags,
         const void *secondary_data, SIZE_T secondary_data_size, ID3DBlob **shader,
         ID3DBlob **error_messages, unsigned int compiler_version);
+
+/**
+ * As D3DPreprocess(), but with an extra argument that allows targeting
+ * different d3dcompiler versions.
+ *
+ * When targeting version 39 or lower, this function emulates the behaviour of
+ * D3DPreprocessFromMemory().
+ *
+ * \param compiler_version The d3dcompiler version to target. This should be
+ * set to the numerical value in the d3dcompiler library name. E.g. to target
+ * the behaviour of d3dcompiler_36.dll, set this parameter to 36.
+ *
+ * \since 2.1
+ */
+VKD3D_UTILS_API HRESULT WINAPI D3DPreprocessVKD3D(const void *data, SIZE_T size,
+        const char *filename, const D3D_SHADER_MACRO *defines, ID3DInclude *include,
+        ID3DBlob **shader, ID3DBlob **error_messages, unsigned int compiler_version);
 
 #ifdef __cplusplus
 }
