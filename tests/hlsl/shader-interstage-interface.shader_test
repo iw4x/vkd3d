@@ -99,10 +99,12 @@ float4 main(struct ps_data ps_input) : SV_Target
 }
 
 [test]
-uniform 0 uint4 1 2 0 1
+write cbv-0 (0) u32(1, 2, 0, 1)
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(msl & sm>=6) draw triangle strip 4
-probe (0, 0) f32(0.0, 1.0, 0.0, 1.0)
+% On AMD d3d12 it seems that "vs_input.color[index.y]" in the VS picks the
+% position instead.
+winbug(amd & d3d12) probe (0, 0) f32(0.0, 1.0, 0.0, 1.0)
 
 [require]
 shader model >= 4.0
