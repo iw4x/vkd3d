@@ -477,14 +477,14 @@ void main(uint local_idx : SV_GroupIndex, uint group_id : SV_GroupID)
 
 [test]
 todo(glsl | msl) dispatch 2 1 1
-probe uav-0 (0) u32(0x18)
-probe uav-0 (1) u32(0x18)
-probe uav-0 (2) u32(0x38)
-probe uav-0 (3) u32(0x38)
-probe uav-0 (4) u32(0x1a)
-probe uav-0 (5) u32(0x1a)
-probe uav-0 (6) u32(0x3a)
-probe uav-0 (7) u32(0x3a)
+winbug(amd & d3d11) probe uav-0 (0) u32(0x18)
+winbug(amd & d3d11) probe uav-0 (1) u32(0x18)
+winbug(amd & d3d11) probe uav-0 (2) u32(0x38)
+winbug(amd & d3d11) probe uav-0 (3) u32(0x38)
+winbug(amd & d3d11) probe uav-0 (4) u32(0x1a)
+winbug(amd & d3d11) probe uav-0 (5) u32(0x1a)
+winbug(amd & d3d11) probe uav-0 (6) u32(0x3a)
+winbug(amd & d3d11) probe uav-0 (7) u32(0x3a)
 
 [uav 0]
 format r32-typeless
@@ -551,14 +551,14 @@ void main(uint local_idx : SV_GroupIndex, uint group_id : SV_GroupID)
 
 [test]
 todo(glsl | msl) dispatch 2 1 1
-probe uav-0 (0) u32(0x14321)
-probe uav-0 (1) u32(0x14321)
-probe uav-0 (2) u32(0x14321)
-probe uav-0 (3) u32(0x14321)
-probe uav-0 (4) u32(0x24321)
-probe uav-0 (5) u32(0x24321)
-probe uav-0 (6) u32(0x24321)
-probe uav-0 (7) u32(0x24321)
+winbug(amd & d3d11) probe uav-0 (0) u32(0x14321)
+winbug(amd & d3d11) probe uav-0 (1) u32(0x14321)
+winbug(amd & d3d11) probe uav-0 (2) u32(0x14321)
+winbug(amd & d3d11) probe uav-0 (3) u32(0x14321)
+winbug(amd & d3d11) probe uav-0 (4) u32(0x24321)
+winbug(amd & d3d11) probe uav-0 (5) u32(0x24321)
+winbug(amd & d3d11) probe uav-0 (6) u32(0x24321)
+winbug(amd & d3d11) probe uav-0 (7) u32(0x24321)
 
 [require]
 shader model >= 6.2
