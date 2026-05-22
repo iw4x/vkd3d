@@ -226,10 +226,12 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint 0xff000022
-
+write cbv-0 (0) u16(0x22, 0xff00)
 draw quad
-probe (0, 0) u32(0, 0x40410000, 0, 0x40efe000)
+% On Windows AMD the second component is (double)0xff00, which is correct, but
+% the first component is (double)0xff000022, which is not correct: the upper
+% word wasn't masked out, apparently.
+winbug(amd) probe (0, 0) f64(34, 65280)
 
 [pixel shader]
 uniform int16_t2 u;
