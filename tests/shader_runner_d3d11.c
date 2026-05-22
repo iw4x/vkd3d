@@ -284,6 +284,13 @@ static bool get_adapter_desc(ID3D11Device *device, DXGI_ADAPTER_DESC *desc)
     return true;
 }
 
+static bool is_amd_windows_device(ID3D11Device *device)
+{
+    DXGI_ADAPTER_DESC desc;
+
+    return get_adapter_desc(device, &desc) && desc.VendorId == 0x1002;
+}
+
 static bool is_nvidia_windows_device(ID3D11Device *device)
 {
     DXGI_ADAPTER_DESC desc;
@@ -367,6 +374,9 @@ static BOOL init_test_context(struct d3d11_shader_runner *runner)
 
     if (test_options.use_warp_device)
         runner->caps.tags[SHADER_RUNNER_TAG_WARP].present = true;
+
+    if (is_amd_windows_device(runner->device))
+        runner->caps.tags[SHADER_RUNNER_TAG_AMD].present = true;
 
     if (is_nvidia_windows_device(runner->device))
         runner->caps.tags[SHADER_RUNNER_TAG_NVIDIA].present = true;
