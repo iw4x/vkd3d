@@ -143,22 +143,6 @@ static const struct vkd3d_shader_descriptor_info1 *shader_glsl_get_descriptor(st
     return NULL;
 }
 
-static const struct vkd3d_shader_descriptor_info1 *shader_glsl_get_descriptor_by_id(
-        struct vkd3d_glsl_generator *gen, enum vkd3d_shader_descriptor_type type, unsigned int id)
-{
-    const struct vkd3d_shader_scan_descriptor_info1 *info = &gen->program->descriptors;
-
-    for (unsigned int i = 0; i < info->descriptor_count; ++i)
-    {
-        const struct vkd3d_shader_descriptor_info1 *d = &info->descriptors[i];
-
-        if (d->type == type && d->register_id == id)
-            return d;
-    }
-
-    return NULL;
-}
-
 static void shader_glsl_print_indent(struct vkd3d_string_buffer *buffer, unsigned int indent)
 {
     vkd3d_string_buffer_printf(buffer, "%*s", 4 * indent, "");
@@ -797,7 +781,8 @@ static void shader_glsl_ld(struct vkd3d_glsl_generator *gen, const struct vkd3d_
 
     resource_id = ins->src[1].reg.idx[0].offset;
     resource_idx = ins->src[1].reg.idx[1].offset;
-    if ((d = shader_glsl_get_descriptor_by_id(gen, VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, resource_id)))
+    if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors,
+            VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, resource_id)))
     {
         resource_type = d->resource_type;
         resource_space = d->register_space;
@@ -926,7 +911,8 @@ static void shader_glsl_sample(struct vkd3d_glsl_generator *gen, const struct vk
 
     resource_id = resource->reg.idx[0].offset;
     resource_idx = resource->reg.idx[1].offset;
-    if ((d = shader_glsl_get_descriptor_by_id(gen, VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, resource_id)))
+    if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors,
+            VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, resource_id)))
     {
         resource_type = d->resource_type;
         resource_space = d->register_space;
@@ -956,7 +942,8 @@ static void shader_glsl_sample(struct vkd3d_glsl_generator *gen, const struct vk
 
     sampler_id = sampler->reg.idx[0].offset;
     sampler_idx = sampler->reg.idx[1].offset;
-    if ((d = shader_glsl_get_descriptor_by_id(gen, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, sampler_id)))
+    if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors,
+            VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, sampler_id)))
     {
         sampler_space = d->register_space;
         shadow_sampler = d->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE;
@@ -1064,7 +1051,7 @@ static void shader_glsl_load_uav_typed(struct vkd3d_glsl_generator *gen, const s
 
     uav_id = ins->src[1].reg.idx[0].offset;
     uav_idx = ins->src[1].reg.idx[1].offset;
-    if ((d = shader_glsl_get_descriptor_by_id(gen, VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, uav_id)))
+    if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, uav_id)))
     {
         resource_type = d->resource_type;
         uav_space = d->register_space;
@@ -1123,7 +1110,7 @@ static void shader_glsl_store_uav_typed(struct vkd3d_glsl_generator *gen, const 
 
     uav_id = ins->dst[0].reg.idx[0].offset;
     uav_idx = ins->dst[0].reg.idx[1].offset;
-    if ((d = shader_glsl_get_descriptor_by_id(gen, VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, uav_id)))
+    if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, uav_id)))
     {
         resource_type = d->resource_type;
         uav_space = d->register_space;
