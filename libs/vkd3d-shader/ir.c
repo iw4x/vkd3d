@@ -3601,6 +3601,7 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
             case VSIR_OP_DCL_TEMPS:
             case VSIR_OP_DCL_TESSELLATOR_DOMAIN:
             case VSIR_OP_DCL_THREAD_GROUP:
+            case VSIR_OP_DCL_UAV_RAW:
             case VSIR_OP_DCL_UAV_TYPED:
                 vkd3d_shader_instruction_make_nop(ins);
                 break;
