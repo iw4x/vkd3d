@@ -2445,7 +2445,9 @@ static void shader_glsl_generate_output_declarations(struct vkd3d_glsl_generator
 static void shader_glsl_handle_global_flags(struct vkd3d_string_buffer *buffer,
         struct vkd3d_glsl_generator *gen, enum vsir_global_flags flags)
 {
-    static const uint64_t ignored_flags = VKD3DSGF_REFACTORING_ALLOWED | VKD3DSGF_BIND_FOR_DURATION;
+    static const uint64_t ignored_flags = VKD3DSGF_REFACTORING_ALLOWED
+            | VKD3DSGF_ENABLE_RAW_AND_STRUCTURED_BUFFERS
+            | VKD3DSGF_BIND_FOR_DURATION;
 
     if (flags & VKD3DSGF_FORCE_EARLY_DEPTH_STENCIL)
     {
