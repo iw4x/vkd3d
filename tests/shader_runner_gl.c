@@ -404,6 +404,9 @@ static bool gl_runner_init(struct gl_runner *runner, enum shading_language langu
         if (strncmp((const char *)glGetString(GL_RENDERER), "llvmpipe ", 9) == 0)
             runner->caps.tags[SHADER_RUNNER_TAG_LLVMPIPE].present = true;
 
+        if (strstr((const char *)glGetString(GL_RENDERER), "radeonsi"))
+            runner->caps.tags[SHADER_RUNNER_TAG_RADEONSI].present = true;
+
         runner->caps.tags[SHADER_RUNNER_TAG_MESA].present = get_mesa_version(
             &runner->caps.tags[SHADER_RUNNER_TAG_MESA].major, &runner->caps.tags[SHADER_RUNNER_TAG_MESA].minor,
             &runner->caps.tags[SHADER_RUNNER_TAG_MESA].patch);
