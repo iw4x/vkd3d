@@ -1220,8 +1220,8 @@ static bool vkd3d_shader_instruction_is_uav_read(const struct vkd3d_shader_instr
     return (VSIR_OP_ATOMIC_AND <= opcode && opcode <= VSIR_OP_ATOMIC_XOR)
             || (VSIR_OP_IMM_ATOMIC_ALLOC <= opcode && opcode <= VSIR_OP_IMM_ATOMIC_XOR)
             || opcode == VSIR_OP_LD_UAV_TYPED
-            || (opcode == VSIR_OP_LD_RAW && instruction->src[1].reg.type == VKD3DSPR_UAV)
-            || (opcode == VSIR_OP_LD_STRUCTURED && instruction->src[2].reg.type == VKD3DSPR_UAV);
+            || (opcode == VSIR_OP_LD_RAW && instruction->src[1].reg.type == VSIR_REGISTER_UAV)
+            || (opcode == VSIR_OP_LD_STRUCTURED && instruction->src[2].reg.type == VSIR_REGISTER_UAV);
 }
 
 static void vkd3d_shader_scan_record_uav_read(struct vkd3d_shader_scan_context *context,
@@ -1341,14 +1341,14 @@ static void vkd3d_shader_scan_combined_sampler_usage(struct vkd3d_shader_scan_co
     if (!(info = context->combined_sampler_info))
         return;
 
-    if (resource->type == VKD3DSPR_RESOURCE)
+    if (resource->type == VSIR_REGISTER_RESOURCE)
         resource_idx = resource->idx[1].offset;
     else
         resource_idx = resource->idx[0].offset;
 
     if (!sampler)
         sampler_idx = VKD3D_SHADER_DUMMY_SAMPLER_INDEX;
-    else if (sampler->type == VKD3DSPR_SAMPLER)
+    else if (sampler->type == VSIR_REGISTER_SAMPLER)
         sampler_idx = sampler->idx[1].offset;
     else
         sampler_idx = sampler->idx[0].offset;
@@ -1408,7 +1408,7 @@ static void vkd3d_shader_scan_resource_declaration(struct vkd3d_shader_scan_cont
     struct vkd3d_shader_descriptor_info1 *d;
     enum vkd3d_shader_descriptor_type type;
 
-    if (resource->reg.reg.type == VKD3DSPR_UAV)
+    if (resource->reg.reg.type == VSIR_REGISTER_UAV)
         type = VKD3D_SHADER_DESCRIPTOR_TYPE_UAV;
     else
         type = VKD3D_SHADER_DESCRIPTOR_TYPE_SRV;
@@ -1458,7 +1458,7 @@ static int vkd3d_shader_scan_instruction(struct vkd3d_shader_scan_context *conte
             break;
         case VSIR_OP_DCL:
             if (instruction->declaration.semantic.resource_type == VKD3D_SHADER_RESOURCE_NONE
-                    || instruction->declaration.semantic.resource.reg.reg.type == VKD3DSPR_COMBINED_SAMPLER)
+                    || instruction->declaration.semantic.resource.reg.reg.type == VSIR_REGISTER_COMBINED_SAMPLER)
                 break;
             /* fall through */
         case VSIR_OP_DCL_UAV_TYPED:
@@ -1643,16 +1643,16 @@ static int vkd3d_shader_scan_instruction(struct vkd3d_shader_scan_context *conte
             break;
         case VSIR_OP_BUFINFO:
         case VSIR_OP_SAMPLE_INFO:
-            if (instruction->src[0].reg.type == VKD3DSPR_RESOURCE)
+            if (instruction->src[0].reg.type == VSIR_REGISTER_RESOURCE)
                 vkd3d_shader_scan_combined_sampler_usage(context, &instruction->src[0].reg, NULL);
             break;
         case VSIR_OP_LD_RAW:
         case VSIR_OP_RESINFO:
-            if (instruction->src[1].reg.type == VKD3DSPR_RESOURCE)
+            if (instruction->src[1].reg.type == VSIR_REGISTER_RESOURCE)
                 vkd3d_shader_scan_combined_sampler_usage(context, &instruction->src[1].reg, NULL);
             break;
         case VSIR_OP_LD_STRUCTURED:
-            if (instruction->src[2].reg.type == VKD3DSPR_RESOURCE)
+            if (instruction->src[2].reg.type == VSIR_REGISTER_RESOURCE)
                 vkd3d_shader_scan_combined_sampler_usage(context, &instruction->src[2].reg, NULL);
             break;
         default:
@@ -1663,12 +1663,12 @@ static int vkd3d_shader_scan_instruction(struct vkd3d_shader_scan_context *conte
     {
         for (i = 0; i < instruction->dst_count; ++i)
         {
-            if (instruction->dst[i].reg.type == VKD3DSPR_UAV)
+            if (instruction->dst[i].reg.type == VSIR_REGISTER_UAV)
                 vkd3d_shader_scan_record_uav_read(context, &instruction->dst[i].reg);
         }
         for (i = 0; i < instruction->src_count; ++i)
         {
-            if (instruction->src[i].reg.type == VKD3DSPR_UAV)
+            if (instruction->src[i].reg.type == VSIR_REGISTER_UAV)
                 vkd3d_shader_scan_record_uav_read(context, &instruction->src[i].reg);
         }
     }
@@ -1680,7 +1680,7 @@ static int vkd3d_shader_scan_instruction(struct vkd3d_shader_scan_context *conte
     {
         for (i = 0; i < instruction->dst_count; ++i)
         {
-            if (instruction->dst[i].reg.type == VKD3DSPR_UAV)
+            if (instruction->dst[i].reg.type == VSIR_REGISTER_UAV)
                 vkd3d_shader_scan_record_uav_atomic_op(context, &instruction->dst[i].reg);
         }
     }

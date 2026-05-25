@@ -171,16 +171,16 @@ static void shader_glsl_print_image_name(struct vkd3d_string_buffer *buffer,
         vkd3d_string_buffer_printf(buffer, "_%u", space);
 }
 
-static void shader_glsl_print_register_name(struct vkd3d_string_buffer *buffer,
+static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
         struct vkd3d_glsl_generator *gen, const struct vsir_operand *reg)
 {
     switch (reg->type)
     {
-        case VKD3DSPR_TEMP:
+        case VSIR_REGISTER_TEMP:
             vkd3d_string_buffer_printf(buffer, "r[%u]", reg->idx[0].offset);
             break;
 
-        case VKD3DSPR_INPUT:
+        case VSIR_REGISTER_INPUT:
             if (reg->idx_count != 1)
             {
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
@@ -198,7 +198,7 @@ static void shader_glsl_print_register_name(struct vkd3d_string_buffer *buffer,
             vkd3d_string_buffer_printf(buffer, "%s_in[%u]", gen->prefix, reg->idx[0].offset);
             break;
 
-        case VKD3DSPR_OUTPUT:
+        case VSIR_REGISTER_OUTPUT:
             if (reg->idx_count != 1)
             {
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
@@ -216,7 +216,7 @@ static void shader_glsl_print_register_name(struct vkd3d_string_buffer *buffer,
             vkd3d_string_buffer_printf(buffer, "%s_out[%u]", gen->prefix, reg->idx[0].offset);
             break;
 
-        case VKD3DSPR_DEPTHOUT:
+        case VSIR_REGISTER_DEPTHOUT:
             if (gen->program->shader_version.type != VKD3D_SHADER_TYPE_PIXEL)
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                         "Internal compiler error: Unhandled depth output in shader type #%x.",
@@ -224,7 +224,7 @@ static void shader_glsl_print_register_name(struct vkd3d_string_buffer *buffer,
             vkd3d_string_buffer_printf(buffer, "gl_FragDepth");
             break;
 
-        case VKD3DSPR_IMMCONST:
+        case VSIR_REGISTER_IMMCONST:
             switch (reg->dimension)
             {
                 case VSIR_DIMENSION_SCALAR:
@@ -245,7 +245,7 @@ static void shader_glsl_print_register_name(struct vkd3d_string_buffer *buffer,
             }
             break;
 
-        case VKD3DSPR_CONSTBUFFER:
+        case VSIR_REGISTER_CONSTBUFFER:
             if (reg->idx_count != 3)
             {
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
@@ -264,16 +264,16 @@ static void shader_glsl_print_register_name(struct vkd3d_string_buffer *buffer,
             shader_glsl_print_subscript(buffer, gen, reg->idx[2].rel_addr, reg->idx[2].offset);
             break;
 
-        case VKD3DSPR_THREADID:
+        case VSIR_REGISTER_THREADID:
             vkd3d_string_buffer_printf(buffer, "uvec4(gl_GlobalInvocationID, 0)");
             break;
 
-        case VKD3DSPR_IDXTEMP:
+        case VSIR_REGISTER_IDXTEMP:
             vkd3d_string_buffer_printf(buffer, "x%u", reg->idx[0].offset);
             shader_glsl_print_subscript(buffer, gen, reg->idx[1].rel_addr, reg->idx[1].offset);
             break;
 
-        case VKD3DSPR_SAMPLEMASK:
+        case VSIR_REGISTER_SAMPLEMASK:
             if (gen->program->shader_version.type != VKD3D_SHADER_TYPE_PIXEL)
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                         "Internal compiler error: Unhandled sample coverage mask in shader type #%x.",
@@ -387,12 +387,12 @@ static void shader_glsl_print_src(struct vkd3d_string_buffer *buffer, struct vkd
         vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                 "Internal compiler error: Unhandled 'non-uniform' modifier.");
 
-    if (reg->type == VKD3DSPR_IMMCONST || reg->type == VKD3DSPR_THREADID)
+    if (reg->type == VSIR_REGISTER_IMMCONST || reg->type == VSIR_REGISTER_THREADID)
         src_data_type = VSIR_DATA_U32;
     else
         src_data_type = VSIR_DATA_F32;
 
-    shader_glsl_print_register_name(register_name, gen, reg);
+    shader_glsl_print_operand_name(register_name, gen, reg);
 
     size = reg->dimension == VSIR_DIMENSION_VEC4 ? 4 : 1;
     shader_glsl_print_bitcast(buffer, gen, register_name->buffer, data_type, src_data_type, size);
@@ -431,7 +431,7 @@ static uint32_t glsl_dst_init(struct glsl_dst *glsl_dst, struct vkd3d_glsl_gener
     glsl_dst->register_name = vkd3d_string_buffer_get(&gen->string_buffers);
     glsl_dst->mask = vkd3d_string_buffer_get(&gen->string_buffers);
 
-    shader_glsl_print_register_name(glsl_dst->register_name, gen, &vsir_dst->reg);
+    shader_glsl_print_operand_name(glsl_dst->register_name, gen, &vsir_dst->reg);
     shader_glsl_print_write_mask(glsl_dst->mask, write_mask);
 
     return write_mask;
@@ -1040,11 +1040,11 @@ static void shader_glsl_load_raw_structured(struct vkd3d_glsl_generator *gen,
     const struct vsir_src_operand *resource_src = &ins->src[ins->src_count - 1];
     const struct vkd3d_shader_descriptor_info1 *d;
     struct vkd3d_string_buffer *coord, *load;
-    enum vkd3d_shader_register_type type;
     uint32_t dst_mask, mask, swizzle;
+    enum vsir_register_type type;
     struct glsl_dst dst;
 
-    if ((type = resource_src->reg.type) != VKD3DSPR_RESOURCE)
+    if ((type = resource_src->reg.type) != VSIR_REGISTER_RESOURCE)
     {
         vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                 "Internal compiler error: Unhandled register type \"%s\" (%#x).\n.",
@@ -1178,11 +1178,11 @@ static void shader_glsl_store_raw_structured(struct vkd3d_glsl_generator *gen,
     unsigned int descriptor_id, resource_idx, resource_space, i, stride, src_idx = 0;
     struct vkd3d_string_buffer *buffer = gen->buffer;
     const struct vkd3d_shader_descriptor_info1 *d;
-    enum vkd3d_shader_register_type type;
     struct vkd3d_string_buffer *coord;
+    enum vsir_register_type type;
     uint32_t mask;
 
-    if ((type = ins->dst[0].reg.type) != VKD3DSPR_UAV)
+    if ((type = ins->dst[0].reg.type) != VSIR_REGISTER_UAV)
     {
         vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                 "Internal compiler error: Unhandled register type \"%s\" (%#x).\n.",
@@ -1569,7 +1569,7 @@ static void shader_glsl_shader_epilogue(struct vkd3d_glsl_generator *gen)
         vkd3d_string_buffer_printf(buffer, ";\n");
     }
 
-    if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_SAMPLEMASK))
+    if (bitmap_is_set(gen->program->io_dcls, VSIR_REGISTER_SAMPLEMASK))
     {
         shader_glsl_print_indent(buffer, gen->indent);
         vkd3d_string_buffer_printf(gen->buffer, "gl_SampleMask[0] = floatBitsToInt(o_mask);\n");
@@ -2516,7 +2516,7 @@ static void shader_glsl_generate_declarations(struct vkd3d_glsl_generator *gen)
         vkd3d_string_buffer_printf(buffer, "vec4 %s_in[%u];\n", gen->prefix, gen->limits.input_count);
     if (gen->limits.output_count)
         vkd3d_string_buffer_printf(buffer, "vec4 %s_out[%u];\n", gen->prefix, gen->limits.output_count);
-    if (bitmap_is_set(gen->program->io_dcls, VKD3DSPR_SAMPLEMASK))
+    if (bitmap_is_set(gen->program->io_dcls, VSIR_REGISTER_SAMPLEMASK))
         vkd3d_string_buffer_printf(gen->buffer, "float o_mask;\n");
     if (program->temp_count)
         vkd3d_string_buffer_printf(buffer, "vec4 r[%u];\n", program->temp_count);
