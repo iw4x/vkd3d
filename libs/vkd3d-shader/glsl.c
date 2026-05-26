@@ -1033,16 +1033,18 @@ static void shader_glsl_sample(struct vkd3d_glsl_generator *gen, const struct vk
     glsl_dst_cleanup(&dst, &gen->string_buffers);
 }
 
-static void shader_glsl_load_raw(struct vkd3d_glsl_generator *gen, const struct vkd3d_shader_instruction *ins)
+static void shader_glsl_load_raw_structured(struct vkd3d_glsl_generator *gen,
+        const struct vkd3d_shader_instruction *ins)
 {
-    unsigned int count, descriptor_id, resource_idx, resource_space, i;
+    unsigned int count, descriptor_id, resource_idx, resource_space, i, stride, src_idx = 0;
+    const struct vsir_src_operand *resource_src = &ins->src[ins->src_count - 1];
     const struct vkd3d_shader_descriptor_info1 *d;
     struct vkd3d_string_buffer *coord, *load;
     enum vkd3d_shader_register_type type;
     uint32_t dst_mask, mask, swizzle;
     struct glsl_dst dst;
 
-    if ((type = ins->src[1].reg.type) != VKD3DSPR_RESOURCE)
+    if ((type = resource_src->reg.type) != VKD3DSPR_RESOURCE)
     {
         vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                 "Internal compiler error: Unhandled register type \"%s\" (%#x).\n.",
@@ -1050,31 +1052,37 @@ static void shader_glsl_load_raw(struct vkd3d_glsl_generator *gen, const struct 
         return;
     }
 
-    if (ins->src[1].reg.idx[0].rel_addr || ins->src[1].reg.idx[1].rel_addr)
+    if (resource_src->reg.idx[0].rel_addr || resource_src->reg.idx[1].rel_addr)
         vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_UNSUPPORTED,
                 "Descriptor indexing is not supported.");
 
-    descriptor_id = ins->src[1].reg.idx[0].offset;
-    resource_idx = ins->src[1].reg.idx[1].offset;
+    descriptor_id = resource_src->reg.idx[0].offset;
+    resource_idx = resource_src->reg.idx[1].offset;
     if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors,
             VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, descriptor_id)))
     {
         resource_space = d->register_space;
+        stride = d->structure_stride / 4;
     }
     else
     {
         vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                 "Internal compiler error: Undeclared UAV descriptor %u.", descriptor_id);
         resource_space = 0;
+        stride = 0;
     }
 
     glsl_dst_init(&dst, gen, ins, &ins->dst[0]);
     coord = vkd3d_string_buffer_get(&gen->string_buffers);
     load = vkd3d_string_buffer_get(&gen->string_buffers);
 
-    vkd3d_string_buffer_printf(coord, "(");
-    shader_glsl_print_src(coord, gen, &ins->src[0], VKD3DSP_WRITEMASK_0, VSIR_DATA_I32);
-    vkd3d_string_buffer_printf(coord, " / 4)");
+    if (ins->opcode == VSIR_OP_LD_STRUCTURED)
+    {
+        shader_glsl_print_src(coord, gen, &ins->src[src_idx++], VKD3DSP_WRITEMASK_0, VSIR_DATA_I32);
+        vkd3d_string_buffer_printf(coord, " * %u + ", stride);
+    }
+    shader_glsl_print_src(coord, gen, &ins->src[src_idx++], VKD3DSP_WRITEMASK_0, VSIR_DATA_I32);
+    vkd3d_string_buffer_printf(coord, " / 4");
 
     dst_mask = ins->dst[0].write_mask;
     count = vsir_write_mask_component_count(dst_mask);
@@ -1089,7 +1097,7 @@ static void shader_glsl_load_raw(struct vkd3d_glsl_generator *gen, const struct 
         shader_glsl_print_combined_sampler_name(load, gen, resource_idx,
                 resource_space, VKD3D_SHADER_DUMMY_SAMPLER_INDEX, 0);
         vkd3d_string_buffer_printf(load, ", %s", coord->buffer);
-        if ((swizzle = vsir_swizzle_get_component(ins->src[1].swizzle, i)))
+        if ((swizzle = vsir_swizzle_get_component(resource_src->swizzle, i)))
             vkd3d_string_buffer_printf(load, " + %u", swizzle);
         vkd3d_string_buffer_printf(load, ").x%s", dst_mask & ~(mask | (mask - 1)) ? ",\n" : "");
     }
@@ -1730,7 +1738,8 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
             shader_glsl_ld(gen, ins);
             break;
         case VSIR_OP_LD_RAW:
-            shader_glsl_load_raw(gen, ins);
+        case VSIR_OP_LD_STRUCTURED:
+            shader_glsl_load_raw_structured(gen, ins);
             break;
         case VSIR_OP_LD_UAV_TYPED:
             shader_glsl_load_uav_typed(gen, ins);
