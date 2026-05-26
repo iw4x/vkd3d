@@ -242,9 +242,11 @@ static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
                     break;
 
                 default:
-                    vkd3d_string_buffer_printf(buffer, "<unhandled_dimension %#x>", reg->dimension);
+                    vkd3d_string_buffer_printf(buffer, "<unhandled_dimension \"%s\" (%#x)>",
+                            vsir_dimension_get_name(reg->dimension, "<unknown>"), reg->dimension);
                     vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                            "Internal compiler error: Unhandled dimension %#x.", reg->dimension);
+                            "Internal compiler error: Unhandled dimension \"%s\" (%#x).",
+                            vsir_dimension_get_name(reg->dimension, "<unknown>"), reg->dimension);
                     break;
             }
             break;

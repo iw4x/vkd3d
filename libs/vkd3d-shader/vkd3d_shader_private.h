@@ -823,6 +823,8 @@ enum vsir_dimension
     VSIR_DIMENSION_COUNT,
 };
 
+const char *vsir_dimension_get_name(enum vsir_dimension d, const char *error);
+
 enum vkd3d_shader_src_modifier
 {
     VKD3DSPSM_NONE = 0,

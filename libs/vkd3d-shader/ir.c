@@ -92,6 +92,21 @@ const char *vsir_denorm_mode_get_name(enum vkd3d_shader_denormal_mode m, const c
     return error;
 }
 
+const char *vsir_dimension_get_name(enum vsir_dimension d, const char *error)
+{
+    static const char * const names[] =
+    {
+        [VSIR_DIMENSION_NONE]   = "none",
+        [VSIR_DIMENSION_SCALAR] = "scalar",
+        [VSIR_DIMENSION_VEC4]   = "vec4",
+    };
+
+    if ((size_t)d < ARRAY_SIZE(names))
+        return names[d] ? names[d] : error;
+
+    return error;
+}
+
 const char *vsir_register_type_get_name(enum vsir_register_type type, const char *error)
 {
     static const char * const names[] =
