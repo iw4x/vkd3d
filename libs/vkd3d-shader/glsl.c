@@ -185,14 +185,16 @@ static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
             {
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                         "Internal compiler error: Unhandled input register index count %u.", reg->idx_count);
-                vkd3d_string_buffer_printf(buffer, "<unhandled register %#x>", reg->type);
+                vkd3d_string_buffer_printf(buffer, "<unhandled register \"%s\" (%#x)>",
+                        vsir_register_type_get_name(reg->type, "<unknown>"), reg->type);
                 break;
             }
             if (reg->idx[0].rel_addr)
             {
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                         "Internal compiler error: Unhandled input register indirect addressing.");
-                vkd3d_string_buffer_printf(buffer, "<unhandled register %#x>", reg->type);
+                vkd3d_string_buffer_printf(buffer, "<unhandled register \"%s\" (%#x)>",
+                        vsir_register_type_get_name(reg->type, "<unknown>"), reg->type);
                 break;
             }
             vkd3d_string_buffer_printf(buffer, "%s_in[%u]", gen->prefix, reg->idx[0].offset);
@@ -203,14 +205,16 @@ static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
             {
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                         "Internal compiler error: Unhandled output register index count %u.", reg->idx_count);
-                vkd3d_string_buffer_printf(buffer, "<unhandled register %#x>", reg->type);
+                vkd3d_string_buffer_printf(buffer, "<unhandled register \"%s\" (%#x)>",
+                        vsir_register_type_get_name(reg->type, "<unknown>"), reg->type);
                 break;
             }
             if (reg->idx[0].rel_addr)
             {
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                         "Internal compiler error: Unhandled output register indirect addressing.");
-                vkd3d_string_buffer_printf(buffer, "<unhandled register %#x>", reg->type);
+                vkd3d_string_buffer_printf(buffer, "<unhandled register \"%s\" (%#x)>",
+                        vsir_register_type_get_name(reg->type, "<unknown>"), reg->type);
                 break;
             }
             vkd3d_string_buffer_printf(buffer, "%s_out[%u]", gen->prefix, reg->idx[0].offset);
@@ -250,14 +254,16 @@ static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
             {
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                         "Internal compiler error: Unhandled constant buffer register index count %u.", reg->idx_count);
-                vkd3d_string_buffer_printf(buffer, "<unhandled register %#x>", reg->type);
+                vkd3d_string_buffer_printf(buffer, "<unhandled register \"%s\" (%#x)>",
+                        vsir_register_type_get_name(reg->type, "<unknown>"), reg->type);
                 break;
             }
             if (reg->idx[0].rel_addr)
             {
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                         "Internal compiler error: Unhandled constant buffer register indirect addressing.");
-                vkd3d_string_buffer_printf(buffer, "<unhandled register %#x>", reg->type);
+                vkd3d_string_buffer_printf(buffer, "<unhandled register \"%s\" (%#x)>",
+                        vsir_register_type_get_name(reg->type, "<unknown>"), reg->type);
                 break;
             }
             vkd3d_string_buffer_printf(buffer, "%s_cb_%u", gen->prefix, reg->idx[0].offset);
@@ -283,8 +289,10 @@ static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
 
         default:
             vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                    "Internal compiler error: Unhandled register type %#x.", reg->type);
-            vkd3d_string_buffer_printf(buffer, "<unrecognised register %#x>", reg->type);
+                    "Internal compiler error: Unhandled register type \"%s\" (%#x).",
+                    vsir_register_type_get_name(reg->type, "<unknown>"), reg->type);
+            vkd3d_string_buffer_printf(buffer, "<unhandled register \"%s\" (%#x)>",
+                    vsir_register_type_get_name(reg->type, "<unknown>"), reg->type);
             break;
     }
 }
