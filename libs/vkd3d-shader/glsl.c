@@ -376,8 +376,9 @@ static void shader_glsl_print_bitcast(struct vkd3d_string_buffer *dst, struct vk
     }
 
     vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-            "Internal compiler error: Unhandled bitcast from %#x to %#x.",
-            src_data_type, dst_data_type);
+            "Internal compiler error: Unhandled bitcast from \"%s\" (%#x) to \"%s\" (%#x).",
+            vsir_data_type_get_name(src_data_type, "<unknown>"), src_data_type,
+            vsir_data_type_get_name(dst_data_type, "<unknown>"), dst_data_type);
     vkd3d_string_buffer_printf(dst, "%s", src);
 }
 
@@ -481,7 +482,8 @@ static void VKD3D_PRINTF_FUNC(4, 0) shader_glsl_vprint_assignment(struct vkd3d_g
     {
         default:
             vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                    "Internal compiler error: Unhandled destination register data type %#x.", data_type);
+                    "Internal compiler error: Unhandled destination register data type \"%s\" (%#x).",
+                    vsir_data_type_get_name(data_type, "<unknown>"), data_type);
             /* fall through */
         case VSIR_DATA_F32:
         case VSIR_DATA_SNORM:
@@ -1304,7 +1306,8 @@ static void shader_glsl_store_uav_typed(struct vkd3d_glsl_generator *gen, const 
                 break;
             default:
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                        "Internal compiler error: Unhandled data type %#x.", data_type);
+                        "Internal compiler error: Unhandled data type \"%s\" (%#x).",
+                        vsir_data_type_get_name(data_type, "<unknown>"), data_type);
                 /* fall through */
             case VSIR_DATA_F32:
             case VSIR_DATA_SNORM:
@@ -1963,7 +1966,8 @@ static void shader_glsl_generate_uav_declaration(struct vkd3d_glsl_generator *ge
             break;
         default:
             vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                    "Internal compiler error: Unhandled data type %#x for UAV %u.",
+                    "Internal compiler error: Unhandled data type \"%s\" (%#x) for UAV %u.",
+                    vsir_data_type_get_name(uav->resource_data_type, "<unknown>"),
                     uav->resource_data_type, uav->register_id);
             /* fall through */
         case VSIR_DATA_F32:
@@ -2195,8 +2199,9 @@ static void shader_glsl_generate_sampler_declaration(struct vkd3d_glsl_generator
             break;
         default:
             vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                    "Internal compiler error: Unhandled data type %#x for combined resource/sampler "
-                    "for resource %u, space %u and sampler %u, space %u.", srv->resource_data_type,
+                    "Internal compiler error: Unhandled data type \"%s\" (%#x) for combined resource/sampler "
+                    "for resource %u, space %u and sampler %u, space %u.",
+                    vsir_data_type_get_name(srv->resource_data_type, "<unknown>"), srv->resource_data_type,
                     crs->resource_index, crs->resource_space, crs->sampler_index, crs->sampler_space);
             sampler_type_prefix = "";
             break;
