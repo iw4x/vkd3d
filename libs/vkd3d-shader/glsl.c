@@ -1164,9 +1164,10 @@ static void shader_glsl_load_uav_typed(struct vkd3d_glsl_generator *gen, const s
     glsl_dst_cleanup(&dst, &gen->string_buffers);
 }
 
-static void shader_glsl_store_raw(struct vkd3d_glsl_generator *gen, const struct vkd3d_shader_instruction *ins)
+static void shader_glsl_store_raw_structured(struct vkd3d_glsl_generator *gen,
+        const struct vkd3d_shader_instruction *ins)
 {
-    unsigned int descriptor_id, resource_idx, resource_space, i;
+    unsigned int descriptor_id, resource_idx, resource_space, i, stride, src_idx = 0;
     struct vkd3d_string_buffer *buffer = gen->buffer;
     const struct vkd3d_shader_descriptor_info1 *d;
     enum vkd3d_shader_register_type type;
@@ -1190,17 +1191,24 @@ static void shader_glsl_store_raw(struct vkd3d_glsl_generator *gen, const struct
     if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, descriptor_id)))
     {
         resource_space = d->register_space;
+        stride = d->structure_stride / 4;
     }
     else
     {
         vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                 "Internal compiler error: Undeclared descriptor %u.", descriptor_id);
         resource_space = 0;
+        stride = 0;
     }
 
     coord = vkd3d_string_buffer_get(&gen->string_buffers);
 
-    shader_glsl_print_src(coord, gen, &ins->src[0], VKD3DSP_WRITEMASK_0, VSIR_DATA_I32);
+    if (ins->opcode == VSIR_OP_STORE_STRUCTURED)
+    {
+        shader_glsl_print_src(coord, gen, &ins->src[src_idx++], VKD3DSP_WRITEMASK_0, VSIR_DATA_I32);
+        vkd3d_string_buffer_printf(coord, " * %u + ", stride);
+    }
+    shader_glsl_print_src(coord, gen, &ins->src[src_idx++], VKD3DSP_WRITEMASK_0, VSIR_DATA_I32);
     vkd3d_string_buffer_printf(coord, " / 4");
 
     for (i = 0; i < VKD3D_VEC4_SIZE; ++i)
@@ -1215,7 +1223,7 @@ static void shader_glsl_store_raw(struct vkd3d_glsl_generator *gen, const struct
         if (i)
             vkd3d_string_buffer_printf(buffer, " + %u", i);
         vkd3d_string_buffer_printf(buffer, ", uvec4(");
-        shader_glsl_print_src(buffer, gen, &ins->src[1], mask, VSIR_DATA_U32);
+        shader_glsl_print_src(buffer, gen, &ins->src[src_idx], mask, VSIR_DATA_U32);
         vkd3d_string_buffer_printf(buffer, ", 0, 0, 0));\n");
     }
 
@@ -1776,7 +1784,8 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
             shader_glsl_intrinsic(gen, ins, "sqrt");
             break;
         case VSIR_OP_STORE_RAW:
-            shader_glsl_store_raw(gen, ins);
+        case VSIR_OP_STORE_STRUCTURED:
+            shader_glsl_store_raw_structured(gen, ins);
             break;
         case VSIR_OP_STORE_UAV_TYPED:
             shader_glsl_store_uav_typed(gen, ins);
