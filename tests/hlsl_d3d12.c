@@ -102,7 +102,19 @@ static const char test_include2_file5[] =
 static const char test_include2_file6[] =
     "FUNC(pa";
 
-static unsigned int refcount_file1, refcount_file2, refcount_file3, include_count_file2;
+static const char test_include_empty[] =
+    "#include \"empty2\" ";
+
+static const char test_include_empty2[] =
+    "#include \"empty3\"";
+
+static const char test_include_empty3[] =
+    "";
+
+static const char test_include_empty4[] =
+    "#include \"empty5\" ";
+
+static unsigned int refcount_file1, refcount_file2, refcount_file3, refcount_empty2, refcount_empty3, include_count_file2;
 
 static HRESULT WINAPI test_include_Open(ID3DInclude *iface, D3D_INCLUDE_TYPE type,
         const char *filename, const void *parent_data, const void **code, UINT *size)
@@ -157,6 +169,29 @@ static HRESULT WINAPI test_include_Open(ID3DInclude *iface, D3D_INCLUDE_TYPE typ
         *code = test_include2_file6;
         *size = strlen(test_include2_file6);
     }
+    else if (!strcmp(filename, "empty2"))
+    {
+        ok(type == D3D_INCLUDE_LOCAL, "Got type %#x.\n", type);
+        ok(!parent_data, "Got parent data %p.\n", parent_data);
+        *code = test_include_empty2;
+        *size = strlen(test_include_empty2);
+        ++refcount_empty2;
+    }
+    else if (!strcmp(filename, "empty3"))
+    {
+        ok(type == D3D_INCLUDE_LOCAL, "Got type %#x.\n", type);
+        ok(parent_data == test_include_empty2, "Got parent data %p.\n", parent_data);
+        *code = test_include_empty3;
+        *size = 0;
+        ++refcount_empty3;
+    }
+    else if (!strcmp(filename, "empty5"))
+    {
+        ok(type == D3D_INCLUDE_LOCAL, "Got type %#x.\n", type);
+        ok(!parent_data, "Got parent data %p.\n", parent_data);
+        *code = NULL;
+        *size = 0;
+    }
     else
     {
         ok(0, "Unexpected filename \"%s\".\n", filename);
@@ -166,12 +201,16 @@ static HRESULT WINAPI test_include_Open(ID3DInclude *iface, D3D_INCLUDE_TYPE typ
 
 static HRESULT WINAPI test_include_Close(ID3DInclude *iface, const void *code)
 {
+    ok(!!code, "Expected non-NULL code.\n");
+
     if (code == test_include_file1)
         --refcount_file1;
     else if (code == test_include_file2)
         --refcount_file2;
     else if (code == test_include_file3)
         --refcount_file3;
+    else if (code == test_include_empty2)
+        --refcount_empty2;
     return E_FAIL;
 }
 
@@ -201,6 +240,7 @@ static const struct ID3DIncludeVtbl test_include_fail_vtbl =
 
 static void test_preprocess(void)
 {
+    static const unsigned int empty_include_versions[] = {33, 43, 46, 47};
     ID3DInclude test_include_fail = {&test_include_fail_vtbl};
     ID3DInclude test_include = {&test_include_vtbl};
     D3D_SHADER_MACRO macros[3];
@@ -537,6 +577,56 @@ static void test_preprocess(void)
     ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
     ID3D10Blob_Release(blob);
     ok(!errors, "Expected no errors.\n");
+
+    /* Test passing an include with zero length.
+     * This is legal only in versions 43 and earlier.
+     * In such a case Close() is not called. */
+    for (i = 0; i < ARRAY_SIZE(empty_include_versions); ++i)
+    {
+        unsigned int version = empty_include_versions[i];
+
+        if (!load_d3dcompiler(version))
+            continue;
+
+        vkd3d_test_push_context("Version %u", version);
+
+        blob = errors = (ID3D10Blob *)0xdeadbeef;
+        hr = D3DPreprocessVKD3D(test_include_empty, strlen(test_include_empty), NULL,
+                NULL, &test_include, &blob, &errors, version);
+        if (version <= 43)
+        {
+            ok(hr == S_OK, "Got hr %#x.\n", hr);
+            ok(!errors, "Got errors %p.\n", errors);
+            ID3D10Blob_Release(blob);
+        }
+        else
+        {
+            todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+            todo ok(blob == (ID3D10Blob *)0xdeadbeef, "Expected no compiled shader blob.\n");
+            ok(!errors, "Expected no compiled shader blob.\n");
+        }
+        ok(!refcount_empty2, "Got %d references to empty2.\n", refcount_empty2);
+        ok(refcount_empty3 == 1, "Got %d references to empty3.\n", refcount_empty3);
+        refcount_empty3 = 0;
+
+        blob = errors = (ID3D10Blob *)0xdeadbeef;
+        hr = D3DPreprocessVKD3D(test_include_empty4, strlen(test_include_empty4), NULL,
+                NULL, &test_include, &blob, &errors, version);
+        if (version <= 43)
+        {
+            ok(hr == S_OK, "Got hr %#x.\n", hr);
+            ok(!errors, "Got errors %p.\n", errors);
+            ID3D10Blob_Release(blob);
+        }
+        else
+        {
+            todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+            todo ok(blob == (ID3D10Blob *)0xdeadbeef, "Expected no compiled shader blob.\n");
+            ok(!errors, "Expected no compiled shader blob.\n");
+        }
+
+        vkd3d_test_pop_context();
+    }
 }
 
 #define compile_shader(a, b) compile_shader_(__FILE__, __LINE__, a, b, 0)

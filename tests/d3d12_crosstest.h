@@ -98,6 +98,48 @@ static inline void *get_d3d12_pfn_(const char *name)
 {
     return GetProcAddress(GetModuleHandleA("d3d12.dll"), name);
 }
+
+static struct d3dcompiler
+{
+    bool loaded;
+    HRESULT (WINAPI *D3DPreprocess)(const void *data, SIZE_T size, const char *filename,
+            const D3D_SHADER_MACRO *macros, ID3DInclude *include,
+            ID3DBlob **preprocessed_blob, ID3DBlob **messages_blob);
+} d3dcompilers[47 - 33 + 1];
+
+static inline bool load_d3dcompiler(unsigned int version)
+{
+    struct d3dcompiler *d3dcompiler = &d3dcompilers[version - 33];
+    HMODULE module;
+    char name[20];
+
+    if (!d3dcompiler->loaded)
+    {
+        sprintf(name, "d3dcompiler_%u.dll", version);
+        if ((module = LoadLibraryA(name)))
+        {
+            if (version < 40)
+                d3dcompiler->D3DPreprocess = (void *)GetProcAddress(module, "D3DPreprocessFromMemory");
+            else
+                d3dcompiler->D3DPreprocess = (void *)GetProcAddress(module, "D3DPreprocess");
+        }
+        else
+        {
+            skip("Failed to load %s.\n", name);
+        }
+        d3dcompiler->loaded = true;
+    }
+    return d3dcompiler->D3DPreprocess;
+}
+
+static inline HRESULT WINAPI D3DPreprocessVKD3D(const void *data, SIZE_T size, const char *filename,
+        const D3D_SHADER_MACRO *macros, ID3DInclude *include,
+        ID3DBlob **preprocessed_blob, ID3DBlob **messages_blob, unsigned int compiler_version)
+{
+    return d3dcompilers[compiler_version - 33].D3DPreprocess(data, size,
+            filename, macros, include, preprocessed_blob, messages_blob);
+}
+
 #else
 #define INFINITE VKD3D_INFINITE
 #define WAIT_OBJECT_0 VKD3D_WAIT_OBJECT_0
@@ -124,6 +166,11 @@ static inline void destroy_event(HANDLE event)
 }
 
 #define get_d3d12_pfn(name) (name)
+
+static inline bool load_d3dcompiler(unsigned int version)
+{
+    return true;
+}
 #endif
 
 typedef void (*thread_main_pfn)(void *data);
