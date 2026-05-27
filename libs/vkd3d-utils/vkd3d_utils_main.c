@@ -277,6 +277,41 @@ static void close_include(const struct vkd3d_shader_code *code, void *context)
         ID3DInclude_Close(iface, code->code);
 }
 
+static HRESULT init_preprocess_info(struct vkd3d_shader_preprocess_info *info,
+        struct standard_include_ctx *ctx, const D3D_SHADER_MACRO *macros, ID3DInclude *include, const char *filename)
+{
+    const D3D_SHADER_MACRO *macro;
+    enum vkd3d_result ret;
+
+    info->type = VKD3D_SHADER_STRUCTURE_TYPE_PREPROCESS_INFO;
+    info->next = NULL;
+    info->macros = (const struct vkd3d_shader_macro *)macros;
+    info->macro_count = 0;
+    if (macros)
+    {
+        for (macro = macros; macro->Name; ++macro)
+            ++info->macro_count;
+    }
+
+    if (include == D3D_COMPILE_STANDARD_FILE_INCLUDE)
+    {
+        if ((ret = standard_include_init(ctx, filename)) != VKD3D_OK)
+            return hresult_from_vkd3d_result(ret);
+
+        info->pfn_open_include = standard_include_open;
+        info->pfn_close_include = NULL;
+        info->include_context = ctx;
+    }
+    else
+    {
+        info->pfn_open_include = open_include;
+        info->pfn_close_include = close_include;
+        info->include_context = include;
+    }
+
+    return S_OK;
+}
+
 static enum vkd3d_shader_target_type get_target_for_profile(const char *profile)
 {
     size_t profile_len, i;
@@ -341,7 +376,6 @@ HRESULT WINAPI D3DCompile2VKD3D(const void *data, SIZE_T data_size, const char *
     struct vkd3d_shader_compile_option *option;
     struct standard_include_ctx ctx = { 0 };
     struct vkd3d_shader_code byte_code;
-    const D3D_SHADER_MACRO *macro;
     char *messages;
     HRESULT hr;
     int ret;
@@ -378,31 +412,9 @@ HRESULT WINAPI D3DCompile2VKD3D(const void *data, SIZE_T data_size, const char *
     compile_info.log_level = VKD3D_SHADER_LOG_INFO;
     compile_info.source_name = filename;
 
-    preprocess_info.type = VKD3D_SHADER_STRUCTURE_TYPE_PREPROCESS_INFO;
+    if ((hr = init_preprocess_info(&preprocess_info, &ctx, macros, include, filename)))
+        return hr;
     preprocess_info.next = &hlsl_info;
-    preprocess_info.macros = (const struct vkd3d_shader_macro *)macros;
-    preprocess_info.macro_count = 0;
-    if (macros)
-    {
-        for (macro = macros; macro->Name; ++macro)
-            ++preprocess_info.macro_count;
-    }
-
-    if (include == D3D_COMPILE_STANDARD_FILE_INCLUDE)
-    {
-        if ((ret = standard_include_init(&ctx, filename)) != VKD3D_OK)
-            return hresult_from_vkd3d_result(ret);
-
-        preprocess_info.pfn_open_include = standard_include_open;
-        preprocess_info.pfn_close_include = NULL;
-        preprocess_info.include_context = &ctx;
-    }
-    else
-    {
-        preprocess_info.pfn_open_include = open_include;
-        preprocess_info.pfn_close_include = close_include;
-        preprocess_info.include_context = include;
-    }
 
     hlsl_info.type = VKD3D_SHADER_STRUCTURE_TYPE_HLSL_SOURCE_INFO;
     hlsl_info.next = NULL;
@@ -540,7 +552,6 @@ HRESULT WINAPI D3DPreprocessVKD3D(const void *data, SIZE_T size, const char *fil
     struct vkd3d_shader_compile_info compile_info;
     struct vkd3d_shader_code preprocessed_code;
     struct standard_include_ctx ctx = { 0 };
-    const D3D_SHADER_MACRO *macro;
     char *messages;
     HRESULT hr;
     int ret;
@@ -569,31 +580,8 @@ HRESULT WINAPI D3DPreprocessVKD3D(const void *data, SIZE_T size, const char *fil
     compile_info.log_level = VKD3D_SHADER_LOG_INFO;
     compile_info.source_name = filename;
 
-    preprocess_info.type = VKD3D_SHADER_STRUCTURE_TYPE_PREPROCESS_INFO;
-    preprocess_info.next = NULL;
-    preprocess_info.macros = (const struct vkd3d_shader_macro *)macros;
-    preprocess_info.macro_count = 0;
-    if (macros)
-    {
-        for (macro = macros; macro->Name; ++macro)
-            ++preprocess_info.macro_count;
-    }
-
-    if (include == D3D_COMPILE_STANDARD_FILE_INCLUDE)
-    {
-        if ((ret = standard_include_init(&ctx, filename)) != VKD3D_OK)
-            return hresult_from_vkd3d_result(ret);
-
-        preprocess_info.pfn_open_include = standard_include_open;
-        preprocess_info.pfn_close_include = NULL;
-        preprocess_info.include_context = &ctx;
-    }
-    else
-    {
-        preprocess_info.pfn_open_include = open_include;
-        preprocess_info.pfn_close_include = close_include;
-        preprocess_info.include_context = include;
-    }
+    if ((hr = init_preprocess_info(&preprocess_info, &ctx, macros, include, filename)))
+        return hr;
 
     ret = vkd3d_shader_preprocess(&compile_info, &preprocessed_code, &messages);
 
