@@ -251,6 +251,11 @@ static enum vkd3d_result standard_include_open(const char *filename, bool local,
     return res;
 }
 
+static void standard_include_close(const struct vkd3d_shader_code *code, void *context)
+{
+    vkd3d_free((void *)code->code);
+}
+
 static int open_include(const char *filename, bool local, const char *parent_data, void *context,
         struct vkd3d_shader_code *code)
 {
@@ -299,7 +304,7 @@ static HRESULT init_preprocess_info(struct vkd3d_shader_preprocess_info *info,
             return hresult_from_vkd3d_result(ret);
 
         info->pfn_open_include = standard_include_open;
-        info->pfn_close_include = NULL;
+        info->pfn_close_include = standard_include_close;
         info->include_context = ctx;
     }
     else
