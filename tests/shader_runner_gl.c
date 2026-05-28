@@ -257,7 +257,8 @@ static uint32_t get_format_support(struct gl_runner *runner, enum DXGI_FORMAT fo
 
     /* TODO: Probably check for more targets instead of just GL_TEXTURE_2D. */
     glGetInternalformativ(GL_TEXTURE_2D, gl_format, GL_SHADER_IMAGE_LOAD, 1, &support);
-    if (support != GL_NONE)
+    if (support != GL_NONE && ((runner->caps.format_caps[DXGI_FORMAT_UNKNOWN] & FORMAT_CAP_UAV_LOAD)
+            || (format == DXGI_FORMAT_R32_FLOAT || format == DXGI_FORMAT_R32_UINT || format == DXGI_FORMAT_R32_SINT)))
         ret |= FORMAT_CAP_UAV_LOAD;
 
     return ret;
@@ -295,7 +296,6 @@ static bool gl_runner_init(struct gl_runner *runner, enum shading_language langu
 
     static const enum DXGI_FORMAT formats[] =
     {
-        DXGI_FORMAT_UNKNOWN,
         DXGI_FORMAT_R32_FLOAT,
         DXGI_FORMAT_R32_UINT,
         DXGI_FORMAT_R32_SINT,
@@ -418,6 +418,8 @@ static bool gl_runner_init(struct gl_runner *runner, enum shading_language langu
         glGetIntegerv(GL_NUM_EXTENSIONS, &extension_count);
         if (check_gl_extension("GL_ARB_internalformat_query2", extension_count))
         {
+            if (check_gl_extension("GL_EXT_shader_image_load_formatted", extension_count))
+                runner->caps.format_caps[DXGI_FORMAT_UNKNOWN] |= FORMAT_CAP_UAV_LOAD;
             for (unsigned int j = 0; j < ARRAY_SIZE(formats); ++j)
             {
                 runner->caps.format_caps[formats[j]] = get_format_support(runner, formats[j]);
@@ -725,6 +727,7 @@ static bool compile_shader(struct gl_runner *runner, enum shader_type shader_typ
         {VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN,
                 VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN_LOWER_LEFT},
         {VKD3D_SHADER_COMPILE_OPTION_FEATURE, shader_runner_caps_get_feature_flags(&runner->caps)},
+        {VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV, shader_runner_caps_get_typed_uav_compile_option(&runner->caps)},
         {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16, VKD3D_SHADER_DENORMAL_MODE_ANY},
         {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32, VKD3D_SHADER_DENORMAL_MODE_ANY},
         {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64, VKD3D_SHADER_DENORMAL_MODE_ANY},
