@@ -164,13 +164,14 @@ HRESULT WINAPI D3D12SerializeVersionedRootSignature(const D3D12_VERSIONED_ROOT_S
     return vkd3d_serialize_versioned_root_signature(desc, blob, error_blob);
 }
 
-struct standard_include_ctx
+struct include_ctx
 {
+    ID3DInclude *include;
     char *initial_dir;
     size_t len;
 };
 
-static enum vkd3d_result standard_include_init(struct standard_include_ctx *ctx, const char *initial_filename)
+static enum vkd3d_result standard_include_init(struct include_ctx *ctx, const char *initial_filename)
 {
     const char *last_slash = NULL;
     const char *ptr;
@@ -227,7 +228,7 @@ static enum vkd3d_result standard_include_init(struct standard_include_ctx *ctx,
 static enum vkd3d_result standard_include_open(const char *filename, bool local,
         const char *parent_data, void *context, struct vkd3d_shader_code *out)
 {
-    struct standard_include_ctx *ctx = context;
+    struct include_ctx *ctx = context;
     enum vkd3d_result res;
     char *full_path;
     size_t len;
@@ -259,14 +260,14 @@ static void standard_include_close(const struct vkd3d_shader_code *code, void *c
 static int open_include(const char *filename, bool local, const char *parent_data, void *context,
         struct vkd3d_shader_code *code)
 {
-    ID3DInclude *iface = context;
+    struct include_ctx *ctx = context;
     unsigned int size = 0;
 
-    if (!iface)
+    if (!ctx->include)
         return VKD3D_ERROR;
 
     memset(code, 0, sizeof(*code));
-    if (FAILED(ID3DInclude_Open(iface, local ? D3D_INCLUDE_LOCAL : D3D_INCLUDE_SYSTEM,
+    if (FAILED(ID3DInclude_Open(ctx->include, local ? D3D_INCLUDE_LOCAL : D3D_INCLUDE_SYSTEM,
             filename, parent_data, &code->code, &size)))
         return VKD3D_ERROR;
 
@@ -276,14 +277,14 @@ static int open_include(const char *filename, bool local, const char *parent_dat
 
 static void close_include(const struct vkd3d_shader_code *code, void *context)
 {
-    ID3DInclude *iface = context;
+    struct include_ctx *ctx = context;
 
     if (code->code)
-        ID3DInclude_Close(iface, code->code);
+        ID3DInclude_Close(ctx->include, code->code);
 }
 
 static HRESULT init_preprocess_info(struct vkd3d_shader_preprocess_info *info,
-        struct standard_include_ctx *ctx, const D3D_SHADER_MACRO *macros, ID3DInclude *include, const char *filename)
+        struct include_ctx *ctx, const D3D_SHADER_MACRO *macros, ID3DInclude *include, const char *filename)
 {
     const D3D_SHADER_MACRO *macro;
     enum vkd3d_result ret;
@@ -305,14 +306,15 @@ static HRESULT init_preprocess_info(struct vkd3d_shader_preprocess_info *info,
 
         info->pfn_open_include = standard_include_open;
         info->pfn_close_include = standard_include_close;
-        info->include_context = ctx;
     }
     else
     {
         info->pfn_open_include = open_include;
         info->pfn_close_include = close_include;
-        info->include_context = include;
     }
+    info->include_context = ctx;
+
+    ctx->include = include;
 
     return S_OK;
 }
@@ -379,8 +381,8 @@ HRESULT WINAPI D3DCompile2VKD3D(const void *data, SIZE_T data_size, const char *
     struct vkd3d_shader_compile_option options[7];
     struct vkd3d_shader_compile_info compile_info;
     struct vkd3d_shader_compile_option *option;
-    struct standard_include_ctx ctx = { 0 };
     struct vkd3d_shader_code byte_code;
+    struct include_ctx ctx = {0};
     char *messages;
     HRESULT hr;
     int ret;
@@ -556,7 +558,7 @@ HRESULT WINAPI D3DPreprocessVKD3D(const void *data, SIZE_T size, const char *fil
     struct vkd3d_shader_preprocess_info preprocess_info;
     struct vkd3d_shader_compile_info compile_info;
     struct vkd3d_shader_code preprocessed_code;
-    struct standard_include_ctx ctx = { 0 };
+    struct include_ctx ctx = {0};
     char *messages;
     HRESULT hr;
     int ret;
