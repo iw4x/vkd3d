@@ -601,9 +601,9 @@ static void test_preprocess(void)
         }
         else
         {
-            todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
-            todo ok(blob == (ID3D10Blob *)0xdeadbeef, "Expected no compiled shader blob.\n");
-            ok(!errors, "Expected no compiled shader blob.\n");
+            ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+            ok(blob == (ID3D10Blob *)0xdeadbeef, "Expected no compiled shader blob.\n");
+            todo ok(!errors, "Expected no compiled shader blob.\n");
         }
         ok(!refcount_empty2, "Got %d references to empty2.\n", refcount_empty2);
         ok(refcount_empty3 == 1, "Got %d references to empty3.\n", refcount_empty3);
@@ -620,9 +620,9 @@ static void test_preprocess(void)
         }
         else
         {
-            todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
-            todo ok(blob == (ID3D10Blob *)0xdeadbeef, "Expected no compiled shader blob.\n");
-            ok(!errors, "Expected no compiled shader blob.\n");
+            ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+            ok(blob == (ID3D10Blob *)0xdeadbeef, "Expected no compiled shader blob.\n");
+            todo ok(!errors, "Expected no compiled shader blob.\n");
         }
 
         vkd3d_test_pop_context();

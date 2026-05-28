@@ -169,6 +169,8 @@ struct include_ctx
     ID3DInclude *include;
     char *initial_dir;
     size_t len;
+    unsigned int compiler_version;
+    HRESULT hr;
 };
 
 static enum vkd3d_result standard_include_init(struct include_ctx *ctx, const char *initial_filename)
@@ -264,12 +266,26 @@ static int open_include(const char *filename, bool local, const char *parent_dat
     unsigned int size = 0;
 
     if (!ctx->include)
+    {
+        ctx->hr = E_FAIL;
         return VKD3D_ERROR;
+    }
 
     memset(code, 0, sizeof(*code));
     if (FAILED(ID3DInclude_Open(ctx->include, local ? D3D_INCLUDE_LOCAL : D3D_INCLUDE_SYSTEM,
             filename, parent_data, &code->code, &size)))
+    {
+        ctx->hr = E_FAIL;
         return VKD3D_ERROR;
+    }
+
+    if (ctx->compiler_version > 43 && !size)
+    {
+        if (code->code)
+            ID3DInclude_Close(ctx->include, code->code);
+        ctx->hr = E_INVALIDARG;
+        return VKD3D_ERROR;
+    }
 
     code->size = size;
     return VKD3D_OK;
@@ -284,7 +300,8 @@ static void close_include(const struct vkd3d_shader_code *code, void *context)
 }
 
 static HRESULT init_preprocess_info(struct vkd3d_shader_preprocess_info *info,
-        struct include_ctx *ctx, const D3D_SHADER_MACRO *macros, ID3DInclude *include, const char *filename)
+        struct include_ctx *ctx, const D3D_SHADER_MACRO *macros, ID3DInclude *include,
+        const char *filename, unsigned int compiler_version)
 {
     const D3D_SHADER_MACRO *macro;
     enum vkd3d_result ret;
@@ -315,6 +332,8 @@ static HRESULT init_preprocess_info(struct vkd3d_shader_preprocess_info *info,
     info->include_context = ctx;
 
     ctx->include = include;
+    ctx->compiler_version = compiler_version;
+    ctx->hr = S_OK;
 
     return S_OK;
 }
@@ -419,7 +438,7 @@ HRESULT WINAPI D3DCompile2VKD3D(const void *data, SIZE_T data_size, const char *
     compile_info.log_level = VKD3D_SHADER_LOG_INFO;
     compile_info.source_name = filename;
 
-    if ((hr = init_preprocess_info(&preprocess_info, &ctx, macros, include, filename)))
+    if ((hr = init_preprocess_info(&preprocess_info, &ctx, macros, include, filename, compiler_version)))
         return hr;
     preprocess_info.next = &hlsl_info;
 
@@ -517,6 +536,8 @@ HRESULT WINAPI D3DCompile2VKD3D(const void *data, SIZE_T data_size, const char *
         }
     }
 
+    if (FAILED(ctx.hr))
+        return ctx.hr;
     return hresult_from_vkd3d_result(ret);
 }
 
@@ -587,7 +608,7 @@ HRESULT WINAPI D3DPreprocessVKD3D(const void *data, SIZE_T size, const char *fil
     compile_info.log_level = VKD3D_SHADER_LOG_INFO;
     compile_info.source_name = filename;
 
-    if ((hr = init_preprocess_info(&preprocess_info, &ctx, macros, include, filename)))
+    if ((hr = init_preprocess_info(&preprocess_info, &ctx, macros, include, filename, compiler_version)))
         return hr;
 
     ret = vkd3d_shader_preprocess(&compile_info, &preprocessed_code, &messages);
@@ -619,6 +640,8 @@ HRESULT WINAPI D3DPreprocessVKD3D(const void *data, SIZE_T size, const char *fil
         }
     }
 
+    if (FAILED(ctx.hr))
+        return ctx.hr;
     return hresult_from_vkd3d_result(ret);
 }
 
