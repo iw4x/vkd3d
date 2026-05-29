@@ -393,3 +393,280 @@ void main(in payload payload_data p, out vertices vertex_out verts[4],
 clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 dispatch-mesh 1 1 1
 probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
+
+% The payload is just a bag of bytes; the runtime checks that the
+% amplification and mesh shaders agree on its size, but the internal structure
+% doesn't need to match.
+[amplification-shader]
+struct payload_data
+{
+    uint2 color01;
+    uint color23[2];
+};
+
+groupshared struct payload_data p;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    p.color01.x = asuint(0.25f);
+    p.color01.y = asuint(0.5f);
+    p.color23[0] = asuint(0.75f);
+    p.color23[1] = asuint(1.0f);
+    DispatchMesh(1, 1, 1, p);
+}
+
+[mesh-shader]
+struct payload_data
+{
+    float4 color;
+};
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 color : COLOR;
+};
+
+static const float4 positions[4] =
+{
+    float4(-1.0, -1.0, 0.0, 1.0),
+    float4(-1.0,  1.0, 0.0, 1.0),
+    float4( 1.0,  1.0, 0.0, 1.0),
+    float4( 1.0, -1.0, 0.0, 1.0),
+};
+
+static const uint3 triangles[2] =
+{
+    uint3(0, 1, 3),
+    uint3(1, 2, 3),
+};
+
+    [outputtopology("triangle")]
+    [numthreads(4, 1, 1)]
+void main(in payload payload_data p, out vertices vertex_out verts[4],
+        out indices uint3 indices[2], uint index : SV_GroupIndex)
+{
+    SetMeshOutputCounts(4, 2);
+
+    verts[index].position = positions[index];
+    verts[index].color = p.color;
+
+    if (index < 2)
+        indices[index] = triangles[index];
+}
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+dispatch-mesh 1 1 1
+probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
+
+% Test a more complicated payload structure, with structures and arrays
+% embedded in each other, to test more complicated DXIL getelementptr
+% expressions.
+[amplification-shader]
+struct payload_data
+{
+    float4 color;
+    struct
+    {
+        uint c;
+        struct
+        {
+            float d[2];
+            struct
+            {
+                float f;
+                uint g;
+            } e;
+        } b[4];
+    } a[2][3];
+};
+
+groupshared struct payload_data p;
+
+    [numthreads(2, 3, 4)]
+void main(uint3 id : SV_GroupThreadID)
+{
+    p.color = float4(0.25, 0.5, 0.75, 1.0);
+
+    p.a[id.x][id.y].c = 1;
+    p.a[id.x][id.y].b[id.z].d[0] = 2.0;
+    p.a[id.x][id.y].b[id.z].d[1] = 3.0;
+    p.a[id.x][id.y].b[id.z].e.f = 4.0;
+    p.a[id.x][id.y].b[id.z].e.g = 5;
+
+    DispatchMesh(1, 1, 1, p);
+}
+
+[mesh-shader]
+struct payload_data
+{
+    float4 color;
+    struct {
+        uint c;
+        struct {
+            float d[2];
+            struct {
+                float f;
+                uint g;
+            } e;
+        } b[4];
+    } a[2][3];
+};
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 color : COLOR;
+};
+
+static const float4 positions[4] =
+{
+    float4(-1.0, -1.0, 0.0, 1.0),
+    float4(-1.0,  1.0, 0.0, 1.0),
+    float4( 1.0,  1.0, 0.0, 1.0),
+    float4( 1.0, -1.0, 0.0, 1.0),
+};
+
+static const uint3 triangles[2] =
+{
+    uint3(0, 1, 3),
+    uint3(1, 2, 3),
+};
+
+groupshared bool bad;
+
+    [outputtopology("triangle")]
+    [numthreads(2, 3, 4)]
+void main(in payload payload_data p, out vertices vertex_out verts[4],
+        out indices uint3 indices[2], uint3 id : SV_GroupThreadID)
+{
+    bad = false;
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (p.a[id.x][id.y].c != 1
+            || p.a[id.x][id.y].b[id.z].d[0] != 2.0
+            || p.a[id.x][id.y].b[id.z].d[1] != 3.0
+            || p.a[id.x][id.y].b[id.z].e.f != 4.0
+            || p.a[id.x][id.y].b[id.z].e.g != 5)
+        bad = true;
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (bad)
+        return;
+
+    SetMeshOutputCounts(4, 2);
+
+    verts[id.z].position = positions[id.z];
+    verts[id.z].color = p.color;
+
+    indices[id.x] = triangles[id.x];
+}
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+dispatch-mesh 1 1 1
+probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
+
+% Test payload and meshlet sizes close to the limits (16KiB and 32KiB
+% respectively); when targeting languages like MSL in which vertices and
+% primitives have to be written at once, a relatively easy approach is to have
+% a group shared shadow variable where vertices and primitives are written,
+% which is emitted as meshlet at the end of the mesh shader execution. This
+% effectively doubles the required amount of workgroup memory, so it's a good
+% test for the downstream implementation.
+[amplification-shader]
+struct payload_data
+{
+    uint data[4096];
+};
+
+groupshared struct payload_data p;
+
+    [numthreads(16, 1, 1)]
+void main(uint index : SV_GroupIndex)
+{
+    for (uint i = 0; i < 4096 / 16; ++i)
+        p.data[index * 4096 / 16 + i] = index * 4096 / 16 + i;
+    DispatchMesh(1, 1, 1, p);
+}
+
+[mesh-shader]
+struct payload_data
+{
+    uint data[4096];
+};
+
+/* Each vertex takes 256 bytes and there are 96 of them, so we use 24KiB for
+ * the meshlet. */
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 color[15] : COLOR;
+};
+
+static const float4 positions[4] =
+{
+    float4(-1.0, -1.0, 0.0, 1.0),
+    float4(-1.0,  1.0, 0.0, 1.0),
+    float4( 1.0,  1.0, 0.0, 1.0),
+    float4( 1.0, -1.0, 0.0, 1.0),
+};
+
+static const uint3 triangles[2] =
+{
+    uint3(0, 1, 3),
+    uint3(1, 2, 3),
+};
+
+/* Make it hard for the compiler to optimize payload and meshlet by indexing
+ * them dynamically. */
+uniform int read_idx, write_idx;
+
+    [outputtopology("triangle")]
+    [numthreads(96, 1, 1)]
+void main(in payload payload_data p, out vertices vertex_out verts[96],
+        out indices uint3 indices[48], uint index : SV_GroupIndex)
+{
+    if (p.data[read_idx] != read_idx)
+        return;
+
+    SetMeshOutputCounts(96, 48);
+
+    verts[index].position = positions[index % 4];
+
+    /* When color[0].x is zero, the triangle is discarded; make this happen
+     * for all but two triangles. */
+    for (uint i = 0; i < 15; ++i)
+        verts[index].color[i] = float4(0.0, 1.0, 2.0, 3.0);
+
+    if (index / 4 == write_idx)
+        verts[index].color[0] = float4(0.25, 0.5, 0.75, 1.0);
+
+    if (index < 48)
+        indices[index] = 4 * (index / 2) + triangles[index % 2];
+}
+
+[pixel-shader]
+float4 main(float4 color[15] : COLOR) : SV_Target
+{
+    if (color[0].x == 0.0)
+        discard;
+
+    for (uint i = 1; i < 15; ++i)
+    {
+        if (!all(color[i] == float4(0.0, 1.0, 2.0, 3.0)))
+            return float4(1.0, 1.0, 0.0, 1.0);
+    }
+
+    return color[0];
+}
+
+[test]
+write cbv-0 (0) u32(4095, 23)
+clear rtv-0 f32(1.0, 0.0, 0.0, 0.0)
+dispatch-mesh 1 1 1
+probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
