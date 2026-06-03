@@ -111,6 +111,7 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
     struct test_context *test_context = &runner->test_context;
     ID3D12Device *device = test_context->device;
     D3D12_RESOURCE_STATES initial_state, state;
+    DXGI_FORMAT format = params->desc.format;
     D3D12_SUBRESOURCE_DATA *resource_data;
     struct d3d12_resource *resource;
     unsigned int buffer_offset = 0;
@@ -137,6 +138,14 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
 
     state = resource_get_state(&resource->r);
     initial_state = params->data ? D3D12_RESOURCE_STATE_COPY_DEST : state;
+
+    /* The shader runner doesn't really care about the format used for the
+     * underlying resource, but x32-typeless-g8x24-uint resources used with
+     * the corresponding SRVs seem to cause GPU resets / device loss on
+     * (some?) Windows AMD systems. We work around it by using
+     * d32-float-s8x24-uint for those resources instead. */
+    if (format == DXGI_FORMAT_X32_TYPELESS_G8X24_UINT)
+        format = DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
 
     switch (params->desc.type)
     {
@@ -202,7 +211,7 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
 
                 resource->resource = create_default_texture_(__FILE__, __LINE__, device,
                         dimension, params->desc.width, params->desc.height, depth,
-                        params->desc.level_count, params->desc.sample_count, params->desc.format,
+                        params->desc.level_count, params->desc.sample_count, format,
                         /* Multisampled textures must have ALLOW_RENDER_TARGET set. */
                         (params->desc.sample_count > 1) ? D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET : 0, initial_state);
                 if (params->data)
@@ -247,7 +256,7 @@ static struct resource *d3d12_runner_create_resource(struct shader_runner *r, co
 
                 resource->resource = create_default_texture_(__FILE__, __LINE__, device,
                         dimension, params->desc.width, params->desc.height, depth,
-                        params->desc.level_count, 1, params->desc.format,
+                        params->desc.level_count, 1, format,
                         D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, initial_state);
 
                 if (params->data)
