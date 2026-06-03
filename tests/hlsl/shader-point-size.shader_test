@@ -34,13 +34,13 @@ clear rtv-0 f32(0, 0, 0, 0)
 draw point list 2
 
 probe (149, 240) f32(0, 0, 0, 0)
-probe (151, 240) f32(0, 1, 0, 1)
-probe (169, 240) f32(0, 1, 0, 1)
+winbug(amd) probe (151, 240) f32(0, 1, 0, 1)
+winbug(amd) probe (169, 240) f32(0, 1, 0, 1)
 probe (171, 240) f32(0, 0, 0, 0)
 
 probe (459, 240) f32(0, 0, 0, 0)
-probe (461, 240) f32(0, 1, 0, 1)
-probe (499, 240) f32(0, 1, 0, 1)
+winbug(amd) probe (461, 240) f32(0, 1, 0, 1)
+winbug(amd) probe (499, 240) f32(0, 1, 0, 1)
 probe (501, 240) f32(0, 0, 0, 0)
 
 [require]
