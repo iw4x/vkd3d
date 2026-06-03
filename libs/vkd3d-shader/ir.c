@@ -212,17 +212,13 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_BREAKC                          ] = "break",
         [VSIR_OP_BREAKP                          ] = "breakp",
         [VSIR_OP_BUFINFO                         ] = "bufinfo",
-        [VSIR_OP_CALL                            ] = "call",
-        [VSIR_OP_CALLNZ                          ] = "callnz",
         [VSIR_OP_CASE                            ] = "case",
         [VSIR_OP_CHECK_ACCESS_FULLY_MAPPED       ] = "check_access_fully_mapped",
         [VSIR_OP_CMP                             ] = "cmp",
-        [VSIR_OP_CND                             ] = "cnd",
         [VSIR_OP_COS                             ] = "cos",
         [VSIR_OP_CONTINUE                        ] = "continue",
         [VSIR_OP_CONTINUEP                       ] = "continuec",
         [VSIR_OP_COUNTBITS                       ] = "countbits",
-        [VSIR_OP_CRS                             ] = "crs",
         [VSIR_OP_CUT                             ] = "cut",
         [VSIR_OP_CUT_STREAM                      ] = "cut_stream",
         [VSIR_OP_DADD                            ] = "dadd",
@@ -289,7 +285,6 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_DP3                             ] = "dp3",
         [VSIR_OP_DP4                             ] = "dp4",
         [VSIR_OP_DRCP                            ] = "drcp",
-        [VSIR_OP_DST                             ] = "dst",
         [VSIR_OP_DSX                             ] = "dsx",
         [VSIR_OP_DSX_COARSE                      ] = "deriv_rtx_coarse",
         [VSIR_OP_DSX_FINE                        ] = "deriv_rtx_fine",
@@ -440,9 +435,7 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_SAMPLE_LOD_S                    ] = "sample_l_s",
         [VSIR_OP_SAMPLE_POS                      ] = "sample_pos",
         [VSIR_OP_SATURATE                        ] = "saturate",
-        [VSIR_OP_SETP                            ] = "setp",
         [VSIR_OP_SGE                             ] = "sge",
-        [VSIR_OP_SGN                             ] = "sgn",
         [VSIR_OP_SIN                             ] = "sin",
         [VSIR_OP_SINCOS                          ] = "sincos",
         [VSIR_OP_SLT                             ] = "slt",
@@ -457,18 +450,12 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_SYNC                            ] = "sync",
         [VSIR_OP_TAN                             ] = "tan",
         [VSIR_OP_TEX                             ] = "tex",
-        [VSIR_OP_TEXDP3                          ] = "texdp3",
         [VSIR_OP_TEXDP3TEX                       ] = "texdp3tex",
         [VSIR_OP_TEXKILL                         ] = "texkill",
         [VSIR_OP_TEXLD                           ] = "texld",
         [VSIR_OP_TEXLDD                          ] = "texldd",
         [VSIR_OP_TEXLDL                          ] = "texldl",
-        [VSIR_OP_TEXM3x2DEPTH                    ] = "texm3x2depth",
-        [VSIR_OP_TEXM3x2PAD                      ] = "texm3x2pad",
         [VSIR_OP_TEXM3x2TEX                      ] = "texm3x2tex",
-        [VSIR_OP_TEXM3x3                         ] = "texm3x3",
-        [VSIR_OP_TEXM3x3DIFF                     ] = "texm3x3diff",
-        [VSIR_OP_TEXM3x3PAD                      ] = "texm3x3pad",
         [VSIR_OP_TEXM3x3SPEC                     ] = "texm3x3spec",
         [VSIR_OP_TEXM3x3TEX                      ] = "texm3x3tex",
         [VSIR_OP_TEXM3x3VSPEC                    ] = "texm3x3vspec",
@@ -3089,12 +3076,8 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 ret = vsir_program_lower_texldl(program, ins);
                 break;
 
-            case VSIR_OP_TEXDP3:
             case VSIR_OP_TEXDP3TEX:
-            case VSIR_OP_TEXM3x2PAD:
             case VSIR_OP_TEXM3x2TEX:
-            case VSIR_OP_TEXM3x3DIFF:
-            case VSIR_OP_TEXM3x3PAD:
             case VSIR_OP_TEXM3x3SPEC:
             case VSIR_OP_TEXM3x3TEX:
             case VSIR_OP_TEXM3x3VSPEC:
@@ -10620,7 +10603,6 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_BFI:
         case VSIR_OP_BFREV:
         case VSIR_OP_CMP:
-        case VSIR_OP_CND:
         case VSIR_OP_COS:
         case VSIR_OP_COUNTBITS:
         case VSIR_OP_DADD: /* NB: These are masked, but the mask is double-sized. */
@@ -10710,9 +10692,7 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_ROUND_Z:
         case VSIR_OP_RSQ:
         case VSIR_OP_SATURATE:
-        case VSIR_OP_SETP:
         case VSIR_OP_SGE:
-        case VSIR_OP_SGN:
         case VSIR_OP_SIN:
         case VSIR_OP_SINCOS: /* FIXME: Only for sm4. */
         case VSIR_OP_SLT:
@@ -10768,13 +10748,10 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_BREAKC:
         case VSIR_OP_BREAKP:
         case VSIR_OP_BUFINFO:
-        case VSIR_OP_CALL:
-        case VSIR_OP_CALLNZ:
         case VSIR_OP_CASE:
         case VSIR_OP_CHECK_ACCESS_FULLY_MAPPED: /* FIXME: Is this correct? */
         case VSIR_OP_CONTINUE:
         case VSIR_OP_CONTINUEP:
-        case VSIR_OP_CRS:
         case VSIR_OP_CUT:
         case VSIR_OP_CUT_STREAM:
         case VSIR_OP_DCL:
@@ -10831,7 +10808,6 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_DP2ADD:
         case VSIR_OP_DP3:
         case VSIR_OP_DP4:
-        case VSIR_OP_DST:
         case VSIR_OP_DTOF:
         case VSIR_OP_DTOI:
         case VSIR_OP_DTOU:
@@ -10878,18 +10854,12 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_SWITCH_MONOLITHIC:
         case VSIR_OP_SYNC:
         case VSIR_OP_TEX:
-        case VSIR_OP_TEXDP3:
         case VSIR_OP_TEXDP3TEX:
         case VSIR_OP_TEXKILL:
         case VSIR_OP_TEXLD:
         case VSIR_OP_TEXLDD:
         case VSIR_OP_TEXLDL:
-        case VSIR_OP_TEXM3x2DEPTH:
-        case VSIR_OP_TEXM3x2PAD:
         case VSIR_OP_TEXM3x2TEX:
-        case VSIR_OP_TEXM3x3:
-        case VSIR_OP_TEXM3x3DIFF:
-        case VSIR_OP_TEXM3x3PAD:
         case VSIR_OP_TEXM3x3SPEC:
         case VSIR_OP_TEXM3x3TEX:
         case VSIR_OP_TEXM3x3VSPEC:
@@ -11032,21 +11002,13 @@ static void liveness_track_dst(struct liveness_tracker *tracker, struct vsir_dst
 
     switch (opcode)
     {
-        case VSIR_OP_CRS:
-        case VSIR_OP_DST:
         case VSIR_OP_LIT:
         case VSIR_OP_TEX:
-        case VSIR_OP_TEXDP3:
         case VSIR_OP_TEXDP3TEX:
         case VSIR_OP_TEXLD:
         case VSIR_OP_TEXLDD:
         case VSIR_OP_TEXLDL:
-        case VSIR_OP_TEXM3x2DEPTH:
-        case VSIR_OP_TEXM3x2PAD:
         case VSIR_OP_TEXM3x2TEX:
-        case VSIR_OP_TEXM3x3:
-        case VSIR_OP_TEXM3x3DIFF:
-        case VSIR_OP_TEXM3x3PAD:
         case VSIR_OP_TEXM3x3SPEC:
         case VSIR_OP_TEXM3x3TEX:
         case VSIR_OP_TEXM3x3VSPEC:
@@ -15157,10 +15119,8 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_BUFINFO:
         case VSIR_OP_CHECK_ACCESS_FULLY_MAPPED:
         case VSIR_OP_CMP:
-        case VSIR_OP_CND:
         case VSIR_OP_COS:
         case VSIR_OP_COUNTBITS:
-        case VSIR_OP_CRS:
         case VSIR_OP_DADD:
         case VSIR_OP_DDIV:
         case VSIR_OP_DEF:
@@ -15182,7 +15142,6 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_DP3:
         case VSIR_OP_DP4:
         case VSIR_OP_DRCP:
-        case VSIR_OP_DST:
         case VSIR_OP_DSX:
         case VSIR_OP_DSX_COARSE:
         case VSIR_OP_DSX_FINE:
@@ -15302,9 +15261,7 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_SAMPLE_LOD_S:
         case VSIR_OP_SAMPLE_POS:
         case VSIR_OP_SATURATE:
-        case VSIR_OP_SETP:
         case VSIR_OP_SGE:
-        case VSIR_OP_SGN:
         case VSIR_OP_SIN:
         case VSIR_OP_SINCOS:
         case VSIR_OP_SLT:
@@ -15313,17 +15270,11 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_SWAPC:
         case VSIR_OP_TAN:
         case VSIR_OP_TEX:
-        case VSIR_OP_TEXDP3:
         case VSIR_OP_TEXDP3TEX:
         case VSIR_OP_TEXLD:
         case VSIR_OP_TEXLDD:
         case VSIR_OP_TEXLDL:
-        case VSIR_OP_TEXM3x2DEPTH:
-        case VSIR_OP_TEXM3x2PAD:
         case VSIR_OP_TEXM3x2TEX:
-        case VSIR_OP_TEXM3x3:
-        case VSIR_OP_TEXM3x3DIFF:
-        case VSIR_OP_TEXM3x3PAD:
         case VSIR_OP_TEXM3x3SPEC:
         case VSIR_OP_TEXM3x3TEX:
         case VSIR_OP_TEXM3x3VSPEC:
@@ -15381,8 +15332,6 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_BREAK:
         case VSIR_OP_BREAKC:
         case VSIR_OP_BREAKP:
-        case VSIR_OP_CALL:
-        case VSIR_OP_CALLNZ:
         case VSIR_OP_CASE:
         case VSIR_OP_CONTINUE:
         case VSIR_OP_CONTINUEP:

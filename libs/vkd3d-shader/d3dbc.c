@@ -375,13 +375,13 @@ static const struct vkd3d_sm1_opcode_info vs_opcode_table[] =
     {VKD3D_SM1_OP_EXPP,         1, 1, "expp",           VSIR_OP_EXPP},
     {VKD3D_SM1_OP_LOGP,         1, 1, "logp",           VSIR_OP_LOGP},
     {VKD3D_SM1_OP_LIT,          1, 1, "lit",            VSIR_OP_LIT},
-    {VKD3D_SM1_OP_DST,          1, 2, "dst",            VSIR_OP_DST},
+    {VKD3D_SM1_OP_DST,          1, 2, "dst",            VSIR_OP_NOP},
     {VKD3D_SM1_OP_LRP,          1, 3, "lrp",            VSIR_OP_NOP,          {2, 0}},
     {VKD3D_SM1_OP_FRC,          1, 1, "frc",            VSIR_OP_FRC},
     {VKD3D_SM1_OP_POW,          1, 2, "pow",            VSIR_OP_NOP,          {2, 0}},
-    {VKD3D_SM1_OP_CRS,          1, 2, "crs",            VSIR_OP_CRS,          {2, 0}},
-    {VKD3D_SM1_OP_SGN,          1, 3, "sgn",            VSIR_OP_SGN,          {2, 0}, {2, 1}},
-    {VKD3D_SM1_OP_SGN,          1, 1, "sgn",            VSIR_OP_SGN,          {3, 0}},
+    {VKD3D_SM1_OP_CRS,          1, 2, "crs",            VSIR_OP_NOP,          {2, 0}},
+    {VKD3D_SM1_OP_SGN,          1, 3, "sgn",            VSIR_OP_NOP,          {2, 0}, {2, 1}},
+    {VKD3D_SM1_OP_SGN,          1, 1, "sgn",            VSIR_OP_NOP,          {3, 0}},
     {VKD3D_SM1_OP_NRM,          1, 1, "nrm",            VSIR_OP_NOP,          {2, 0}},
     {VKD3D_SM1_OP_SINCOS,       1, 3, "sincos",         VSIR_OP_SINCOS,       {2, 0}, {2, 1}},
     {VKD3D_SM1_OP_SINCOS,       1, 1, "sincos",         VSIR_OP_SINCOS,       {3, 0}},
@@ -407,14 +407,14 @@ static const struct vkd3d_sm1_opcode_info vs_opcode_table[] =
     {VKD3D_SM1_OP_BREAK,        0, 0, "break",          VSIR_OP_BREAK,        {2, 1}},
     {VKD3D_SM1_OP_BREAKC,       0, 2, "break",          VSIR_OP_BREAKC,       {2, 1}},
     {VKD3D_SM1_OP_BREAKP,       0, 1, "break",          VSIR_OP_BREAKP,       {2, 1}},
-    {VKD3D_SM1_OP_CALL,         0, 1, "call",           VSIR_OP_CALL,         {2, 0}},
-    {VKD3D_SM1_OP_CALLNZ,       0, 2, "callnz",         VSIR_OP_CALLNZ,       {2, 0}},
+    {VKD3D_SM1_OP_CALL,         0, 1, "call",           VSIR_OP_NOP,          {2, 0}},
+    {VKD3D_SM1_OP_CALLNZ,       0, 2, "callnz",         VSIR_OP_NOP,          {2, 0}},
     {VKD3D_SM1_OP_LOOP,         0, 2, "loop",           VSIR_OP_LOOP,         {2, 0}},
     {VKD3D_SM1_OP_RET,          0, 0, "ret",            VSIR_OP_RET,          {2, 0}},
     {VKD3D_SM1_OP_ENDLOOP,      0, 0, "endloop",        VSIR_OP_ENDLOOP,      {2, 0}},
     {VKD3D_SM1_OP_LABEL,        0, 1, "label",          VSIR_OP_LABEL,        {2, 0}},
 
-    {VKD3D_SM1_OP_SETP,         1, 2, "setp",           VSIR_OP_SETP,         {2, 1}},
+    {VKD3D_SM1_OP_SETP,         1, 2, "setp",           VSIR_OP_NOP,          {2, 1}},
     {VKD3D_SM1_OP_TEXLDL,       1, 2, "texldl",         VSIR_OP_TEXLDL,       {3, 0}},
     {0,                         0, 0, "???",            VSIR_OP_INVALID},
 };
@@ -439,10 +439,10 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     {VKD3D_SM1_OP_LOG,          1, 1, "log",            VSIR_OP_LOG,          {2, 0}},
     {VKD3D_SM1_OP_LRP,          1, 3, "lrp",            VSIR_OP_NOP},
     {VKD3D_SM1_OP_FRC,          1, 1, "frc",            VSIR_OP_FRC,          {2, 0}},
-    {VKD3D_SM1_OP_CND,          1, 3, "cnd",            VSIR_OP_CND,          {1, 0}, {1, 4}},
+    {VKD3D_SM1_OP_CND,          1, 3, "cnd",            VSIR_OP_NOP,          {1, 0}, {1, 4}},
     {VKD3D_SM1_OP_CMP,          1, 3, "cmp",            VSIR_OP_CMP,          {1, 2}},
     {VKD3D_SM1_OP_POW,          1, 2, "pow",            VSIR_OP_NOP,          {2, 0}},
-    {VKD3D_SM1_OP_CRS,          1, 2, "crs",            VSIR_OP_CRS,          {2, 0}},
+    {VKD3D_SM1_OP_CRS,          1, 2, "crs",            VSIR_OP_NOP,          {2, 0}},
     {VKD3D_SM1_OP_NRM,          1, 1, "nrm",            VSIR_OP_NOP,          {2, 0}},
     {VKD3D_SM1_OP_SINCOS,       1, 3, "sincos",         VSIR_OP_SINCOS,       {2, 0}, {2, 1}},
     {VKD3D_SM1_OP_SINCOS,       1, 1, "sincos",         VSIR_OP_SINCOS,       {3, 0}},
@@ -469,8 +469,8 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     {VKD3D_SM1_OP_BREAK,        0, 0, "break",          VSIR_OP_BREAK,        {2, 1}},
     {VKD3D_SM1_OP_BREAKC,       0, 2, "break",          VSIR_OP_BREAKC,       {2, 1}},
     {VKD3D_SM1_OP_BREAKP,       0, 1, "break",          VSIR_OP_BREAKP,       {2, 1}},
-    {VKD3D_SM1_OP_CALL,         0, 1, "call",           VSIR_OP_CALL,         {2, 1}},
-    {VKD3D_SM1_OP_CALLNZ,       0, 2, "callnz",         VSIR_OP_CALLNZ,       {2, 1}},
+    {VKD3D_SM1_OP_CALL,         0, 1, "call",           VSIR_OP_NOP,          {2, 1}},
+    {VKD3D_SM1_OP_CALLNZ,       0, 2, "callnz",         VSIR_OP_NOP,          {2, 1}},
     {VKD3D_SM1_OP_LOOP,         0, 2, "loop",           VSIR_OP_LOOP,         {3, 0}},
     {VKD3D_SM1_OP_RET,          0, 0, "ret",            VSIR_OP_RET,          {2, 1}},
     {VKD3D_SM1_OP_ENDLOOP,      0, 0, "endloop",        VSIR_OP_ENDLOOP,      {3, 0}},
@@ -487,23 +487,23 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     {VKD3D_SM1_OP_TEXREG2AR,    1, 1, "texreg2ar",      VSIR_OP_TEXREG2AR,    {1, 0}, {1, 3}},
     {VKD3D_SM1_OP_TEXREG2GB,    1, 1, "texreg2gb",      VSIR_OP_TEXREG2GB,    {1, 0}, {1, 3}},
     {VKD3D_SM1_OP_TEXREG2RGB,   1, 1, "texreg2rgb",     VSIR_OP_TEXREG2RGB,   {1, 2}, {1, 3}},
-    {VKD3D_SM1_OP_TEXM3x2PAD,   1, 1, "texm3x2pad",     VSIR_OP_TEXM3x2PAD,   {1, 0}, {1, 3}},
+    {VKD3D_SM1_OP_TEXM3x2PAD,   1, 1, "texm3x2pad",     VSIR_OP_NOP,          {1, 0}, {1, 3}},
     {VKD3D_SM1_OP_TEXM3x2TEX,   1, 1, "texm3x2tex",     VSIR_OP_TEXM3x2TEX,   {1, 0}, {1, 3}},
-    {VKD3D_SM1_OP_TEXM3x3PAD,   1, 1, "texm3x3pad",     VSIR_OP_TEXM3x3PAD,   {1, 0}, {1, 3}},
-    {VKD3D_SM1_OP_TEXM3x3DIFF,  1, 1, "texm3x3diff",    VSIR_OP_TEXM3x3DIFF,  {0, 0}, {0, 0}},
+    {VKD3D_SM1_OP_TEXM3x3PAD,   1, 1, "texm3x3pad",     VSIR_OP_NOP,          {1, 0}, {1, 3}},
+    {VKD3D_SM1_OP_TEXM3x3DIFF,  1, 1, "texm3x3diff",    VSIR_OP_NOP,          {0, 0}, {0, 0}},
     {VKD3D_SM1_OP_TEXM3x3SPEC,  1, 2, "texm3x3spec",    VSIR_OP_TEXM3x3SPEC,  {1, 0}, {1, 3}},
     {VKD3D_SM1_OP_TEXM3x3VSPEC, 1, 1, "texm3x3vspec",   VSIR_OP_TEXM3x3VSPEC, {1, 0}, {1, 3}},
     {VKD3D_SM1_OP_TEXM3x3TEX,   1, 1, "texm3x3tex",     VSIR_OP_TEXM3x3TEX,   {1, 0}, {1, 3}},
     {VKD3D_SM1_OP_TEXDP3TEX,    1, 1, "texdp3tex",      VSIR_OP_TEXDP3TEX,    {1, 2}, {1, 3}},
-    {VKD3D_SM1_OP_TEXM3x2DEPTH, 1, 1, "texm3x2depth",   VSIR_OP_TEXM3x2DEPTH, {1, 3}, {1, 3}},
-    {VKD3D_SM1_OP_TEXDP3,       1, 1, "texdp3",         VSIR_OP_TEXDP3,       {1, 2}, {1, 3}},
-    {VKD3D_SM1_OP_TEXM3x3,      1, 1, "texm3x3",        VSIR_OP_TEXM3x3,      {1, 2}, {1, 3}},
+    {VKD3D_SM1_OP_TEXM3x2DEPTH, 1, 1, "texm3x2depth",   VSIR_OP_NOP,          {1, 3}, {1, 3}},
+    {VKD3D_SM1_OP_TEXDP3,       1, 1, "texdp3",         VSIR_OP_NOP,          {1, 2}, {1, 3}},
+    {VKD3D_SM1_OP_TEXM3x3,      1, 1, "texm3x3",        VSIR_OP_NOP,          {1, 2}, {1, 3}},
     {VKD3D_SM1_OP_TEXDEPTH,     1, 0, "texdepth",       VSIR_OP_NOP,          {1, 4}, {1, 4}},
     {VKD3D_SM1_OP_BEM,          1, 2, "bem",            VSIR_OP_NOP,          {1, 4}, {1, 4}},
     {VKD3D_SM1_OP_DSX,          1, 1, "dsx",            VSIR_OP_DSX,          {2, 1}},
     {VKD3D_SM1_OP_DSY,          1, 1, "dsy",            VSIR_OP_DSY,          {2, 1}},
     {VKD3D_SM1_OP_TEXLDD,       1, 4, "texldd",         VSIR_OP_TEXLDD,       {2, 1}},
-    {VKD3D_SM1_OP_SETP,         1, 2, "setp",           VSIR_OP_SETP,         {2, 1}},
+    {VKD3D_SM1_OP_SETP,         1, 2, "setp",           VSIR_OP_NOP,          {2, 1}},
     {VKD3D_SM1_OP_TEXLDL,       1, 2, "texldl",         VSIR_OP_TEXLDL,       {3, 0}},
     {VKD3D_SM1_OP_PHASE,        0, 0, "phase",          VSIR_OP_NOP,          {1, 4}, {1, 4}},
     {0,                         0, 0, "???",            VSIR_OP_INVALID},
@@ -2206,6 +2206,23 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
             vsir_operand_from_d3dbc(parser, &ins->src[0].reg, &d3dbc_ins->dst[0].o, &d3dbc_ins->dst_rel_addr[0]);
             ins->src[0].swizzle = vsir_swizzle_from_writemask(d3dbc_ins->dst[0].write_mask);
             break;
+
+        case VKD3D_SM1_OP_CALL:
+        case VKD3D_SM1_OP_CALLNZ:
+        case VKD3D_SM1_OP_CND:
+        case VKD3D_SM1_OP_CRS:
+        case VKD3D_SM1_OP_DST:
+        case VKD3D_SM1_OP_SETP:
+        case VKD3D_SM1_OP_SGN:
+        case VKD3D_SM1_OP_TEXDP3:
+        case VKD3D_SM1_OP_TEXM3x2DEPTH:
+        case VKD3D_SM1_OP_TEXM3x2PAD:
+        case VKD3D_SM1_OP_TEXM3x3:
+        case VKD3D_SM1_OP_TEXM3x3DIFF:
+        case VKD3D_SM1_OP_TEXM3x3PAD:
+            vkd3d_shader_error(parser->p.message_context, &parser->p.location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+                    "Unhandled instruction %#x.\n", d3dbc_ins->opcode);
+            return VKD3D_ERROR_NOT_IMPLEMENTED;
 
         default:
             if (!(ins = d3dbc_append_instruction(parser, opcode_info->vsir_opcode,
