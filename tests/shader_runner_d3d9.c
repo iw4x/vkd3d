@@ -150,6 +150,10 @@ static bool init_test_context(struct d3d9_shader_runner *runner)
     {
         runner->caps.tags[SHADER_RUNNER_TAG_NVIDIA].present = true;
     }
+    else if (identifier.VendorId == 0x1002)
+    {
+        runner->caps.tags[SHADER_RUNNER_TAG_AMD].present = true;
+    }
 
     return true;
 }
