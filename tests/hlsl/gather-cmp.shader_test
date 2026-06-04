@@ -9,6 +9,7 @@ comparison equal
 [srv 0]
 format r32-float-shadow
 size (2d, 3, 3)
+
 0.0 0.0 0.0
 0.4 0.1 0.0
 0.5 0.0 0.2
@@ -39,6 +40,26 @@ float4 main() : sv_target
 todo(glsl) draw quad
 probe (0, 0) rgba(0.0, 0.0, 0.0, 1.0)
 
+% In general comparison gather only makes sense for textures with a single
+% channel. Drivers have lots of inconsistent behaviour for textures with more
+% than one channel. The only somewhat meaningful way to test
+% GatherCmp{Green,Blue,Alpha}() is to swizzle the SRV, and even then NVIDIA
+% GPUs still get that wrong because they always look at the R channel of the
+% swizzle rather than G, B or A.
+
+[require]
+shader model >= 5.0
+texture-swizzle
+
+[srv-0]
+format r32-float-shadow
+size (2d, 3, 3)
+swizzle 0r00
+
+0.0 0.0 0.0
+0.4 0.1 0.0
+0.5 0.0 0.2
+
 [pixel shader]
 SamplerComparisonState s;
 Texture2D t;
@@ -50,7 +71,7 @@ float4 main() : sv_target
 
 [test]
 todo(glsl) draw quad
-probe (0, 0) rgba(0.0, 1.0, 0.0, 0.0)
+todo(vulkan | d3d12 | msl | opengl) winbug(nvidia) probe (0, 0) f32(0.0, 1.0, 0.0, 0.0)
 
 [pixel shader]
 SamplerComparisonState s;
@@ -63,7 +84,7 @@ float4 main() : sv_target
 
 [test]
 todo(glsl) draw quad
-probe (0, 0) rgba(0.0, 1.0, 0.0, 0.0)
+todo(vulkan | d3d12 | msl | opengl) winbug(nvidia) probe (0, 0) f32(0.0, 1.0, 0.0, 0.0)
 
 [pixel shader]
 SamplerComparisonState s;
@@ -76,7 +97,16 @@ float4 main() : sv_target
 
 [test]
 todo(glsl) draw quad
-probe (0, 0) rgba(0.0, 1.0, 0.0, 0.0)
+todo(vulkan | d3d12 | msl | opengl) winbug(nvidia) probe (0, 0) f32(0.0, 1.0, 0.0, 0.0)
+
+[srv-0]
+format r32-float-shadow
+size (2d, 3, 3)
+swizzle 00r0
+
+0.0 0.0 0.0
+0.4 0.1 0.0
+0.5 0.0 0.2
 
 [pixel shader]
 SamplerComparisonState s;
@@ -89,7 +119,16 @@ float4 main() : sv_target
 
 [test]
 todo(glsl) draw quad
-probe (0, 0) rgba(1.0, 0.0, 0.0, 0.0)
+todo(vulkan | d3d12 | msl | opengl) winbug(nvidia) probe (0, 0) f32(1.0, 0.0, 0.0, 0.0)
+
+[srv-0]
+format r32-float-shadow
+size (2d, 3, 3)
+swizzle 000r
+
+0.0 0.0 0.0
+0.4 0.1 0.0
+0.5 0.0 0.2
 
 [pixel shader]
 SamplerComparisonState s;
@@ -102,4 +141,4 @@ float4 main() : sv_target
 
 [test]
 todo(glsl) draw quad
-probe (0, 0) rgba(0.0, 0.0, 0.0, 1.0)
+todo(vulkan | d3d12 | msl | opengl) winbug(nvidia) probe (0, 0) f32(0.0, 0.0, 0.0, 1.0)
