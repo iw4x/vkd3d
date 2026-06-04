@@ -285,3 +285,60 @@ format r32g32b32a32-float
 [test]
 draw quad
 probe (0, 0) f32(1.0, 1.5, 2.0, 2.3)
+
+[require]
+shader model >= 4.0
+texture-swizzle
+
+% Test loading swizzled textures
+[pixel-shader]
+Texture2D<float4> t;
+
+float4 main() : SV_Target
+{
+    return t.Load(uint3(0, 0, 0));
+}
+
+[srv-0]
+size (2d, 1, 1)
+format r32g32b32a32-float
+swizzle rgba
+
+11.0 12.0 13.0 14.0
+
+[test]
+draw quad
+probe (0, 0) f32(11.0, 12.0, 13.0, 14.0)
+
+[srv-0]
+size (2d, 1, 1)
+format r32g32b32a32-float
+swizzle abrg
+
+11.0 12.0 13.0 14.0
+
+[test]
+draw quad
+probe (0, 0) f32(14.0, 13.0, 11.0, 12.0)
+
+[srv-0]
+size (2d, 1, 1)
+format r32g32b32a32-float
+swizzle aa10
+
+11.0 12.0 13.0 14.0
+
+[test]
+draw quad
+probe (0, 0) f32(14.0, 14.0, 1.0, 0.0)
+
+[srv-0]
+size (2d, 1, 1)
+format r32-float
+swizzle ab10
+
+11.0
+
+[test]
+draw quad
+probe (0, 0) f32(1.0, 0.0, 1.0, 0.0)

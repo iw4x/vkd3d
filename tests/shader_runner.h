@@ -107,6 +107,7 @@ struct resource_desc
     unsigned int layer_count, level_count;
     unsigned int sample_count;
     float min_lod_clamp;
+    unsigned int swizzle;
 };
 
 struct resource_params
@@ -181,6 +182,7 @@ enum shader_cap
     SHADER_CAP_RT_VP_ARRAY_INDEX,
     SHADER_CAP_STENCIL_EXPORT,
     SHADER_CAP_TESSELLATION_SHADER,
+    SHADER_CAP_TEXTURE_SWIZZLE,
     SHADER_CAP_WAVE_OPS,
     SHADER_CAP_COUNT,
 };

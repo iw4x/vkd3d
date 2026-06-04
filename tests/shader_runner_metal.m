@@ -228,6 +228,31 @@ static MTLStencilOperation get_metal_stencil_operation(D3D12_STENCIL_OP op)
     }
 }
 
+static MTLTextureSwizzle get_metal_texture_swizzle(unsigned int d3d12_swizzle)
+{
+    switch (d3d12_swizzle)
+    {
+        case D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0: return MTLTextureSwizzleRed;
+        case D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1: return MTLTextureSwizzleGreen;
+        case D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2: return MTLTextureSwizzleBlue;
+        case D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3: return MTLTextureSwizzleAlpha;
+        case D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0: return MTLTextureSwizzleZero;
+        case D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1: return MTLTextureSwizzleOne;
+
+        default:
+            fatal_error("Unhandled shader component mapping %#x.\n", d3d12_swizzle);
+    }
+}
+
+static MTLTextureSwizzleChannels get_metal_texture_swizzle_channels(unsigned int d3d12_swizzle)
+{
+    return MTLTextureSwizzleChannelsMake(
+            get_metal_texture_swizzle(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(0, d3d12_swizzle)),
+            get_metal_texture_swizzle(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(1, d3d12_swizzle)),
+            get_metal_texture_swizzle(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(2, d3d12_swizzle)),
+            get_metal_texture_swizzle(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(3, d3d12_swizzle)));
+}
+
 static void trace_messages(const char *messages)
 {
     const char *p, *end, *line;
@@ -293,8 +318,9 @@ static void init_resource_buffer(struct metal_runner *runner,
 static void init_resource_texture(struct metal_runner *runner,
         struct metal_resource *resource, const struct resource_params *params)
 {
-    MTLPixelFormat view_format = MTLPixelFormatInvalid;
+    unsigned int swizzle = resource->r.desc.swizzle;
     id<MTLDevice> device = runner->device;
+    MTLPixelFormat view_format;
     MTLTextureDescriptor *desc;
 
     if (params->desc.sample_count > 1)
@@ -336,10 +362,13 @@ static void init_resource_texture(struct metal_runner *runner,
     /* MTLPixelFormatX32_Stencil8 can't be use directly as a texture format;
      * we instead need to create a texture view on a
      * MTLPixelFormatDepth32Float_Stencil8 texture. */
+    view_format = desc.pixelFormat;
     if (desc.pixelFormat == MTLPixelFormatX32_Stencil8)
     {
-        view_format = desc.pixelFormat;
         desc.pixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+        swizzle = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
+                D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0, D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0,
+                D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0, D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0);
     }
     ok(desc.pixelFormat != MTLPixelFormatInvalid, "Unhandled pixel format %#x.\n", params->desc.format);
     desc.width = params->desc.width;
@@ -362,7 +391,7 @@ static void init_resource_texture(struct metal_runner *runner,
 
         case RESOURCE_TYPE_TEXTURE:
             desc.usage = MTLTextureUsageShaderRead;
-            if (view_format == MTLPixelFormatX32_Stencil8)
+            if (swizzle != D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING)
                 desc.usage |= MTLTextureUsagePixelFormatView;
             break;
 
@@ -430,14 +459,13 @@ static void init_resource_texture(struct metal_runner *runner,
         [command_buffer waitUntilCompleted];
     }
 
-    if (view_format != MTLPixelFormatInvalid)
+    if (params->desc.type == RESOURCE_TYPE_TEXTURE && swizzle != D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING)
     {
         resource->texture = [resource->texture newTextureViewWithPixelFormat:view_format
                 textureType:desc.textureType
                 levels:NSMakeRange(0, desc.mipmapLevelCount)
                 slices:NSMakeRange(0, desc.arrayLength)
-                swizzle:MTLTextureSwizzleChannelsMake(MTLTextureSwizzleZero,
-                        MTLTextureSwizzleRed, MTLTextureSwizzleZero, MTLTextureSwizzleZero)];
+                swizzle:get_metal_texture_swizzle_channels(swizzle)];
         ok(resource->texture, "Failed to create texture view.\n");
     }
 
@@ -1355,6 +1383,7 @@ static bool metal_runner_init(struct metal_runner *runner)
     runner->caps.shader_caps[SHADER_CAP_DESCRIPTORS] = true;
     runner->caps.shader_caps[SHADER_CAP_STENCIL_EXPORT] = true;
     runner->caps.shader_caps[SHADER_CAP_RT_VP_ARRAY_INDEX] = true;
+    runner->caps.shader_caps[SHADER_CAP_TEXTURE_SWIZZLE] = true;
 
     runner->caps.tags[SHADER_RUNNER_TAG_MSL].present = true;
 

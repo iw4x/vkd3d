@@ -147,6 +147,33 @@ static const struct format_info *get_format_info(enum DXGI_FORMAT format)
     fatal_error("Failed to find format info for format %#x.\n", format);
 }
 
+static VkComponentSwizzle vk_component_swizzle_from_d3d12(unsigned int d3d12_swizzle)
+{
+    switch (d3d12_swizzle)
+    {
+        case D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0: return VK_COMPONENT_SWIZZLE_R;
+        case D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1: return VK_COMPONENT_SWIZZLE_G;
+        case D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2: return VK_COMPONENT_SWIZZLE_B;
+        case D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3: return VK_COMPONENT_SWIZZLE_A;
+        case D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0: return VK_COMPONENT_SWIZZLE_ZERO;
+        case D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1: return VK_COMPONENT_SWIZZLE_ONE;
+
+        default:
+            fatal_error("Unhandled shader component mapping %#x.\n", d3d12_swizzle);
+    }
+}
+
+static VkComponentMapping vk_component_mapping_from_d3d12(unsigned int d3d12_swizzle)
+{
+    return (VkComponentMapping)
+    {
+        vk_component_swizzle_from_d3d12(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(0, d3d12_swizzle)),
+        vk_component_swizzle_from_d3d12(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(1, d3d12_swizzle)),
+        vk_component_swizzle_from_d3d12(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(2, d3d12_swizzle)),
+        vk_component_swizzle_from_d3d12(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(3, d3d12_swizzle)),
+    };
+}
+
 static void resource_init_texture(struct vulkan_shader_runner *runner, struct vulkan_resource *resource,
         const struct resource_params *params)
 {
@@ -159,6 +186,7 @@ static void resource_init_texture(struct vulkan_shader_runner *runner, struct vu
     VkImageAspectFlags vk_aspect_mask;
     VkDevice device = context->device;
     unsigned int buffer_offset = 0;
+    VkComponentMapping components;
     VkDeviceMemory staging_memory;
     VkImageCreateFlags flags = 0;
     VkBuffer staging_buffer;
@@ -166,10 +194,26 @@ static void resource_init_texture(struct vulkan_shader_runner *runner, struct vu
     float min_lod_clamp;
     void *data;
 
+    vk_aspect_mask = format->vk_aspect_mask;
+
     if (params->desc.type == RESOURCE_TYPE_UAV)
     {
         layout = VK_IMAGE_LAYOUT_GENERAL;
         usage |= VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    }
+    else if (vk_aspect_mask == VK_IMAGE_ASPECT_STENCIL_BIT)
+    {
+        components = (VkComponentMapping)
+        {
+            VK_COMPONENT_SWIZZLE_ZERO,
+            VK_COMPONENT_SWIZZLE_R,
+            VK_COMPONENT_SWIZZLE_ZERO,
+            VK_COMPONENT_SWIZZLE_ZERO,
+        };
+    }
+    else
+    {
+        components = vk_component_mapping_from_d3d12(resource->r.desc.swizzle);
     }
 
     if (params->desc.dimension == RESOURCE_DIMENSION_3D)
@@ -177,7 +221,6 @@ static void resource_init_texture(struct vulkan_shader_runner *runner, struct vu
     else
         image_type = VK_IMAGE_TYPE_2D;
 
-    vk_aspect_mask = format->vk_aspect_mask;
     if (params->desc.dimension == RESOURCE_DIMENSION_CUBE)
         flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
@@ -187,7 +230,8 @@ static void resource_init_texture(struct vulkan_shader_runner *runner, struct vu
             desc->height, desc->depth, desc->level_count, desc->layer_count,
             desc->sample_count, usage, format->vk_format, flags, &resource->memory);
     resource->image_view = create_vulkan_image_view(context, resource->image, format->vk_format, vk_aspect_mask,
-            image_type, (params->desc.dimension == RESOURCE_DIMENSION_CUBE), layer_count, min_lod_clamp);
+            image_type, (params->desc.dimension == RESOURCE_DIMENSION_CUBE), layer_count, min_lod_clamp,
+            params->desc.type == RESOURCE_TYPE_UAV ? NULL : &components);
 
     if (!params->data)
     {
@@ -293,7 +337,7 @@ static struct resource *vulkan_runner_create_resource(struct shader_runner *r, c
                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                     format->vk_format, 0, &resource->memory);
             resource->image_view = create_vulkan_image_view(context, resource->image, format->vk_format,
-                    format->vk_aspect_mask, VK_IMAGE_TYPE_2D, false, layer_count, 0.0f);
+                    format->vk_aspect_mask, VK_IMAGE_TYPE_2D, false, layer_count, 0.0f, NULL);
 
             begin_command_buffer(context);
             transition_image_layout(context, resource->image, format->vk_aspect_mask, 0, layer_count,
@@ -307,7 +351,7 @@ static struct resource *vulkan_runner_create_resource(struct shader_runner *r, c
                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                     format->vk_format, 0, &resource->memory);
             resource->image_view = create_vulkan_image_view(context, resource->image, format->vk_format,
-                    format->vk_aspect_mask, VK_IMAGE_TYPE_2D, false, layer_count, 0.0f);
+                    format->vk_aspect_mask, VK_IMAGE_TYPE_2D, false, layer_count, 0.0f, NULL);
 
             begin_command_buffer(context);
             transition_image_layout(context, resource->image, format->vk_aspect_mask, 0, layer_count,
@@ -2167,6 +2211,7 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
     runner->caps.shader_caps[SHADER_CAP_CLIP_PLANES] = true;
     runner->caps.shader_caps[SHADER_CAP_FOG] = true;
     runner->caps.shader_caps[SHADER_CAP_POINT_SIZE] = true;
+    runner->caps.shader_caps[SHADER_CAP_TEXTURE_SWIZZLE] = true;
 
     subgroup_properties = &device_info.subgroup_properties;
     if (subgroup_properties->subgroupSize >= 4

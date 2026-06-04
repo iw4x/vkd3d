@@ -203,7 +203,7 @@ static inline VkImage create_vulkan_image(const struct vulkan_test_context *cont
 
 static inline VkImageView create_vulkan_image_view(const struct vulkan_test_context *context, VkImage image,
         VkFormat format, VkImageAspectFlags aspect_mask, VkImageType image_type, bool cube,
-        unsigned int layer_count, float min_lod_clamp)
+        unsigned int layer_count, float min_lod_clamp, const VkComponentMapping *components)
 {
     VkImageViewMinLodCreateInfoEXT min_lod_info = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_MIN_LOD_CREATE_INFO_EXT};
     VkImageViewCreateInfo view_info = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
@@ -217,12 +217,9 @@ static inline VkImageView create_vulkan_image_view(const struct vulkan_test_cont
     else if (image_type == VK_IMAGE_TYPE_3D)
         view_info.viewType = VK_IMAGE_VIEW_TYPE_3D;
     view_info.format = format;
-    if (aspect_mask == VK_IMAGE_ASPECT_STENCIL_BIT)
+    if (components)
     {
-        view_info.components.r = VK_COMPONENT_SWIZZLE_ZERO;
-        view_info.components.g = VK_COMPONENT_SWIZZLE_R;
-        view_info.components.b = VK_COMPONENT_SWIZZLE_ZERO;
-        view_info.components.a = VK_COMPONENT_SWIZZLE_ZERO;
+        view_info.components = *components;
     }
     else
     {

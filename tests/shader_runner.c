@@ -600,6 +600,7 @@ static const char *const shader_cap_strings[] =
     [SHADER_CAP_RT_VP_ARRAY_INDEX]   = "rt-vp-array-index",
     [SHADER_CAP_STENCIL_EXPORT]      = "stencil-export",
     [SHADER_CAP_TESSELLATION_SHADER] = "tessellation-shader",
+    [SHADER_CAP_TEXTURE_SWIZZLE]     = "texture-swizzle",
     [SHADER_CAP_WAVE_OPS]            = "wave-ops",
 };
 
@@ -808,6 +809,22 @@ static void parse_sampler_directive(struct sampler *sampler, const char *line)
     }
 }
 
+static unsigned int shader_component_mapping_from_char(char x)
+{
+    switch (x)
+    {
+        case 'r': return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0;
+        case 'g': return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1;
+        case 'b': return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2;
+        case 'a': return D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3;
+        case '0': return D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0;
+        case '1': return D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1;
+
+        default:
+            fatal_error("Invalid shader component mapping '%c'.\n", x);
+    }
+}
+
 static void parse_resource_directive(struct resource_params *resource, const char *line)
 {
     if (match_string(line, "format", &line))
@@ -893,6 +910,19 @@ static void parse_resource_directive(struct resource_params *resource, const cha
         resource->desc.min_lod_clamp = strtof(line, &rest);
         if (rest == line)
             fatal_error("Malformed texture directive '%s'.\n", line);
+    }
+    else if (match_string(line, "swizzle", &line))
+    {
+        char r, g, b, a;
+
+        if (sscanf(line, " %c%c%c%c ", &r, &g, &b, &a) != 4)
+        {
+            fatal_error("Malformed sizzle '%s'.\n", line);
+        }
+
+        resource->desc.swizzle = D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
+                shader_component_mapping_from_char(r), shader_component_mapping_from_char(g),
+                shader_component_mapping_from_char(b), shader_component_mapping_from_char(a));
     }
     else
     {
@@ -3335,6 +3365,7 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 current_resource.desc.format = DXGI_FORMAT_R32G32B32A32_FLOAT;
                 current_resource.desc.texel_size = 16;
                 current_resource.desc.level_count = 1;
+                current_resource.desc.swizzle = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
             }
             else if (sscanf(line, "[uav-%u]\n", &index)
                     || sscanf(line, "[uav %u]\n", &index))

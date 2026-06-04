@@ -689,9 +689,81 @@ static struct d3d12_resource *find_resource(struct d3d12_shader_runner *runner,
     return d3d12_resource(resource);
 }
 
+static void srv_description_from_resource(D3D12_SHADER_RESOURCE_VIEW_DESC *srv_desc,
+        const struct d3d12_resource *resource)
+{
+    *srv_desc = (D3D12_SHADER_RESOURCE_VIEW_DESC)
+    {
+        .Format = resource->r.desc.format,
+        .Shader4ComponentMapping = resource->r.desc.swizzle,
+    };
+
+    switch (resource->r.desc.dimension)
+    {
+        case RESOURCE_DIMENSION_BUFFER:
+            srv_desc->ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            srv_desc->Buffer.NumElements = resource->r.desc.width * resource->r.desc.height;
+            srv_desc->Buffer.StructureByteStride = resource->r.stride;
+            srv_desc->Buffer.Flags = resource->r.is_raw ? D3D12_BUFFER_SRV_FLAG_RAW : 0;
+            break;
+
+        case RESOURCE_DIMENSION_2D:
+            if (resource->r.desc.layer_count == 1)
+            {
+                if (!resource->r.desc.sample_count)
+                {
+                    srv_desc->ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                    srv_desc->Texture2D.MostDetailedMip = 0;
+                    srv_desc->Texture2D.MipLevels = resource->r.desc.level_count;
+                    srv_desc->Texture2D.PlaneSlice = 0;
+                    srv_desc->Texture2D.ResourceMinLODClamp = resource->r.desc.min_lod_clamp;
+
+                    if (resource->r.desc.format == DXGI_FORMAT_X32_TYPELESS_G8X24_UINT)
+                        srv_desc->Texture2D.PlaneSlice = 1;
+                }
+                else
+                {
+                    srv_desc->ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DMS;
+                }
+            }
+            else if (!resource->r.desc.sample_count)
+            {
+                srv_desc->ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+                srv_desc->Texture2DArray.MostDetailedMip = 0;
+                srv_desc->Texture2DArray.MipLevels = resource->r.desc.level_count;
+                srv_desc->Texture2DArray.FirstArraySlice = 0;
+                srv_desc->Texture2DArray.ArraySize = resource->r.desc.layer_count;
+                srv_desc->Texture2DArray.PlaneSlice = 0;
+                srv_desc->Texture2DArray.ResourceMinLODClamp = resource->r.desc.min_lod_clamp;
+            }
+            else
+            {
+                srv_desc->ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DMSARRAY;
+                srv_desc->Texture2DMSArray.FirstArraySlice = 0;
+                srv_desc->Texture2DMSArray.ArraySize = resource->r.desc.layer_count;
+            }
+            break;
+
+        case RESOURCE_DIMENSION_3D:
+            srv_desc->ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
+            srv_desc->Texture3D.MostDetailedMip = 0;
+            srv_desc->Texture3D.MipLevels = resource->r.desc.level_count;
+            srv_desc->Texture3D.ResourceMinLODClamp = resource->r.desc.min_lod_clamp;
+            break;
+
+        case RESOURCE_DIMENSION_CUBE:
+            srv_desc->ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+            srv_desc->TextureCube.MostDetailedMip = 0;
+            srv_desc->TextureCube.MipLevels = resource->r.desc.level_count;
+            srv_desc->TextureCube.ResourceMinLODClamp = resource->r.desc.min_lod_clamp;
+            break;
+    }
+}
+
 static void write_descriptors(struct d3d12_shader_runner *runner)
 {
     ID3D12Device *device = runner->test_context.device;
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc;
     unsigned int descriptor_index = 0, i, j;
 
     for (i = 0; i < runner->r.descriptor_count; ++i)
@@ -708,72 +780,8 @@ static void write_descriptors(struct d3d12_shader_runner *runner)
             switch (mapping->type)
             {
                 case VKD3D_SHADER_DESCRIPTOR_TYPE_SRV:
-                    if (resource->r.desc.dimension == RESOURCE_DIMENSION_BUFFER)
-                    {
-                        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = { 0 };
-
-                        srv_desc.Format = resource->r.desc.format;
-                        srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-                        srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-                        srv_desc.Buffer.NumElements = resource->r.desc.width * resource->r.desc.height;
-                        srv_desc.Buffer.StructureByteStride = resource->r.stride;
-                        srv_desc.Buffer.Flags = resource->r.is_raw ? D3D12_BUFFER_SRV_FLAG_RAW : 0;
-
-                        ID3D12Device_CreateShaderResourceView(device, resource->resource, &srv_desc, handle);
-                    }
-                    else if (resource->r.desc.dimension == RESOURCE_DIMENSION_CUBE)
-                    {
-                        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc =
-                        {
-                            .Format = resource->r.desc.format,
-                            .ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE,
-                            .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-                            .TextureCube.MostDetailedMip = 0,
-                            .TextureCube.MipLevels = resource->r.desc.level_count,
-                            .TextureCube.ResourceMinLODClamp = resource->r.desc.min_lod_clamp,
-                        };
-
-                        ID3D12Device_CreateShaderResourceView(device, resource->resource, &srv_desc, handle);
-                    }
-                    else if (resource->r.desc.dimension == RESOURCE_DIMENSION_2D
-                            && resource->r.desc.layer_count == 1 && resource->r.desc.sample_count == 0)
-                    {
-                        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc =
-                        {
-                            .Format = resource->r.desc.format,
-                            .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
-                            .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-                            .Texture2D.MostDetailedMip = 0,
-                            .Texture2D.MipLevels = resource->r.desc.level_count,
-                            .Texture2D.PlaneSlice = 0,
-                            .Texture2D.ResourceMinLODClamp = resource->r.desc.min_lod_clamp,
-                        };
-                        if (resource->r.desc.format == DXGI_FORMAT_X32_TYPELESS_G8X24_UINT)
-                            srv_desc.Texture2D.PlaneSlice = 1;
-
-                        ID3D12Device_CreateShaderResourceView(device, resource->resource, &srv_desc, handle);
-                    }
-                    else if (resource->r.desc.dimension == RESOURCE_DIMENSION_2D && resource->r.desc.sample_count == 0)
-                    {
-                        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc =
-                        {
-                            .Format = resource->r.desc.format,
-                            .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY,
-                            .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-                            .Texture2DArray.MostDetailedMip = 0,
-                            .Texture2DArray.MipLevels = resource->r.desc.level_count,
-                            .Texture2DArray.FirstArraySlice = 0,
-                            .Texture2DArray.ArraySize = resource->r.desc.layer_count,
-                            .Texture2DArray.PlaneSlice = 0,
-                            .Texture2DArray.ResourceMinLODClamp = resource->r.desc.min_lod_clamp,
-                        };
-
-                        ID3D12Device_CreateShaderResourceView(device, resource->resource, &srv_desc, handle);
-                    }
-                    else
-                    {
-                        ID3D12Device_CreateShaderResourceView(device, resource->resource, NULL, handle);
-                    }
+                    srv_description_from_resource(&srv_desc, resource);
+                    ID3D12Device_CreateShaderResourceView(device, resource->resource, &srv_desc, handle);
                     break;
 
                 case VKD3D_SHADER_DESCRIPTOR_TYPE_UAV:
@@ -1358,6 +1366,7 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
             = options.VPAndRTArrayIndexFromAnyShaderFeedingRasterizerSupportedWithoutGSEmulation;
     runner->caps.shader_caps[SHADER_CAP_STENCIL_EXPORT] = options.PSSpecifiedStencilRefSupported;
     runner->caps.shader_caps[SHADER_CAP_TESSELLATION_SHADER] = true;
+    runner->caps.shader_caps[SHADER_CAP_TEXTURE_SWIZZLE] = true;
     runner->caps.shader_caps[SHADER_CAP_WAVE_OPS] = options1.WaveOps;
     runner->caps.shader_caps[SHADER_CAP_NATIVE_16_BIT] = options4.Native16BitShaderOpsSupported;
 

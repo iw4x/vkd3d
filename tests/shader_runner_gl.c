@@ -136,6 +136,7 @@ static bool check_gl_extensions(struct gl_runner *runner)
         "GL_ARB_sampler_objects",
         "GL_ARB_shader_image_load_store",
         "GL_ARB_texture_storage",
+        "GL_ARB_texture_swizzle",
     };
 
     glGetIntegerv(GL_NUM_EXTENSIONS, &count);
@@ -395,6 +396,7 @@ static bool gl_runner_init(struct gl_runner *runner, enum shading_language langu
         runner->caps.minimum_shader_model = SHADER_MODEL_4_0;
         runner->caps.maximum_shader_model = SHADER_MODEL_5_1;
         runner->caps.shader_caps[SHADER_CAP_GEOMETRY_SHADER] = true;
+        runner->caps.shader_caps[SHADER_CAP_TEXTURE_SWIZZLE] = true;
 
         runner->caps.tags[SHADER_RUNNER_TAG_OPENGL].present = true;
 
@@ -484,6 +486,30 @@ static void gl_runner_cleanup(struct gl_runner *runner)
     ok(ret, "Failed to terminate EGL display connection.\n");
 }
 
+static GLint get_component_swizzle_gl(unsigned int d3d12_swizzle)
+{
+    switch (d3d12_swizzle)
+    {
+        case D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0: return GL_RED;
+        case D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1: return GL_GREEN;
+        case D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2: return GL_BLUE;
+        case D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3: return GL_ALPHA;
+        case D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0: return GL_ZERO;
+        case D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1: return GL_ONE;
+
+        default:
+            fatal_error("Unhandled shader component mapping %#x.\n", d3d12_swizzle);
+    }
+}
+
+static void get_component_mapping_gl(unsigned int d3d12_swizzle, GLint *mapping)
+{
+    mapping[0] = get_component_swizzle_gl(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(0, d3d12_swizzle));
+    mapping[1] = get_component_swizzle_gl(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(1, d3d12_swizzle));
+    mapping[2] = get_component_swizzle_gl(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(2, d3d12_swizzle));
+    mapping[3] = get_component_swizzle_gl(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(3, d3d12_swizzle));
+}
+
 static bool init_resource_texture(struct gl_resource *resource, const struct resource_params *params)
 {
     unsigned int offset, w, h, d, i;
@@ -547,6 +573,12 @@ static bool init_resource_texture(struct gl_resource *resource, const struct res
     {
         glTexParameteriv(target, GL_TEXTURE_SWIZZLE_RGBA, (const GLint[]){GL_ZERO, GL_RED, GL_ZERO, GL_ZERO});
         glTexParameteri(target, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
+    }
+    else
+    {
+        GLint mapping[4];
+        get_component_mapping_gl(resource->r.desc.swizzle, mapping);
+        glTexParameteriv(target, GL_TEXTURE_SWIZZLE_RGBA, mapping);
     }
     if (!params->data)
         return true;
