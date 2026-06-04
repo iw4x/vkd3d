@@ -3566,27 +3566,39 @@ static void d3dbc_write_instruction(struct d3dbc_compiler *compiler,
 
     token_position = put_u32(buffer, 0);
 
-    for (i = 0; i < ins->dst_count; ++i)
+    if (ins->opcode == VKD3D_SM1_OP_DCL)
     {
-        validate_register_limits(compiler, &ins->dst[i].o, location);
+        put_u32(buffer, VKD3D_SM1_INSTRUCTION_PARAMETER
+                | (ins->semantic.usage << VKD3D_SM1_DCL_USAGE_SHIFT)
+                | (ins->semantic.usage_idx << VKD3D_SM1_DCL_USAGE_INDEX_SHIFT)
+                | (ins->semantic.resource_type << VKD3D_SM1_RESOURCE_TYPE_SHIFT));
 
-        if (ins->dst[i].o.has_rel_addr)
-        {
-            vkd3d_shader_error(compiler->message_context, location, VKD3D_SHADER_ERROR_D3DBC_NOT_IMPLEMENTED,
-                    "Unhandled relative addressing on destination register.");
-            compiler->failed = true;
-        }
-        write_sm1_dst_register(buffer, &ins->dst[i]);
+        write_sm1_dst_register(buffer, &ins->dst[0]);
     }
-
-    for (i = 0; i < ins->src_count; ++i)
+    else
     {
-        validate_register_limits(compiler, &ins->src[i].o, location);
+        for (i = 0; i < ins->dst_count; ++i)
+        {
+            validate_register_limits(compiler, &ins->dst[i].o, location);
 
-        src = &ins->src[i];
-        write_sm1_src_register(buffer, src);
-        if (src->o.has_rel_addr)
-            write_sm1_src_register(buffer, &ins->src_rel_addr[i]);
+            if (ins->dst[i].o.has_rel_addr)
+            {
+                vkd3d_shader_error(compiler->message_context, location, VKD3D_SHADER_ERROR_D3DBC_NOT_IMPLEMENTED,
+                        "Unhandled relative addressing on destination register.");
+                compiler->failed = true;
+            }
+            write_sm1_dst_register(buffer, &ins->dst[i]);
+        }
+
+        for (i = 0; i < ins->src_count; ++i)
+        {
+            validate_register_limits(compiler, &ins->src[i].o, location);
+
+            src = &ins->src[i];
+            write_sm1_src_register(buffer, src);
+            if (src->o.has_rel_addr)
+                write_sm1_src_register(buffer, &ins->src_rel_addr[i]);
+        }
     }
 
     if (version->major > 1)
@@ -3886,24 +3898,20 @@ static void d3dbc_write_semantic_dcl(struct d3dbc_compiler *compiler,
         const struct vsir_signature_element *element, bool output)
 {
     const struct vkd3d_shader_version *version = &compiler->program->shader_version;
-    struct vkd3d_bytecode_buffer *buffer = &compiler->buffer;
-    struct d3dbc_dst_operand d3dbc_reg;
+    static const struct vkd3d_shader_location location;
+    struct d3dbc_instruction ins = {0};
     struct vsir_dst_operand reg = {0};
-    enum vkd3d_decl_usage usage;
-    uint32_t token, usage_idx;
     bool ret;
 
+    ins.opcode = VKD3D_SM1_OP_DCL;
+    ins.dst_count = 1;
+
     reg.reg.idx_count = 1;
-    if (sm1_register_from_semantic_name(version, element->semantic_name,
+    if (!sm1_register_from_semantic_name(version, element->semantic_name,
             element->semantic_index, output, NULL, &reg.reg.type, &reg.reg.idx[0].offset))
     {
-        usage = 0;
-        usage_idx = 0;
-    }
-    else
-    {
         ret = sm1_usage_from_semantic_name(version, element->semantic_name,
-                element->semantic_index, output, &usage, &usage_idx);
+                element->semantic_index, output, &ins.semantic.usage, &ins.semantic.usage_idx);
         VKD3D_ASSERT(ret);
         reg.reg.type = output ? VSIR_REGISTER_OUTPUT : VSIR_REGISTER_INPUT;
         reg.reg.idx[0].offset = element->register_index;
@@ -3916,21 +3924,11 @@ static void d3dbc_write_semantic_dcl(struct d3dbc_compiler *compiler,
         }
     }
 
-    token = VKD3D_SM1_OP_DCL;
-    if (version->major > 1)
-        token |= 2 << VKD3D_SM1_INSTRUCTION_LENGTH_SHIFT;
-    put_u32(buffer, token);
-
-    token = (1u << 31);
-    token |= usage << VKD3D_SM1_DCL_USAGE_SHIFT;
-    token |= usage_idx << VKD3D_SM1_DCL_USAGE_INDEX_SHIFT;
-    put_u32(buffer, token);
-
     reg.write_mask = element->mask;
     if (element->interpolation_mode == VKD3DSIM_LINEAR_CENTROID)
         reg.modifiers |= VKD3DSPDM_MSAMPCENTROID;
-    d3dbc_dst_operand_from_vsir(compiler, &d3dbc_reg, NULL, &reg);
-    write_sm1_dst_register(buffer, &d3dbc_reg);
+    d3dbc_dst_operand_from_vsir(compiler, &ins.dst[0], &ins.dst_rel_addr[0], &reg);
+    d3dbc_write_instruction(compiler, &ins, &location);
 }
 
 static void d3dbc_write_semantic_dcls(struct d3dbc_compiler *compiler)
