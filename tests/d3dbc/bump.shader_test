@@ -70,12 +70,13 @@ bump 1 f32(0.1, 0.2, 0.3, 0.5) 2.0 0.3
 projected 1 disable
 draw quad
 % WARP transposes the matrix for TEXBEM/TEXBEML, but not for BEM.
-if(!warp) probe (250, 500) f32(0.58, 0.27, 0.73, 0.42) 32
-if(!warp) probe (750, 500) f32(0.47, 0.33, 0.67, 0.53) 16
+% AMD transposes for both TEXBEM/TEXBEML and BEM.
+winbug(warp | amd) probe (250, 500) f32(0.58, 0.27, 0.73, 0.42) 32
+winbug(warp | amd) probe (750, 500) f32(0.47, 0.33, 0.67, 0.53) 16
 projected 1 enable
 draw quad
-if(!warp) probe (250, 500) f32(0.28, 0.47, 0.53, 0.72) 32
-if(!warp) probe (750, 500) f32(0.17, 0.53, 0.47, 0.83) 16
+winbug(warp | amd) probe (250, 500) f32(0.28, 0.47, 0.53, 0.72) 32
+winbug(warp | amd) probe (750, 500) f32(0.17, 0.53, 0.47, 0.83) 16
 
 [pixel shader d3dbc-hex]
 % TODO: Convert to assembly.
@@ -91,12 +92,13 @@ projected 1 disable
 draw quad
 % Besides transposing the matrix, WARP also uses the texcoord t1.z (0.4)
 % as a luminance factor, instead of the textured value t0.z (0.3 or 0.2).
-if(!warp) probe (250, 500) f32(0.522, 0.243, 0.657, 0.378) 32
-if(!warp) probe (750, 500) f32(0.329, 0.231, 0.469, 0.371) 16
+% Again, AMD seems to do the same.
+winbug(warp | amd) probe (250, 500) f32(0.522, 0.243, 0.657, 0.378) 32
+winbug(warp | amd) probe (750, 500) f32(0.329, 0.231, 0.469, 0.371) 16
 projected 1 enable
 draw quad
-if(!warp) probe (250, 500) f32(0.252, 0.423, 0.477, 0.648) 32
-if(!warp) probe (750, 500) f32(0.119, 0.371, 0.329, 0.581) 32
+winbug(warp | amd) probe (250, 500) f32(0.252, 0.423, 0.477, 0.648) 32
+winbug(warp | amd) probe (750, 500) f32(0.119, 0.371, 0.329, 0.581) 32
 
 [pixel shader d3dbc-hex]
 % TODO: Convert to assembly.
@@ -113,4 +115,4 @@ ffff0104                                                % ps_1_4
 [test]
 bump 2 f32(0.2, 0.3, 0.5, 0.6) 2.0 0.3
 draw quad
-probe (320, 240) f32(0.42, 0.55, 0.3, 0.4) 1
+winbug(amd) probe (320, 240) f32(0.42, 0.55, 0.3, 0.4) 1
