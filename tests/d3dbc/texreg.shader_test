@@ -11,10 +11,10 @@ address clamp clamp clamp
 
 % Only unsigned formats can be used as coords for texreg2ar and friends.
 [srv 0]
-format r8g8b8a8-unorm
+format b8g8r8a8-unorm
 size (2d, 2, 2)
-0x018001fe 0x80fe0180
-0xfe018001 0x0180fefe
+0x01fe0180 0x808001fe
+0xfe018001 0x01fefe80
 
 [srv 1]
 size (2d, 3, 3)

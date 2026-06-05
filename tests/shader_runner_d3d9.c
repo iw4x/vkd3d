@@ -245,6 +245,10 @@ static struct resource *d3d9_runner_create_resource(struct shader_runner *r, con
             format = D3DFMT_A8B8G8R8;
             break;
 
+        case DXGI_FORMAT_B8G8R8A8_UNORM:
+            format = D3DFMT_A8R8G8B8;
+            break;
+
         default:
             format = D3DFMT_UNKNOWN;
             break;

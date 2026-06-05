@@ -524,24 +524,25 @@ static const struct format_info
 }
 format_info[] =
 {
+    {"unknown",                  0, DXGI_FORMAT_UNKNOWN},
     {"r32g32b32a32-float",      16, DXGI_FORMAT_R32G32B32A32_FLOAT},
-    {"r32g32b32a32-sint",       16, DXGI_FORMAT_R32G32B32A32_SINT},
     {"r32g32b32a32-uint",       16, DXGI_FORMAT_R32G32B32A32_UINT},
+    {"r32g32b32a32-sint",       16, DXGI_FORMAT_R32G32B32A32_SINT},
     {"r32g32b32-float",         12, DXGI_FORMAT_R32G32B32_FLOAT},
     {"r32g32-float",             8, DXGI_FORMAT_R32G32_FLOAT},
-    {"r32g32-sint",              8, DXGI_FORMAT_R32G32_SINT},
     {"r32g32-uint",              8, DXGI_FORMAT_R32G32_UINT},
-    {"r32-float-shadow",         4, DXGI_FORMAT_R32_FLOAT, true},
-    {"r32-float",                4, DXGI_FORMAT_R32_FLOAT},
-    {"r32-sint",                 4, DXGI_FORMAT_R32_SINT},
-    {"r32-uint",                 4, DXGI_FORMAT_R32_UINT},
-    {"r32-typeless",             4, DXGI_FORMAT_R32_TYPELESS},
-    {"r8g8b8a8-unorm",           4, DXGI_FORMAT_R8G8B8A8_UNORM},
-    {"r8g8b8a8-uint",            4, DXGI_FORMAT_R8G8B8A8_UINT},
-    {"r8-uint",                  1, DXGI_FORMAT_R8_UINT},
+    {"r32g32-sint",              8, DXGI_FORMAT_R32G32_SINT},
     {"d32-float-s8x24-uint",     8, DXGI_FORMAT_D32_FLOAT_S8X24_UINT},
     {"x32-typeless-g8x24-uint",  8, DXGI_FORMAT_X32_TYPELESS_G8X24_UINT},
-    {"unknown",                  0, DXGI_FORMAT_UNKNOWN},
+    {"r8g8b8a8-unorm",           4, DXGI_FORMAT_R8G8B8A8_UNORM},
+    {"r8g8b8a8-uint",            4, DXGI_FORMAT_R8G8B8A8_UINT},
+    {"r32-typeless",             4, DXGI_FORMAT_R32_TYPELESS},
+    {"r32-float-shadow",         4, DXGI_FORMAT_R32_FLOAT, true},
+    {"r32-float",                4, DXGI_FORMAT_R32_FLOAT},
+    {"r32-uint",                 4, DXGI_FORMAT_R32_UINT},
+    {"r32-sint",                 4, DXGI_FORMAT_R32_SINT},
+    {"r8-uint",                  1, DXGI_FORMAT_R8_UINT},
+    {"b8g8r8a8-unorm",           4, DXGI_FORMAT_B8G8R8A8_UNORM},
 };
 
 static const char *get_format_name(DXGI_FORMAT f)
