@@ -11195,7 +11195,7 @@ static void temp_allocator_set_src(struct temp_allocator *allocator, struct vsir
     src->swizzle = vsir_combine_swizzles(vsir_swizzle_from_writemask(reg->allocated_mask), src->swizzle);
 }
 
-static uint32_t vsir_map_swizzle(uint32_t swizzle, unsigned int writemask)
+uint32_t vsir_map_swizzle(uint32_t swizzle, unsigned int writemask)
 {
     unsigned int src_component = 0;
     uint32_t ret = 0;

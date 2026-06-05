@@ -2235,6 +2235,8 @@ static inline uint32_t vsir_swizzle_from_writemask(unsigned int writemask)
     return swizzles[writemask & 0xf];
 }
 
+uint32_t vsir_map_swizzle(uint32_t swizzle, unsigned int writemask);
+
 struct vkd3d_struct
 {
     enum vkd3d_shader_structure_type type;
