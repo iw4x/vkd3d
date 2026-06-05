@@ -3973,6 +3973,40 @@ static void d3dbc_src_operand_from_immconst_f32(struct d3dbc_compiler *compiler,
     d3dbc->swizzle = vsir_map_swizzle(vsir_swizzle_from_writemask(mask), read_mask);
 }
 
+static void d3dbc_write_sincos(struct d3dbc_compiler *compiler, const struct vsir_instruction *vsir)
+{
+    struct d3dbc_instruction d3dbc = {0};
+
+    d3dbc.opcode = VKD3D_SM1_OP_SINCOS;
+    d3dbc.dst_count = 1;
+    d3dbc.src_count = 1;
+    d3dbc_dst_operand_from_vsir(compiler, &d3dbc.dst[0], &d3dbc.dst_rel_addr[0], &vsir->dst[0]);
+    d3dbc_src_operand_from_vsir(compiler, &d3dbc.src[0], &d3dbc.src_rel_addr[0], &vsir->src[0]);
+
+    if (compiler->program->shader_version.major < 3)
+    {
+        /* 2.x sincos requires some constants to be embedded in the program,
+         * which will be passed as extra arguments to the instruction. */
+        static const float const1[4] = {-1.55009923e-06f, -2.17013894e-05f, 2.60416674e-03f, 2.60416680e-04f};
+        static const float const2[4] = {-2.08333340e-02f, -1.25000000e-01f, 1.00000000e+00f, 5.00000000e-01f};
+        unsigned int mask; /* always ALL, so we don't really need this */
+
+        d3dbc.src_count = 3;
+        d3dbc.src[1].o.type = D3DBC_REGISTER_CONST;
+        if (!d3dbc_const_allocator_allocate_register(&compiler->const_allocator,
+                4, const1, &d3dbc.src[1].o.index, &mask))
+            compiler->failed = true;
+        d3dbc.src[1].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+        d3dbc.src[2].o.type = D3DBC_REGISTER_CONST;
+        if (!d3dbc_const_allocator_allocate_register(&compiler->const_allocator,
+                4, const2, &d3dbc.src[2].o.index, &mask))
+            compiler->failed = true;
+        d3dbc.src[2].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+    }
+
+    d3dbc_add_instruction(compiler, &d3dbc, &vsir->location);
+}
+
 static void d3dbc_write_texkill(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
 {
     struct d3dbc_instruction d3dbc =
@@ -4109,6 +4143,10 @@ static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *compiler, const 
             d3dbc_write_vsir_dcl(compiler, ins);
             break;
 
+        case VSIR_OP_SINCOS:
+            d3dbc_write_sincos(compiler, ins);
+            break;
+
         case VSIR_OP_TEXKILL:
             d3dbc_write_texkill(compiler, ins);
             break;
@@ -4149,7 +4187,6 @@ static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *compiler, const 
         case VSIR_OP_MOVA:
         case VSIR_OP_MUL:
         case VSIR_OP_REP:
-        case VSIR_OP_SINCOS:
         case VSIR_OP_SLT:
         case VSIR_OP_TEXLD:
         case VSIR_OP_TEXLDL:

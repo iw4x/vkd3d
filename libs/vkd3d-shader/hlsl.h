@@ -1240,8 +1240,6 @@ struct hlsl_ctx
         } *regs;
         size_t count, size;
     } constant_defs;
-    /* 'c' registers where the constants expected by SM2 sincos are stored. */
-    struct hlsl_reg d3dsincosconst1, d3dsincosconst2;
     /* 'i' register allocated by SM3 to keep the maximum number of iterations. */
     struct hlsl_reg d3d255intconst;
 

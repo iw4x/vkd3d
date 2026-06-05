@@ -8354,43 +8354,6 @@ static bool allocate_constint_registers_for_loops(struct hlsl_ctx *ctx,
     return false;
 }
 
-/* In SM2, 'sincos' expects specific constants as src1 and src2 arguments.
- * These have to be referenced directly, i.e. as 'c' not 'r'. */
-static void allocate_sincos_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *block,
-        struct register_allocator *allocator)
-{
-    const struct hlsl_ir_node *instr;
-    struct hlsl_type *type;
-
-    if (ctx->profile->major_version >= 3)
-        return;
-
-    LIST_FOR_EACH_ENTRY(instr, &block->instrs, struct hlsl_ir_node, entry)
-    {
-        if (instr->type == HLSL_IR_EXPR && (hlsl_ir_expr(instr)->op == HLSL_OP1_SIN_REDUCED
-                || hlsl_ir_expr(instr)->op == HLSL_OP1_COS_REDUCED))
-        {
-            type = hlsl_get_vector_type(ctx, HLSL_TYPE_FLOAT, 4);
-
-            ctx->d3dsincosconst1 = allocate_numeric_registers_for_type(ctx, allocator, type);
-            TRACE("Allocated D3DSINCOSCONST1 to %s.\n", debug_register(ctx->d3dsincosconst1, type));
-            record_constant(ctx, ctx->d3dsincosconst1.id * 4 + 0, -1.55009923e-06f, &instr->loc);
-            record_constant(ctx, ctx->d3dsincosconst1.id * 4 + 1, -2.17013894e-05f, &instr->loc);
-            record_constant(ctx, ctx->d3dsincosconst1.id * 4 + 2,  2.60416674e-03f, &instr->loc);
-            record_constant(ctx, ctx->d3dsincosconst1.id * 4 + 3,  2.60416680e-04f, &instr->loc);
-
-            ctx->d3dsincosconst2 = allocate_numeric_registers_for_type(ctx, allocator, type);
-            TRACE("Allocated D3DSINCOSCONST2 to %s.\n", debug_register(ctx->d3dsincosconst2, type));
-            record_constant(ctx, ctx->d3dsincosconst2.id * 4 + 0, -2.08333340e-02f, &instr->loc);
-            record_constant(ctx, ctx->d3dsincosconst2.id * 4 + 1, -1.25000000e-01f, &instr->loc);
-            record_constant(ctx, ctx->d3dsincosconst2.id * 4 + 2,  1.00000000e+00f, &instr->loc);
-            record_constant(ctx, ctx->d3dsincosconst2.id * 4 + 3,  5.00000000e-01f, &instr->loc);
-
-            return;
-        }
-    }
-}
-
 static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *body)
 {
     struct register_allocator allocator_constint = {.type = VSIR_REGISTER_CONSTINT};
@@ -8456,8 +8419,6 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
     }
 
     allocate_const_registers_recurse(ctx, body, &allocator);
-
-    allocate_sincos_const_registers(ctx, body, &allocator);
 
     hlsl_transform_ir(ctx, allocate_constint_registers_for_loops, body, &allocator_constint);
 
@@ -11210,32 +11171,14 @@ static void sm1_generate_vsir_instr_expr_sincos(struct hlsl_ctx *ctx, struct vsi
     struct hlsl_ir_node *operand = expr->operands[0].node;
     struct hlsl_ir_node *instr = &expr->node;
     struct vsir_instruction *ins;
-    struct vsir_src_operand *src;
-    unsigned int src_count = 0;
 
     VKD3D_ASSERT(instr->reg.allocated);
-    src_count = (ctx->profile->major_version < 3) ? 3 : 1;
 
-    if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_SINCOS, 1, src_count)))
+    if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_SINCOS, 1, 1)))
         return;
 
     vsir_dst_from_hlsl_node(&ins->dst[0], ctx, instr);
     vsir_src_from_hlsl_node(&ins->src[0], ctx, operand, VKD3DSP_WRITEMASK_ALL);
-
-    if (ctx->profile->major_version < 3)
-    {
-        src = &ins->src[1];
-        vsir_src_operand_init(src, VSIR_REGISTER_CONST, VSIR_DATA_F32, 1);
-        src->reg.dimension = VSIR_DIMENSION_VEC4;
-        src->reg.idx[0].offset = ctx->d3dsincosconst1.id;
-        src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
-
-        src = &ins->src[2];
-        vsir_src_operand_init(src, VSIR_REGISTER_CONST, VSIR_DATA_F32, 1);
-        src->reg.dimension = VSIR_DIMENSION_VEC4;
-        src->reg.idx[0].offset = ctx->d3dsincosconst2.id;
-        src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
-    }
 }
 
 static bool sm1_generate_vsir_instr_expr_cast(struct hlsl_ctx *ctx,
