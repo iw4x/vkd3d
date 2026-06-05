@@ -33,10 +33,10 @@ draw quad
 probe (320, 240) f32(42, 10, 0, 777)
 
 % Expected result: 10 * number_of_iterations
-% This test is to check what happens when a limiter of -1 is passed.
-% It seems that it gets interpreted as uint, so a temp is used to limit the
-% number of iterations to 20 to avoid looping a huge amount of times and
-% blocking the GPU.
+% When the limiter is a negative number AMD and WARP interpret it as a huge
+% unsigned, so they hit the limit of 20; NVIDIA interprets it as a negative
+% signed, so never executes the loop. Since neither behavior looks more
+% sensible than the other, we just avoid testing that.
 [pixel shader d3dbc-hex]
 ffff0300                                                % ps_3_0
 05000051 a00f0000 00000000 41200000 3f800000 41980000   % def c0, 0, 10, 1, 19
@@ -66,8 +66,5 @@ write cbv-i32(0) i32(18)
 todo draw quad
 probe (320, 240) f32(180, 180, 180, 180)
 write cbv-i32(0) i32(23)
-todo draw quad
-probe (320, 240) f32(200, 200, 200, 200)
-write cbv-i32(0) i32(-1)
 todo draw quad
 probe (320, 240) f32(200, 200, 200, 200)
