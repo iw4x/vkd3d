@@ -3734,27 +3734,17 @@ static void d3dbc_write_vsir_defi(struct d3dbc_compiler *compiler, const struct 
 }
 
 static void d3dbc_write_vsir_sampler_dcl(struct d3dbc_compiler *compiler,
-        unsigned int reg_id, enum vkd3d_sm1_resource_type res_type)
+        unsigned int reg_id, enum vkd3d_sm1_resource_type res_type, const struct vkd3d_shader_location *location)
 {
-    const struct vkd3d_shader_version *version = &compiler->program->shader_version;
-    struct vkd3d_bytecode_buffer *buffer = &compiler->buffer;
-    struct d3dbc_dst_operand reg = {0};
-    uint32_t token;
+    struct d3dbc_instruction ins = {0};
 
-    token = VKD3D_SM1_OP_DCL;
-    if (version->major > 1)
-        token |= 2 << VKD3D_SM1_INSTRUCTION_LENGTH_SHIFT;
-    put_u32(buffer, token);
-
-    token = VKD3D_SM1_INSTRUCTION_PARAMETER;
-    token |= res_type << VKD3D_SM1_RESOURCE_TYPE_SHIFT;
-    put_u32(buffer, token);
-
-    reg.o.type = D3DBC_REGISTER_SAMPLER;
-    reg.write_mask = VKD3DSP_WRITEMASK_ALL;
-    reg.o.index = reg_id;
-
-    write_sm1_dst_register(buffer, &reg);
+    ins.opcode = VKD3D_SM1_OP_DCL;
+    ins.semantic.resource_type = res_type;
+    ins.dst_count = 1;
+    ins.dst[0].o.type = D3DBC_REGISTER_SAMPLER;
+    ins.dst[0].o.index = reg_id;
+    ins.dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
+    d3dbc_write_instruction(compiler, &ins, location);
 }
 
 static void d3dbc_write_vsir_dcl(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
@@ -3779,15 +3769,15 @@ static void d3dbc_write_vsir_dcl(struct d3dbc_compiler *compiler, const struct v
     switch (semantic->resource_type)
     {
         case VKD3D_SHADER_RESOURCE_TEXTURE_2D:
-            d3dbc_write_vsir_sampler_dcl(compiler, reg_id, VKD3D_SM1_RESOURCE_TEXTURE_2D);
+            d3dbc_write_vsir_sampler_dcl(compiler, reg_id, VKD3D_SM1_RESOURCE_TEXTURE_2D, &ins->location);
             break;
 
         case VKD3D_SHADER_RESOURCE_TEXTURE_CUBE:
-            d3dbc_write_vsir_sampler_dcl(compiler, reg_id, VKD3D_SM1_RESOURCE_TEXTURE_CUBE);
+            d3dbc_write_vsir_sampler_dcl(compiler, reg_id, VKD3D_SM1_RESOURCE_TEXTURE_CUBE, &ins->location);
             break;
 
         case VKD3D_SHADER_RESOURCE_TEXTURE_3D:
-            d3dbc_write_vsir_sampler_dcl(compiler, reg_id, VKD3D_SM1_RESOURCE_TEXTURE_3D);
+            d3dbc_write_vsir_sampler_dcl(compiler, reg_id, VKD3D_SM1_RESOURCE_TEXTURE_3D, &ins->location);
             break;
 
         default:
