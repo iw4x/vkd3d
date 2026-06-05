@@ -7728,19 +7728,6 @@ static struct hlsl_reg allocate_range(struct hlsl_ctx *ctx,
     return ret;
 }
 
-static struct hlsl_reg allocate_numeric_registers_for_type(struct hlsl_ctx *ctx,
-        struct register_allocator *allocator, const struct hlsl_type *type)
-{
-    unsigned int reg_size = type->reg_size[HLSL_REGSET_NUMERIC];
-
-    /* FIXME: We could potentially pack structs or arrays more efficiently... */
-
-    if (type->class <= HLSL_CLASS_VECTOR)
-        return allocate_register(ctx, allocator, type->e.numeric.dimx, type->e.numeric.dimx, 0, false, false, false);
-    else
-        return allocate_range(ctx, allocator, reg_size, 0, false);
-}
-
 static const char *debug_register(struct hlsl_reg reg, const struct hlsl_type *type)
 {
     static const char writemask_offset[] = {'w','x','y','z'};
@@ -8110,38 +8097,6 @@ static void allocate_temp_registers_recurse(struct hlsl_ctx *ctx, struct hlsl_bl
     }
 }
 
-static bool find_constant(struct hlsl_ctx *ctx, const float *f, unsigned int count, struct hlsl_reg *ret)
-{
-    struct hlsl_constant_defs *defs = &ctx->constant_defs;
-
-    for (size_t i = 0; i < defs->count; ++i)
-    {
-        const struct hlsl_constant_register *reg = &defs->regs[i];
-        const float *regf;
-
-        if (reg->is_int)
-            continue;
-        regf = (float[]){reg->value[0].f, reg->value[1].f, reg->value[2].f, reg->value[3].f};
-        for (size_t j = 0; j <= 4 - count; ++j)
-        {
-            unsigned int writemask = ((1u << count) - 1) << j;
-
-            if ((reg->allocated_mask & writemask) == writemask
-                    && !memcmp(f, &regf[j], count * sizeof(float)))
-            {
-                ret->type = VSIR_REGISTER_CONST;
-                ret->id = reg->index;
-                ret->allocation_size = 1;
-                ret->writemask = writemask;
-                ret->allocated = true;
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
 static void record_constant_value(struct hlsl_ctx *ctx, unsigned int component_index,
         bool is_int, union hlsl_constant_value_component v,
         const struct vkd3d_shader_location *loc)
@@ -8172,15 +8127,6 @@ static void record_constant_value(struct hlsl_ctx *ctx, unsigned int component_i
     reg->loc = *loc;
 }
 
-static void record_constant(struct hlsl_ctx *ctx, unsigned int component_index,
-        float f, const struct vkd3d_shader_location *loc)
-{
-    union hlsl_constant_value_component v;
-
-    v.f = f;
-    record_constant_value(ctx, component_index, false, v, loc);
-}
-
 static void record_constint(struct hlsl_ctx *ctx, unsigned int component_index,
         int i, const struct vkd3d_shader_location *loc)
 {
@@ -8188,108 +8134,6 @@ static void record_constint(struct hlsl_ctx *ctx, unsigned int component_index,
 
     v.i = i;
     record_constant_value(ctx, component_index, true, v, loc);
-}
-
-static void allocate_const_registers_recurse(struct hlsl_ctx *ctx,
-        struct hlsl_block *block, struct register_allocator *allocator)
-{
-    struct hlsl_ir_node *instr;
-
-    LIST_FOR_EACH_ENTRY(instr, &block->instrs, struct hlsl_ir_node, entry)
-    {
-        switch (instr->type)
-        {
-            case HLSL_IR_CONSTANT:
-            {
-                struct hlsl_ir_constant *constant = hlsl_ir_constant(instr);
-                const struct hlsl_type *type = instr->data_type;
-                float f[4] = {0};
-
-                VKD3D_ASSERT(hlsl_is_numeric_type(type));
-                VKD3D_ASSERT(type->e.numeric.dimy == 1);
-
-                for (unsigned int i = 0; i < type->e.numeric.dimx; ++i)
-                {
-                    const union hlsl_constant_value_component *value;
-
-                    value = &constant->value.u[i];
-
-                    switch (type->e.numeric.type)
-                    {
-                        case HLSL_TYPE_BOOL:
-                            f[i] = !!value->u;
-                            break;
-
-                        case HLSL_TYPE_FLOAT:
-                        case HLSL_TYPE_HALF:
-                            f[i] = value->f;
-                            break;
-
-                        case HLSL_TYPE_INT:
-                            f[i] = value->i;
-                            break;
-
-                        case HLSL_TYPE_MIN16UINT:
-                        case HLSL_TYPE_UINT:
-                            f[i] = value->u;
-                            break;
-
-                        case HLSL_TYPE_DOUBLE:
-                            FIXME("Double constant.\n");
-                            return;
-                    }
-                }
-
-                if (find_constant(ctx, f, type->e.numeric.dimx, &constant->reg))
-                {
-                    TRACE("Reusing already allocated constant %s for @%u.\n",
-                            debug_register(constant->reg, type), instr->index);
-                    break;
-                }
-
-                constant->reg = allocate_numeric_registers_for_type(ctx, allocator, type);
-                TRACE("Allocated constant @%u to %s.\n", instr->index, debug_register(constant->reg, type));
-
-                for (unsigned int x = 0, i = 0; x < 4; ++x)
-                {
-                    if ((constant->reg.writemask & (1u << x)))
-                        record_constant(ctx, constant->reg.id * 4 + x, f[i++], &constant->node.loc);
-                }
-
-                break;
-            }
-
-            case HLSL_IR_IF:
-            {
-                struct hlsl_ir_if *iff = hlsl_ir_if(instr);
-                allocate_const_registers_recurse(ctx, &iff->then_block, allocator);
-                allocate_const_registers_recurse(ctx, &iff->else_block, allocator);
-                break;
-            }
-
-            case HLSL_IR_LOOP:
-            {
-                struct hlsl_ir_loop *loop = hlsl_ir_loop(instr);
-                allocate_const_registers_recurse(ctx, &loop->body, allocator);
-                break;
-            }
-
-            case HLSL_IR_SWITCH:
-            {
-                struct hlsl_ir_switch *s = hlsl_ir_switch(instr);
-                struct hlsl_ir_switch_case *c;
-
-                LIST_FOR_EACH_ENTRY(c, &s->cases, struct hlsl_ir_switch_case, entry)
-                {
-                    allocate_const_registers_recurse(ctx, &c->body, allocator);
-                }
-                break;
-            }
-
-            default:
-                break;
-        }
-    }
 }
 
 static void sort_uniform_by_bind_count(struct list *sorted, struct hlsl_ir_var *to_sort, enum hlsl_regset regset)
@@ -8417,8 +8261,6 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
                     debug_register(var->regs[HLSL_REGSET_NUMERIC], var->data_type));
         }
     }
-
-    allocate_const_registers_recurse(ctx, body, &allocator);
 
     hlsl_transform_ir(ctx, allocate_constint_registers_for_loops, body, &allocator_constint);
 
@@ -10584,44 +10426,25 @@ static void sm1_generate_vsir_constant_defs(struct hlsl_ctx *ctx,
             ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
             return;
         }
-        if (!vsir_instruction_init_with_params(program, ins, &constant_reg->loc,
-                constant_reg->is_int ? VSIR_OP_DEFI : VSIR_OP_DEF, 1, 1))
+        if (!vsir_instruction_init_with_params(program, ins, &constant_reg->loc, VSIR_OP_DEFI, 1, 1))
         {
             vsir_instruction_init(ins, &constant_reg->loc, VSIR_OP_NOP);
             ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
             return;
         }
 
-        if (constant_reg->is_int)
-        {
-            dst = &ins->dst[0];
-            vsir_operand_init(&dst->reg, VSIR_REGISTER_CONSTINT, VSIR_DATA_I32, 1);
-            dst->reg.dimension = VSIR_DIMENSION_VEC4;
-            dst->reg.idx[0].offset = constant_reg->index;
-            dst->write_mask = VKD3DSP_WRITEMASK_ALL;
+        dst = &ins->dst[0];
+        vsir_operand_init(&dst->reg, VSIR_REGISTER_CONSTINT, VSIR_DATA_I32, 1);
+        dst->reg.dimension = VSIR_DIMENSION_VEC4;
+        dst->reg.idx[0].offset = constant_reg->index;
+        dst->write_mask = VKD3DSP_WRITEMASK_ALL;
 
-            src = &ins->src[0];
-            vsir_src_operand_init(src, VSIR_REGISTER_IMMCONST, VSIR_DATA_I32, 0);
-            src->reg.dimension = VSIR_DIMENSION_VEC4;
-            for (x = 0; x < 4; ++x)
-                src->reg.u.immconst_u32[x] = constant_reg->value[x].u;
-            src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
-        }
-        else
-        {
-            dst = &ins->dst[0];
-            vsir_operand_init(&dst->reg, VSIR_REGISTER_CONST, VSIR_DATA_F32, 1);
-            dst->reg.dimension = VSIR_DIMENSION_VEC4;
-            dst->reg.idx[0].offset = constant_reg->index;
-            dst->write_mask = VKD3DSP_WRITEMASK_ALL;
-
-            src = &ins->src[0];
-            vsir_src_operand_init(src, VSIR_REGISTER_IMMCONST, VSIR_DATA_F32, 0);
-            src->reg.dimension = VSIR_DIMENSION_VEC4;
-            for (x = 0; x < 4; ++x)
-                src->reg.u.immconst_f32[x] = constant_reg->value[x].f;
-            src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
-        }
+        src = &ins->src[0];
+        vsir_src_operand_init(src, VSIR_REGISTER_IMMCONST, VSIR_DATA_I32, 0);
+        src->reg.dimension = VSIR_DIMENSION_VEC4;
+        for (x = 0; x < 4; ++x)
+            src->reg.u.immconst_u32[x] = constant_reg->value[x].u;
+        src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
     }
 }
 
@@ -11052,22 +10875,44 @@ static void sm1_generate_vsir_instr_constant(struct hlsl_ctx *ctx,
         struct vsir_program *program, struct hlsl_ir_constant *constant)
 {
     struct hlsl_ir_node *instr = &constant->node;
+    struct hlsl_constant_value value;
     struct vsir_instruction *ins;
-    struct vsir_src_operand *src;
 
     VKD3D_ASSERT(instr->reg.allocated);
-    VKD3D_ASSERT(constant->reg.allocated);
 
     if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_MOV, 1, 1)))
         return;
 
-    src = &ins->src[0];
-    vsir_src_operand_init(src, VSIR_REGISTER_CONST, VSIR_DATA_F32, 1);
-    src->reg.dimension = VSIR_DIMENSION_VEC4;
-    src->reg.idx[0].offset = constant->reg.id;
-    src->swizzle = generate_vsir_get_src_swizzle(constant->reg.writemask, instr->reg.writemask);
-
     vsir_dst_from_hlsl_node(&ins->dst[0], ctx, instr);
+    for (unsigned int i = 0; i < instr->data_type->e.numeric.dimx; ++i)
+    {
+        switch (instr->data_type->e.numeric.type)
+        {
+            case HLSL_TYPE_BOOL:
+                value.u[i].f = !!constant->value.u[i].u;
+                break;
+
+            case HLSL_TYPE_FLOAT:
+            case HLSL_TYPE_HALF:
+                value.u[i].f = constant->value.u[i].f;
+                break;
+
+            case HLSL_TYPE_INT:
+                value.u[i].f = constant->value.u[i].i;
+                break;
+
+            case HLSL_TYPE_MIN16UINT:
+            case HLSL_TYPE_UINT:
+                value.u[i].f = constant->value.u[i].u;
+                break;
+
+            case HLSL_TYPE_DOUBLE:
+                FIXME("Double constant.\n");
+                break;
+        }
+    }
+    vsir_src_from_hlsl_constant_value(&ins->src[0], ctx, &value,
+            VSIR_DATA_F32, instr->data_type->e.numeric.dimx, ins->dst[0].write_mask);
 }
 
 static void sm4_generate_vsir_rasterizer_sample_count(struct hlsl_ctx *ctx,

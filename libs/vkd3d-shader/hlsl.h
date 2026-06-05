@@ -984,8 +984,6 @@ struct hlsl_ir_constant
     {
         union hlsl_constant_value_component u[4];
     } value;
-    /* Constant register of type 'c' where the constant value is stored for SM1. */
-    struct hlsl_reg reg;
 };
 
 struct hlsl_ir_string_constant
