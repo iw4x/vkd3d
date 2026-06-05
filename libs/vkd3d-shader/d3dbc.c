@@ -3575,6 +3575,16 @@ static void d3dbc_write_instruction(struct d3dbc_compiler *compiler,
 
         write_sm1_dst_register(buffer, &ins->dst[0]);
     }
+    else if (ins->opcode == VKD3D_SM1_OP_DEFB)
+    {
+        write_sm1_dst_register(buffer, &ins->dst[0]);
+        put_u32(buffer, ins->immconst.b32);
+    }
+    else if (ins->opcode == VKD3D_SM1_OP_DEF || ins->opcode == VKD3D_SM1_OP_DEFI)
+    {
+        write_sm1_dst_register(buffer, &ins->dst[0]);
+        bytecode_put_bytes(buffer, ins->immconst.f32, sizeof(ins->immconst.f32));
+    }
     else
     {
         for (i = 0; i < ins->dst_count; ++i)
@@ -3689,48 +3699,28 @@ static void d3dbc_write_texkill(struct d3dbc_compiler *compiler, const struct vs
 
 static void d3dbc_write_vsir_def(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
 {
-    const struct vkd3d_shader_version *version = &compiler->program->shader_version;
-    struct vkd3d_bytecode_buffer *buffer = &compiler->buffer;
-    uint32_t token;
+    struct d3dbc_instruction d3dbc = {0};
 
-    const struct d3dbc_dst_operand reg =
-    {
-        .o.type = D3DBC_REGISTER_CONST,
-        .write_mask = VKD3DSP_WRITEMASK_ALL,
-        .o.index = ins->dst[0].reg.idx[0].offset,
-    };
-
-    token = VKD3D_SM1_OP_DEF;
-    if (version->major > 1)
-        token |= 5 << VKD3D_SM1_INSTRUCTION_LENGTH_SHIFT;
-    put_u32(buffer, token);
-
-    write_sm1_dst_register(buffer, &reg);
-    for (unsigned int x = 0; x < 4; ++x)
-        put_f32(buffer, ins->src[0].reg.u.immconst_f32[x]);
+    d3dbc.opcode = VKD3D_SM1_OP_DEF;
+    d3dbc.dst_count = 1;
+    d3dbc.dst[0].o.type = D3DBC_REGISTER_CONST;
+    d3dbc.dst[0].o.index = ins->dst[0].reg.idx[0].offset;
+    d3dbc.dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
+    memcpy(d3dbc.immconst.f32, ins->src[0].reg.u.immconst_f32, sizeof(d3dbc.immconst.f32));
+    d3dbc_write_instruction(compiler, &d3dbc, &ins->location);
 }
 
 static void d3dbc_write_vsir_defi(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
 {
-    const struct vkd3d_shader_version *version = &compiler->program->shader_version;
-    struct vkd3d_bytecode_buffer *buffer = &compiler->buffer;
-    uint32_t token;
+    struct d3dbc_instruction d3dbc = {0};
 
-    const struct d3dbc_dst_operand reg =
-    {
-        .o.type = D3DBC_REGISTER_CONSTINT,
-        .write_mask = VKD3DSP_WRITEMASK_ALL,
-        .o.index = ins->dst[0].reg.idx[0].offset,
-    };
-
-    token = VKD3D_SM1_OP_DEFI;
-    if (version->major > 1)
-        token |= 5 << VKD3D_SM1_INSTRUCTION_LENGTH_SHIFT;
-    put_u32(buffer, token);
-
-    write_sm1_dst_register(buffer, &reg);
-    for (unsigned int x = 0; x < 4; ++x)
-        put_u32(buffer, ins->src[0].reg.u.immconst_u32[x]);
+    d3dbc.opcode = VKD3D_SM1_OP_DEFI;
+    d3dbc.dst_count = 1;
+    d3dbc.dst[0].o.type = D3DBC_REGISTER_CONSTINT;
+    d3dbc.dst[0].o.index = ins->dst[0].reg.idx[0].offset;
+    d3dbc.dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
+    memcpy(d3dbc.immconst.i32, ins->src[0].reg.u.immconst_u32, sizeof(d3dbc.immconst.i32));
+    d3dbc_write_instruction(compiler, &d3dbc, &ins->location);
 }
 
 static void d3dbc_write_vsir_sampler_dcl(struct d3dbc_compiler *compiler,
