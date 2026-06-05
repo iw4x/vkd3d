@@ -3356,6 +3356,13 @@ struct d3dbc_compiler
     struct vkd3d_bytecode_buffer buffer;
     struct vkd3d_shader_message_context *message_context;
     bool failed;
+
+    struct
+    {
+        struct d3dbc_instruction ins;
+        struct vkd3d_shader_location location;
+    } *instructions;
+    size_t instruction_count, instructions_capacity;
 };
 
 static uint32_t sm1_version(enum vkd3d_shader_type type, unsigned int major, unsigned int minor)
@@ -3551,6 +3558,18 @@ static void validate_register_limits(struct d3dbc_compiler *compiler,
     }
 }
 
+static void d3dbc_add_instruction(struct d3dbc_compiler *compiler,
+        const struct d3dbc_instruction *ins, const struct vkd3d_shader_location *location)
+{
+    if (vkd3d_array_reserve((void **)&compiler->instructions, &compiler->instructions_capacity,
+            compiler->instruction_count + 1, sizeof(*compiler->instructions)))
+    {
+        compiler->instructions[compiler->instruction_count].ins = *ins;
+        compiler->instructions[compiler->instruction_count].location = *location;
+        ++compiler->instruction_count;
+    }
+}
+
 static void d3dbc_write_instruction(struct d3dbc_compiler *compiler,
         const struct d3dbc_instruction *ins, const struct vkd3d_shader_location *location)
 {
@@ -3694,7 +3713,7 @@ static void d3dbc_write_texkill(struct d3dbc_compiler *compiler, const struct vs
     d3dbc.dst[0].modifiers = 0;
     d3dbc.dst[0].write_mask = mask_from_swizzle(ins->src[0].swizzle);
 
-    d3dbc_write_instruction(compiler, &d3dbc, &ins->location);
+    d3dbc_add_instruction(compiler, &d3dbc, &ins->location);
 }
 
 static void d3dbc_write_vsir_def(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
@@ -3707,7 +3726,7 @@ static void d3dbc_write_vsir_def(struct d3dbc_compiler *compiler, const struct v
     d3dbc.dst[0].o.index = ins->dst[0].reg.idx[0].offset;
     d3dbc.dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
     memcpy(d3dbc.immconst.f32, ins->src[0].reg.u.immconst_f32, sizeof(d3dbc.immconst.f32));
-    d3dbc_write_instruction(compiler, &d3dbc, &ins->location);
+    d3dbc_add_instruction(compiler, &d3dbc, &ins->location);
 }
 
 static void d3dbc_write_vsir_defi(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
@@ -3720,7 +3739,7 @@ static void d3dbc_write_vsir_defi(struct d3dbc_compiler *compiler, const struct 
     d3dbc.dst[0].o.index = ins->dst[0].reg.idx[0].offset;
     d3dbc.dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
     memcpy(d3dbc.immconst.i32, ins->src[0].reg.u.immconst_u32, sizeof(d3dbc.immconst.i32));
-    d3dbc_write_instruction(compiler, &d3dbc, &ins->location);
+    d3dbc_add_instruction(compiler, &d3dbc, &ins->location);
 }
 
 static void d3dbc_write_vsir_sampler_dcl(struct d3dbc_compiler *compiler,
@@ -3734,7 +3753,7 @@ static void d3dbc_write_vsir_sampler_dcl(struct d3dbc_compiler *compiler,
     ins.dst[0].o.type = D3DBC_REGISTER_SAMPLER;
     ins.dst[0].o.index = reg_id;
     ins.dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
-    d3dbc_write_instruction(compiler, &ins, location);
+    d3dbc_add_instruction(compiler, &ins, location);
 }
 
 static void d3dbc_write_vsir_dcl(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
@@ -3862,7 +3881,7 @@ static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *compiler, const 
             for (unsigned int i = 0; i < ins->src_count; ++i)
                 d3dbc_src_operand_from_vsir(compiler, &d3dbc.src[i], &d3dbc.src_rel_addr[i], &ins->src[i]);
 
-            d3dbc_write_instruction(compiler, &d3dbc, &ins->location);
+            d3dbc_add_instruction(compiler, &d3dbc, &ins->location);
             break;
 
         default:
@@ -3938,10 +3957,14 @@ static void d3dbc_write_semantic_dcls(struct d3dbc_compiler *compiler)
     }
 }
 
-static void d3dbc_write_program_instructions(struct d3dbc_compiler *compiler)
+static void d3dbc_instructions_from_vsir(struct d3dbc_compiler *compiler)
 {
     struct vsir_program_iterator it = vsir_program_iterator(&compiler->program->instructions);
     struct vsir_instruction *ins;
+
+    /* Preallocate at least as many d3dbc instructions as there are vsir instructions. */
+    vkd3d_array_reserve((void **)&compiler->instructions, &compiler->instructions_capacity,
+            compiler->program->instructions.count, sizeof(*compiler->instructions));
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
@@ -3982,10 +4005,13 @@ int d3dbc_compile(struct vsir_program *program, uint64_t config_flags,
             return VKD3D_ERROR_INVALID_SHADER;
     }
 
+    d3dbc_instructions_from_vsir(&compiler);
+
     put_u32(buffer, sm1_version(version->type, version->major, version->minor));
     d3dbc_write_comment(&compiler, TAG_CTAB, ctab);
     d3dbc_write_semantic_dcls(&compiler);
-    d3dbc_write_program_instructions(&compiler);
+    for (size_t i = 0; i < compiler.instruction_count; ++i)
+        d3dbc_write_instruction(&compiler, &compiler.instructions[i].ins, &compiler.instructions[i].location);
 
     put_u32(buffer, VKD3D_SM1_OP_END);
 
@@ -3995,6 +4021,7 @@ int d3dbc_compile(struct vsir_program *program, uint64_t config_flags,
     if (compiler.failed)
         result = VKD3D_ERROR_INVALID_SHADER;
 
+    vkd3d_free(compiler.instructions);
     if (!result)
         vkd3d_shader_code_from_bytecode_buffer(out, buffer);
     vkd3d_bytecode_buffer_cleanup(buffer);
