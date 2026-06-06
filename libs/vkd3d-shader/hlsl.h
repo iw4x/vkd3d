@@ -1224,23 +1224,6 @@ struct hlsl_ctx
     /* List of the instruction nodes for initializing static variables. */
     struct hlsl_block static_initializers;
 
-    /* Dynamic array of constant values that appear in the shader, associated
-     * to the 'c' and 'i' registers. Only used for SM1 profiles. */
-    struct hlsl_constant_defs
-    {
-        struct hlsl_constant_register
-        {
-            bool is_int;
-            uint32_t index;
-            uint32_t allocated_mask;
-            union hlsl_constant_value_component value[4];
-            struct vkd3d_shader_location loc;
-        } *regs;
-        size_t count, size;
-    } constant_defs;
-    /* 'i' register allocated by SM3 to keep the maximum number of iterations. */
-    struct hlsl_reg d3d255intconst;
-
     /* Number of allocated registers, used in translation to vsir. */
     unsigned int ssa_count, temp_count, indexable_temp_count;
 

@@ -5462,7 +5462,6 @@ static void hlsl_ctx_cleanup(struct hlsl_ctx *ctx)
         vkd3d_free(buffer);
     }
 
-    vkd3d_free(ctx->constant_defs.regs);
     hlsl_ctx_cleanup_locale(ctx);
 }
 

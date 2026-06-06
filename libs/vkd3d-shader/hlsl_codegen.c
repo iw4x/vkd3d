@@ -8097,45 +8097,6 @@ static void allocate_temp_registers_recurse(struct hlsl_ctx *ctx, struct hlsl_bl
     }
 }
 
-static void record_constant_value(struct hlsl_ctx *ctx, unsigned int component_index,
-        bool is_int, union hlsl_constant_value_component v,
-        const struct vkd3d_shader_location *loc)
-{
-    struct hlsl_constant_defs *defs = &ctx->constant_defs;
-    struct hlsl_constant_register *reg;
-    size_t i;
-
-    for (i = 0; i < defs->count; ++i)
-    {
-        reg = &defs->regs[i];
-        if (reg->is_int == is_int && reg->index == (component_index / 4))
-        {
-            reg->value[component_index % 4] = v;
-            reg->allocated_mask |= (1u << (component_index % 4));
-            return;
-        }
-    }
-
-    if (!hlsl_array_reserve(ctx, (void **)&defs->regs, &defs->size, defs->count + 1, sizeof(*defs->regs)))
-        return;
-    reg = &defs->regs[defs->count++];
-    memset(reg, 0, sizeof(*reg));
-    reg->is_int = is_int;
-    reg->index = component_index / 4;
-    reg->value[component_index % 4] = v;
-    reg->allocated_mask = (1u << (component_index % 4));
-    reg->loc = *loc;
-}
-
-static void record_constint(struct hlsl_ctx *ctx, unsigned int component_index,
-        int i, const struct vkd3d_shader_location *loc)
-{
-    union hlsl_constant_value_component v;
-
-    v.i = i;
-    record_constant_value(ctx, component_index, true, v, loc);
-}
-
 static void sort_uniform_by_bind_count(struct list *sorted, struct hlsl_ir_var *to_sort, enum hlsl_regset regset)
 {
     struct hlsl_ir_var *var;
@@ -8170,37 +8131,8 @@ static void sort_uniforms_by_bind_count(struct hlsl_ctx *ctx, enum hlsl_regset r
     list_move_tail(&ctx->extern_vars, &sorted);
 }
 
-static bool allocate_constint_registers_for_loops(struct hlsl_ctx *ctx,
-        struct hlsl_ir_node *instr, void *context)
-{
-    struct register_allocator *allocator = (struct register_allocator *)context;
-    struct hlsl_ir_loop *loop;
-
-    if (ctx->d3d255intconst.allocated)
-        return false;
-
-    if (instr->type != HLSL_IR_LOOP)
-        return false;
-    loop = hlsl_ir_loop(instr);
-
-    if (!loop->limiter)
-    {
-        ctx->d3d255intconst = allocate_register(ctx, allocator, 4, 4, 0, false, false, false);
-        TRACE("Allocated D3D255INTCONST to %s.\n",
-                debug_register(ctx->d3d255intconst, hlsl_get_vector_type(ctx, HLSL_TYPE_INT, 4)));
-        record_constint(ctx, ctx->d3d255intconst.id * 4 + 0, 255, &instr->loc);
-        record_constint(ctx, ctx->d3d255intconst.id * 4 + 1, 0, &instr->loc);
-        record_constint(ctx, ctx->d3d255intconst.id * 4 + 2, 0, &instr->loc);
-        record_constint(ctx, ctx->d3d255intconst.id * 4 + 3, 0, &instr->loc);
-        return true;
-    }
-
-    return false;
-}
-
 static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *body)
 {
-    struct register_allocator allocator_constint = {.type = VSIR_REGISTER_CONSTINT};
     struct register_allocator allocator_used = {.type = VSIR_REGISTER_CONST};
     struct register_allocator allocator = {.type = VSIR_REGISTER_CONST};
     struct hlsl_ir_var *var;
@@ -8262,9 +8194,6 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
         }
     }
 
-    hlsl_transform_ir(ctx, allocate_constint_registers_for_loops, body, &allocator_constint);
-
-    vkd3d_free(allocator_constint.allocations);
     vkd3d_free(allocator.allocations);
 }
 
@@ -10409,45 +10338,6 @@ static uint32_t generate_vsir_get_src_swizzle(uint32_t src_writemask, uint32_t d
     return swizzle;
 }
 
-static void sm1_generate_vsir_constant_defs(struct hlsl_ctx *ctx,
-        struct vsir_program *program, struct hlsl_block *block)
-{
-    struct vsir_instruction *ins;
-    struct vsir_src_operand *src;
-    struct vsir_dst_operand *dst;
-    unsigned int i, x;
-
-    for (i = 0; i < ctx->constant_defs.count; ++i)
-    {
-        const struct hlsl_constant_register *constant_reg = &ctx->constant_defs.regs[i];
-
-        if (!(ins = vsir_program_append(program)))
-        {
-            ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
-            return;
-        }
-        if (!vsir_instruction_init_with_params(program, ins, &constant_reg->loc, VSIR_OP_DEFI, 1, 1))
-        {
-            vsir_instruction_init(ins, &constant_reg->loc, VSIR_OP_NOP);
-            ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
-            return;
-        }
-
-        dst = &ins->dst[0];
-        vsir_operand_init(&dst->reg, VSIR_REGISTER_CONSTINT, VSIR_DATA_I32, 1);
-        dst->reg.dimension = VSIR_DIMENSION_VEC4;
-        dst->reg.idx[0].offset = constant_reg->index;
-        dst->write_mask = VKD3DSP_WRITEMASK_ALL;
-
-        src = &ins->src[0];
-        vsir_src_operand_init(src, VSIR_REGISTER_IMMCONST, VSIR_DATA_I32, 0);
-        src->reg.dimension = VSIR_DIMENSION_VEC4;
-        for (x = 0; x < 4; ++x)
-            src->reg.u.immconst_u32[x] = constant_reg->value[x].u;
-        src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
-    }
-}
-
 static void sm1_generate_vsir_sampler_dcls(struct hlsl_ctx *ctx,
         struct vsir_program *program, struct hlsl_block *block)
 {
@@ -11789,10 +11679,13 @@ static void sm1_generate_vsir_instr_loop(struct hlsl_ctx *ctx,
     if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, VSIR_OP_REP, 0, 1)))
         return;
     src = &ins->src[0];
-    vsir_src_operand_init(src, VSIR_REGISTER_CONSTINT, VSIR_DATA_I32, 1);
+    vsir_src_operand_init(src, VSIR_REGISTER_IMMCONST, VSIR_DATA_I32, 0);
     src->reg.dimension = VSIR_DIMENSION_VEC4;
     src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
-    src->reg.idx[0].offset = ctx->d3d255intconst.id;
+    src->reg.u.immconst_u32[0] = 255;
+    src->reg.u.immconst_u32[1] = 0;
+    src->reg.u.immconst_u32[2] = 0;
+    src->reg.u.immconst_u32[3] = 0;
 
     sm1_generate_vsir_block(ctx, &loop->body, program);
 
@@ -11876,7 +11769,6 @@ static void sm1_generate_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_co
         return;
 
     hlsl_block_init(&block);
-    sm1_generate_vsir_constant_defs(ctx, program, &block);
     sm1_generate_vsir_sampler_dcls(ctx, program, &block);
     list_move_head(&body->instrs, &block.instrs);
 
