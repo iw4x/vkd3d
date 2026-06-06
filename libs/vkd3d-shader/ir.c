@@ -126,10 +126,7 @@ const char *vsir_register_type_get_name(enum vsir_register_type type, const char
         [VSIR_REGISTER_ATTROUT           ] = "oD",
         [VSIR_REGISTER_COLOROUT          ] = "oC",
         [VSIR_REGISTER_COMBINED_SAMPLER  ] = "s",
-        [VSIR_REGISTER_CONST             ] = "c",
-        [VSIR_REGISTER_CONSTBOOL         ] = "b",
         [VSIR_REGISTER_CONSTBUFFER       ] = "cb",
-        [VSIR_REGISTER_CONSTINT          ] = "i",
         [VSIR_REGISTER_COVERAGE          ] = "vCoverage",
         [VSIR_REGISTER_DEPTHOUT          ] = "oDepth",
         [VSIR_REGISTER_DEPTHOUTGE        ] = "oDepthGE",
@@ -15548,10 +15545,7 @@ static bool is_read_only(const struct vsir_program *program, enum vsir_register_
             return false;
 
         case VSIR_REGISTER_COMBINED_SAMPLER:
-        case VSIR_REGISTER_CONST:
-        case VSIR_REGISTER_CONSTBOOL:
         case VSIR_REGISTER_CONSTBUFFER:
-        case VSIR_REGISTER_CONSTINT:
         case VSIR_REGISTER_COVERAGE:
         case VSIR_REGISTER_FORKINSTID:
         case VSIR_REGISTER_GSINSTID:
@@ -15806,10 +15800,7 @@ static bool is_write_only(enum vsir_register_type type)
 
         /* Not applicable since they're not numeric or can't be destinations. */
         case VSIR_REGISTER_COMBINED_SAMPLER:
-        case VSIR_REGISTER_CONST:
-        case VSIR_REGISTER_CONSTBOOL:
         case VSIR_REGISTER_CONSTBUFFER:
-        case VSIR_REGISTER_CONSTINT:
         case VSIR_REGISTER_COVERAGE:
         case VSIR_REGISTER_FORKINSTID:
         case VSIR_REGISTER_FUNCTIONBODY:
