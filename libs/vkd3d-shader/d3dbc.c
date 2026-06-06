@@ -3546,7 +3546,7 @@ struct d3dbc_compiler
     struct vkd3d_bytecode_buffer buffer;
     struct vkd3d_shader_message_context *message_context;
     struct vkd3d_shader_location null_location;
-    struct d3dbc_const_allocator const_allocator;
+    struct d3dbc_const_allocator const_allocator, constint_allocator;
     bool failed;
 
     struct
@@ -3973,6 +3973,27 @@ static void d3dbc_src_operand_from_immconst_f32(struct d3dbc_compiler *compiler,
     d3dbc->swizzle = vsir_map_swizzle(vsir_swizzle_from_writemask(mask), read_mask);
 }
 
+static void d3dbc_src_operand_from_immconst_i32(struct d3dbc_compiler *compiler,
+        struct d3dbc_src_operand *d3dbc, const struct vsir_src_operand *vsir)
+{
+    float value[4];
+    uint32_t mask; /* always ALL, so we don't really need this */
+
+    for (unsigned int i = 0; i < 4; ++i)
+    {
+        value[i] = vsir->reg.u.immconst_f32[i];
+    }
+    if (!d3dbc_const_allocator_allocate_register(&compiler->constint_allocator,
+            4, value, &d3dbc->o.index, &mask))
+        compiler->failed = true;
+    d3dbc->o.type = D3DBC_REGISTER_CONSTINT;
+    d3dbc->o.has_rel_addr = false;
+    /* The only instruction that can take IMMCONST is REP, which must have
+     * default swizzle. */
+    d3dbc->swizzle = VKD3D_SHADER_NO_SWIZZLE;
+    d3dbc->modifiers = 0;
+}
+
 static void d3dbc_write_sincos(struct d3dbc_compiler *compiler, const struct vsir_instruction *vsir)
 {
     struct d3dbc_instruction d3dbc = {0};
@@ -4054,7 +4075,9 @@ static void d3dbc_write_vsir_def(struct d3dbc_compiler *compiler, const struct v
 
 static void d3dbc_write_vsir_defi(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
 {
+    struct d3dbc_const_allocator *allocator = &compiler->constint_allocator;
     struct d3dbc_instruction d3dbc = {0};
+    struct const_reg *reg;
 
     d3dbc.opcode = VKD3D_SM1_OP_DEFI;
     d3dbc.dst_count = 1;
@@ -4063,6 +4086,18 @@ static void d3dbc_write_vsir_defi(struct d3dbc_compiler *compiler, const struct 
     d3dbc.dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
     memcpy(d3dbc.immconst.i32, ins->src[0].reg.u.immconst_u32, sizeof(d3dbc.immconst.i32));
     d3dbc_add_instruction(compiler, &d3dbc, &ins->location);
+
+    /* TODO: This is temporary; we want to remove DEFI from vsir. */
+
+    if (!vkd3d_array_reserve((void **)&allocator->regs, &allocator->regs_capacity,
+            allocator->reg_count + 1, sizeof(*allocator->regs)))
+    {
+        compiler->failed = true;
+        return;
+    }
+    reg = &allocator->regs[allocator->reg_count++];
+    reg->index = ins->dst[0].reg.idx[0].offset;
+    reg->uniform = true; /* Not actually a uniform, but it's not "one of ours". */
 }
 
 static void d3dbc_write_vsir_sampler_dcl(struct d3dbc_compiler *compiler,
@@ -4208,6 +4243,8 @@ static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *compiler, const 
             {
                 if (ins->src[i].reg.type == VSIR_REGISTER_IMMCONST && ins->src[i].reg.data_type == VSIR_DATA_F32)
                     d3dbc_src_operand_from_immconst_f32(compiler, &d3dbc.src[i], ins, i);
+                else if (ins->src[i].reg.type == VSIR_REGISTER_IMMCONST && ins->src[i].reg.data_type == VSIR_DATA_I32)
+                    d3dbc_src_operand_from_immconst_i32(compiler, &d3dbc.src[i], &ins->src[i]);
                 else
                     d3dbc_src_operand_from_vsir(compiler, &d3dbc.src[i], &d3dbc.src_rel_addr[i], &ins->src[i]);
             }
@@ -4302,7 +4339,8 @@ static void d3dbc_instructions_from_vsir(struct d3dbc_compiler *compiler)
     }
 }
 
-static void d3dbc_write_const_defs(struct d3dbc_compiler *compiler, const struct d3dbc_const_allocator *allocator)
+static void d3dbc_write_const_defs(struct d3dbc_compiler *compiler, enum vkd3d_sm1_opcode opcode,
+        enum d3dbc_register_type type, const struct d3dbc_const_allocator *allocator)
 {
     struct d3dbc_instruction ins = {0};
 
@@ -4313,9 +4351,9 @@ static void d3dbc_write_const_defs(struct d3dbc_compiler *compiler, const struct
         if (reg->uniform)
             continue;
 
-        ins.opcode = VKD3D_SM1_OP_DEF;
+        ins.opcode = opcode;
         ins.dst_count = 1;
-        ins.dst[0].o.type = D3DBC_REGISTER_CONST;
+        ins.dst[0].o.type = type;
         ins.dst[0].o.index = reg->index;
         ins.dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
         memcpy(ins.immconst.f32, reg->value, sizeof(ins.immconst.f32));
@@ -4369,7 +4407,8 @@ int d3dbc_compile(struct vsir_program *program, uint64_t config_flags,
 
     put_u32(buffer, sm1_version(version->type, version->major, version->minor));
     d3dbc_write_comment(&compiler, TAG_CTAB, ctab);
-    d3dbc_write_const_defs(&compiler, &compiler.const_allocator);
+    d3dbc_write_const_defs(&compiler, VKD3D_SM1_OP_DEF, D3DBC_REGISTER_CONST, &compiler.const_allocator);
+    d3dbc_write_const_defs(&compiler, VKD3D_SM1_OP_DEFI, D3DBC_REGISTER_CONSTINT, &compiler.constint_allocator);
     d3dbc_write_semantic_dcls(&compiler);
     for (size_t i = 0; i < compiler.instruction_count; ++i)
         d3dbc_write_instruction(&compiler, &compiler.instructions[i].ins, &compiler.instructions[i].location);
@@ -4386,6 +4425,7 @@ int d3dbc_compile(struct vsir_program *program, uint64_t config_flags,
     if (!result)
         vkd3d_shader_code_from_bytecode_buffer(out, buffer);
     vkd3d_bytecode_buffer_cleanup(buffer);
+    d3dbc_const_allocator_cleanup(&compiler.constint_allocator);
     d3dbc_const_allocator_cleanup(&compiler.const_allocator);
 
     return result;
