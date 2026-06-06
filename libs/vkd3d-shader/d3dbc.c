@@ -3858,6 +3858,23 @@ static void d3dbc_operand_from_vsir(struct d3dbc_compiler *compiler, struct d3db
     };
     STATIC_ASSERT(ARRAY_SIZE(types) == 16); /* ensure we don't accidentally make this array too big */
 
+    if (vsir->type == VSIR_REGISTER_CONSTBUFFER)
+    {
+        if (vsir->idx[1].offset == VKD3D_SHADER_D3DBC_FLOAT_CONSTANT_REGISTER)
+            d3dbc->type = D3DBC_REGISTER_CONST;
+        else if (vsir->idx[1].offset == VKD3D_SHADER_D3DBC_INT_CONSTANT_REGISTER)
+            d3dbc->type = D3DBC_REGISTER_CONSTINT;
+        else if (vsir->idx[1].offset == VKD3D_SHADER_D3DBC_BOOL_CONSTANT_REGISTER)
+            d3dbc->type = D3DBC_REGISTER_CONSTBOOL;
+        else
+            vkd3d_unreachable();
+
+        d3dbc->index = vsir->idx[2].offset;
+        if ((d3dbc->has_rel_addr = vsir->idx[2].rel_addr))
+            d3dbc_src_operand_from_vsir(compiler, rel_addr, NULL, vsir->idx[2].rel_addr);
+        return;
+    }
+
     VKD3D_ASSERT(vsir->type < ARRAY_SIZE(types));
 
     d3dbc->type = types[vsir->type];

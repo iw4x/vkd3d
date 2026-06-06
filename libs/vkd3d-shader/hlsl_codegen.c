@@ -7734,7 +7734,7 @@ static const char *debug_register(struct hlsl_reg reg, const struct hlsl_type *t
     unsigned int reg_size = type->reg_size[HLSL_REGSET_NUMERIC];
     const char *class = "r";
 
-    if (reg.type == VSIR_REGISTER_CONST)
+    if (reg.type == VSIR_REGISTER_CONSTBUFFER)
         class = "c";
     else if (reg.type == VSIR_REGISTER_INPUT)
         class = "v";
@@ -8133,8 +8133,8 @@ static void sort_uniforms_by_bind_count(struct hlsl_ctx *ctx, enum hlsl_regset r
 
 static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *body)
 {
-    struct register_allocator allocator_used = {.type = VSIR_REGISTER_CONST};
-    struct register_allocator allocator = {.type = VSIR_REGISTER_CONST};
+    struct register_allocator allocator_used = {.type = VSIR_REGISTER_CONSTBUFFER};
+    struct register_allocator allocator = {.type = VSIR_REGISTER_CONSTBUFFER};
     struct hlsl_ir_var *var;
 
     sort_uniforms_by_bind_count(ctx, HLSL_REGSET_NUMERIC);
@@ -8167,7 +8167,7 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
                 record_allocation(ctx, &allocator, reg_idx + i, VKD3DSP_WRITEMASK_ALL, 0, false, false);
             }
 
-            var->regs[HLSL_REGSET_NUMERIC].type = VSIR_REGISTER_CONST;
+            var->regs[HLSL_REGSET_NUMERIC].type = VSIR_REGISTER_CONSTBUFFER;
             var->regs[HLSL_REGSET_NUMERIC].id = reg_idx;
             var->regs[HLSL_REGSET_NUMERIC].allocation_size = reg_size / 4;
             var->regs[HLSL_REGSET_NUMERIC].writemask = VKD3DSP_WRITEMASK_ALL;
@@ -11421,24 +11421,29 @@ static void sm1_generate_vsir_init_src_operand_from_deref(struct hlsl_ctx *ctx,
     {
         unsigned int offset = deref->const_offset;
 
-        type = VSIR_REGISTER_CONST;
-        register_index = deref->var->regs[HLSL_REGSET_NUMERIC].id + offset / 4;
+        vsir_src_operand_init(src, VSIR_REGISTER_CONSTBUFFER, VSIR_DATA_F32, 3);
+        src->reg.dimension = VSIR_DIMENSION_VEC4;
+        src->reg.idx[0].offset = VKD3D_SHADER_D3DBC_FLOAT_CONSTANT_REGISTER; /* id */
+        src->reg.idx[1].offset = src->reg.idx[0].offset;
+        src->reg.idx[2].offset = deref->var->regs[HLSL_REGSET_NUMERIC].id + offset / 4;
 
         writemask = 0xf & (0xf << (offset % 4));
         if (deref->var->regs[HLSL_REGSET_NUMERIC].writemask)
             writemask = hlsl_combine_writemasks(deref->var->regs[HLSL_REGSET_NUMERIC].writemask, writemask);
+        src->swizzle = generate_vsir_get_src_swizzle(writemask, dst_writemask);
 
         if (deref->rel_offset.node)
         {
             VKD3D_ASSERT(deref_supports_sm1_indirect_addressing(ctx, deref));
 
-            if (!(src_rel_addr = sm1_generate_vsir_new_address_src(ctx, program)))
+            if (!(src->reg.idx[2].rel_addr = sm1_generate_vsir_new_address_src(ctx, program)))
             {
                 ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
                 return;
             }
         }
         VKD3D_ASSERT(deref->var->regs[HLSL_REGSET_NUMERIC].allocated);
+        return;
     }
     else if (deref->var->is_input_semantic)
     {
