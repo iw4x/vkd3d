@@ -400,9 +400,9 @@ static const struct vkd3d_sm1_opcode_info vs_opcode_table[] =
     /* Declarations */
     {VKD3D_SM1_OP_DCL,          1, 0, "dcl",            VSIR_OP_DCL},
     /* Constant definitions */
-    {VKD3D_SM1_OP_DEF,          1, 0, "def",            VSIR_OP_DEF},
-    {VKD3D_SM1_OP_DEFB,         1, 0, "defb",           VSIR_OP_DEFB,         {2, 0}},
-    {VKD3D_SM1_OP_DEFI,         1, 0, "defi",           VSIR_OP_DEFI,         {2, 0}},
+    {VKD3D_SM1_OP_DEF,          1, 0, "def",            VSIR_OP_NOP},
+    {VKD3D_SM1_OP_DEFB,         1, 0, "defb",           VSIR_OP_NOP,          {2, 0}},
+    {VKD3D_SM1_OP_DEFI,         1, 0, "defi",           VSIR_OP_NOP,          {2, 0}},
     /* Control flow */
     {VKD3D_SM1_OP_REP,          0, 1, "rep",            VSIR_OP_REP,          {2, 0}},
     {VKD3D_SM1_OP_ENDREP,       0, 0, "endrep",         VSIR_OP_ENDREP,       {2, 0}},
@@ -462,9 +462,9 @@ static const struct vkd3d_sm1_opcode_info ps_opcode_table[] =
     /* Declarations */
     {VKD3D_SM1_OP_DCL,          1, 0, "dcl",            VSIR_OP_DCL,          {2, 0}},
     /* Constant definitions */
-    {VKD3D_SM1_OP_DEF,          1, 0, "def",            VSIR_OP_DEF},
-    {VKD3D_SM1_OP_DEFB,         1, 0, "defb",           VSIR_OP_DEFB,         {2, 0}},
-    {VKD3D_SM1_OP_DEFI,         1, 0, "defi",           VSIR_OP_DEFI,         {2, 1}},
+    {VKD3D_SM1_OP_DEF,          1, 0, "def",            VSIR_OP_NOP},
+    {VKD3D_SM1_OP_DEFB,         1, 0, "defb",           VSIR_OP_NOP,          {2, 0}},
+    {VKD3D_SM1_OP_DEFI,         1, 0, "defi",           VSIR_OP_NOP,          {2, 1}},
     /* Control flow */
     {VKD3D_SM1_OP_REP,          0, 1, "rep",            VSIR_OP_REP,          {2, 1}},
     {VKD3D_SM1_OP_ENDREP,       0, 0, "endrep",         VSIR_OP_ENDREP,       {2, 1}},
@@ -1160,7 +1160,7 @@ static void shader_sm1_skip_opcode(const struct vkd3d_shader_sm1_parser *sm1, co
         *ptr += 1;
     /* We don't count DEF instructions as having a source, but they do have
      * four tokens of float constants. */
-    else if (opcode_info->vsir_opcode == VSIR_OP_DEF)
+    else if (opcode_info->sm1_opcode == VKD3D_SM1_OP_DEF)
         *ptr += 4;
 
     *ptr += (opcode_info->dst_count + opcode_info->src_count);
@@ -4057,60 +4057,6 @@ static void d3dbc_write_texkill(struct d3dbc_compiler *compiler, const struct vs
     d3dbc_add_instruction(compiler, &d3dbc, &ins->location);
 }
 
-static void d3dbc_write_vsir_def(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
-{
-    struct d3dbc_const_allocator *allocator = &compiler->const_allocator;
-    struct d3dbc_instruction d3dbc = {0};
-    struct const_reg *reg;
-
-    d3dbc.opcode = VKD3D_SM1_OP_DEF;
-    d3dbc.dst_count = 1;
-    d3dbc.dst[0].o.type = D3DBC_REGISTER_CONST;
-    d3dbc.dst[0].o.index = ins->dst[0].reg.idx[0].offset;
-    d3dbc.dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
-    memcpy(d3dbc.immconst.f32, ins->src[0].reg.u.immconst_f32, sizeof(d3dbc.immconst.f32));
-    d3dbc_add_instruction(compiler, &d3dbc, &ins->location);
-
-    /* TODO: This is temporary; we want to remove DEF from vsir. */
-
-    if (!vkd3d_array_reserve((void **)&allocator->regs, &allocator->regs_capacity,
-            allocator->reg_count + 1, sizeof(*allocator->regs)))
-    {
-        compiler->failed = true;
-        return;
-    }
-    reg = &allocator->regs[allocator->reg_count++];
-    reg->index = ins->dst[0].reg.idx[0].offset;
-    reg->uniform = true; /* Not actually a uniform, but it's not "one of ours". */
-}
-
-static void d3dbc_write_vsir_defi(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
-{
-    struct d3dbc_const_allocator *allocator = &compiler->constint_allocator;
-    struct d3dbc_instruction d3dbc = {0};
-    struct const_reg *reg;
-
-    d3dbc.opcode = VKD3D_SM1_OP_DEFI;
-    d3dbc.dst_count = 1;
-    d3dbc.dst[0].o.type = D3DBC_REGISTER_CONSTINT;
-    d3dbc.dst[0].o.index = ins->dst[0].reg.idx[0].offset;
-    d3dbc.dst[0].write_mask = VKD3DSP_WRITEMASK_ALL;
-    memcpy(d3dbc.immconst.i32, ins->src[0].reg.u.immconst_u32, sizeof(d3dbc.immconst.i32));
-    d3dbc_add_instruction(compiler, &d3dbc, &ins->location);
-
-    /* TODO: This is temporary; we want to remove DEFI from vsir. */
-
-    if (!vkd3d_array_reserve((void **)&allocator->regs, &allocator->regs_capacity,
-            allocator->reg_count + 1, sizeof(*allocator->regs)))
-    {
-        compiler->failed = true;
-        return;
-    }
-    reg = &allocator->regs[allocator->reg_count++];
-    reg->index = ins->dst[0].reg.idx[0].offset;
-    reg->uniform = true; /* Not actually a uniform, but it's not "one of ours". */
-}
-
 static void d3dbc_write_vsir_sampler_dcl(struct d3dbc_compiler *compiler,
         unsigned int reg_id, enum vkd3d_sm1_resource_type res_type, const struct vkd3d_shader_location *location)
 {
@@ -4175,14 +4121,6 @@ static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *compiler, const 
     switch (ins->opcode)
     {
         case VSIR_OP_NOP:
-            break;
-
-        case VSIR_OP_DEF:
-            d3dbc_write_vsir_def(compiler, ins);
-            break;
-
-        case VSIR_OP_DEFI:
-            d3dbc_write_vsir_defi(compiler, ins);
             break;
 
         case VSIR_OP_DCL:

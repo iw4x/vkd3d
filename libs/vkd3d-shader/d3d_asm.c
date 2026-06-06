@@ -1694,30 +1694,6 @@ static void shader_dump_instruction(struct vkd3d_d3d_asm_compiler *compiler, con
             shader_dump_register_space(compiler, ins->declaration.structured_resource.resource.range.space);
             break;
 
-        case VSIR_OP_DEF:
-            vkd3d_string_buffer_printf(buffer, " %sc%u%s", compiler->colours.reg,
-                    ins->dst[0].reg.idx[0].offset, compiler->colours.reset);
-            shader_print_float_literal(compiler, " = ", ins->src[0].reg.u.immconst_f32[0], "");
-            shader_print_float_literal(compiler, ", ", ins->src[0].reg.u.immconst_f32[1], "");
-            shader_print_float_literal(compiler, ", ", ins->src[0].reg.u.immconst_f32[2], "");
-            shader_print_float_literal(compiler, ", ", ins->src[0].reg.u.immconst_f32[3], "");
-            break;
-
-        case VSIR_OP_DEFI:
-            vkd3d_string_buffer_printf(buffer, " %si%u%s", compiler->colours.reg,
-                    ins->dst[0].reg.idx[0].offset, compiler->colours.reset);
-            shader_print_int_literal(compiler, " = ", ins->src[0].reg.u.immconst_u32[0], "");
-            shader_print_int_literal(compiler, ", ", ins->src[0].reg.u.immconst_u32[1], "");
-            shader_print_int_literal(compiler, ", ", ins->src[0].reg.u.immconst_u32[2], "");
-            shader_print_int_literal(compiler, ", ", ins->src[0].reg.u.immconst_u32[3], "");
-            break;
-
-        case VSIR_OP_DEFB:
-            vkd3d_string_buffer_printf(buffer, " %sb%u%s", compiler->colours.reg,
-                    ins->dst[0].reg.idx[0].offset, compiler->colours.reset);
-            shader_print_bool_literal(compiler, " = ", ins->src[0].reg.u.immconst_u32[0], "");
-            break;
-
         default:
             shader_dump_instruction_flags(compiler, ins);
 

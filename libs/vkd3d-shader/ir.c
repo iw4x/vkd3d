@@ -261,10 +261,7 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_DCL_UAV_TYPED                   ] = "dcl_uav_typed",
         [VSIR_OP_DCL_VERTICES_OUT                ] = "dcl_maxout",
         [VSIR_OP_DDIV                            ] = "ddiv",
-        [VSIR_OP_DEF                             ] = "def",
         [VSIR_OP_DEFAULT                         ] = "default",
-        [VSIR_OP_DEFB                            ] = "defb",
-        [VSIR_OP_DEFI                            ] = "defi",
         [VSIR_OP_DEQO                            ] = "deq",
         [VSIR_OP_DFMA                            ] = "dfma",
         [VSIR_OP_DGEO                            ] = "dge",
@@ -1461,9 +1458,7 @@ static bool vsir_instruction_is_dcl(const struct vsir_instruction *instruction)
 {
     enum vsir_opcode opcode = instruction->opcode;
 
-    return (VSIR_OP_DCL <= opcode && opcode <= VSIR_OP_DCL_VERTICES_OUT)
-            || opcode == VSIR_OP_HS_DECLS || opcode == VSIR_OP_DEF
-            || opcode == VSIR_OP_DEFI || opcode == VSIR_OP_DEFB;
+    return (VSIR_OP_DCL <= opcode && opcode <= VSIR_OP_DCL_VERTICES_OUT) || opcode == VSIR_OP_HS_DECLS;
 }
 
 /* NOTE: Immediate constant buffers are not cloned, so the source must not be destroyed while the
@@ -10790,10 +10785,7 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_DCL_UAV_STRUCTURED:
         case VSIR_OP_DCL_UAV_TYPED:
         case VSIR_OP_DCL_VERTICES_OUT:
-        case VSIR_OP_DEF:
         case VSIR_OP_DEFAULT:
-        case VSIR_OP_DEFB:
-        case VSIR_OP_DEFI:
         case VSIR_OP_DEQO:
         case VSIR_OP_DGEO:
         case VSIR_OP_DISCARD:
@@ -15114,9 +15106,6 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_COUNTBITS:
         case VSIR_OP_DADD:
         case VSIR_OP_DDIV:
-        case VSIR_OP_DEF:
-        case VSIR_OP_DEFB:
-        case VSIR_OP_DEFI:
         case VSIR_OP_DEQO:
         case VSIR_OP_DFMA:
         case VSIR_OP_DGEO:
