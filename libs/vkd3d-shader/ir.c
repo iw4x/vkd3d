@@ -3683,28 +3683,26 @@ static struct vkd3d_shader_instruction *vsir_program_iterator_dcl_indexable_temp
 static enum vkd3d_result vsir_program_copy_d3dbc_input_to_indexable_temp(struct vsir_program *program,
         struct vsir_transformation_context *ctx, unsigned int *idxtemp_idx)
 {
-    struct vsir_program_iterator dcl_it = vsir_program_iterator(&program->instructions);
     struct vsir_program_iterator mov_it = vsir_program_iterator(&program->instructions);
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
     struct vkd3d_shader_location loc = ctx->null_location;
-    struct vkd3d_shader_instruction *ins, *dcl_ins;
-    struct vkd3d_shader_semantic *semantic;
+    struct vkd3d_shader_instruction *ins;
     size_t register_size = 0;
-    size_t dcl_count = 0;
 
     *idxtemp_idx = vsir_program_get_idxtemp_count(program);
 
+    for (unsigned int i = 0; i < program->input_signature.element_count; ++i)
+    {
+        const struct vsir_signature_element *e = &program->input_signature.elements[i];
+
+        register_size = max(register_size, e->register_index + 1);
+    }
+
+    if (!register_size)
+        return VKD3D_OK;
+
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
-        if (ins->opcode == VSIR_OP_DCL)
-        {
-            semantic = &ins->declaration.semantic;
-            if (semantic->resource.reg.reg.type != VSIR_REGISTER_INPUT)
-                continue;
-            register_size = max(register_size, semantic->resource.reg.reg.idx[0].offset + 1);
-            ++dcl_count;
-        }
-
         if (!vsir_instruction_is_dcl(ins) && ins->opcode != VSIR_OP_NOP)
         {
             loc = ins->location;
@@ -3712,48 +3710,37 @@ static enum vkd3d_result vsir_program_copy_d3dbc_input_to_indexable_temp(struct 
         }
     }
 
-    if (!register_size)
-        return VKD3D_OK;
     if (!vsir_program_iterator_dcl_indexable_temp_before(ctx, &it, *idxtemp_idx, register_size))
         return VKD3D_ERROR_OUT_OF_MEMORY;
-    if (!(ins = vsir_program_iterator_insert_before(&it, &mov_it, dcl_count)))
+    if (!(ins = vsir_program_iterator_insert_before(&it, &mov_it, program->input_signature.element_count)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
-    for (dcl_ins = vsir_program_iterator_head(&dcl_it); dcl_ins; dcl_ins = vsir_program_iterator_next(&dcl_it))
+    for (unsigned int i = 0; i < program->input_signature.element_count; ++i)
     {
+        const struct vsir_signature_element *e = &program->input_signature.elements[i];
         struct vsir_dst_operand *dst;
         struct vsir_src_operand *src;
 
-        if (dcl_ins->opcode == VSIR_OP_DCL)
-        {
-            semantic = &dcl_ins->declaration.semantic;
-            if (semantic->resource.reg.reg.type != VSIR_REGISTER_INPUT)
-                continue;
+        if (!vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MOV, 1, 1))
+            goto fail;
 
-            if (!vsir_instruction_init_with_params(program, ins, &dcl_ins->location, VSIR_OP_MOV, 1, 1))
-                goto fail;
+        dst = &ins->dst[0];
+        vsir_dst_operand_init(dst, VSIR_REGISTER_IDXTEMP, VSIR_DATA_F32, 2);
+        dst->reg.idx[0].offset = *idxtemp_idx;
+        dst->reg.idx[1].offset = e->register_index;
+        dst->reg.dimension = VSIR_DIMENSION_VEC4;
+        dst->write_mask = e->mask;
 
-            dst = &ins->dst[0];
-            vsir_dst_operand_init(dst, VSIR_REGISTER_IDXTEMP, VSIR_DATA_F32, 2);
-            dst->reg.idx[0].offset = *idxtemp_idx;
-            dst->reg.idx[1].offset = semantic->resource.reg.reg.idx[0].offset;
-            dst->reg.dimension = VSIR_DIMENSION_VEC4;
-            dst->write_mask = semantic->resource.reg.write_mask;
+        src = &ins->src[0];
+        vsir_src_operand_init(src, VSIR_REGISTER_INPUT, VSIR_DATA_F32, 1);
+        src->reg.idx[0].offset = e->register_index;
+        src->reg.dimension = VSIR_DIMENSION_VEC4;
+        src->modifiers = 0;
+        src->swizzle = vsir_swizzle_from_writemask(e->mask);
 
-            src = &ins->src[0];
-            vsir_src_operand_init(src, VSIR_REGISTER_INPUT, VSIR_DATA_F32, 1);
-            src->reg.idx[0].offset = semantic->resource.reg.reg.idx[0].offset;
-            src->reg.dimension = VSIR_DIMENSION_VEC4;
-            src->modifiers = 0;
-            src->swizzle = vsir_swizzle_from_writemask(semantic->resource.reg.write_mask);
-
-            ins = vsir_program_iterator_next(&mov_it);
-
-            if (--dcl_count == 0)
-                return VKD3D_OK;
-        }
+        ins = vsir_program_iterator_next(&mov_it);
     }
-    vkd3d_unreachable();
+    return VKD3D_OK;
 
 fail:
     vsir_program_iterator_prev(&it);
