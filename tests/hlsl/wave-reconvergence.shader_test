@@ -1,3 +1,11 @@
+% I'm not aware of any explicit mention of wave reconvergence in the d3d12
+% specification, let alone a requirement. Based on my observation, maximal
+% reconvergence is currently implemented by WARP and AMD, but not by NVIDIA.
+% In principle that would mean that as a feature it is not required by d3d12
+% and we don't have anything to test here. However, it seems useful to keep
+% the tests in case it becomes a guarantee in the future, and to document the
+% situation.
+
 [require]
 shader model >= 6.0
 wave-ops
@@ -66,7 +74,7 @@ bug(mvk) probe uav-2 (3) u32(0x113)
 probe uav-2 (4) u32(0xf24)
 
 probe uav-2 (5) u32(0xf01)
-bug(mvk) probe uav-2 (6) u32(0xa02)
+bug(mvk) winbug(nvidia) probe uav-2 (6) u32(0xa02)
 probe uav-2 (7) u32(0xf04)
 probe uav-2 (8) u32(0)
 probe uav-2 (9) u32(0)
@@ -74,11 +82,11 @@ probe uav-2 (9) u32(0)
 probe uav-2 (10) u32(0xf01)
 bug(mvk) probe uav-2 (11) u32(0x503)
 probe uav-2 (12) u32(0x511)
-bug(mvk) probe uav-2 (13) u32(0x412)
+bug(mvk) winbug(nvidia) probe uav-2 (13) u32(0x412)
 probe uav-2 (14) u32(0xf14)
 
 probe uav-2 (15) u32(0xf01)
-bug(mvk) probe uav-2 (16) u32(0xa02)
+bug(mvk) winbug(nvidia) probe uav-2 (16) u32(0xa02)
 probe uav-2 (17) u32(0xf04)
 probe uav-2 (18) u32(0)
 probe uav-2 (19) u32(0)
@@ -134,7 +142,7 @@ bug(mvk) probe uav-2 (3) u32(0x113)
 probe uav-2 (4) u32(0x724)
 
 probe uav-2 (5) u32(0x701)
-bug(mvk) probe uav-2 (6) u32(0x202)
+bug(mvk) winbug(nvidia) probe uav-2 (6) u32(0x202)
 probe uav-2 (7) u32(0x704)
 probe uav-2 (8) u32(0)
 probe uav-2 (9) u32(0)
@@ -142,7 +150,7 @@ probe uav-2 (9) u32(0)
 probe uav-2 (10) u32(0x701)
 bug(mvk) probe uav-2 (11) u32(0x503)
 probe uav-2 (12) u32(0x511)
-bug(mvk) probe uav-2 (13) u32(0x412)
+bug(mvk) winbug(nvidia) probe uav-2 (13) u32(0x412)
 probe uav-2 (14) u32(0x714)
 
 probe uav-2 (15) u32(0)
