@@ -105,10 +105,12 @@ float4 main(float4 pos : position, out float4 specular : color1) : sv_position
 [test]
 fog none
 draw triangle strip 4
-probe (160, 120) rgba (0.0, 0.7, 1.0, 1.0)
-probe (480, 360) rgba (0.0, 0.7, 1.0, 1.0)
-probe (160, 120) rgba (0.0, 0.7, 1.0, 1.0)
-probe (480, 360) rgba (0.0, 0.7, 1.0, 1.0)
+% On d3d9 versions starting more or less with the Windows 11 era the fog is
+% ignored in this case.
+winbug(d3d9>=10.0.26100) probe (160, 120) f32(0.0, 0.7, 1.0, 1.0)
+winbug(d3d9>=10.0.26100) probe (480, 360) f32(0.0, 0.7, 1.0, 1.0)
+winbug(d3d9>=10.0.26100) probe (160, 120) f32(0.0, 0.7, 1.0, 1.0)
+winbug(d3d9>=10.0.26100) probe (480, 360) f32(0.0, 0.7, 1.0, 1.0)
 
 fog linear ortho 0.1 1.1
 draw triangle strip 4

@@ -141,6 +141,12 @@ static bool init_test_context(struct d3d9_shader_runner *runner)
 
     runner->caps.tags[SHADER_RUNNER_TAG_WINDOWS].present = true;
 
+    runner->caps.tags[SHADER_RUNNER_TAG_D3D9].present = true;
+    if (!get_dll_version("d3d9.dll", &runner->caps.tags[SHADER_RUNNER_TAG_D3D9].major,
+            &runner->caps.tags[SHADER_RUNNER_TAG_D3D9].minor,
+            &runner->caps.tags[SHADER_RUNNER_TAG_D3D9].patch, NULL))
+        fatal_error("Cannot query d3d9.dll version.\n");
+
     if (identifier.VendorId == 0x1414 && identifier.DeviceId == 0x008c)
     {
         trace("Using WARP device.\n");

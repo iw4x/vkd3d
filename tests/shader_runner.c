@@ -205,6 +205,7 @@ static const char * const shader_runner_tag_names[SHADER_RUNNER_TAG_COUNT] =
     [SHADER_RUNNER_TAG_AMD]      = "amd",
     [SHADER_RUNNER_TAG_D3D11]    = "d3d11",
     [SHADER_RUNNER_TAG_D3D12]    = "d3d12",
+    [SHADER_RUNNER_TAG_D3D9]     = "d3d9",
     [SHADER_RUNNER_TAG_GLSL]     = "glsl",
     [SHADER_RUNNER_TAG_INTEL]    = "intel",
     [SHADER_RUNNER_TAG_LLVM]     = "llvm",
@@ -3674,7 +3675,8 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
 }
 
 #ifdef _WIN32
-static void print_dll_version(const char *file_name)
+bool get_dll_version(const char *file_name, unsigned int *major, unsigned int *minor,
+        unsigned int *build, unsigned int *patch)
 {
     BOOL (WINAPI *GetFileVersionInfoA)(const char *, DWORD, DWORD, void *);
     BOOL (WINAPI *VerQueryValueA)(void *, char *, void **, UINT*);
@@ -3685,7 +3687,7 @@ static void print_dll_version(const char *file_name)
 
     version_module = LoadLibraryA("version.dll");
     if (!version_module)
-        goto out;
+        return false;
 
 #define X(name) name = (void *)GetProcAddress(version_module, #name);
     X(GetFileVersionInfoSizeA);
@@ -3696,7 +3698,7 @@ static void print_dll_version(const char *file_name)
     if (!GetFileVersionInfoSizeA || !GetFileVersionInfoA || !VerQueryValueA)
     {
         FreeLibrary(version_module);
-        goto out;
+        return false;
     }
 
     size = GetFileVersionInfoSizeA(file_name, &handle);
@@ -3711,9 +3713,11 @@ static void print_dll_version(const char *file_name)
 
             if (VerQueryValueA(data, "\\", (void **)&info, &len))
             {
-                trace("%s version: %lu.%lu.%lu.%lu\n", file_name,
-                        info->dwFileVersionMS >> 16, info->dwFileVersionMS & 0xffff,
-                        info->dwFileVersionLS >> 16, info->dwFileVersionLS & 0xffff);
+                *major = info->dwFileVersionMS >> 16;
+                *minor = info->dwFileVersionMS & 0xffff;
+                *build = info->dwFileVersionLS >> 16;
+                if (patch)
+                    *patch = info->dwFileVersionLS & 0xffff;
                 done = true;
             }
         }
@@ -3722,9 +3726,17 @@ static void print_dll_version(const char *file_name)
 
     FreeLibrary(version_module);
 
-out:
-    if (!done)
+    return done;
+}
+
+static void print_dll_version(const char *file_name)
+{
+    unsigned int major, minor, build, patch;
+
+    if (!get_dll_version(file_name, &major, &minor, &build, &patch))
         trace("%s version: unknown\n", file_name);
+
+    trace("%s version: %u.%u.%u.%u\n", file_name, major, minor, build, patch);
 }
 #endif
 
