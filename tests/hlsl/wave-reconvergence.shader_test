@@ -1,8 +1,3 @@
-% Many of these tests fail on MoltenVK because of a bug in Metal, which causes
-% SIMD operations (i.e., wave operations for Apple) to be hoisted out of the
-% "if"statement, thereby changing which threads (i.e., wave groups for Apple)
-% appear as active. This was reported to Apple as FB15624583.
-
 [require]
 shader model >= 6.0
 wave-ops
