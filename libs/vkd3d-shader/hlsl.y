@@ -3085,9 +3085,7 @@ static bool parse_function_call_arguments(struct hlsl_ctx *ctx, const struct hls
 
         if (param->storage_modifiers & HLSL_STORAGE_IN)
         {
-            if (!hlsl_types_are_equal(arg->data_type, param->data_type))
-                arg = add_cast(ctx, args->instrs, arg, param->data_type, &arg->loc);
-
+            arg = add_cast(ctx, args->instrs, arg, param->data_type, &arg->loc);
             hlsl_block_add_simple_store(ctx, args->instrs, param, arg);
         }
 
