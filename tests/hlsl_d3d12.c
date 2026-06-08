@@ -211,6 +211,8 @@ static HRESULT WINAPI test_include_Close(ID3DInclude *iface, const void *code)
         --refcount_file3;
     else if (code == test_include_empty2)
         --refcount_empty2;
+    else if (code == test_include_empty3)
+        --refcount_empty3;
     return E_FAIL;
 }
 
@@ -606,8 +608,7 @@ static void test_preprocess(void)
             todo ok(!errors, "Expected no compiled shader blob.\n");
         }
         ok(!refcount_empty2, "Got %d references to empty2.\n", refcount_empty2);
-        ok(refcount_empty3 == 1, "Got %d references to empty3.\n", refcount_empty3);
-        refcount_empty3 = 0;
+        ok(!refcount_empty3, "Got %d references to empty3.\n", refcount_empty3);
 
         blob = errors = (ID3D10Blob *)0xdeadbeef;
         hr = D3DPreprocessVKD3D(test_include_empty4, strlen(test_include_empty4), NULL,
