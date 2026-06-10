@@ -3050,9 +3050,9 @@ static uint32_t get_runner_test_mask(struct shader_runner *runner, enum test_act
 {
     uint32_t model_mask = runner->test_model_mask;
 
-    static const uint32_t sm1_mask = (1u << SHADER_MODEL_4_0) - 1;
-    static const uint32_t sm4_mask = ((1u << SHADER_MODEL_6_0) - 1) & ~sm1_mask;
-    static const uint32_t sm6_mask = ((1u << (SHADER_MODEL_MAX + 1)) - 1) & ~(sm1_mask | sm4_mask);
+    uint32_t sm1_mask = (1u << SHADER_MODEL_4_0) - 1;
+    uint32_t sm4_mask = ((1u << SHADER_MODEL_6_0) - 1) & ~sm1_mask;
+    uint32_t sm6_mask = ((1u << (SHADER_MODEL_MAX + 1)) - 1) & ~(sm1_mask | sm4_mask);
 
     if (test_action == TEST_ACTION_COMPILE)
     {
@@ -3072,6 +3072,9 @@ static uint32_t get_runner_test_mask(struct shader_runner *runner, enum test_act
      * waste time testing every version possible. SM1-3, SM4-5, and SM6 are
      * completely different formats, often with different HLSL semantics, so
      * where possible try to test one version from each set. */
+    if (runner->shader_source[SHADER_TYPE_HS])
+        sm4_mask &= ~((1u << SHADER_MODEL_5_0) - 1);
+
     if (!(model_mask & sm1_mask))
         add_one_version_from(&model_mask, runner, sm1_mask);
     if (!(model_mask & sm4_mask))
@@ -3086,7 +3089,7 @@ static uint32_t get_runner_test_mask(struct shader_runner *runner, enum test_act
         if (!(model_mask & sm1_mask))
             bitmap_set(&model_mask, SHADER_MODEL_2_0);
         if (!(model_mask & sm4_mask))
-            bitmap_set(&model_mask, SHADER_MODEL_4_0);
+            bitmap_set(&model_mask, SHADER_MODEL_5_0);
         if (!(model_mask & sm6_mask))
             bitmap_set(&model_mask, SHADER_MODEL_6_0);
     }
