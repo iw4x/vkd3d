@@ -461,6 +461,608 @@ clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 dispatch-mesh 1 1 1
 probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
 
+% Test type size and alignment in the amplification shader payload.
+% DXIL doesn't support char, so we put a uint16_t before and after the type to
+% check to observe its size and alignment.
+% Usually we don't care too much about alignment in DXIL, because in most
+% cases where alignment is relevant it is determined by external factors, such
+% as the need to fit or pack components in registers. However, the
+% amplification shader payload behaves more similar to how C structures are
+% laid out on most CPUs: a linear space where fields are allocated
+% incrementally according to their sizes and alignments.
+% The result is that all numeric types have their obvious size and matching
+% alignment. The only exception is bool, which has size and alignment 4.
+% Moreover, vector types have the same alignment as their scalar counterparts.
+% Scalar types are not explicitly tested, because it is assumed they won't
+% have stricter alignment than vector types anyway. In the DXIL bytecode
+% vector types are lowered to scalars.
+% Unfortunately tests in this section crash on AMD GPUs. On the Steam Deck the
+% crash is vary bad and takes down the whole operating system. On other GPUs
+% they just (non deterministically) cause GPU resets.
+
+[require]
+shader model >= 6.5
+mesh-shader
+native-16-bit
+
+[amplification-shader]
+struct payload_data
+{
+    uint16_t before;
+    bool4 test;
+    uint16_t after;
+};
+
+groupshared struct payload_data p;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    p.before = 0xabab;
+    p.test.xw = true;
+    p.test.yz = false;
+    p.after = 0xcdcd;
+
+    DispatchMesh(1, 1, 1, p);
+}
+
+[mesh-shader]
+struct payload_data
+{
+    uint16_t data[12];
+};
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 color : COLOR;
+};
+
+static const float4 positions[4] =
+{
+    float4(-1.0, -1.0, 0.0, 1.0),
+    float4(-1.0,  1.0, 0.0, 1.0),
+    float4( 1.0,  1.0, 0.0, 1.0),
+    float4( 1.0, -1.0, 0.0, 1.0),
+};
+
+static const uint3 triangles[2] =
+{
+    uint3(0, 1, 3),
+    uint3(1, 2, 3),
+};
+
+    [outputtopology("triangle")]
+    [numthreads(4, 1, 1)]
+void main(in payload payload_data p, out vertices vertex_out verts[4],
+        out indices uint3 indices[2], uint index : SV_GroupIndex)
+{
+    if (p.data[0] != 0xabab
+            || p.data[2] != 1
+            || p.data[3] != 0
+            || p.data[4] != 0
+            || p.data[5] != 0
+            || p.data[6] != 0
+            || p.data[7] != 0
+            || p.data[8] != 1
+            || p.data[9] != 0
+            || p.data[10] != 0xcdcd)
+    {
+        return;
+    }
+
+    SetMeshOutputCounts(4, 2);
+
+    verts[index].position = positions[index];
+    verts[index].color = float4(0.25, 0.5, 0.75, 1.0);
+
+    if (index < 2)
+        indices[index] = triangles[index];
+}
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+winbug(amd) dispatch-mesh 1 1 1
+winbug(amd) probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
+
+[amplification-shader]
+struct payload_data
+{
+    uint16_t before;
+    uint16_t4 test;
+    uint16_t after;
+};
+
+groupshared struct payload_data p;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    p.before = 0xabab;
+    p.test = 0xe1e2;
+    p.after = 0xcdcd;
+
+    DispatchMesh(1, 1, 1, p);
+}
+
+[mesh-shader]
+struct payload_data
+{
+    uint16_t data[6];
+};
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 color : COLOR;
+};
+
+static const float4 positions[4] =
+{
+    float4(-1.0, -1.0, 0.0, 1.0),
+    float4(-1.0,  1.0, 0.0, 1.0),
+    float4( 1.0,  1.0, 0.0, 1.0),
+    float4( 1.0, -1.0, 0.0, 1.0),
+};
+
+static const uint3 triangles[2] =
+{
+    uint3(0, 1, 3),
+    uint3(1, 2, 3),
+};
+
+    [outputtopology("triangle")]
+    [numthreads(4, 1, 1)]
+void main(in payload payload_data p, out vertices vertex_out verts[4],
+        out indices uint3 indices[2], uint index : SV_GroupIndex)
+{
+    if (p.data[0] != 0xabab
+            || p.data[1] != 0xe1e2
+            || p.data[2] != 0xe1e2
+            || p.data[3] != 0xe1e2
+            || p.data[4] != 0xe1e2
+            || p.data[5] != 0xcdcd)
+    {
+        return;
+    }
+
+    SetMeshOutputCounts(4, 2);
+
+    verts[index].position = positions[index];
+    verts[index].color = float4(0.25, 0.5, 0.75, 1.0);
+
+    if (index < 2)
+        indices[index] = triangles[index];
+}
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+winbug(amd) dispatch-mesh 1 1 1
+winbug(amd) probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
+
+[amplification-shader]
+struct payload_data
+{
+    uint16_t before;
+    half4 test;
+    uint16_t after;
+};
+
+groupshared struct payload_data p;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    p.before = 0xabab;
+    p.test = (half)f16tof32(0xe1e2);
+    p.after = 0xcdcd;
+
+    DispatchMesh(1, 1, 1, p);
+}
+
+[mesh-shader]
+struct payload_data
+{
+    uint16_t data[6];
+};
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 color : COLOR;
+};
+
+static const float4 positions[4] =
+{
+    float4(-1.0, -1.0, 0.0, 1.0),
+    float4(-1.0,  1.0, 0.0, 1.0),
+    float4( 1.0,  1.0, 0.0, 1.0),
+    float4( 1.0, -1.0, 0.0, 1.0),
+};
+
+static const uint3 triangles[2] =
+{
+    uint3(0, 1, 3),
+    uint3(1, 2, 3),
+};
+
+    [outputtopology("triangle")]
+    [numthreads(4, 1, 1)]
+void main(in payload payload_data p, out vertices vertex_out verts[4],
+        out indices uint3 indices[2], uint index : SV_GroupIndex)
+{
+    if (p.data[0] != 0xabab
+            || p.data[1] != 0xe1e2
+            || p.data[2] != 0xe1e2
+            || p.data[3] != 0xe1e2
+            || p.data[4] != 0xe1e2
+            || p.data[5] != 0xcdcd)
+    {
+        return;
+    }
+
+    SetMeshOutputCounts(4, 2);
+
+    verts[index].position = positions[index];
+    verts[index].color = float4(0.25, 0.5, 0.75, 1.0);
+
+    if (index < 2)
+        indices[index] = triangles[index];
+}
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+winbug(amd) dispatch-mesh 1 1 1
+winbug(amd) probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
+
+[amplification-shader]
+struct payload_data
+{
+    uint16_t before;
+    uint4 test;
+    uint16_t after;
+};
+
+groupshared struct payload_data p;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    p.before = 0xabab;
+    p.test = 0xe1e2e3e4;
+    p.after = 0xcdcd;
+
+    DispatchMesh(1, 1, 1, p);
+}
+
+[mesh-shader]
+struct payload_data
+{
+    uint16_t data[12];
+};
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 color : COLOR;
+};
+
+static const float4 positions[4] =
+{
+    float4(-1.0, -1.0, 0.0, 1.0),
+    float4(-1.0,  1.0, 0.0, 1.0),
+    float4( 1.0,  1.0, 0.0, 1.0),
+    float4( 1.0, -1.0, 0.0, 1.0),
+};
+
+static const uint3 triangles[2] =
+{
+    uint3(0, 1, 3),
+    uint3(1, 2, 3),
+};
+
+    [outputtopology("triangle")]
+    [numthreads(4, 1, 1)]
+void main(in payload payload_data p, out vertices vertex_out verts[4],
+        out indices uint3 indices[2], uint index : SV_GroupIndex)
+{
+    if (p.data[0] != 0xabab
+            || p.data[2] != 0xe3e4
+            || p.data[3] != 0xe1e2
+            || p.data[4] != 0xe3e4
+            || p.data[5] != 0xe1e2
+            || p.data[6] != 0xe3e4
+            || p.data[7] != 0xe1e2
+            || p.data[8] != 0xe3e4
+            || p.data[9] != 0xe1e2
+            || p.data[10] != 0xcdcd)
+    {
+        return;
+    }
+
+    SetMeshOutputCounts(4, 2);
+
+    verts[index].position = positions[index];
+    verts[index].color = float4(0.25, 0.5, 0.75, 1.0);
+
+    if (index < 2)
+        indices[index] = triangles[index];
+}
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+winbug(amd) dispatch-mesh 1 1 1
+winbug(amd) probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
+
+[amplification-shader]
+struct payload_data
+{
+    uint16_t before;
+    float4 test;
+    uint16_t after;
+};
+
+groupshared struct payload_data p;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    p.before = 0xabab;
+    p.test = asfloat(0xe1e2e3e4);
+    p.after = 0xcdcd;
+
+    DispatchMesh(1, 1, 1, p);
+}
+
+[mesh-shader]
+struct payload_data
+{
+    uint16_t data[12];
+};
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 color : COLOR;
+};
+
+static const float4 positions[4] =
+{
+    float4(-1.0, -1.0, 0.0, 1.0),
+    float4(-1.0,  1.0, 0.0, 1.0),
+    float4( 1.0,  1.0, 0.0, 1.0),
+    float4( 1.0, -1.0, 0.0, 1.0),
+};
+
+static const uint3 triangles[2] =
+{
+    uint3(0, 1, 3),
+    uint3(1, 2, 3),
+};
+
+    [outputtopology("triangle")]
+    [numthreads(4, 1, 1)]
+void main(in payload payload_data p, out vertices vertex_out verts[4],
+        out indices uint3 indices[2], uint index : SV_GroupIndex)
+{
+    if (p.data[0] != 0xabab
+            || p.data[2] != 0xe3e4
+            || p.data[3] != 0xe1e2
+            || p.data[4] != 0xe3e4
+            || p.data[5] != 0xe1e2
+            || p.data[6] != 0xe3e4
+            || p.data[7] != 0xe1e2
+            || p.data[8] != 0xe3e4
+            || p.data[9] != 0xe1e2
+            || p.data[10] != 0xcdcd)
+    {
+        return;
+    }
+
+    SetMeshOutputCounts(4, 2);
+
+    verts[index].position = positions[index];
+    verts[index].color = float4(0.25, 0.5, 0.75, 1.0);
+
+    if (index < 2)
+        indices[index] = triangles[index];
+}
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+winbug(amd) dispatch-mesh 1 1 1
+winbug(amd) probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
+
+[require]
+shader model >= 6.5
+mesh-shader
+native-16-bit
+int64
+
+[amplification-shader]
+struct payload_data
+{
+    uint16_t before;
+    uint64_t4 test;
+    uint16_t after;
+};
+
+groupshared struct payload_data p;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    p.before = 0xabab;
+    p.test = 0xe1e2e3e4e5e6e7e8;
+    p.after = 0xcdcd;
+
+    DispatchMesh(1, 1, 1, p);
+}
+
+[mesh-shader]
+struct payload_data
+{
+    uint16_t data[24];
+};
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 color : COLOR;
+};
+
+static const float4 positions[4] =
+{
+    float4(-1.0, -1.0, 0.0, 1.0),
+    float4(-1.0,  1.0, 0.0, 1.0),
+    float4( 1.0,  1.0, 0.0, 1.0),
+    float4( 1.0, -1.0, 0.0, 1.0),
+};
+
+static const uint3 triangles[2] =
+{
+    uint3(0, 1, 3),
+    uint3(1, 2, 3),
+};
+
+    [outputtopology("triangle")]
+    [numthreads(4, 1, 1)]
+void main(in payload payload_data p, out vertices vertex_out verts[4],
+        out indices uint3 indices[2], uint index : SV_GroupIndex)
+{
+    if (p.data[0] != 0xabab
+            || p.data[4] != 0xe7e8
+            || p.data[5] != 0xe5e6
+            || p.data[6] != 0xe3e4
+            || p.data[7] != 0xe1e2
+            || p.data[8] != 0xe7e8
+            || p.data[9] != 0xe5e6
+            || p.data[10] != 0xe3e4
+            || p.data[11] != 0xe1e2
+            || p.data[12] != 0xe7e8
+            || p.data[13] != 0xe5e6
+            || p.data[14] != 0xe3e4
+            || p.data[15] != 0xe1e2
+            || p.data[16] != 0xe7e8
+            || p.data[17] != 0xe5e6
+            || p.data[18] != 0xe3e4
+            || p.data[19] != 0xe1e2
+            || p.data[20] != 0xcdcd)
+    {
+        return;
+    }
+
+    SetMeshOutputCounts(4, 2);
+
+    verts[index].position = positions[index];
+    verts[index].color = float4(0.25, 0.5, 0.75, 1.0);
+
+    if (index < 2)
+        indices[index] = triangles[index];
+}
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+winbug(amd) dispatch-mesh 1 1 1
+winbug(amd) probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
+
+[require]
+shader model >= 6.5
+mesh-shader
+native-16-bit
+float64
+
+[amplification-shader]
+struct payload_data
+{
+    uint16_t before;
+    double4 test;
+    uint16_t after;
+};
+
+groupshared struct payload_data p;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    p.before = 0xabab;
+    p.test = asdouble(0xe5e6e7e8, 0xe1e2e3e4);
+    p.after = 0xcdcd;
+
+    DispatchMesh(1, 1, 1, p);
+}
+
+[mesh-shader]
+struct payload_data
+{
+    uint16_t data[24];
+};
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 color : COLOR;
+};
+
+static const float4 positions[4] =
+{
+    float4(-1.0, -1.0, 0.0, 1.0),
+    float4(-1.0,  1.0, 0.0, 1.0),
+    float4( 1.0,  1.0, 0.0, 1.0),
+    float4( 1.0, -1.0, 0.0, 1.0),
+};
+
+static const uint3 triangles[2] =
+{
+    uint3(0, 1, 3),
+    uint3(1, 2, 3),
+};
+
+    [outputtopology("triangle")]
+    [numthreads(4, 1, 1)]
+void main(in payload payload_data p, out vertices vertex_out verts[4],
+        out indices uint3 indices[2], uint index : SV_GroupIndex)
+{
+    if (p.data[0] != 0xabab
+            || p.data[4] != 0xe7e8
+            || p.data[5] != 0xe5e6
+            || p.data[6] != 0xe3e4
+            || p.data[7] != 0xe1e2
+            || p.data[8] != 0xe7e8
+            || p.data[9] != 0xe5e6
+            || p.data[10] != 0xe3e4
+            || p.data[11] != 0xe1e2
+            || p.data[12] != 0xe7e8
+            || p.data[13] != 0xe5e6
+            || p.data[14] != 0xe3e4
+            || p.data[15] != 0xe1e2
+            || p.data[16] != 0xe7e8
+            || p.data[17] != 0xe5e6
+            || p.data[18] != 0xe3e4
+            || p.data[19] != 0xe1e2
+            || p.data[20] != 0xcdcd)
+    {
+        return;
+    }
+
+    SetMeshOutputCounts(4, 2);
+
+    verts[index].position = positions[index];
+    verts[index].color = float4(0.25, 0.5, 0.75, 1.0);
+
+    if (index < 2)
+        indices[index] = triangles[index];
+}
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+winbug(amd) dispatch-mesh 1 1 1
+winbug(amd) probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
+
+[require]
+shader model >= 6.5
+mesh-shader
+
 % Test a more complicated payload structure, with structures and arrays
 % embedded in each other, to test more complicated DXIL getelementptr
 % expressions.
@@ -503,11 +1105,14 @@ void main(uint3 id : SV_GroupThreadID)
 struct payload_data
 {
     float4 color;
-    struct {
+    struct
+    {
         uint c;
-        struct {
+        struct
+        {
             float d[2];
-            struct {
+            struct
+            {
                 float f;
                 uint g;
             } e;
