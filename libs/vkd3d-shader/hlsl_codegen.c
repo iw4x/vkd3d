@@ -14095,9 +14095,6 @@ static void sm4_generate_vsir_add_dcl_stream(struct hlsl_ctx *ctx,
     ins->src[0].reg.idx[0].offset = var->regs[HLSL_REGSET_STREAM_OUTPUTS].index;
 }
 
-/* OBJECTIVE: Translate all the information from ctx and entry_func to the
- * vsir_program, so it can be used as input to tpf_compile() without relying
- * on ctx and entry_func. */
 static void sm4_generate_vsir(struct hlsl_ctx *ctx,
         const struct vkd3d_shader_compile_info *compile_info, struct hlsl_ir_function_decl *func,
         struct list *semantic_vars, struct hlsl_block *body, struct list *patch_semantic_vars,
