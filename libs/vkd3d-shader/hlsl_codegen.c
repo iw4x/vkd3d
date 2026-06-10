@@ -7568,7 +7568,7 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
  * index to all (simultaneously live) variables or intermediate values. Agnostic
  * as to how many registers are actually available for the current backend, and
  * does not handle constants. */
-static void allocate_temp_registers(struct hlsl_ctx *ctx, struct hlsl_block *body, struct list *semantic_vars)
+static void allocate_temp_registers(struct hlsl_ctx *ctx, struct hlsl_block *body)
 {
     struct hlsl_scope *scope;
     struct hlsl_ir_var *var;
@@ -7587,16 +7587,7 @@ static void allocate_temp_registers(struct hlsl_ctx *ctx, struct hlsl_block *bod
 
     /* ps_1_* outputs are special and go in temp register 0. */
     if (ctx->profile->major_version == 1 && ctx->profile->type == VKD3D_SHADER_TYPE_PIXEL)
-    {
-        LIST_FOR_EACH_ENTRY(var, semantic_vars, struct hlsl_ir_var, extern_entry)
-        {
-            if (var->is_output_semantic)
-            {
-                ctx->temp_count = 1;
-                break;
-            }
-        }
-    }
+        ctx->temp_count = 1;
 
     allocate_temp_registers_recurse(ctx, body);
 }
@@ -11125,14 +11116,14 @@ static void sm1_generate_vsir_block(struct hlsl_ctx *ctx, struct hlsl_block *blo
 }
 
 static void sm1_generate_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info *compile_info,
-        struct hlsl_ir_function_decl *func, struct list *semantic_vars,
-        struct hlsl_block *body, uint64_t config_flags, struct vsir_program *program)
+        struct hlsl_ir_function_decl *func, struct hlsl_block *body,
+        uint64_t config_flags, struct vsir_program *program)
 {
     struct hlsl_block block;
 
     program->ssa_count = 0;
     program->temp_count = 0;
-    allocate_temp_registers(ctx, body, semantic_vars);
+    allocate_temp_registers(ctx, body);
     if (ctx->result)
         return;
 
@@ -13439,7 +13430,7 @@ static void sm4_generate_vsir_add_function(struct hlsl_ctx *ctx, struct list *se
 
     compute_liveness(ctx, body);
     mark_indexable_vars(ctx, body);
-    allocate_temp_registers(ctx, body, semantic_vars);
+    allocate_temp_registers(ctx, body);
     if (ctx->result)
         return;
     program->temp_count = max(program->temp_count, ctx->temp_count);
@@ -16405,7 +16396,7 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
         goto done;
 
     if (program->shader_version.major < 4)
-        sm1_generate_vsir(ctx, compile_info, entry_func, &semantic_vars, &body, config_flags, program);
+        sm1_generate_vsir(ctx, compile_info, entry_func, &body, config_flags, program);
     else
         sm4_generate_vsir(ctx, compile_info, entry_func, &semantic_vars, &body,
                 &patch_semantic_vars, &patch_body, config_flags, program);
