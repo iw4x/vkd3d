@@ -1,4 +1,4 @@
-[pixel-shader fail(sm<4) todo(sm<4)]
+[pixel-shader fail(sm<4)]
     void main() {}
 
 [pixel-shader fail(sm<4) todo(sm<4)]
@@ -7,7 +7,7 @@
         return 0;
     }
 
-[pixel-shader fail(sm<4) todo(sm<4)]
+[pixel-shader fail(sm<4)]
     float4 main() : sv_target1
     {
         return 0;

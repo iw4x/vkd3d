@@ -7945,8 +7945,8 @@ static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct vsir_progra
 {
     struct register_allocator input_allocator = {0}, patch_constant_allocator = {0};
     struct register_allocator output_allocators[VKD3D_MAX_STREAM_COUNT] = {{0}};
+    bool has_position = false, has_target = false;
     const struct vsir_signature_element *e;
-    bool has_position = false;
     struct hlsl_ir_var *var;
 
     input_allocator.type = VSIR_REGISTER_INPUT;
@@ -7991,19 +7991,30 @@ static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct vsir_progra
         {
             VKD3D_ASSERT(var->semantic.stream_index < ARRAY_SIZE(output_allocators));
             if (ctx->is_patch_constant_func)
+            {
                 generate_signature_entry(ctx, program, var, &program->patch_constant_signature,
                         &patch_constant_allocator, true);
+            }
             else if ((e = generate_signature_entry(ctx, program, var, &program->output_signature,
-                    &output_allocators[var->semantic.stream_index], true))
-                    && e->sysval_semantic == VKD3D_SHADER_SV_POSITION)
-                has_position = true;
+                    &output_allocators[var->semantic.stream_index], true)))
+            {
+                if (e->sysval_semantic == VKD3D_SHADER_SV_POSITION)
+                    has_position = true;
+                else if (e->sysval_semantic == VKD3D_SHADER_SV_TARGET && !e->semantic_index)
+                    has_target = true;
+            }
         }
     }
 
-    if (program->shader_version.major < 4
-            && program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX && !has_position)
-        hlsl_error(ctx, &entry_func->loc, VKD3D_SHADER_ERROR_HLSL_FUNCTION_MISSING_SEMANTIC,
-                "Vertex shaders must output position in this shader model.");
+    if (program->shader_version.major < 4)
+    {
+        if (program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX && !has_position)
+            hlsl_error(ctx, &entry_func->loc, VKD3D_SHADER_ERROR_HLSL_FUNCTION_MISSING_SEMANTIC,
+                    "Vertex shaders must output position in this shader model.");
+        else if (program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL && !has_target)
+            hlsl_error(ctx, &entry_func->loc, VKD3D_SHADER_ERROR_HLSL_FUNCTION_MISSING_SEMANTIC,
+                    "Pixel shaders must output color in this shader model.");
+    }
 
     *output_reg_count = output_allocators[0].reg_count;
     for (unsigned int i = 1; i < ARRAY_SIZE(output_allocators); ++i)
