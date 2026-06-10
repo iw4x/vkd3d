@@ -16339,7 +16339,6 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
     calculate_resource_register_counts(ctx);
 
     allocate_register_reservations(ctx, &ctx->extern_vars);
-    allocate_register_reservations(ctx, semantic_vars);
     allocate_semantic_registers(ctx, semantic_vars, &output_reg_count);
 
     if (profile->type == VKD3D_SHADER_TYPE_GEOMETRY)
