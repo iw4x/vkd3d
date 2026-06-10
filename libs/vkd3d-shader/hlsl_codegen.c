@@ -7640,7 +7640,7 @@ static enum vkd3d_shader_interpolation_mode get_interpolation_mode(const struct 
     return VKD3DSIM_LINEAR;
 }
 
-static void generate_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *program,
+static struct vsir_signature_element *generate_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *program,
         struct hlsl_ir_var *var, struct vsir_signature *signature, struct register_allocator *allocator, bool output)
 {
     static const char *const shader_names[] =
@@ -7689,7 +7689,7 @@ static void generate_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *
         uint32_t usage_idx;
 
         if ((!output && !var->last_read) || (output && !var->first_write))
-            return;
+            return NULL;
 
         if ((builtin = sm1_register_from_semantic_name(&version,
                 var->semantic.name, var->semantic.index, output, &sysval, &type, &reg)))
@@ -7721,7 +7721,7 @@ static void generate_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *
         {
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
                     "Invalid semantic '%s'.", var->semantic.name);
-            return;
+            return NULL;
         }
 
         if (builtin && interpolation_mode == VKD3DSIM_LINEAR_CENTROID
@@ -7757,7 +7757,7 @@ static void generate_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *
         {
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
                     "Invalid semantic '%s'.", var->semantic.name);
-            return;
+            return NULL;
         }
 
         if ((builtin = sm4_register_from_semantic_name(&version, var->semantic.name, output, &type, &has_idx)))
@@ -7862,7 +7862,7 @@ static void generate_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *
         {
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
                 "Too many SV_ClipDistance or SV_CullDistance parameters.");
-            return;
+            return NULL;
         }
 
         TRACE("Allocated %s to %s (mode %d).\n", var->name,
@@ -7878,15 +7878,15 @@ static void generate_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *
      * point. (The same doesn't apply to output patches because it's illegal
      * to return void from a hull shader entry point.) */
     if (ctx->is_patch_constant_func && is_primitive)
-        return;
+        return NULL;
     if (sysval == ~0u)
-        return;
+        return NULL;
 
     if (!vkd3d_array_reserve((void **)&signature->elements, &signature->elements_capacity,
             signature->element_count + 1, sizeof(*signature->elements)))
     {
         ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
-        return;
+        return NULL;
     }
     element = &signature->elements[signature->element_count++];
     memset(element, 0, sizeof(*element));
@@ -7895,7 +7895,7 @@ static void generate_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *
     {
         --signature->element_count;
         ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
-        return;
+        return NULL;
     }
     element->semantic_index = var->semantic.index;
     element->stream_index = var->semantic.stream_index;
@@ -7936,13 +7936,17 @@ static void generate_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *
             element->min_precision = VKD3D_SHADER_MINIMUM_PRECISION_UINT_16;
             break;
     }
+
+    return element;
 }
 
 static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct vsir_program *program,
-        struct list *semantic_vars, uint32_t *output_reg_count)
+        struct list *semantic_vars, struct hlsl_ir_function_decl *entry_func, uint32_t *output_reg_count)
 {
     struct register_allocator input_allocator = {0}, patch_constant_allocator = {0};
     struct register_allocator output_allocators[VKD3D_MAX_STREAM_COUNT] = {{0}};
+    const struct vsir_signature_element *e;
+    bool has_position = false;
     struct hlsl_ir_var *var;
 
     input_allocator.type = VSIR_REGISTER_INPUT;
@@ -7989,11 +7993,17 @@ static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct vsir_progra
             if (ctx->is_patch_constant_func)
                 generate_signature_entry(ctx, program, var, &program->patch_constant_signature,
                         &patch_constant_allocator, true);
-            else
-                generate_signature_entry(ctx, program, var, &program->output_signature,
-                        &output_allocators[var->semantic.stream_index], true);
+            else if ((e = generate_signature_entry(ctx, program, var, &program->output_signature,
+                    &output_allocators[var->semantic.stream_index], true))
+                    && e->sysval_semantic == VKD3D_SHADER_SV_POSITION)
+                has_position = true;
         }
     }
+
+    if (program->shader_version.major < 4
+            && program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX && !has_position)
+        hlsl_error(ctx, &entry_func->loc, VKD3D_SHADER_ERROR_HLSL_FUNCTION_MISSING_SEMANTIC,
+                "Vertex shaders must output position in this shader model.");
 
     *output_reg_count = output_allocators[0].reg_count;
     for (unsigned int i = 1; i < ARRAY_SIZE(output_allocators); ++i)
@@ -16267,7 +16277,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct vsir_program *pr
     calculate_resource_register_counts(ctx);
 
     allocate_register_reservations(ctx, &ctx->extern_vars);
-    allocate_semantic_registers(ctx, program, semantic_vars, &output_reg_count);
+    allocate_semantic_registers(ctx, program, semantic_vars, entry_func, &output_reg_count);
 
     if (profile->type == VKD3D_SHADER_TYPE_GEOMETRY)
         validate_max_output_size(ctx, semantic_vars, output_reg_count, &entry_func->loc);

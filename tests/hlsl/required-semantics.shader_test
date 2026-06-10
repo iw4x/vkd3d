@@ -13,7 +13,7 @@
         return 0;
     }
 
-[vertex-shader fail(sm<4) todo(sm<4)]
+[vertex-shader fail(sm<4)]
     void main() {}
 
 [vertex-shader fail todo]
