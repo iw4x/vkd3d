@@ -1,0 +1,23 @@
+[pixel-shader fail(sm<4) todo(sm<4)]
+    void main() {}
+
+[pixel-shader fail(sm<4) todo(sm<4)]
+    float3 main() : sv_target
+    {
+        return 0;
+    }
+
+[pixel-shader fail(sm<4) todo(sm<4)]
+    float4 main() : sv_target1
+    {
+        return 0;
+    }
+
+[vertex-shader fail(sm<4) todo(sm<4)]
+    void main() {}
+
+[vertex-shader fail todo]
+    float3 main() : sv_position
+    {
+        return 0;
+    }
