@@ -7965,6 +7965,8 @@ static struct vsir_signature_element *generate_signature_entry(struct hlsl_ctx *
             element->min_precision = VKD3D_SHADER_MINIMUM_PRECISION_UINT_16;
             break;
     }
+    if (element->min_precision != VKD3D_SHADER_MINIMUM_PRECISION_NONE || base_type->is_minimum_precision)
+        program->global_flags |= VKD3DSGF_ENABLE_MINIMUM_PRECISION;
 
     return element;
 }
@@ -13725,13 +13727,12 @@ static void generate_vsir_scan_required_features(struct hlsl_ctx *ctx, struct vs
      * STENCIL_REF, and TYPED_UAV_LOAD_ADDITIONAL_FORMATS. */
 }
 
-static void generate_vsir_scan_global_flags(struct hlsl_ctx *ctx, struct vsir_program *program,
-        const struct list *semantic_vars, const struct hlsl_ir_function_decl *entry_func)
+static void generate_vsir_scan_global_flags(struct hlsl_ctx *ctx,
+        struct vsir_program *program, const struct hlsl_ir_function_decl *entry_func)
 {
     const struct vkd3d_shader_version *version = &program->shader_version;
     struct extern_resource *extern_resources;
     unsigned int extern_resources_count, i;
-    struct hlsl_ir_var *var;
 
     extern_resources = sm4_get_extern_resources(ctx, &extern_resources_count);
 
@@ -13752,24 +13753,8 @@ static void generate_vsir_scan_global_flags(struct hlsl_ctx *ctx, struct vsir_pr
 
     sm4_free_extern_resources(extern_resources, extern_resources_count);
 
-    LIST_FOR_EACH_ENTRY(var, semantic_vars, struct hlsl_ir_var, extern_entry)
-    {
-        const struct hlsl_type *type = var->data_type;
-
-        if (hlsl_type_is_primitive_array(type))
-            type = var->data_type->e.array.type;
-
-        /* Note that it doesn't matter if the semantic is unused or doesn't
-         * generate a signature element (e.g. SV_DispatchThreadID). */
-        if ((var->is_input_semantic || var->is_output_semantic)
-                && (type->is_minimum_precision || hlsl_type_is_minimum_precision(type)))
-        {
-            program->global_flags |= VKD3DSGF_ENABLE_MINIMUM_PRECISION;
-            break;
-        }
-    }
-    /* FIXME: We also need to check for minimum-precision uniforms and local
-     * variable arithmetic. */
+    /* FIXME: Check for minimum-precision uniforms and local variable
+     * arithmetic, and enable VKD3DSGF_ENABLE_MINIMUM_PRECISION if so. */
 
     if (entry_func->early_depth_test && vkd3d_shader_ver_ge(version, 5, 0))
         program->global_flags |= VKD3DSGF_FORCE_EARLY_DEPTH_STENCIL;
@@ -14174,7 +14159,7 @@ static void sm4_generate_vsir(struct hlsl_ctx *ctx,
     }
 
     generate_vsir_scan_required_features(ctx, program);
-    generate_vsir_scan_global_flags(ctx, program, semantic_vars, func);
+    generate_vsir_scan_global_flags(ctx, program, func);
 
     program->ssa_count = ctx->ssa_count;
     program->temp_count = ctx->temp_count;
