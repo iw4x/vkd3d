@@ -1994,7 +1994,7 @@ bool sm1_register_from_semantic_name(const struct vkd3d_shader_version *version,
 bool sm1_usage_from_semantic_name(const struct vkd3d_shader_version *version, const char *semantic_name,
         uint32_t semantic_index, bool output, enum vkd3d_decl_usage *usage, uint32_t *usage_idx);
 bool sm4_register_from_semantic_name(const struct vkd3d_shader_version *version,
-        const char *semantic_name, bool output, enum vsir_register_type *type, bool *has_idx);
+        const char *semantic_name, bool output, enum vsir_register_type *type);
 bool shader_sm4_is_scalar_register(const struct vsir_operand *reg);
 bool sm4_sysval_semantic_from_semantic_name(enum vkd3d_shader_sysval_semantic *sysval_semantic,
         const struct vkd3d_shader_version *version, bool semantic_compat_mapping,

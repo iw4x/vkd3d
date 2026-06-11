@@ -7778,8 +7778,6 @@ static struct vsir_signature_element *generate_signature_entry(struct hlsl_ctx *
     }
     else
     {
-        bool has_idx;
-
         if (!sm4_sysval_semantic_from_semantic_name(&sysval, &version,
                 ctx->compile_info.map_semantic_names, ctx->domain, var->semantic.name,
                 var->semantic.index, output, ctx->is_patch_constant_func, is_primitive))
@@ -7789,8 +7787,8 @@ static struct vsir_signature_element *generate_signature_entry(struct hlsl_ctx *
             return NULL;
         }
 
-        if ((builtin = sm4_register_from_semantic_name(&version, var->semantic.name, output, &type, &has_idx)))
-            reg = has_idx ? var->semantic.index : ~0u;
+        if ((builtin = sm4_register_from_semantic_name(&version, var->semantic.name, output, &type)))
+            reg = ~0u;
 
         if (sysval == VKD3D_SHADER_SV_STENCIL_REF)
         {
@@ -7871,8 +7869,20 @@ static struct vsir_signature_element *generate_signature_entry(struct hlsl_ctx *
 
     if (builtin)
     {
-        TRACE("%s %s semantic %s[%u] matches predefined register %#x[%u].\n", shader_names[version.type],
-                output ? "output" : "input", var->semantic.name, var->semantic.index, type, reg);
+        TRACE("%s %s semantic %s matches predefined register %#x.\n", shader_names[version.type],
+                output ? "output" : "input", var->semantic.name, type);
+    }
+    else if (sysval == VKD3D_SHADER_SV_TARGET)
+    {
+        /* TARGET uniquely gets allocated to the register corresponding to the semantic index. */
+
+        var->regs[HLSL_REGSET_NUMERIC].type = VSIR_REGISTER_OUTPUT;
+        var->regs[HLSL_REGSET_NUMERIC].allocated = true;
+        var->regs[HLSL_REGSET_NUMERIC].allocation_size = 1;
+        var->regs[HLSL_REGSET_NUMERIC].id = var->semantic.index;
+        var->regs[HLSL_REGSET_NUMERIC].writemask = (1u << var->data_type->e.numeric.dimx) - 1;
+
+        TRACE("Pixel output semantic %s[%u] is colour output.\n", var->semantic.name, var->semantic.index);
     }
     else
     {
@@ -10042,19 +10052,12 @@ static bool sm4_generate_vsir_reg_from_deref(struct hlsl_ctx *ctx, struct vsir_p
     else if (var->is_input_semantic)
     {
         bool is_primitive = hlsl_type_is_primitive_array(var->data_type);
-        bool has_idx;
 
-        if (sm4_register_from_semantic_name(version, var->semantic.name, false, &reg->type, &has_idx))
+        if (sm4_register_from_semantic_name(version, var->semantic.name, false, &reg->type))
         {
             unsigned int offset = hlsl_offset_from_deref_safe(ctx, deref);
 
             VKD3D_ASSERT(!is_primitive);
-
-            if (has_idx)
-            {
-                reg->idx[0].offset = var->semantic.index + offset / 4;
-                reg->idx_count = 1;
-            }
 
             if (shader_sm4_is_scalar_register(reg))
                 reg->dimension = VSIR_DIMENSION_SCALAR;
@@ -10087,17 +10090,9 @@ static bool sm4_generate_vsir_reg_from_deref(struct hlsl_ctx *ctx, struct vsir_p
     }
     else if (var->is_output_semantic)
     {
-        bool has_idx;
-
-        if (sm4_register_from_semantic_name(version, var->semantic.name, true, &reg->type, &has_idx))
+        if (sm4_register_from_semantic_name(version, var->semantic.name, true, &reg->type))
         {
             unsigned int offset = hlsl_offset_from_deref_safe(ctx, deref);
-
-            if (has_idx)
-            {
-                reg->idx[0].offset = var->semantic.index + offset / 4;
-                reg->idx_count = 1;
-            }
 
             if (shader_sm4_is_scalar_register(reg))
                 reg->dimension = VSIR_DIMENSION_SCALAR;
@@ -11777,10 +11772,9 @@ static void sm4_generate_vsir_instr_dcl_semantic(struct hlsl_ctx *ctx, struct vs
             opcode = VSIR_OP_DCL_OUTPUT_SIV;
     }
 
-    if (sm4_register_from_semantic_name(version, var->semantic.name, output, &type, &has_idx))
+    if (sm4_register_from_semantic_name(version, var->semantic.name, output, &type))
     {
-        if (has_idx)
-            idx = var->semantic.index;
+        has_idx = false;
         write_mask = (1u << var->data_type->e.numeric.dimx) - 1;
     }
     else

@@ -2970,7 +2970,7 @@ int tpf_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t con
 }
 
 bool sm4_register_from_semantic_name(const struct vkd3d_shader_version *version,
-        const char *semantic_name, bool output, enum vsir_register_type *type, bool *has_idx)
+        const char *semantic_name, bool output, enum vsir_register_type *type)
 {
     unsigned int i;
 
@@ -2980,33 +2980,27 @@ bool sm4_register_from_semantic_name(const struct vkd3d_shader_version *version,
         bool output;
         enum vkd3d_shader_type shader_type;
         enum vsir_register_type type;
-        bool has_idx;
     }
     register_table[] =
     {
-        {"sv_dispatchthreadid",     false, VKD3D_SHADER_TYPE_COMPUTE,  VSIR_REGISTER_THREADID,         false},
-        {"sv_groupid",              false, VKD3D_SHADER_TYPE_COMPUTE,  VSIR_REGISTER_THREADGROUPID,    false},
-        {"sv_groupindex",           false, VKD3D_SHADER_TYPE_COMPUTE,  VSIR_REGISTER_LOCALTHREADINDEX, false},
-        {"sv_groupthreadid",        false, VKD3D_SHADER_TYPE_COMPUTE,  VSIR_REGISTER_LOCALTHREADID,    false},
+        {"sv_dispatchthreadid",     false, VKD3D_SHADER_TYPE_COMPUTE,  VSIR_REGISTER_THREADID},
+        {"sv_groupid",              false, VKD3D_SHADER_TYPE_COMPUTE,  VSIR_REGISTER_THREADGROUPID},
+        {"sv_groupindex",           false, VKD3D_SHADER_TYPE_COMPUTE,  VSIR_REGISTER_LOCALTHREADINDEX},
+        {"sv_groupthreadid",        false, VKD3D_SHADER_TYPE_COMPUTE,  VSIR_REGISTER_LOCALTHREADID},
 
-        {"sv_domainlocation",       false, VKD3D_SHADER_TYPE_DOMAIN,   VSIR_REGISTER_TESSCOORD,        false},
-        {"sv_primitiveid",          false, VKD3D_SHADER_TYPE_DOMAIN,   VSIR_REGISTER_PRIMID,           false},
+        {"sv_domainlocation",       false, VKD3D_SHADER_TYPE_DOMAIN,   VSIR_REGISTER_TESSCOORD},
+        {"sv_primitiveid",          false, VKD3D_SHADER_TYPE_DOMAIN,   VSIR_REGISTER_PRIMID},
 
-        {"sv_primitiveid",          false, VKD3D_SHADER_TYPE_GEOMETRY, VSIR_REGISTER_PRIMID,           false},
-        {"sv_gsinstanceid",         false, VKD3D_SHADER_TYPE_GEOMETRY, VSIR_REGISTER_GSINSTID,         false},
+        {"sv_primitiveid",          false, VKD3D_SHADER_TYPE_GEOMETRY, VSIR_REGISTER_PRIMID},
+        {"sv_gsinstanceid",         false, VKD3D_SHADER_TYPE_GEOMETRY, VSIR_REGISTER_GSINSTID},
 
-        {"sv_outputcontrolpointid", false, VKD3D_SHADER_TYPE_HULL,     VSIR_REGISTER_OUTPOINTID,       false},
-        {"sv_primitiveid",          false, VKD3D_SHADER_TYPE_HULL,     VSIR_REGISTER_PRIMID,           false},
+        {"sv_outputcontrolpointid", false, VKD3D_SHADER_TYPE_HULL,     VSIR_REGISTER_OUTPOINTID},
+        {"sv_primitiveid",          false, VKD3D_SHADER_TYPE_HULL,     VSIR_REGISTER_PRIMID},
 
-        /* Put sv_target in this table, instead of letting it fall through to
-         * default varying allocation, so that the register index matches the
-         * usage index. */
-        {"color",                   true,  VKD3D_SHADER_TYPE_PIXEL,    VSIR_REGISTER_OUTPUT,           true},
-        {"depth",                   true,  VKD3D_SHADER_TYPE_PIXEL,    VSIR_REGISTER_DEPTHOUT,         false},
-        {"sv_depth",                true,  VKD3D_SHADER_TYPE_PIXEL,    VSIR_REGISTER_DEPTHOUT,         false},
-        {"sv_target",               true,  VKD3D_SHADER_TYPE_PIXEL,    VSIR_REGISTER_OUTPUT,           true},
-        {"sv_coverage",             true,  VKD3D_SHADER_TYPE_PIXEL,    VSIR_REGISTER_SAMPLEMASK,       false},
-        {"sv_stencilref",           true,  VKD3D_SHADER_TYPE_PIXEL,    VSIR_REGISTER_OUTSTENCILREF,    false},
+        {"depth",                   true,  VKD3D_SHADER_TYPE_PIXEL,    VSIR_REGISTER_DEPTHOUT},
+        {"sv_depth",                true,  VKD3D_SHADER_TYPE_PIXEL,    VSIR_REGISTER_DEPTHOUT},
+        {"sv_coverage",             true,  VKD3D_SHADER_TYPE_PIXEL,    VSIR_REGISTER_SAMPLEMASK},
+        {"sv_stencilref",           true,  VKD3D_SHADER_TYPE_PIXEL,    VSIR_REGISTER_OUTSTENCILREF},
     };
 
     for (i = 0; i < ARRAY_SIZE(register_table); ++i)
@@ -3017,7 +3011,6 @@ bool sm4_register_from_semantic_name(const struct vkd3d_shader_version *version,
         {
             if (type)
                 *type = register_table[i].type;
-            *has_idx = register_table[i].has_idx;
             return true;
         }
     }
