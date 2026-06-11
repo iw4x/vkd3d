@@ -11729,7 +11729,7 @@ static enum vkd3d_shader_input_sysval_semantic vkd3d_siv_from_sysval_indexed(enu
 }
 
 static void sm4_generate_vsir_instr_dcl_semantic(struct hlsl_ctx *ctx, struct vsir_program *program,
-        const struct hlsl_ir_var *var, struct hlsl_block *block, const struct vkd3d_shader_location *loc)
+        const struct hlsl_ir_var *var, const struct vkd3d_shader_location *loc)
 {
     const struct vkd3d_shader_version *version = &program->shader_version;
     const bool is_primitive = hlsl_type_is_primitive_array(var->data_type);
@@ -11861,7 +11861,7 @@ static void sm4_generate_vsir_instr_dcl_semantic(struct hlsl_ctx *ctx, struct vs
 }
 
 static void sm4_generate_vsir_instr_dcl_temps(struct hlsl_ctx *ctx, struct vsir_program *program,
-        uint32_t temp_count, struct hlsl_block *block, const struct vkd3d_shader_location *loc)
+        uint32_t temp_count, const struct vkd3d_shader_location *loc)
 {
     struct vkd3d_shader_instruction *ins;
 
@@ -11871,9 +11871,8 @@ static void sm4_generate_vsir_instr_dcl_temps(struct hlsl_ctx *ctx, struct vsir_
     ins->declaration.count = temp_count;
 }
 
-static void sm4_generate_vsir_instr_dcl_indexable_temp(struct hlsl_ctx *ctx,
-        struct vsir_program *program, struct hlsl_block *block, uint32_t idx,
-        uint32_t size, uint32_t comp_count, const struct vkd3d_shader_location *loc)
+static void sm4_generate_vsir_instr_dcl_indexable_temp(struct hlsl_ctx *ctx, struct vsir_program *program,
+        uint32_t idx, uint32_t size, uint32_t comp_count, const struct vkd3d_shader_location *loc)
 {
     struct vkd3d_shader_instruction *ins;
 
@@ -13482,7 +13481,6 @@ static void sm4_generate_vsir_add_function(struct hlsl_ctx *ctx, struct list *se
         struct hlsl_ir_function_decl *func, struct hlsl_block *body, uint64_t config_flags,
         struct vsir_program *program)
 {
-    struct hlsl_block block = {0};
     struct hlsl_scope *scope;
     struct hlsl_ir_var *var;
 
@@ -13495,17 +13493,15 @@ static void sm4_generate_vsir_add_function(struct hlsl_ctx *ctx, struct list *se
         return;
     program->temp_count = max(program->temp_count, ctx->temp_count);
 
-    hlsl_block_init(&block);
-
     LIST_FOR_EACH_ENTRY(var, semantic_vars, struct hlsl_ir_var, extern_entry)
     {
         if ((var->is_input_semantic && var->last_read)
                 || (var->is_output_semantic && var->first_write))
-            sm4_generate_vsir_instr_dcl_semantic(ctx, program, var, &block, &var->loc);
+            sm4_generate_vsir_instr_dcl_semantic(ctx, program, var, &var->loc);
     }
 
     if (ctx->temp_count)
-        sm4_generate_vsir_instr_dcl_temps(ctx, program, ctx->temp_count, &block, &func->loc);
+        sm4_generate_vsir_instr_dcl_temps(ctx, program, ctx->temp_count, &func->loc);
 
     LIST_FOR_EACH_ENTRY(scope, &ctx->scopes, struct hlsl_scope, entry)
     {
@@ -13521,14 +13517,10 @@ static void sm4_generate_vsir_add_function(struct hlsl_ctx *ctx, struct list *se
                 unsigned int id = var->regs[HLSL_REGSET_NUMERIC].id;
                 unsigned int size = align(var->data_type->reg_size[HLSL_REGSET_NUMERIC], 4) / 4;
 
-                sm4_generate_vsir_instr_dcl_indexable_temp(ctx, program, &block, id, size, 4, &var->loc);
+                sm4_generate_vsir_instr_dcl_indexable_temp(ctx, program, id, size, 4, &var->loc);
             }
         }
     }
-
-    list_move_head(&body->instrs, &block.instrs);
-
-    hlsl_block_cleanup(&block);
 
     sm4_generate_vsir_block(ctx, body, program);
 
