@@ -10699,14 +10699,9 @@ err:
 static void sm1_generate_vsir_init_dst_operand_from_deref(struct hlsl_ctx *ctx, struct vsir_dst_operand *dst,
         struct hlsl_deref *deref, const struct vkd3d_shader_location *loc, unsigned int writemask)
 {
-    enum vsir_register_type type = VSIR_REGISTER_TEMP;
     struct vkd3d_shader_version version;
-    uint32_t register_index;
-    struct hlsl_reg reg;
-
-    reg = hlsl_reg_from_deref(ctx, deref);
-    register_index = reg.id;
-    writemask = hlsl_combine_writemasks(reg.writemask, writemask);
+    uint32_t register_index, alloc_mask;
+    enum vsir_register_type type;
 
     if (deref->var->is_output_semantic)
     {
@@ -10719,23 +10714,33 @@ static void sm1_generate_vsir_init_dst_operand_from_deref(struct hlsl_ctx *ctx, 
         if (!sm1_register_from_semantic_name(&version, semantic_name,
                 deref->var->semantic.index, true, NULL, &type, &register_index))
         {
-            VKD3D_ASSERT(reg.allocated);
+            struct hlsl_reg reg = hlsl_reg_from_deref(ctx, deref);
+
             type = VSIR_REGISTER_OUTPUT;
             register_index = reg.id;
+            alloc_mask = reg.writemask;
         }
         else
-            writemask = (1u << deref->var->data_type->e.numeric.dimx) - 1;
+        {
+            alloc_mask = (1u << deref->var->data_type->e.numeric.dimx) - 1;
+        }
 
         if (version.type == VKD3D_SHADER_TYPE_VERTEX && (!ascii_strcasecmp(semantic_name, "PSIZE")
                 || (!ascii_strcasecmp(semantic_name, "FOG") && version.major < 3)))
         {
             /* These are always 1-component, but for some reason are written
              * with a writemask containing all components. */
-            writemask = VKD3DSP_WRITEMASK_ALL;
+            alloc_mask = VKD3DSP_WRITEMASK_ALL;
         }
     }
     else
-        VKD3D_ASSERT(reg.allocated);
+    {
+        struct hlsl_reg reg = hlsl_reg_from_deref(ctx, deref);
+
+        type = VSIR_REGISTER_TEMP;
+        register_index = reg.id;
+        alloc_mask = reg.writemask;
+    }
 
     if (type == VSIR_REGISTER_DEPTHOUT)
     {
@@ -10748,7 +10753,7 @@ static void sm1_generate_vsir_init_dst_operand_from_deref(struct hlsl_ctx *ctx, 
         dst->reg.idx[0].offset = register_index;
         dst->reg.dimension = VSIR_DIMENSION_VEC4;
     }
-    dst->write_mask = writemask;
+    dst->write_mask = hlsl_combine_writemasks(alloc_mask, writemask);
 
     if (deref->rel_offset.node)
         hlsl_fixme(ctx, loc, "Translate relative addressing on dst register for vsir.");
