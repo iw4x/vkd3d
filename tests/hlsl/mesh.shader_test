@@ -1062,6 +1062,169 @@ winbug(amd) probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
 [require]
 shader model >= 6.5
 mesh-shader
+native-16-bit
+int64
+
+% Test alignments when structures and arrays are involved; the behaviour is
+% what is probably the common expectation, and the fact that vector types
+% don't have stronger alignment than corresponding scalars is checked again.
+[amplification-shader]
+struct payload_data
+{
+    struct
+    {
+        uint b;
+        struct
+        {
+            uint d;
+            uint64_t e;
+        } c;
+    } a;
+
+    struct
+    {
+        uint16_t g;
+        uint h;
+        uint64_t i;
+        uint16_t j;
+    } f[2];
+
+    uint16_t k;
+
+    struct
+    {
+        uint m;
+        struct
+        {
+            uint o;
+            uint64_t4 p;
+        } n;
+    } l;
+};
+
+groupshared struct payload_data p;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    p.a.b = 0xa1a2a3a4;
+    p.a.c.d = 0xb1b2b3b4;
+    p.a.c.e = 0xc1c2c3c4c5c6c7c8;
+
+    p.f[0].g = 0xd1d2;
+    p.f[0].h = 0xe1e2e3e4;
+    p.f[0].i = 0xf1f2f3f4f5f6f7f8;
+    p.f[0].j = 0x1112;
+
+    p.f[1].g = 0xd3d4;
+    p.f[1].h = 0xe5e6e7e8;
+    p.f[1].i = 0xf9fafbfcfdfefff0;
+    p.f[1].j = 0x1314;
+
+    p.k = 0x2122;
+
+    p.l.m = 0x31323334;
+    p.l.n.o = 0x41424344;
+    p.l.n.p = 0x5152535455565758;
+
+    DispatchMesh(1, 1, 1, p);
+}
+
+[mesh-shader]
+struct payload_data
+{
+    uint16_t data[64];
+};
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 color : COLOR;
+};
+
+static const float4 positions[4] =
+{
+    float4(-1.0, -1.0, 0.0, 1.0),
+    float4(-1.0,  1.0, 0.0, 1.0),
+    float4( 1.0,  1.0, 0.0, 1.0),
+    float4( 1.0, -1.0, 0.0, 1.0),
+};
+
+static const uint3 triangles[2] =
+{
+    uint3(0, 1, 3),
+    uint3(1, 2, 3),
+};
+
+    [outputtopology("triangle")]
+    [numthreads(4, 1, 1)]
+void main(in payload payload_data p, out vertices vertex_out verts[4],
+        out indices uint3 indices[2], uint index : SV_GroupIndex)
+{
+    if (p.data[0] != 0xa3a4
+            || p.data[1] != 0xa1a2
+            || p.data[4] != 0xb3b4
+            || p.data[5] != 0xb1b2
+            || p.data[8] != 0xc7c8
+            || p.data[9] != 0xc5c6
+            || p.data[10] != 0xc3c4
+            || p.data[11] != 0xc1c2
+            || p.data[12] != 0xd1d2
+            || p.data[14] != 0xe3e4
+            || p.data[15] != 0xe1e2
+            || p.data[16] != 0xf7f8
+            || p.data[17] != 0xf5f6
+            || p.data[18] != 0xf3f4
+            || p.data[19] != 0xf1f2
+            || p.data[20] != 0x1112
+            || p.data[24] != 0xd3d4
+            || p.data[26] != 0xe7e8
+            || p.data[27] != 0xe5e6
+            || p.data[28] != 0xfff0
+            || p.data[29] != 0xfdfe
+            || p.data[30] != 0xfbfc
+            || p.data[31] != 0xf9fa
+            || p.data[32] != 0x1314
+            || p.data[36] != 0x2122
+            || p.data[40] != 0x3334
+            || p.data[41] != 0x3132
+            || p.data[44] != 0x4344
+            || p.data[45] != 0x4142
+            || p.data[48] != 0x5758
+            || p.data[49] != 0x5556
+            || p.data[50] != 0x5354
+            || p.data[51] != 0x5152
+            || p.data[52] != 0x5758
+            || p.data[53] != 0x5556
+            || p.data[54] != 0x5354
+            || p.data[55] != 0x5152
+            || p.data[56] != 0x5758
+            || p.data[57] != 0x5556
+            || p.data[58] != 0x5354
+            || p.data[59] != 0x5152
+            || p.data[60] != 0x5758
+            || p.data[61] != 0x5556
+            || p.data[62] != 0x5354
+            || p.data[63] != 0x5152)
+        return;
+
+    SetMeshOutputCounts(4, 2);
+
+    verts[index].position = positions[index];
+    verts[index].color = float4(0.25, 0.5, 0.75, 1.0);
+
+    if (index < 2)
+        indices[index] = triangles[index];
+}
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+winbug(amd) dispatch-mesh 1 1 1
+winbug(amd) probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
+
+[require]
+shader model >= 6.5
+mesh-shader
 
 % Test a more complicated payload structure, with structures and arrays
 % embedded in each other, to test more complicated DXIL getelementptr
