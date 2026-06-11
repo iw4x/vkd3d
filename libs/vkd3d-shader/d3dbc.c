@@ -1681,6 +1681,7 @@ bool sm1_register_from_semantic_name(const struct vkd3d_shader_version *version,
     }
     register_table[] =
     {
+        {"color",       true,  VKD3D_SHADER_TYPE_PIXEL, 1, VKD3D_SHADER_SV_TARGET,        VSIR_REGISTER_TEMP},
         {"color",       false, VKD3D_SHADER_TYPE_PIXEL, 1, VKD3D_SHADER_SV_NONE,          VSIR_REGISTER_INPUT},
         {"texcoord",    false, VKD3D_SHADER_TYPE_PIXEL, 1, VKD3D_SHADER_SV_NONE,          VSIR_REGISTER_TEXTURE},
 

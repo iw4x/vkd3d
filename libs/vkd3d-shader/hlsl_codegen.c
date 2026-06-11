@@ -10735,12 +10735,7 @@ static void sm1_generate_vsir_init_dst_operand_from_deref(struct hlsl_ctx *ctx, 
         version.minor = ctx->profile->minor_version;
         version.type = ctx->profile->type;
 
-        if (version.type == VKD3D_SHADER_TYPE_PIXEL && version.major == 1)
-        {
-            type = VSIR_REGISTER_TEMP;
-            register_index = 0;
-        }
-        else if (!sm1_register_from_semantic_name(&version, semantic_name,
+        if (!sm1_register_from_semantic_name(&version, semantic_name,
                 deref->var->semantic.index, true, NULL, &type, &register_index))
         {
             VKD3D_ASSERT(reg.allocated);
