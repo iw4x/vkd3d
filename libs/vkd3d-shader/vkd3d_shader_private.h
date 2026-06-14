@@ -1036,6 +1036,14 @@ struct vsir_normalisation_flags
     bool has_descriptor_info;
     bool has_no_modifiers;
     bool normalised_clip_cull_arrays;
+    /* If true, all I/O is in INPUT/OUTPUT/PATCHCONST, and the indices are in
+     * the following order:
+     *
+     *   - (optional) index within the element, if register_count > 1
+     *   - (optional) control point index
+     *   - index of the signature element, which must be constant/direct
+     */
+    bool normalised_io;
 };
 
 struct vkd3d_shader_immediate_constant_buffer

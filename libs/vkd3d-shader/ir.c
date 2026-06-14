@@ -3019,8 +3019,7 @@ static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program,
             vkd3d_unreachable();
     }
 
-    /* We run before I/O normalization. */
-    VKD3D_ASSERT(program->normalisation_level < VSIR_NORMALISED_SM6);
+    VKD3D_ASSERT(!program->normalisation_flags.normalised_io);
 
     if (!(srcs = vsir_program_get_src_operands(program, 4)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -3093,8 +3092,7 @@ static enum vkd3d_result vsir_program_lower_texcoord(struct vsir_program *progra
     /* texcoord t# -> saturate t#, t#
      * Note that the t# destination will subsequently be turned into a temp. */
 
-    /* We run before I/O normalization. */
-    VKD3D_ASSERT(program->normalisation_level < VSIR_NORMALISED_SM6);
+    VKD3D_ASSERT(!program->normalisation_flags.normalised_io);
 
     if (!(srcs = vsir_program_get_src_operands(program, 1)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -4332,8 +4330,7 @@ static enum vkd3d_result vsir_program_lower_texture_writes(struct vsir_program *
     uint32_t texture_written_mask = 0;
     struct vsir_instruction *ins;
 
-    /* We run before I/O normalization. */
-    VKD3D_ASSERT(program->normalisation_level < VSIR_NORMALISED_SM6);
+    VKD3D_ASSERT(!program->normalisation_flags.normalised_io);
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
@@ -4404,8 +4401,7 @@ static enum vkd3d_result vsir_program_normalise_ps1_output(struct vsir_program *
     struct vkd3d_shader_location loc;
     struct vsir_instruction *ins;
 
-    /* Note we run before I/O normalization. */
-    VKD3D_ASSERT(program->normalisation_level == VSIR_NORMALISED_SM4);
+    VKD3D_ASSERT(!program->normalisation_flags.normalised_io);
 
     if (!(ins = vsir_program_iterator_tail(&it)))
         return VKD3D_OK;
@@ -5985,6 +5981,7 @@ static enum vkd3d_result vsir_program_normalise_io_registers(struct vsir_program
 
     program->use_vocp = normaliser.use_vocp;
     program->normalisation_level = VSIR_NORMALISED_SM6;
+    program->normalisation_flags.normalised_io = true;
     return normaliser.result;
 }
 
@@ -12985,7 +12982,7 @@ static const bool vsir_get_io_register_data(struct validation_context *ctx,
     if (ctx->program->shader_version.type >= ARRAY_SIZE(*signature_register_data))
         return NULL;
 
-    if (ctx->program->normalisation_level >= VSIR_NORMALISED_SM6)
+    if (ctx->program->normalisation_flags.normalised_io)
         signature_register_data = &vsir_sm6_io_register_data;
     else
         signature_register_data = &vsir_sm4_io_register_data;
@@ -13068,7 +13065,7 @@ static void vsir_validate_io_register(struct validation_context *ctx, const stru
     has_control_point = io_reg_data.flags & CONTROL_POINT_BIT;
     control_point_count = io_reg_data.control_point_count;
 
-    if (ctx->program->normalisation_level < VSIR_NORMALISED_SM6)
+    if (!ctx->program->normalisation_flags.normalised_io)
     {
         /* Indices are [register] or [control point, register]. Both are
          * allowed to have a relative address. */
@@ -13693,7 +13690,7 @@ static void vsir_validate_io_dst_operand(struct validation_context *ctx, const s
         return;
     }
 
-    if (ctx->program->normalisation_level >= VSIR_NORMALISED_SM6)
+    if (ctx->program->normalisation_flags.normalised_io)
     {
         if (!dst->reg.idx_count)
         {
@@ -14096,7 +14093,7 @@ static void vsir_validate_signature_element(struct validation_context *ctx,
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_SIGNATURE,
                 "element %u of %s signature: Invalid zero register count.", idx, signature_type_name);
 
-    if (ctx->program->normalisation_level < VSIR_NORMALISED_SM6 && element->register_count != 1)
+    if (!ctx->program->normalisation_flags.normalised_io && element->register_count != 1)
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_SIGNATURE,
                 "element %u of %s signature: Invalid register count %u.", idx, signature_type_name,
                 element->register_count);
@@ -14393,7 +14390,7 @@ static void vsir_validate_signature(struct validation_context *ctx, const struct
         }
 
         /* After I/O normalisation tessellation factors are merged in a single array. */
-        if (ctx->program->normalisation_level >= VSIR_NORMALISED_SM6)
+        if (ctx->program->normalisation_flags.normalised_io)
         {
             expected_outer_count = min(1, expected_outer_count);
             expected_inner_count = min(1, expected_inner_count);
@@ -14957,7 +14954,7 @@ static void vsir_validate_dcl_index_range(struct validation_context *ctx,
     const struct vsir_signature *signature;
     bool has_control_point;
 
-    if (ctx->program->normalisation_level >= VSIR_NORMALISED_SM6)
+    if (ctx->program->normalisation_flags.normalised_io)
     {
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_OPCODE,
                 "DCL_INDEX_RANGE is not allowed with fully normalised input/output.");
