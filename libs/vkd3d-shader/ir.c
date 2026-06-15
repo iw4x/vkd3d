@@ -144,6 +144,7 @@ const char *vsir_register_type_get_name(enum vsir_register_type type, const char
         [VSIR_REGISTER_OUTPOINTID        ] = "vOutputControlPointID",
         [VSIR_REGISTER_OUTPUT            ] = "o",
         [VSIR_REGISTER_OUTSTENCILREF     ] = "oStencilRef",
+        [VSIR_REGISTER_OUT_POINT_SIZE    ] = "oPts",
         [VSIR_REGISTER_PARAMETER         ] = "parameter",
         [VSIR_REGISTER_PATCHCONST        ] = "vpc",
         [VSIR_REGISTER_POINT_COORD       ] = "vPointCoord",
@@ -3813,9 +3814,8 @@ static enum vkd3d_result vsir_program_normalise_vs3_point_size_output(struct vsi
             /* Remap the PSIZE output register to the point size sysval register. */
             if (reg->type == VSIR_REGISTER_OUTPUT && reg->idx[0].offset == e->register_index)
             {
-                reg->type = VSIR_REGISTER_RASTOUT;
-                reg->idx[0].offset = VSIR_RASTOUT_POINT_SIZE;
-                reg->idx_count = 1;
+                reg->type = VSIR_REGISTER_OUT_POINT_SIZE;
+                reg->idx_count = 0;
             }
         }
     }
@@ -5063,7 +5063,11 @@ static bool vsir_dst_operand_io_normalise(struct vsir_dst_operand *dst,
             }
             /* Leave point size as a system value for the backends to consume. */
             if (reg->idx[0].offset == VSIR_RASTOUT_POINT_SIZE)
+            {
+                reg->type = VSIR_REGISTER_OUT_POINT_SIZE;
+                reg->idx_count = 0;
                 return true;
+            }
             reg_idx = SM1_RASTOUT_REGISTER_OFFSET + reg->idx[0].offset;
             signature = normaliser->output_signature;
             reg->type = VSIR_REGISTER_OUTPUT;
@@ -10139,8 +10143,7 @@ static enum vkd3d_result insert_point_size_before_ret(struct vsir_program *progr
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     vsir_instruction_init_with_params(program, ins, &loc, VSIR_OP_MOV, 1, 1);
-    vsir_dst_operand_init(&ins->dst[0], VSIR_REGISTER_RASTOUT, VSIR_DATA_F32, 1);
-    ins->dst[0].reg.idx[0].offset = VSIR_RASTOUT_POINT_SIZE;
+    vsir_dst_operand_init(&ins->dst[0], VSIR_REGISTER_OUT_POINT_SIZE, VSIR_DATA_F32, 0);
     vsir_src_operand_init_parameter(&ins->src[0], VKD3D_SHADER_PARAMETER_NAME_POINT_SIZE, VSIR_DATA_F32);
     ins = vsir_program_iterator_next(it);
 
@@ -10251,7 +10254,7 @@ static enum vkd3d_result vsir_program_insert_point_size_clamp(struct vsir_progra
             struct vsir_dst_operand *dst = &ins->dst[j];
 
             /* Note we run after I/O normalization. */
-            if (dst->reg.type == VSIR_REGISTER_RASTOUT)
+            if (dst->reg.type == VSIR_REGISTER_OUT_POINT_SIZE)
             {
                 vsir_dst_operand_init_ssa_f32(dst, program->ssa_count);
                 ssa_value = program->ssa_count++;
@@ -10280,8 +10283,7 @@ static enum vkd3d_result vsir_program_insert_point_size_clamp(struct vsir_progra
             }
             else
             {
-                vsir_dst_operand_init(&ins->dst[0], VSIR_REGISTER_RASTOUT, VSIR_DATA_F32, 1);
-                ins->dst[0].reg.idx[0].offset = VSIR_RASTOUT_POINT_SIZE;
+                vsir_dst_operand_init(&ins->dst[0], VSIR_REGISTER_OUT_POINT_SIZE, VSIR_DATA_F32, 0);
             }
             ins = vsir_program_iterator_next(&it);
         }
@@ -10291,8 +10293,7 @@ static enum vkd3d_result vsir_program_insert_point_size_clamp(struct vsir_progra
             vsir_instruction_init_with_params(program, ins, loc, VSIR_OP_MIN, 1, 2);
             vsir_src_operand_init_ssa_f32(&ins->src[0], ssa_value);
             vsir_src_operand_init_parameter(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_POINT_SIZE_MAX, VSIR_DATA_F32);
-            vsir_dst_operand_init(&ins->dst[0], VSIR_REGISTER_RASTOUT, VSIR_DATA_F32, 1);
-            ins->dst[0].reg.idx[0].offset = VSIR_RASTOUT_POINT_SIZE;
+            vsir_dst_operand_init(&ins->dst[0], VSIR_REGISTER_OUT_POINT_SIZE, VSIR_DATA_F32, 0);
             ins = vsir_program_iterator_next(&it);
         }
     }
@@ -16038,6 +16039,7 @@ static bool is_read_only(const struct vsir_program *program, enum vsir_register_
         case VSIR_REGISTER_NULL:
         case VSIR_REGISTER_OUTPUT:
         case VSIR_REGISTER_OUTSTENCILREF:
+        case VSIR_REGISTER_OUT_POINT_SIZE:
         case VSIR_REGISTER_PREDICATE:
         case VSIR_REGISTER_RASTERIZER:
         case VSIR_REGISTER_RASTOUT:
@@ -16358,6 +16360,7 @@ static bool is_write_only(enum vsir_register_type type)
         case VSIR_REGISTER_DEPTHOUTLE:
         case VSIR_REGISTER_OUTPUT:
         case VSIR_REGISTER_OUTSTENCILREF:
+        case VSIR_REGISTER_OUT_POINT_SIZE:
         case VSIR_REGISTER_RASTOUT:
         case VSIR_REGISTER_TEXCRDOUT:
             return true;

@@ -2310,6 +2310,7 @@ static void shader_print_io_declaration(struct vkd3d_string_buffer *buffer, enum
         X(WAVELANEINDEX)
         X(PARAMETER)
         X(POINT_COORD)
+        X(OUT_POINT_SIZE)
 #undef X
         case VSIR_REGISTER_INVALID:
         case VSIR_REGISTER_TYPE_COUNT:

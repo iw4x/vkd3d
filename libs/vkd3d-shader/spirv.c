@@ -3779,14 +3779,6 @@ static bool spirv_compiler_get_operand_name(char *buffer, unsigned int buffer_si
         case VSIR_REGISTER_CONSTBUFFER:
             snprintf(buffer, buffer_size, "cb%u_%u", operand->idx[0].offset, operand->idx[1].offset);
             break;
-        case VSIR_REGISTER_RASTOUT:
-            if (idx == VSIR_RASTOUT_POINT_SIZE)
-            {
-                snprintf(buffer, buffer_size, "oPts");
-                break;
-            }
-            FIXME("Unhandled rastout register %#x.\n", idx);
-            return false;
         case VSIR_REGISTER_INPUT:
             snprintf(buffer, buffer_size, "v%u", idx);
             break;
@@ -3849,6 +3841,9 @@ static bool spirv_compiler_get_operand_name(char *buffer, unsigned int buffer_si
             break;
         case VSIR_REGISTER_POINT_COORD:
             snprintf(buffer, buffer_size, "vPointCoord");
+            break;
+        case VSIR_REGISTER_OUT_POINT_SIZE:
+            snprintf(buffer, buffer_size, "oPts");
             break;
         default:
             FIXME("Unhandled operand type %#x.\n", operand->type);
@@ -5255,10 +5250,6 @@ static const struct vkd3d_spirv_builtin vkd3d_pixel_shader_position_builtin =
 {
     VSIR_DATA_F32, 4, SpvBuiltInFragCoord, frag_coord_fixup,
 };
-static const struct vkd3d_spirv_builtin vkd3d_output_point_size_builtin =
-{
-    VSIR_DATA_F32, 1, SpvBuiltInPointSize,
-};
 static const struct
 {
     enum vsir_register_type reg_type;
@@ -5271,6 +5262,8 @@ vkd3d_register_builtins[] =
     {VSIR_REGISTER_LOCALTHREADID,    SpvStorageClassInput,  {VSIR_DATA_I32, 3, SpvBuiltInLocalInvocationId}},
     {VSIR_REGISTER_LOCALTHREADINDEX, SpvStorageClassInput,  {VSIR_DATA_I32, 1, SpvBuiltInLocalInvocationIndex}},
     {VSIR_REGISTER_THREADGROUPID,    SpvStorageClassInput,  {VSIR_DATA_I32, 3, SpvBuiltInWorkgroupId}},
+
+    {VSIR_REGISTER_OUT_POINT_SIZE,   SpvStorageClassOutput, {VSIR_DATA_F32, 1, SpvBuiltInPointSize}},
 
     {VSIR_REGISTER_GSINSTID,         SpvStorageClassInput,  {VSIR_DATA_I32, 1, SpvBuiltInInvocationId}},
     {VSIR_REGISTER_OUTPOINTID,       SpvStorageClassInput,  {VSIR_DATA_I32, 1, SpvBuiltInInvocationId}},
@@ -5552,12 +5545,7 @@ static const struct vkd3d_symbol *spirv_compiler_emit_io_register(struct spirv_c
     VKD3D_ASSERT(reg->idx_count < 2 || !reg->idx[1].rel_addr);
     VKD3D_ASSERT(reg->idx_count < 3);
 
-    if (reg->type == VSIR_REGISTER_RASTOUT && reg->idx[0].offset == VSIR_RASTOUT_POINT_SIZE)
-    {
-        builtin = &vkd3d_output_point_size_builtin;
-        storage_class = SpvStorageClassOutput;
-    }
-    else if (!(builtin = get_spirv_builtin_for_register(reg->type, &storage_class)))
+    if (!(builtin = get_spirv_builtin_for_register(reg->type, &storage_class)))
     {
         FIXME("Unhandled register %#x.\n", reg->type);
         return NULL;
@@ -7001,10 +6989,11 @@ static void spirv_compiler_emit_point_size(struct spirv_compiler *compiler)
     if (spirv_compiler_is_opengl_target(compiler) || compiler->shader_type == VKD3D_SHADER_TYPE_VERTEX
             || compiler->write_tess_geom_point_size)
     {
-        vkd3d_spirv_build_op_store(&compiler->spirv_builder,
-                spirv_compiler_emit_builtin_variable(compiler,
-                        &vkd3d_output_point_size_builtin, SpvStorageClassOutput, 0),
-                spirv_compiler_get_constant_float(compiler, 1.0f), SpvMemoryAccessMaskNone);
+        struct vsir_dst_operand dst;
+
+        vsir_dst_operand_init(&dst, VSIR_REGISTER_OUT_POINT_SIZE, VSIR_DATA_F32, 0);
+        spirv_compiler_emit_io_register(compiler, &dst);
+        spirv_compiler_emit_store_dst(compiler, &dst, spirv_compiler_get_constant_float(compiler, 1.0f));
     }
 }
 
@@ -10615,8 +10604,7 @@ static void spirv_compiler_emit_io_declarations(struct spirv_compiler *compiler)
 
     if (compiler->program->has_point_size)
     {
-        vsir_dst_operand_init(&dst, VSIR_REGISTER_RASTOUT, VSIR_DATA_F32, 1);
-        dst.reg.idx[0].offset = VSIR_RASTOUT_POINT_SIZE;
+        vsir_dst_operand_init(&dst, VSIR_REGISTER_OUT_POINT_SIZE, VSIR_DATA_F32, 0);
         spirv_compiler_emit_io_register(compiler, &dst);
     }
 
