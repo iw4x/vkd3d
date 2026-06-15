@@ -1575,10 +1575,21 @@ static bool reflection_iid_supported(const IID *iid, unsigned int version)
             || IsEqualGUID(iid, &IID_ID3D12ShaderReflection);
 }
 
+static HRESULT reflect_hr(const IID *iid, unsigned int compiler_version, unsigned int min_compiler)
+{
+    if (compiler_version < min_compiler)
+        return E_INVALIDARG;
+    if (reflection_iid_supported(iid, compiler_version))
+        return S_OK;
+    if (compiler_version < 47)
+        return E_NOINTERFACE;
+    return E_INVALIDARG;
+}
+
 static void test_reflection_version(const IID *iid, unsigned int compiler_version)
 {
     unsigned int refcount;
-    HRESULT hr;
+    HRESULT expect_hr, hr;
 
     static const char vs_source[] =
         "typedef uint uint_t;\n"
@@ -2014,17 +2025,12 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
 
         code = compile_shader_flags(tests[t].source, tests[t].profile, tests[t].flags);
 
+        expect_hr = reflect_hr(iid, compiler_version, tests[t].min_compiler);
         hr = D3DReflectVKD3D(ID3D10Blob_GetBufferPointer(code),
                 ID3D10Blob_GetBufferSize(code), iid, (void **)&reflection, compiler_version);
-        if (compiler_version < tests[t].min_compiler)
-            todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
-        else if (reflection_iid_supported(iid, compiler_version))
-            todo_if(compiler_version != 47 || !IsEqualGUID(iid, &IID_ID3D12ShaderReflection))
-                ok(hr == S_OK, "Got hr %#x.\n", hr);
-        else if (compiler_version < 47)
-            ok(hr == E_NOINTERFACE, "Got hr %#x.\n", hr);
-        else
-            ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+        todo_if ((compiler_version != 47 && expect_hr != E_NOINTERFACE)
+                || (compiler_version == 47 && !IsEqualGUID(iid, &IID_ID3D12ShaderReflection) && expect_hr == S_OK))
+            ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
         if (FAILED(hr))
         {
             vkd3d_test_pop_context();
@@ -2179,10 +2185,10 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
     }
 }
 
-static void test_default_values_reflection(void)
+static void test_default_values_reflection_version(const IID *iid, unsigned int compiler_version)
 {
     unsigned int refcount;
-    HRESULT hr;
+    HRESULT expect_hr, hr;
 
     static const char ps1_source[] =
         "struct\n"
@@ -2290,6 +2296,7 @@ static void test_default_values_reflection(void)
 
     static const struct
     {
+        unsigned int min_compiler;
         const char *source;
         const char *profile;
         const struct shader_buffer *buffers;
@@ -2297,20 +2304,32 @@ static void test_default_values_reflection(void)
     }
     tests[] =
     {
-        {ps1_source, "ps_5_0", ps1_buffers, ARRAY_SIZE(ps1_buffers)},
+        {40, ps1_source, "ps_5_0", ps1_buffers, ARRAY_SIZE(ps1_buffers)},
     };
 
     for (unsigned int t = 0; t < ARRAY_SIZE(tests); ++t)
     {
-        ID3D10Blob *code = compile_shader_flags(tests[t].source,
-                tests[t].profile, D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY);
         ID3D12ShaderReflection *reflection;
         D3D12_SHADER_DESC shader_desc;
+        ID3D10Blob *code;
 
-        hr = D3DReflect(ID3D10Blob_GetBufferPointer(code), ID3D10Blob_GetBufferSize(code),
-                &IID_ID3D12ShaderReflection, (void **)&reflection);
-        ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
+        vkd3d_test_push_context("Test %u", t);
 
+        code = compile_shader_flags(tests[t].source, tests[t].profile, D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY);
+
+        expect_hr = reflect_hr(iid, compiler_version, tests[t].min_compiler);
+        hr = D3DReflectVKD3D(ID3D10Blob_GetBufferPointer(code),
+                ID3D10Blob_GetBufferSize(code), iid, (void **)&reflection, compiler_version);
+        todo_if ((compiler_version != 47 && expect_hr != E_NOINTERFACE)
+                || (compiler_version == 47 && !IsEqualGUID(iid, &IID_ID3D12ShaderReflection) && expect_hr == S_OK))
+            ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+        if (FAILED(hr))
+        {
+            vkd3d_test_pop_context();
+            continue;
+        }
+
+        memset(&shader_desc, 0xba, sizeof(shader_desc));
         hr = ID3D12ShaderReflection_GetDesc(reflection, &shader_desc);
         ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
         ok(shader_desc.ConstantBuffers == tests[t].buffer_count, "Got %u buffers.\n", shader_desc.ConstantBuffers);
@@ -2371,6 +2390,8 @@ static void test_default_values_reflection(void)
         ID3D10Blob_Release(code);
         refcount = ID3D12ShaderReflection_Release(reflection);
         ok(!refcount, "Got unexpected refcount %u.\n", refcount);
+
+        vkd3d_test_pop_context();
     }
 }
 
@@ -3790,6 +3811,7 @@ static void test_signature_reflection(void)
 static void test_reflection(void)
 {
     unsigned int version, i, j;
+    const IID *iid;
 
     static const struct
     {
@@ -3832,8 +3854,10 @@ static void test_reflection(void)
 
         for (j = 0; j < ARRAY_SIZE(interfaces); ++j)
         {
+            iid = interfaces[j].iid;
             vkd3d_test_push_context("interface %s", interfaces[j].name);
-            test_reflection_version(interfaces[j].iid, version);
+            test_reflection_version(iid, version);
+            test_default_values_reflection_version(iid, version);
             vkd3d_test_pop_context();
         }
 
@@ -4252,7 +4276,6 @@ START_TEST(hlsl_d3d12)
     run_test(test_create_blob);
     run_test(test_get_blob_part);
     run_test(test_reflection);
-    run_test(test_default_values_reflection);
     run_test(test_signature_reflection);
     run_test(test_disassemble_shader);
     run_test(test_compile_null_terminator);
