@@ -2304,26 +2304,19 @@ static void test_default_values_reflection(void)
     }
 }
 
-#define check_signature_element(a, b, c) check_signature_element_(__FILE__, __LINE__, a, b, c)
-static void check_signature_element_(const char *file, int line, const D3D12_SIGNATURE_PARAMETER_DESC *desc,
-        const D3D12_SIGNATURE_PARAMETER_DESC *expect, bool is_todo)
+#define check_signature_element(a, b) check_signature_element_(__FILE__, __LINE__, a, b)
+static void check_signature_element_(const char *file, int line,
+        const D3D12_SIGNATURE_PARAMETER_DESC *desc, const D3D12_SIGNATURE_PARAMETER_DESC *expect)
 {
-    todo_if(is_todo && strcmp(desc->SemanticName, expect->SemanticName))
-        ok_(file, line)(!strcmp(desc->SemanticName, expect->SemanticName), "Got name \"%s\".\n", desc->SemanticName);
-    todo_if(is_todo && desc->SemanticIndex != expect->SemanticIndex)
-        ok_(file, line)(desc->SemanticIndex == expect->SemanticIndex, "Got index %u.\n", desc->SemanticIndex);
-    todo_if(is_todo && desc->Register != expect->Register)
-        ok_(file, line)(desc->Register == expect->Register, "Got register %u.\n", desc->Register);
-    todo_if(is_todo && desc->SystemValueType != expect->SystemValueType)
-        ok_(file, line)(desc->SystemValueType == expect->SystemValueType, "Got sysval %u.\n", desc->SystemValueType);
-    todo_if(is_todo && desc->ComponentType != expect->ComponentType)
-        ok_(file, line)(desc->ComponentType == expect->ComponentType, "Got data type %u.\n", desc->ComponentType);
-    todo_if(is_todo && desc->Mask != expect->Mask)
-        ok_(file, line)(desc->Mask == expect->Mask, "Got mask %#x.\n", desc->Mask);
+    ok_(file, line)(!strcmp(desc->SemanticName, expect->SemanticName), "Got name \"%s\".\n", desc->SemanticName);
+    ok_(file, line)(desc->SemanticIndex == expect->SemanticIndex, "Got index %u.\n", desc->SemanticIndex);
+    ok_(file, line)(desc->Register == expect->Register, "Got register %u.\n", desc->Register);
+    ok_(file, line)(desc->SystemValueType == expect->SystemValueType, "Got sysval %u.\n", desc->SystemValueType);
+    ok_(file, line)(desc->ComponentType == expect->ComponentType, "Got data type %u.\n", desc->ComponentType);
+    ok_(file, line)(desc->Mask == expect->Mask, "Got mask %#x.\n", desc->Mask);
     todo_if(desc->ReadWriteMask != expect->ReadWriteMask)
         ok_(file, line)(desc->ReadWriteMask == expect->ReadWriteMask, "Got used mask %#x.\n", desc->ReadWriteMask);
-    todo_if(is_todo && desc->Stream != expect->Stream)
-        ok_(file, line)(desc->Stream == expect->Stream, "Got stream %u.\n", desc->Stream);
+    ok_(file, line)(desc->Stream == expect->Stream, "Got stream %u.\n", desc->Stream);
     ok_(file, line)(desc->MinPrecision == expect->MinPrecision, "Got minimum precision %#x.\n", desc->MinPrecision);
 }
 
@@ -3611,7 +3604,6 @@ static void test_signature_reflection(void)
         unsigned int output_count;
         const D3D12_SIGNATURE_PARAMETER_DESC *patch_constants;
         unsigned int patch_constant_count;
-        bool signature_elements_todo;
     }
     tests[] =
     {
@@ -3686,7 +3678,7 @@ static void test_signature_reflection(void)
             vkd3d_test_push_context("Input %u", j);
             hr = reflection->lpVtbl->GetInputParameterDesc(reflection, j, &desc);
             ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
-            check_signature_element(&desc, &tests[i].inputs[j], tests[i].signature_elements_todo);
+            check_signature_element(&desc, &tests[i].inputs[j]);
             vkd3d_test_pop_context();
         }
 
@@ -3698,7 +3690,7 @@ static void test_signature_reflection(void)
             vkd3d_test_push_context("Output %u", j);
             hr = reflection->lpVtbl->GetOutputParameterDesc(reflection, j, &desc);
             ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
-            check_signature_element(&desc, &tests[i].outputs[j], tests[i].signature_elements_todo);
+            check_signature_element(&desc, &tests[i].outputs[j]);
             vkd3d_test_pop_context();
         }
 
@@ -3710,7 +3702,7 @@ static void test_signature_reflection(void)
             vkd3d_test_push_context("Patch constant %u", j);
             hr = reflection->lpVtbl->GetPatchConstantParameterDesc(reflection, j, &desc);
             ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
-            check_signature_element(&desc, &tests[i].patch_constants[j], tests[i].signature_elements_todo);
+            check_signature_element(&desc, &tests[i].patch_constants[j]);
             vkd3d_test_pop_context();
         }
 
