@@ -174,6 +174,20 @@ VKD3D_UTILS_API HRESULT WINAPI D3DPreprocessVKD3D(const void *data, SIZE_T size,
         const char *filename, const D3D_SHADER_MACRO *defines, ID3DInclude *include,
         ID3DBlob **shader, ID3DBlob **error_messages, unsigned int compiler_version);
 
+/**
+ * As D3DReflect(), but with an extra argument that allows targeting different
+ * d3dcompiler versions.
+ *
+ * \param version The d3dcompiler version to target. This should be set to the
+ * numerical value in the d3dcompiler library name. E.g. to target the
+ * behaviour of d3dcompiler_36.dll, set this parameter to 36. To target the
+ * behaviour of D3D10ReflectShader(), set this parameter to 0.
+ *
+ * \since 2.1
+ */
+VKD3D_UTILS_API HRESULT WINAPI D3DReflectVKD3D(const void *data,
+        SIZE_T data_size, REFIID iid, void **reflection, unsigned int version);
+
 #ifdef __cplusplus
 }
 #endif  /* __cplusplus */

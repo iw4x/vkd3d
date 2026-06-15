@@ -1087,18 +1087,20 @@ fail:
     return hr;
 }
 
-HRESULT WINAPI D3DReflect(const void *data, SIZE_T data_size, REFIID iid, void **reflection)
+HRESULT WINAPI D3DReflectVKD3D(const void *data, SIZE_T data_size, REFIID iid, void **reflection, unsigned int version)
 {
     struct d3d12_reflection *object;
     HRESULT hr;
 
-    TRACE("data %p, data_size %"PRIuPTR", iid %s, reflection %p.\n",
-            data, (uintptr_t)data_size, debugstr_guid(iid), reflection);
+    TRACE("data %p, data_size %"PRIuPTR", iid %s, reflection %p, version %u.\n",
+            data, (uintptr_t)data_size, debugstr_guid(iid), reflection, version);
 
-    if (!IsEqualGUID(iid, &IID_ID3D12ShaderReflection))
+    if (version < 47 || !IsEqualGUID(iid, &IID_ID3D12ShaderReflection))
     {
-        WARN("Invalid iid %s.\n", debugstr_guid(iid));
-        return E_INVALIDARG;
+        WARN("Unhandled iid %s, version %u.\n", debugstr_guid(iid), version);
+        if (version == 47)
+            return E_INVALIDARG;
+        return E_NOINTERFACE;
     }
 
     if (!(object = vkd3d_calloc(1, sizeof(*object))))
@@ -1113,4 +1115,12 @@ HRESULT WINAPI D3DReflect(const void *data, SIZE_T data_size, REFIID iid, void *
     *reflection = &object->ID3D12ShaderReflection_iface;
     TRACE("Created reflection %p.\n", object);
     return S_OK;
+}
+
+HRESULT WINAPI D3DReflect(const void *data, SIZE_T data_size, REFIID iid, void **reflection)
+{
+    TRACE("data %p, data_size %"PRIuPTR", iid %s, reflection %p.\n",
+            data, (uintptr_t)data_size, debugstr_guid(iid), reflection);
+
+    return D3DReflectVKD3D(data, data_size, iid, reflection, 47);
 }
