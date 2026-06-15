@@ -2395,30 +2395,40 @@ static void test_default_values_reflection_version(const IID *iid, unsigned int 
     }
 }
 
-#define check_signature_element(a, b) check_signature_element_(__FILE__, __LINE__, a, b)
-static void check_signature_element_(const char *file, int line,
-        const D3D12_SIGNATURE_PARAMETER_DESC *desc, const D3D12_SIGNATURE_PARAMETER_DESC *expect)
+#define check_signature_element(a, b, c) check_signature_element_(__FILE__, __LINE__, a, b, c)
+static void check_signature_element_(const char *file, int line, const D3D12_SIGNATURE_PARAMETER_DESC *desc,
+        const D3D12_SIGNATURE_PARAMETER_DESC *expect, unsigned int compiler_version)
 {
     ok_(file, line)(!strcmp(desc->SemanticName, expect->SemanticName), "Got name \"%s\".\n", desc->SemanticName);
     ok_(file, line)(desc->SemanticIndex == expect->SemanticIndex, "Got index %u.\n", desc->SemanticIndex);
     ok_(file, line)(desc->Register == expect->Register, "Got register %u.\n", desc->Register);
-    ok_(file, line)(desc->SystemValueType == expect->SystemValueType, "Got sysval %u.\n", desc->SystemValueType);
+    if (compiler_version < 35 && expect->SystemValueType >= D3D_NAME_TARGET)
+        ok_(file, line)(desc->SystemValueType == D3D_NAME_UNDEFINED, "Got sysval %#x.\n", desc->SystemValueType);
+    else
+        ok_(file, line)(desc->SystemValueType == expect->SystemValueType, "Got sysval %#x.\n", desc->SystemValueType);
     ok_(file, line)(desc->ComponentType == expect->ComponentType, "Got data type %u.\n", desc->ComponentType);
     ok_(file, line)(desc->Mask == expect->Mask, "Got mask %#x.\n", desc->Mask);
     todo_if(desc->ReadWriteMask != expect->ReadWriteMask)
         ok_(file, line)(desc->ReadWriteMask == expect->ReadWriteMask, "Got used mask %#x.\n", desc->ReadWriteMask);
-    ok_(file, line)(desc->Stream == expect->Stream, "Got stream %u.\n", desc->Stream);
-    ok_(file, line)(desc->MinPrecision == expect->MinPrecision, "Got minimum precision %#x.\n", desc->MinPrecision);
+    if (compiler_version < 40)
+        ok_(file, line)(desc->Stream == 0xbabababa || sizeof(void *) == sizeof(uint64_t),
+                "Got stream %#x.\n", desc->Stream);
+    else
+        ok_(file, line)(desc->Stream == expect->Stream, "Got stream %u.\n", desc->Stream);
+    if (compiler_version < 46)
+        ok_(file, line)(desc->MinPrecision == 0xbabababa, "Got minimum precision %#x.\n", desc->MinPrecision);
+    else
+        ok_(file, line)(desc->MinPrecision == expect->MinPrecision, "Got minimum precision %#x.\n", desc->MinPrecision);
 }
 
-static void test_signature_reflection(void)
+static void test_signature_reflection_version(const IID *iid, unsigned int compiler_version)
 {
     D3D12_SIGNATURE_PARAMETER_DESC desc;
     ID3D12ShaderReflection *reflection;
     D3D12_SHADER_DESC shader_desc;
     ID3D10Blob *code = NULL;
     unsigned int refcount;
-    HRESULT hr;
+    HRESULT expect_hr, hr;
 
     static const char vs1_source[] =
         "void main(\n"
@@ -3686,6 +3696,7 @@ static void test_signature_reflection(void)
 
     static const struct
     {
+        unsigned int min_compiler;
         const char *source;
         const char *target;
         bool compat;
@@ -3698,50 +3709,50 @@ static void test_signature_reflection(void)
     }
     tests[] =
     {
-        {vs1_source,  "vs_4_0", false, vs1_inputs, ARRAY_SIZE(vs1_inputs), vs1_outputs, ARRAY_SIZE(vs1_outputs)},
-        {vs1_source,  "vs_4_0", true,  vs1_inputs, ARRAY_SIZE(vs1_inputs), vs1_outputs, ARRAY_SIZE(vs1_outputs)},
-        {vs2_source,  "vs_4_0", false, vs2_inputs, ARRAY_SIZE(vs2_inputs), vs2_outputs, ARRAY_SIZE(vs2_outputs)},
-        {vs2_source,  "vs_4_0", true,  vs2_inputs, ARRAY_SIZE(vs2_inputs), vs2_legacy_outputs, ARRAY_SIZE(vs2_legacy_outputs)},
-        {ps1_source,  "ps_4_1", false, ps1_inputs, ARRAY_SIZE(ps1_inputs), ps1_outputs, ARRAY_SIZE(ps1_outputs)},
-        {ps2_source,  "ps_4_0", true,  ps2_inputs, ARRAY_SIZE(ps2_inputs), ps2_outputs, ARRAY_SIZE(ps2_outputs)},
-        {cs1_source,  "cs_5_0"},
-        {ps3_source,  "ps_4_0", false, ps3_inputs, ARRAY_SIZE(ps3_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {ps4_source,  "ps_4_0", false, ps4_inputs, ARRAY_SIZE(ps4_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {ps5_source,  "ps_4_0", false, ps5_inputs, ARRAY_SIZE(ps5_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {ps6_source,  "ps_4_0", false, ps6_inputs, ARRAY_SIZE(ps6_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {ps7_source,  "ps_4_0", false, ps7_inputs, ARRAY_SIZE(ps7_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {ps8_source,  "ps_4_0", false, ps8_inputs, ARRAY_SIZE(ps8_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {ps9_source,  "ps_4_0", false, ps9_inputs, ARRAY_SIZE(ps9_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {vs3_source,  "vs_4_0", false, vs3_inputs, ARRAY_SIZE(vs3_inputs), vs3_outputs, ARRAY_SIZE(vs3_outputs)},
-        {ps10_source, "ps_4_0", false, ps10_inputs, ARRAY_SIZE(ps10_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {ps11_source, "ps_4_0", false, ps11_inputs, ARRAY_SIZE(ps11_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {ps12_source, "ps_4_0", false, ps12_inputs, ARRAY_SIZE(ps12_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {vs4_source,  "vs_4_0", false, vs4_inputs, ARRAY_SIZE(vs4_inputs), vs4_outputs, ARRAY_SIZE(vs4_outputs)},
-        {vs5_source,  "vs_4_0", false, vs5_inputs, ARRAY_SIZE(vs5_inputs), vs5_outputs, ARRAY_SIZE(vs5_outputs)},
-        {vs6_source,  "vs_4_0", false, vs6_inputs, ARRAY_SIZE(vs6_inputs), vs6_outputs, ARRAY_SIZE(vs6_outputs)},
-        {vs7_source,  "vs_4_0", false, vs7_inputs, ARRAY_SIZE(vs7_inputs), vs7_outputs, ARRAY_SIZE(vs7_outputs)},
-        {vs8_source,  "vs_4_0", false, NULL, 0, vs8_outputs, ARRAY_SIZE(vs8_outputs)},
-        {ps13_source, "ps_4_0", false, ps13_inputs, ARRAY_SIZE(ps13_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {ps14_source, "ps_4_0", false, ps14_inputs, ARRAY_SIZE(ps14_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {ps15_source, "ps_4_1", false, ps15_inputs, ARRAY_SIZE(ps15_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {ps16_source, "ps_4_0", false, ps16_inputs, ARRAY_SIZE(ps16_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
-        {ps17_source, "ps_4_0", false, ps17_inputs, ARRAY_SIZE(ps17_inputs)},
-        {ps17_source, "ps_4_0", true,  ps17_legacy_inputs, ARRAY_SIZE(ps17_legacy_inputs)},
-        {hs1_source,  "hs_5_0", false, NULL, 0, hs1_outputs, ARRAY_SIZE(hs1_outputs), hs1_patch_constants, ARRAY_SIZE(hs1_patch_constants)},
-        {hs2_source,  "hs_5_0", false, NULL, 0, hs2_outputs, ARRAY_SIZE(hs2_outputs), hs2_patch_constants, ARRAY_SIZE(hs2_patch_constants)},
-        {hs3_source,  "hs_5_0", false, NULL, 0, hs3_outputs, ARRAY_SIZE(hs3_outputs), hs3_patch_constants, ARRAY_SIZE(hs3_patch_constants)},
-        {hs4_source,  "hs_5_0", false, hs4_inputs, ARRAY_SIZE(hs4_inputs), hs4_outputs, ARRAY_SIZE(hs4_outputs), hs4_patch_constants, ARRAY_SIZE(hs4_patch_constants)},
-        {hs5_source,  "hs_5_0", false, hs5_inputs, ARRAY_SIZE(hs5_inputs), hs5_outputs, ARRAY_SIZE(hs5_outputs), hs5_patch_constants, ARRAY_SIZE(hs5_patch_constants)},
-        {hs6_source,  "hs_5_0", false, hs6_inputs, ARRAY_SIZE(hs6_inputs), hs6_outputs, ARRAY_SIZE(hs6_outputs), hs6_patch_constants, ARRAY_SIZE(hs6_patch_constants)},
-        {ds1_source,  "ds_5_0", false, NULL, 0, ds1_outputs, ARRAY_SIZE(ds1_outputs), ds1_patch_constants, ARRAY_SIZE(ds1_patch_constants)},
-        {ds2_source,  "ds_5_0", false, NULL, 0, ds2_outputs, ARRAY_SIZE(ds2_outputs), ds2_patch_constants, ARRAY_SIZE(ds2_patch_constants)},
-        {ds3_source,  "ds_5_0", false, NULL, 0, ds3_outputs, ARRAY_SIZE(ds3_outputs), ds3_patch_constants, ARRAY_SIZE(ds3_patch_constants)},
-        {ds4_source,  "ds_5_0", false, ds4_inputs, ARRAY_SIZE(ds4_inputs), ds4_outputs, ARRAY_SIZE(ds4_outputs), ds4_patch_constants, ARRAY_SIZE(ds4_patch_constants)},
-        {ds5_source,  "ds_5_0", false, ds5_inputs, ARRAY_SIZE(ds5_inputs), ds5_outputs, ARRAY_SIZE(ds5_outputs), ds5_patch_constants, ARRAY_SIZE(ds5_patch_constants)},
-        {ds6_source,  "ds_5_0", false, ds6_inputs, ARRAY_SIZE(ds6_inputs), ds6_outputs, ARRAY_SIZE(ds6_outputs), ds6_patch_constants, ARRAY_SIZE(ds6_patch_constants)},
-        {gs1_source,  "gs_4_0", false, gs1_inputs, ARRAY_SIZE(gs1_inputs)},
-        {gs2_source,  "gs_4_0", false, gs2_inputs, ARRAY_SIZE(gs2_inputs), gs2_outputs, ARRAY_SIZE(gs2_outputs)},
-        {gs3_source,  "gs_4_0", false, gs3_inputs, ARRAY_SIZE(gs3_inputs), gs3_outputs, ARRAY_SIZE(gs3_outputs)},
+        {46, vs1_source,  "vs_4_0", false, vs1_inputs, ARRAY_SIZE(vs1_inputs), vs1_outputs, ARRAY_SIZE(vs1_outputs)},
+        {46, vs1_source,  "vs_4_0", true,  vs1_inputs, ARRAY_SIZE(vs1_inputs), vs1_outputs, ARRAY_SIZE(vs1_outputs)},
+        { 0, vs2_source,  "vs_4_0", false, vs2_inputs, ARRAY_SIZE(vs2_inputs), vs2_outputs, ARRAY_SIZE(vs2_outputs)},
+        { 0, vs2_source,  "vs_4_0", true,  vs2_inputs, ARRAY_SIZE(vs2_inputs), vs2_legacy_outputs, ARRAY_SIZE(vs2_legacy_outputs)},
+        { 0, ps1_source,  "ps_4_1", false, ps1_inputs, ARRAY_SIZE(ps1_inputs), ps1_outputs, ARRAY_SIZE(ps1_outputs)},
+        { 0, ps2_source,  "ps_4_0", true,  ps2_inputs, ARRAY_SIZE(ps2_inputs), ps2_outputs, ARRAY_SIZE(ps2_outputs)},
+        {40, cs1_source,  "cs_5_0"},
+        { 0, ps3_source,  "ps_4_0", false, ps3_inputs, ARRAY_SIZE(ps3_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, ps4_source,  "ps_4_0", false, ps4_inputs, ARRAY_SIZE(ps4_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, ps5_source,  "ps_4_0", false, ps5_inputs, ARRAY_SIZE(ps5_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, ps6_source,  "ps_4_0", false, ps6_inputs, ARRAY_SIZE(ps6_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, ps7_source,  "ps_4_0", false, ps7_inputs, ARRAY_SIZE(ps7_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, ps8_source,  "ps_4_0", false, ps8_inputs, ARRAY_SIZE(ps8_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, ps9_source,  "ps_4_0", false, ps9_inputs, ARRAY_SIZE(ps9_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, vs3_source,  "vs_4_0", false, vs3_inputs, ARRAY_SIZE(vs3_inputs), vs3_outputs, ARRAY_SIZE(vs3_outputs)},
+        { 0, ps10_source, "ps_4_0", false, ps10_inputs, ARRAY_SIZE(ps10_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, ps11_source, "ps_4_0", false, ps11_inputs, ARRAY_SIZE(ps11_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, ps12_source, "ps_4_0", false, ps12_inputs, ARRAY_SIZE(ps12_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, vs4_source,  "vs_4_0", false, vs4_inputs, ARRAY_SIZE(vs4_inputs), vs4_outputs, ARRAY_SIZE(vs4_outputs)},
+        { 0, vs5_source,  "vs_4_0", false, vs5_inputs, ARRAY_SIZE(vs5_inputs), vs5_outputs, ARRAY_SIZE(vs5_outputs)},
+        {33, vs6_source,  "vs_4_0", false, vs6_inputs, ARRAY_SIZE(vs6_inputs), vs6_outputs, ARRAY_SIZE(vs6_outputs)},
+        { 0, vs7_source,  "vs_4_0", false, vs7_inputs, ARRAY_SIZE(vs7_inputs), vs7_outputs, ARRAY_SIZE(vs7_outputs)},
+        { 0, vs8_source,  "vs_4_0", false, NULL, 0, vs8_outputs, ARRAY_SIZE(vs8_outputs)},
+        { 0, ps13_source, "ps_4_0", false, ps13_inputs, ARRAY_SIZE(ps13_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, ps14_source, "ps_4_0", false, ps14_inputs, ARRAY_SIZE(ps14_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, ps15_source, "ps_4_1", false, ps15_inputs, ARRAY_SIZE(ps15_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, ps16_source, "ps_4_0", false, ps16_inputs, ARRAY_SIZE(ps16_inputs), ps_outputs_simple, ARRAY_SIZE(ps_outputs_simple)},
+        { 0, ps17_source, "ps_4_0", false, ps17_inputs, ARRAY_SIZE(ps17_inputs)},
+        { 0, ps17_source, "ps_4_0", true,  ps17_legacy_inputs, ARRAY_SIZE(ps17_legacy_inputs)},
+        {40, hs1_source,  "hs_5_0", false, NULL, 0, hs1_outputs, ARRAY_SIZE(hs1_outputs), hs1_patch_constants, ARRAY_SIZE(hs1_patch_constants)},
+        {40, hs2_source,  "hs_5_0", false, NULL, 0, hs2_outputs, ARRAY_SIZE(hs2_outputs), hs2_patch_constants, ARRAY_SIZE(hs2_patch_constants)},
+        {40, hs3_source,  "hs_5_0", false, NULL, 0, hs3_outputs, ARRAY_SIZE(hs3_outputs), hs3_patch_constants, ARRAY_SIZE(hs3_patch_constants)},
+        {40, hs4_source,  "hs_5_0", false, hs4_inputs, ARRAY_SIZE(hs4_inputs), hs4_outputs, ARRAY_SIZE(hs4_outputs), hs4_patch_constants, ARRAY_SIZE(hs4_patch_constants)},
+        {40, hs5_source,  "hs_5_0", false, hs5_inputs, ARRAY_SIZE(hs5_inputs), hs5_outputs, ARRAY_SIZE(hs5_outputs), hs5_patch_constants, ARRAY_SIZE(hs5_patch_constants)},
+        {40, hs6_source,  "hs_5_0", false, hs6_inputs, ARRAY_SIZE(hs6_inputs), hs6_outputs, ARRAY_SIZE(hs6_outputs), hs6_patch_constants, ARRAY_SIZE(hs6_patch_constants)},
+        {40, ds1_source,  "ds_5_0", false, NULL, 0, ds1_outputs, ARRAY_SIZE(ds1_outputs), ds1_patch_constants, ARRAY_SIZE(ds1_patch_constants)},
+        {40, ds2_source,  "ds_5_0", false, NULL, 0, ds2_outputs, ARRAY_SIZE(ds2_outputs), ds2_patch_constants, ARRAY_SIZE(ds2_patch_constants)},
+        {40, ds3_source,  "ds_5_0", false, NULL, 0, ds3_outputs, ARRAY_SIZE(ds3_outputs), ds3_patch_constants, ARRAY_SIZE(ds3_patch_constants)},
+        {40, ds4_source,  "ds_5_0", false, ds4_inputs, ARRAY_SIZE(ds4_inputs), ds4_outputs, ARRAY_SIZE(ds4_outputs), ds4_patch_constants, ARRAY_SIZE(ds4_patch_constants)},
+        {40, ds5_source,  "ds_5_0", false, ds5_inputs, ARRAY_SIZE(ds5_inputs), ds5_outputs, ARRAY_SIZE(ds5_outputs), ds5_patch_constants, ARRAY_SIZE(ds5_patch_constants)},
+        {40, ds6_source,  "ds_5_0", false, ds6_inputs, ARRAY_SIZE(ds6_inputs), ds6_outputs, ARRAY_SIZE(ds6_outputs), ds6_patch_constants, ARRAY_SIZE(ds6_patch_constants)},
+        { 0, gs1_source,  "gs_4_0", false, gs1_inputs, ARRAY_SIZE(gs1_inputs)},
+        { 0, gs2_source,  "gs_4_0", false, gs2_inputs, ARRAY_SIZE(gs2_inputs), gs2_outputs, ARRAY_SIZE(gs2_outputs)},
+        { 0, gs3_source,  "gs_4_0", false, gs3_inputs, ARRAY_SIZE(gs3_inputs), gs3_outputs, ARRAY_SIZE(gs3_outputs)},
     };
 
     for (unsigned int i = 0; i < ARRAY_SIZE(tests); ++i)
@@ -3751,54 +3762,73 @@ static void test_signature_reflection(void)
         code = compile_shader_flags(tests[i].source, tests[i].target,
                 tests[i].compat ? D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY : 0);
 
-        hr = D3DReflect(ID3D10Blob_GetBufferPointer(code), ID3D10Blob_GetBufferSize(code),
-                &IID_ID3D12ShaderReflection, (void **)&reflection);
-        ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
+        expect_hr = reflect_hr(iid, compiler_version, tests[i].min_compiler);
+        hr = D3DReflectVKD3D(ID3D10Blob_GetBufferPointer(code),
+                ID3D10Blob_GetBufferSize(code), iid, (void **)&reflection, compiler_version);
+        todo_if ((compiler_version != 47 && expect_hr != E_NOINTERFACE)
+                || (compiler_version == 47 && !IsEqualGUID(iid, &IID_ID3D12ShaderReflection) && expect_hr == S_OK))
+            ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+        if (FAILED(hr))
+        {
+            vkd3d_test_pop_context();
+            continue;
+        }
 
+        memset(&shader_desc, 0xba, sizeof(shader_desc));
         hr = reflection->lpVtbl->GetDesc(reflection, &shader_desc);
         ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
         ok(shader_desc.InputParameters == tests[i].input_count,
                 "Got %u input parameters.\n", shader_desc.InputParameters);
         ok(shader_desc.OutputParameters == tests[i].output_count,
                 "Got %u output parameters.\n", shader_desc.OutputParameters);
-        ok(shader_desc.PatchConstantParameters == tests[i].patch_constant_count,
-                "Got %u patch constant parameters.\n", shader_desc.PatchConstantParameters);
+        if (compiler_version < 40)
+            ok(shader_desc.PatchConstantParameters == 0xbabababa,
+                    "Got PatchConstantParameters %#x.\n", shader_desc.PatchConstantParameters);
+        else
+            ok(shader_desc.PatchConstantParameters == tests[i].patch_constant_count,
+                    "Got PatchConstantParameters %#x.\n", shader_desc.PatchConstantParameters);
 
-        for (unsigned int j = 0; j < shader_desc.InputParameters; ++j)
+        for (unsigned int j = 0; j < tests[i].input_count; ++j)
         {
             vkd3d_test_push_context("Input %u", j);
+            memset(&desc, 0xba, sizeof(desc));
             hr = reflection->lpVtbl->GetInputParameterDesc(reflection, j, &desc);
             ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
-            check_signature_element(&desc, &tests[i].inputs[j]);
+            check_signature_element(&desc, &tests[i].inputs[j], compiler_version);
             vkd3d_test_pop_context();
         }
 
         hr = reflection->lpVtbl->GetInputParameterDesc(reflection, shader_desc.InputParameters, &desc);
         ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
 
-        for (unsigned int j = 0; j < shader_desc.OutputParameters; ++j)
+        for (unsigned int j = 0; j < tests[i].output_count; ++j)
         {
             vkd3d_test_push_context("Output %u", j);
+            memset(&desc, 0xba, sizeof(desc));
             hr = reflection->lpVtbl->GetOutputParameterDesc(reflection, j, &desc);
             ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
-            check_signature_element(&desc, &tests[i].outputs[j]);
+            check_signature_element(&desc, &tests[i].outputs[j], compiler_version);
             vkd3d_test_pop_context();
         }
 
         hr = reflection->lpVtbl->GetOutputParameterDesc(reflection, shader_desc.OutputParameters, &desc);
         ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
 
-        for (unsigned int j = 0; j < shader_desc.PatchConstantParameters; ++j)
+        for (unsigned int j = 0; j < tests[i].patch_constant_count; ++j)
         {
             vkd3d_test_push_context("Patch constant %u", j);
+            memset(&desc, 0xba, sizeof(desc));
             hr = reflection->lpVtbl->GetPatchConstantParameterDesc(reflection, j, &desc);
             ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
-            check_signature_element(&desc, &tests[i].patch_constants[j]);
+            check_signature_element(&desc, &tests[i].patch_constants[j], compiler_version);
             vkd3d_test_pop_context();
         }
 
-        hr = reflection->lpVtbl->GetPatchConstantParameterDesc(reflection, shader_desc.PatchConstantParameters, &desc);
-        ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+        if (compiler_version >= 40)
+        {
+            hr = reflection->lpVtbl->GetPatchConstantParameterDesc(reflection, tests[i].patch_constant_count, &desc);
+            ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+        }
 
         ID3D10Blob_Release(code);
         refcount = reflection->lpVtbl->Release(reflection);
@@ -3858,6 +3888,7 @@ static void test_reflection(void)
             vkd3d_test_push_context("interface %s", interfaces[j].name);
             test_reflection_version(iid, version);
             test_default_values_reflection_version(iid, version);
+            test_signature_reflection_version(iid, version);
             vkd3d_test_pop_context();
         }
 
@@ -4276,7 +4307,6 @@ START_TEST(hlsl_d3d12)
     run_test(test_create_blob);
     run_test(test_get_blob_part);
     run_test(test_reflection);
-    run_test(test_signature_reflection);
     run_test(test_disassemble_shader);
     run_test(test_compile_null_terminator);
     run_test(test_special_characters);
