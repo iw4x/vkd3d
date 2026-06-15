@@ -1875,7 +1875,9 @@ static void test_reflection(void)
     static const char ps51_source[] =
         "cbuffer x : register(b0, space1) { float4 a; };\n"
         "cbuffer y : register(b0, space1) { float4 b; };\n"
-        "cbuffer z : register(b0, space0) { float4 c; };\n"
+        /* without "pad", this can somehow be reflected by d3dcompiler 40-46,
+         * but then returns garbage for actual variables. */
+        "cbuffer z : register(b0, space0) { float4 c; float4 pad; };\n"
         "float4 d;\n"
         "Texture2D e : register(t1, space1);\n"
         "Texture2D f : register(t1, space2);\n"
@@ -1892,8 +1894,11 @@ static void test_reflection(void)
 
     static const struct shader_variable ps51_x_vars =
         {{"a",   0, 16, D3D_SVF_USED, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_VECTOR,         D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"}};
-    static const struct shader_variable ps51_z_vars =
-        {{"c",   0, 16, D3D_SVF_USED, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_VECTOR,         D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"}};
+    static const struct shader_variable ps51_z_vars[] =
+    {
+        {{"c",    0, 16, D3D_SVF_USED, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_VECTOR,         D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"}},
+        {{"pad", 16, 16,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_VECTOR,         D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"}},
+    };
     static const struct shader_variable ps51_globals_vars =
         {{"d",   0, 16, D3D_SVF_USED, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_VECTOR,         D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"}};
     static const struct shader_variable ps51_w_vars =
@@ -1905,7 +1910,7 @@ static void test_reflection(void)
     {
         {{"$Globals", D3D_CT_CBUFFER, 1, 16}, &ps51_globals_vars},
         {{"x", D3D_CT_CBUFFER, 1, 16}, &ps51_x_vars},
-        {{"z", D3D_CT_CBUFFER, 1, 16}, &ps51_z_vars},
+        {{"z", D3D_CT_CBUFFER, 2, 32}, ps51_z_vars},
         {{"w", D3D_CT_CBUFFER, 1, 16}, &ps51_w_vars},
         {{"v", D3D_CT_CBUFFER, 1, 16}, &ps51_v_vars},
     };
