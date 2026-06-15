@@ -23,7 +23,6 @@
 
 #include "d3d12_crosstest.h"
 #include "vkd3d_common.h"
-#include "vkd3d_d3d12shader.h"
 
 VKD3D_AGILITY_SDK_EXPORTS
 
@@ -1538,10 +1537,12 @@ static void test_get_blob_part(void)
     ok(!refcount, "Got refcount %u.\n", refcount);
 }
 
-#define check_type_desc(a, b) check_type_desc_(__FILE__, __LINE__, a, b)
+#define check_type_desc(a, b, c) check_type_desc_(__FILE__, __LINE__, a, b, c)
 static void check_type_desc_(const char *file, int line,
-        const D3D12_SHADER_TYPE_DESC *type, const D3D12_SHADER_TYPE_DESC *expect)
+        const D3D12_SHADER_TYPE_DESC *type, const D3D12_SHADER_TYPE_DESC *expect, unsigned int compiler_version)
 {
+    static const uint64_t filler = 0xbabababababababa;
+
     ok_(file, line)(type->Class == expect->Class, "Got class %#x.\n", type->Class);
     ok_(file, line)(type->Type == expect->Type, "Got type %#x.\n", type->Type);
     ok_(file, line)(type->Rows == expect->Rows, "Got %u rows.\n", type->Rows);
@@ -1549,10 +1550,32 @@ static void check_type_desc_(const char *file, int line,
     ok_(file, line)(type->Elements == expect->Elements, "Got %u elements.\n", type->Elements);
     ok_(file, line)(type->Members == expect->Members, "Got %u members.\n", type->Members);
     ok_(file, line)(type->Offset == expect->Offset, "Got offset %u.\n", type->Offset);
-    ok_(file, line)((!type->Name && !expect->Name) || !strcmp(type->Name, expect->Name), "Got name \"%s\".\n", type->Name);
+    if (compiler_version < 40)
+        ok_(file, line)(!memcmp(&type->Name, &filler, sizeof(type->Name)), "Got name %p.\n", type->Name);
+    else if (type->Name && expect->Name)
+        ok_(file, line)(!strcmp(type->Name, expect->Name), "Got name \"%s\".\n", type->Name);
+    else
+        ok_(file, line)(!type->Name == !expect->Name, "Got name %p.\n", type->Name);
 }
 
-static void test_reflection(void)
+static bool reflection_iid_supported(const IID *iid, unsigned int version)
+{
+    if (version < 33)
+        return IsEqualGUID(iid, &IID_ID3D10ShaderReflection);
+    if (version < 40)
+        return IsEqualGUID(iid, &IID_ID3D10ShaderReflection)
+                || IsEqualGUID(iid, &IID_ID3D10ShaderReflection1);
+    if (version < 43)
+        return IsEqualGUID(iid, &IID_ID3D11ShaderReflection_v40);
+    if (version < 46)
+        return IsEqualGUID(iid, &IID_ID3D11ShaderReflection_v43);
+    if (version < 47)
+        return IsEqualGUID(iid, &IID_ID3D11ShaderReflection_v46);
+    return IsEqualGUID(iid, &IID_ID3D11ShaderReflection_v46)
+            || IsEqualGUID(iid, &IID_ID3D12ShaderReflection);
+}
+
+static void test_reflection_version(const IID *iid, unsigned int compiler_version)
 {
     unsigned int refcount;
     HRESULT hr;
@@ -1952,6 +1975,7 @@ static void test_reflection(void)
 
     static const struct
     {
+        unsigned int min_compiler;
         const char *source;
         const char *profile;
         UINT version;
@@ -1963,16 +1987,18 @@ static void test_reflection(void)
     }
     tests[] =
     {
-        {vs_source, "vs_5_0", 0x10050, vs_bindings, ARRAY_SIZE(vs_bindings), vs_buffers, ARRAY_SIZE(vs_buffers), D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY},
-        {ps_source, "ps_5_0", 0x00050, ps_bindings, ARRAY_SIZE(ps_bindings), ps_buffers, ARRAY_SIZE(ps_buffers), D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY},
-        {ps51_source, "ps_5_1", 0x00051, ps51_bindings, ARRAY_SIZE(ps51_bindings), ps51_buffers, ARRAY_SIZE(ps51_buffers), 0},
-        {ps4_source, "ps_4_0", 0x00040, ps4_bindings, ARRAY_SIZE(ps4_bindings), ps4_buffers, ARRAY_SIZE(ps4_buffers), 0},
+        {40, vs_source,    "vs_5_0", 0x10050, vs_bindings,    ARRAY_SIZE(vs_bindings),
+                vs_buffers,    ARRAY_SIZE(vs_buffers),    D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY},
+        {46, ps_source,    "ps_5_0", 0x00050, ps_bindings,    ARRAY_SIZE(ps_bindings),
+                ps_buffers,    ARRAY_SIZE(ps_buffers),    D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY},
+        {47, ps51_source,  "ps_5_1", 0x00051, ps51_bindings,  ARRAY_SIZE(ps51_bindings),
+                ps51_buffers,  ARRAY_SIZE(ps51_buffers),  0},
+        { 0, ps4_source,   "ps_4_0", 0x00040, ps4_bindings,   ARRAY_SIZE(ps4_bindings),
+                ps4_buffers,   ARRAY_SIZE(ps4_buffers),   0},
     };
 
     for (unsigned int t = 0; t < ARRAY_SIZE(tests); ++t)
     {
-        ID3D10Blob *code = compile_shader_flags(tests[t].source,
-                tests[t].profile, tests[t].flags);
         ID3D12ShaderReflectionConstantBuffer *cbuffer;
         D3D12_SHADER_TYPE_DESC type_desc, field_desc;
         D3D12_SHADER_INPUT_BIND_DESC binding_desc;
@@ -1982,11 +2008,30 @@ static void test_reflection(void)
         D3D12_SHADER_VARIABLE_DESC var_desc;
         ID3D12ShaderReflection *reflection;
         D3D12_SHADER_DESC shader_desc;
+        ID3D10Blob *code;
 
-        hr = D3DReflect(ID3D10Blob_GetBufferPointer(code), ID3D10Blob_GetBufferSize(code),
-                &IID_ID3D12ShaderReflection, (void **)&reflection);
-        ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
+        vkd3d_test_push_context("Test %u", t);
 
+        code = compile_shader_flags(tests[t].source, tests[t].profile, tests[t].flags);
+
+        hr = D3DReflectVKD3D(ID3D10Blob_GetBufferPointer(code),
+                ID3D10Blob_GetBufferSize(code), iid, (void **)&reflection, compiler_version);
+        if (compiler_version < tests[t].min_compiler)
+            todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+        else if (reflection_iid_supported(iid, compiler_version))
+            todo_if(compiler_version != 47 || !IsEqualGUID(iid, &IID_ID3D12ShaderReflection))
+                ok(hr == S_OK, "Got hr %#x.\n", hr);
+        else if (compiler_version < 47)
+            ok(hr == E_NOINTERFACE, "Got hr %#x.\n", hr);
+        else
+            ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+        if (FAILED(hr))
+        {
+            vkd3d_test_pop_context();
+            continue;
+        }
+
+        memset(&shader_desc, 0xba, sizeof(shader_desc));
         hr = ID3D12ShaderReflection_GetDesc(reflection, &shader_desc);
         ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
         ok(shader_desc.Version == tests[t].version, "Got version %#x.\n", shader_desc.Version);
@@ -2016,6 +2061,7 @@ static void test_reflection(void)
 
                 vkd3d_test_push_context("Variable %u", j);
 
+                memset(&var_desc, 0xba, sizeof(var_desc));
                 var = ID3D12ShaderReflectionConstantBuffer_GetVariableByIndex(cbuffer, j);
                 hr = ID3D12ShaderReflectionVariable_GetDesc(var, &var_desc);
                 ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
@@ -2024,29 +2070,41 @@ static void test_reflection(void)
                 ok(var_desc.Size == expect->var_desc.Size, "Got size %u.\n", var_desc.Size);
                 ok(var_desc.uFlags == expect->var_desc.uFlags, "Got flags %#x.\n", var_desc.uFlags);
                 ok(!var_desc.DefaultValue, "Got default value %p.\n", var_desc.DefaultValue);
-                todo_if (t != 3 && !structured) ok(var_desc.StartTexture == expect->var_desc.StartTexture,
-                        "Got texture offset %u.\n", var_desc.StartTexture);
-                todo_if (expect->var_desc.TextureSize)
-                    ok(var_desc.TextureSize == expect->var_desc.TextureSize,
-                            "Got texture size %u.\n", var_desc.TextureSize);
-                todo_if (t != 3 && !structured) ok(var_desc.StartSampler == expect->var_desc.StartSampler,
-                        "Got sampler offset %u.\n", var_desc.StartSampler);
-                ok(var_desc.SamplerSize == expect->var_desc.SamplerSize,
-                        "Got sampler size %u.\n", var_desc.SamplerSize);
+                if (compiler_version < 41)
+                {
+                    ok(var_desc.StartTexture == 0xbabababa, "Got StartTexture %#x.\n", var_desc.StartTexture);
+                    ok(var_desc.TextureSize == 0xbabababa, "Got TextureSize %#x.\n", var_desc.TextureSize);
+                    ok(var_desc.StartSampler == 0xbabababa, "Got StartSampler %#x.\n", var_desc.StartSampler);
+                    ok(var_desc.SamplerSize == 0xbabababa, "Got SamplerSize %#x.\n", var_desc.SamplerSize);
+                }
+                else
+                {
+                    todo_if (t != 3 && !structured) ok(var_desc.StartTexture == expect->var_desc.StartTexture,
+                            "Got texture offset %u.\n", var_desc.StartTexture);
+                    todo_if (expect->var_desc.TextureSize)
+                        ok(var_desc.TextureSize == expect->var_desc.TextureSize,
+                                "Got texture size %u.\n", var_desc.TextureSize);
+                    todo_if (t != 3 && !structured) ok(var_desc.StartSampler == expect->var_desc.StartSampler,
+                            "Got sampler offset %u.\n", var_desc.StartSampler);
+                    ok(var_desc.SamplerSize == expect->var_desc.SamplerSize,
+                            "Got sampler size %u.\n", var_desc.SamplerSize);
+                }
 
+                memset(&type_desc, 0xba, sizeof(type_desc));
                 type = ID3D12ShaderReflectionVariable_GetType(var);
                 hr = ID3D12ShaderReflectionType_GetDesc(type, &type_desc);
                 ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
-                check_type_desc(&type_desc, &expect->type_desc);
+                check_type_desc(&type_desc, &expect->type_desc, compiler_version);
 
                 for (unsigned int k = 0; k < type_desc.Members; ++k)
                 {
                     vkd3d_test_push_context("Field %u", k);
 
+                    memset(&field_desc, 0xba, sizeof(field_desc));
                     field = ID3D12ShaderReflectionType_GetMemberTypeByIndex(type, k);
                     hr = ID3D12ShaderReflectionType_GetDesc(field, &field_desc);
                     ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
-                    check_type_desc(&field_desc, &expect->field_types[k]);
+                    check_type_desc(&field_desc, &expect->field_types[k], compiler_version);
 
                     vkd3d_test_pop_context();
                 }
@@ -2082,6 +2140,7 @@ static void test_reflection(void)
 
             vkd3d_test_push_context("Binding %u", i);
 
+            memset(&binding_desc, 0xba, sizeof(binding_desc));
             hr = ID3D12ShaderReflection_GetResourceBindingDesc(reflection, i, &binding_desc);
             ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
 
@@ -2093,9 +2152,18 @@ static void test_reflection(void)
             ok(binding_desc.ReturnType == expect->ReturnType, "Got return type %#x.\n", binding_desc.ReturnType);
             ok(binding_desc.Dimension == expect->Dimension, "Got dimension %#x.\n", binding_desc.Dimension);
             ok(binding_desc.NumSamples == expect->NumSamples, "Got multisample count %u.\n", binding_desc.NumSamples);
-            ok(binding_desc.Space == expect->Space, "Got space %u.\n", binding_desc.Space);
-            todo_if (binding_desc.uID != expect->uID)
-                ok(binding_desc.uID == expect->uID, "Got ID %u.\n", binding_desc.uID);
+            if (!IsEqualGUID(iid, &IID_ID3D12ShaderReflection))
+            {
+                if (sizeof(void *) == sizeof(uint32_t))
+                    ok(binding_desc.Space == 0xbabababa, "Got space %u.\n", binding_desc.Space);
+                ok(binding_desc.uID == 0xbabababa, "Got ID %#x.\n", binding_desc.uID);
+            }
+            else
+            {
+                ok(binding_desc.Space == expect->Space, "Got space %u.\n", binding_desc.Space);
+                todo_if (binding_desc.uID != expect->uID)
+                    ok(binding_desc.uID == expect->uID, "Got ID %u.\n", binding_desc.uID);
+            }
 
             vkd3d_test_pop_context();
         }
@@ -2106,6 +2174,8 @@ static void test_reflection(void)
         ID3D10Blob_Release(code);
         refcount = ID3D12ShaderReflection_Release(reflection);
         ok(!refcount, "Got unexpected refcount %u.\n", refcount);
+
+        vkd3d_test_pop_context();
     }
 }
 
@@ -3712,6 +3782,60 @@ static void test_signature_reflection(void)
         ID3D10Blob_Release(code);
         refcount = reflection->lpVtbl->Release(reflection);
         ok(!refcount, "Got unexpected refcount %u.\n", refcount);
+
+        vkd3d_test_pop_context();
+    }
+}
+
+static void test_reflection(void)
+{
+    unsigned int version, i, j;
+
+    static const struct
+    {
+        const IID *iid;
+        const char *name;
+    }
+    interfaces[] =
+    {
+        {&IID_ID3D12ShaderReflection,     "12"},
+        {&IID_ID3D11ShaderReflection_v46, "11-v46"},
+        {&IID_ID3D11ShaderReflection_v43, "11-v43"},
+        {&IID_ID3D11ShaderReflection_v40, "11-v40"},
+        {&IID_ID3D10ShaderReflection1 ,   "10.1"},
+        {&IID_ID3D10ShaderReflection,     "10"},
+    };
+    static const unsigned int versions[] =
+    {
+         0,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        46,
+        47,
+    };
+
+    for (i = 0; i < ARRAY_SIZE(versions); ++i)
+    {
+        version = versions[i];
+        if (!load_d3dcompiler(version))
+            continue;
+        vkd3d_test_push_context("version %u", version);
+
+        for (j = 0; j < ARRAY_SIZE(interfaces); ++j)
+        {
+            vkd3d_test_push_context("interface %s", interfaces[j].name);
+            test_reflection_version(interfaces[j].iid, version);
+            vkd3d_test_pop_context();
+        }
 
         vkd3d_test_pop_context();
     }

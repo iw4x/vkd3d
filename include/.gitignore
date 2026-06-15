@@ -6,6 +6,9 @@ private/quartzcore.h
 private/spirv_grammar.h
 private/vkd3d_version.h
 stamp-h1
+vkd3d_d3d10shader.h
+vkd3d_d3d10_1shader.h
+vkd3d_d3d11shader.h
 vkd3d_d3d12.h
 vkd3d_d3d12sdklayers.h
 vkd3d_d3d12shader.h

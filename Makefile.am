@@ -10,6 +10,9 @@ objc_headers = \
 	include/private/quartzcore.h
 
 widl_headers = \
+	include/vkd3d_d3d10shader.h \
+	include/vkd3d_d3d10_1shader.h \
+	include/vkd3d_d3d11shader.h \
 	include/vkd3d_d3d12.h \
 	include/vkd3d_d3d12sdklayers.h \
 	include/vkd3d_d3d12shader.h \
@@ -26,6 +29,9 @@ widl_headers = \
 
 vkd3d_public_headers = \
 	include/vkd3d.h \
+	include/vkd3d_d3d10shader.h \
+	include/vkd3d_d3d10_1shader.h \
+	include/vkd3d_d3d11shader.h \
 	include/vkd3d_d3d12.h \
 	include/vkd3d_d3d12sdklayers.h \
 	include/vkd3d_d3d12shader.h \

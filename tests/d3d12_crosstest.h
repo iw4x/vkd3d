@@ -49,6 +49,10 @@ typedef int HRESULT;
 #include "vkd3d_d3d12.h"
 #include "vkd3d_d3d12sdklayers.h"
 #include "vkd3d_d3dcompiler.h"
+#include "vkd3d_d3d10shader.h"
+#include "vkd3d_d3d10_1shader.h"
+#include "vkd3d_d3d11shader.h"
+#include "vkd3d_d3d12shader.h"
 
 #include <inttypes.h>
 #include <limits.h>
@@ -99,45 +103,121 @@ static inline void *get_d3d12_pfn_(const char *name)
     return GetProcAddress(GetModuleHandleA("d3d12.dll"), name);
 }
 
+static struct d3d10
+{
+    bool loaded;
+    HRESULT (WINAPI *D3D10PreprocessShader)(const void *data, SIZE_T size,
+            const char *filename, const D3D_SHADER_MACRO *macros, ID3DInclude *include,
+            ID3DBlob **preprocessed_blob, ID3DBlob **messages_blob);
+    HRESULT (WINAPI *D3D10ReflectShader)(const void *data, SIZE_T data_size, ID3D10ShaderReflection **reflection);
+} d3d10;
+
 static struct d3dcompiler
 {
     bool loaded;
     HRESULT (WINAPI *D3DPreprocess)(const void *data, SIZE_T size, const char *filename,
             const D3D_SHADER_MACRO *macros, ID3DInclude *include,
             ID3DBlob **preprocessed_blob, ID3DBlob **messages_blob);
+    HRESULT (WINAPI *D3DReflect)(const void *data, SIZE_T data_size, REFIID iid, void **reflection);
+    HRESULT (WINAPI *D3DReflectCode)(REFIID iid, const void *data, SIZE_T data_size, void **reflection);
 } d3dcompilers[47 - 33 + 1];
+
+static inline bool load_d3d10(void)
+{
+    HMODULE module;
+
+    if (d3d10.loaded)
+        return true;
+
+    if (!(module = LoadLibraryA("d3d10.dll")))
+        goto fail;
+
+    if (!(d3d10.D3D10PreprocessShader = (void *)GetProcAddress(module, "D3D10PreprocessShader")))
+        goto fail;
+    if (!(d3d10.D3D10ReflectShader = (void *)GetProcAddress(module, "D3D10ReflectShader")))
+        goto fail;
+
+    return d3d10.loaded = true;
+
+fail:
+    skip("Failed to load d3d10.dll.\n");
+    return false;
+}
 
 static inline bool load_d3dcompiler(unsigned int version)
 {
-    struct d3dcompiler *d3dcompiler = &d3dcompilers[version - 33];
+    struct d3dcompiler *d3dcompiler;
     HMODULE module;
-    char name[20];
+    char name[32];
 
-    if (!d3dcompiler->loaded)
+    if (!version)
+        return load_d3d10();
+
+    d3dcompiler = &d3dcompilers[version - 33];
+    if (d3dcompiler->loaded)
+        return true;
+
+    sprintf(name, "d3dcompiler_%u.dll", version);
+    if (!(module = LoadLibraryA(name)))
+        goto fail;
+
+    if (version < 40)
     {
-        sprintf(name, "d3dcompiler_%u.dll", version);
-        if ((module = LoadLibraryA(name)))
-        {
-            if (version < 40)
-                d3dcompiler->D3DPreprocess = (void *)GetProcAddress(module, "D3DPreprocessFromMemory");
-            else
-                d3dcompiler->D3DPreprocess = (void *)GetProcAddress(module, "D3DPreprocess");
-        }
-        else
-        {
-            skip("Failed to load %s.\n", name);
-        }
-        d3dcompiler->loaded = true;
+        if (!(d3dcompiler->D3DPreprocess = (void *)GetProcAddress(module, "D3DPreprocessFromMemory")))
+            goto fail;
+        if (!(d3dcompiler->D3DReflectCode = (void *)GetProcAddress(module, "D3DReflectCode")))
+            goto fail;
     }
-    return d3dcompiler->D3DPreprocess;
+    else
+    {
+        if (!(d3dcompiler->D3DPreprocess = (void *)GetProcAddress(module, "D3DPreprocess")))
+            goto fail;
+        if (!(d3dcompiler->D3DReflect = (void *)GetProcAddress(module, "D3DReflect")))
+            goto fail;
+    }
+
+    return d3dcompiler->loaded = true;
+
+fail:
+    skip("Failed to load %s.\n", name);
+    return false;
 }
 
 static inline HRESULT WINAPI D3DPreprocessVKD3D(const void *data, SIZE_T size, const char *filename,
         const D3D_SHADER_MACRO *macros, ID3DInclude *include,
         ID3DBlob **preprocessed_blob, ID3DBlob **messages_blob, unsigned int compiler_version)
 {
+    if (!compiler_version)
+        return d3d10.D3D10PreprocessShader(data, size, filename,
+                macros, include, preprocessed_blob, messages_blob);
+
     return d3dcompilers[compiler_version - 33].D3DPreprocess(data, size,
             filename, macros, include, preprocessed_blob, messages_blob);
+}
+
+static inline HRESULT WINAPI D3DReflectVKD3D(const void *data, SIZE_T data_size,
+        REFIID iid, void **reflection, unsigned int version)
+{
+    HRESULT hr;
+
+    if (!version)
+    {
+        if (FAILED(hr = d3d10.D3D10ReflectShader(data, data_size, (ID3D10ShaderReflection **)reflection)))
+            return hr;
+
+        if (!IsEqualGUID(iid, &IID_ID3D10ShaderReflection))
+        {
+            ID3D10ShaderReflection_Release(*(ID3D10ShaderReflection **)reflection);
+            return E_NOINTERFACE;
+        }
+
+        return hr;
+    }
+
+    if (version < 40)
+        return d3dcompilers[version - 33].D3DReflectCode(iid, data, data_size, reflection);
+
+    return d3dcompilers[version - 33].D3DReflect(data, data_size, iid, reflection);
 }
 
 #else
