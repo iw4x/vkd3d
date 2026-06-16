@@ -1677,9 +1677,6 @@ static void shader_glsl_shader_prologue(struct vkd3d_glsl_generator *gen)
     {
         e = &signature->elements[i];
 
-        if (e->target_location == SIGNATURE_TARGET_LOCATION_UNUSED)
-            continue;
-
         for (unsigned int j = 0; j < e->register_count; ++j)
         {
             shader_glsl_print_indent(buffer, gen->indent);
@@ -1687,6 +1684,9 @@ static void shader_glsl_shader_prologue(struct vkd3d_glsl_generator *gen)
             shader_glsl_print_write_mask(buffer, e->mask);
             if (e->sysval_semantic == VKD3D_SHADER_SV_NONE)
             {
+                if (e->target_location == SIGNATURE_TARGET_LOCATION_UNUSED)
+                    break;
+
                 if (gen->interstage_input)
                 {
                     vkd3d_string_buffer_printf(buffer, " = shader_in.reg_%u", e->target_location + j);
@@ -1739,13 +1739,16 @@ static void shader_glsl_shader_epilogue(struct vkd3d_glsl_generator *gen)
     {
         e = &signature->elements[i];
 
-        if (e->target_location == SIGNATURE_TARGET_LOCATION_UNUSED)
+        if (!gen->interstage_output && e->sysval_semantic != VKD3D_SHADER_SV_TARGET)
             continue;
 
         type = e->component_type;
         shader_glsl_print_indent(buffer, gen->indent);
         if (e->sysval_semantic == VKD3D_SHADER_SV_NONE)
         {
+            if (e->target_location == SIGNATURE_TARGET_LOCATION_UNUSED)
+                continue;
+
             if (gen->interstage_output)
             {
                 type = VKD3D_SHADER_COMPONENT_FLOAT;
@@ -2684,15 +2687,8 @@ static void shader_glsl_generate_output_declarations(struct vkd3d_glsl_generator
         {
             e = &signature->elements[i];
 
-            if (e->target_location == SIGNATURE_TARGET_LOCATION_UNUSED)
-                continue;
-
             if (e->sysval_semantic != VKD3D_SHADER_SV_TARGET)
-            {
-                vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                        "Internal compiler error: Unhandled system value %#x.", e->sysval_semantic);
                 continue;
-            }
 
             if (e->min_precision != VKD3D_SHADER_MINIMUM_PRECISION_NONE)
             {
