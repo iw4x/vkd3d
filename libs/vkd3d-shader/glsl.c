@@ -1800,14 +1800,9 @@ static void shader_glsl_shader_epilogue(struct vkd3d_glsl_generator *gen)
 
 static void shader_glsl_ret(struct vkd3d_glsl_generator *gen, const struct vkd3d_shader_instruction *ins)
 {
-    const struct vkd3d_shader_version *version = &gen->program->shader_version;
-
-    if (version->major >= 4)
-    {
-        shader_glsl_shader_epilogue(gen);
-        shader_glsl_print_indent(gen->buffer, gen->indent);
-        vkd3d_string_buffer_printf(gen->buffer, "return;\n");
-    }
+    shader_glsl_shader_epilogue(gen);
+    shader_glsl_print_indent(gen->buffer, gen->indent);
+    vkd3d_string_buffer_printf(gen->buffer, "return;\n");
 }
 
 static void shader_glsl_dcl_indexable_temp(struct vkd3d_glsl_generator *gen,
