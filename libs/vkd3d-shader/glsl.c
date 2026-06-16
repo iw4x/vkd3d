@@ -1678,7 +1678,7 @@ static void shader_glsl_shader_prologue(struct vkd3d_glsl_generator *gen)
             continue;
 
         shader_glsl_print_indent(buffer, gen->indent);
-        vkd3d_string_buffer_printf(buffer, "%s_in[%u]", gen->prefix, e->register_index);
+        vkd3d_string_buffer_printf(buffer, "%s_in[%u]", gen->prefix, i);
         shader_glsl_print_write_mask(buffer, e->mask);
         if (e->sysval_semantic == VKD3D_SHADER_SV_NONE)
         {
@@ -1765,17 +1765,17 @@ static void shader_glsl_shader_epilogue(struct vkd3d_glsl_generator *gen)
         switch (type)
         {
             case VKD3D_SHADER_COMPONENT_UINT:
-                vkd3d_string_buffer_printf(buffer, " = floatBitsToUint(%s_out[%u])", gen->prefix, e->register_index);
+                vkd3d_string_buffer_printf(buffer, " = floatBitsToUint(%s_out[%u])", gen->prefix, i);
                 break;
             case VKD3D_SHADER_COMPONENT_INT:
-                vkd3d_string_buffer_printf(buffer, " = floatBitsToInt(%s_out[%u])", gen->prefix, e->register_index);
+                vkd3d_string_buffer_printf(buffer, " = floatBitsToInt(%s_out[%u])", gen->prefix, i);
                 break;
             default:
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                         "Internal compiler error: Unhandled output component type %#x.", e->component_type);
                 /* fall through */
             case VKD3D_SHADER_COMPONENT_FLOAT:
-                vkd3d_string_buffer_printf(buffer, " = %s_out[%u]", gen->prefix, e->register_index);
+                vkd3d_string_buffer_printf(buffer, " = %s_out[%u]", gen->prefix, i);
                 break;
         }
         shader_glsl_print_write_mask(buffer, e->mask);
