@@ -20,6 +20,7 @@
 #include "vkd3d_utils_private.h"
 #include <vkd3d_d3dcommon.h>
 #include <vkd3d_d3d10shader.h>
+#include <vkd3d_d3d11shader.h>
 #include <vkd3d_d3d12shader.h>
 
 struct d3d12_type
@@ -342,9 +343,14 @@ static bool reflection_iid_supported(const IID *iid, unsigned int version)
 {
     if (version < 40)
         return IsEqualGUID(iid, &IID_ID3D10ShaderReflection);
+    if (version < 43)
+        return IsEqualGUID(iid, &IID_ID3D11ShaderReflection_v40);
+    if (version < 46)
+        return IsEqualGUID(iid, &IID_ID3D11ShaderReflection_v43);
     if (version < 47)
-        return false;
-    return IsEqualGUID(iid, &IID_ID3D12ShaderReflection);
+        return IsEqualGUID(iid, &IID_ID3D11ShaderReflection_v46);
+    return IsEqualGUID(iid, &IID_ID3D11ShaderReflection_v46)
+            || IsEqualGUID(iid, &IID_ID3D12ShaderReflection);
 }
 
 static struct d3d12_reflection *impl_from_ID3D12ShaderReflection(ID3D12ShaderReflection *iface)
@@ -938,7 +944,8 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
     if (!(header = get_data_ptr(section, 0, 1, sizeof(*header))))
         return E_INVALIDARG;
 
-    if (reflection->version < 40 && rdef_header_version_ge(header, 5, 0))
+    if ((reflection->version < 40 && rdef_header_version_ge(header, 5, 0))
+            || (reflection->version < 47 && rdef_header_version_ge(header, 5, 1)))
     {
         WARN("Shader version %u.%u, type %#x is not supported by compiler version %u.\n",
                 header->major_version, header->minor_version, header->type, reflection->version);
