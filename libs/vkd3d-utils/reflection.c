@@ -19,12 +19,14 @@
 
 #include "vkd3d_utils_private.h"
 #include <vkd3d_d3dcommon.h>
+#include <vkd3d_d3d10shader.h>
 #include <vkd3d_d3d12shader.h>
 
 struct d3d12_type
 {
     ID3D12ShaderReflectionType ID3D12ShaderReflectionType_iface;
     D3D12_SHADER_TYPE_DESC desc;
+    size_t desc_size;
 
     struct d3d12_field *fields;
 };
@@ -38,6 +40,7 @@ struct d3d12_variable
 {
     ID3D12ShaderReflectionVariable ID3D12ShaderReflectionVariable_iface;
     D3D12_SHADER_VARIABLE_DESC desc;
+    size_t desc_size;
     struct d3d12_buffer *buffer;
 
     struct d3d12_type type;
@@ -55,10 +58,12 @@ struct d3d12_reflection
 {
     ID3D12ShaderReflection ID3D12ShaderReflection_iface;
     unsigned int refcount;
+    unsigned int version;
 
     struct vkd3d_shader_scan_signature_info signature_info;
 
     D3D12_SHADER_DESC desc;
+    size_t desc_size, bind_desc_size;
 
     struct d3d12_buffer *buffers;
 
@@ -93,7 +98,8 @@ static HRESULT STDMETHODCALLTYPE d3d12_type_GetDesc(
         return E_FAIL;
     }
 
-    *desc = type->desc;
+    memcpy(desc, &type->desc, type->desc_size);
+
     return S_OK;
 }
 
@@ -225,7 +231,8 @@ static HRESULT STDMETHODCALLTYPE d3d12_variable_GetDesc(
         return E_FAIL;
     }
 
-    *desc = variable->desc;
+    memcpy(desc, &variable->desc, variable->desc_size);
+
     return S_OK;
 }
 
@@ -331,27 +338,37 @@ static const struct ID3D12ShaderReflectionConstantBufferVtbl d3d12_buffer_vtbl =
 
 static struct d3d12_buffer null_buffer = {{&d3d12_buffer_vtbl}};
 
+static bool reflection_iid_supported(const IID *iid, unsigned int version)
+{
+    if (version < 40)
+        return IsEqualGUID(iid, &IID_ID3D10ShaderReflection);
+    if (version < 47)
+        return false;
+    return IsEqualGUID(iid, &IID_ID3D12ShaderReflection);
+}
+
 static struct d3d12_reflection *impl_from_ID3D12ShaderReflection(ID3D12ShaderReflection *iface)
 {
     return CONTAINING_RECORD(iface, struct d3d12_reflection, ID3D12ShaderReflection_iface);
 }
 
 static HRESULT STDMETHODCALLTYPE d3d12_reflection_QueryInterface(
-        ID3D12ShaderReflection *iface, REFIID riid, void **object)
+        ID3D12ShaderReflection *iface, REFIID iid, void **out)
 {
-    TRACE("iface %p, riid %s, object %p\n", iface, debugstr_guid(riid), object);
+    struct d3d12_reflection *reflection = impl_from_ID3D12ShaderReflection(iface);
 
-    if (IsEqualGUID(riid, &IID_ID3D12ShaderReflection)
-            || IsEqualGUID(riid, &IID_IUnknown))
+    TRACE("iface %p, iid %s, out %p.\n", iface, debugstr_guid(iid), out);
+
+    if (reflection_iid_supported(iid, reflection->version) || IsEqualGUID(iid, &IID_IUnknown))
     {
         ID3D12ShaderReflection_AddRef(iface);
-        *object = iface;
+        *out = iface;
         return S_OK;
     }
 
-    WARN("%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid(riid));
+    WARN("%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid(iid));
 
-    *object = NULL;
+    *out = NULL;
     return E_NOINTERFACE;
 }
 
@@ -416,9 +433,9 @@ static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetDesc(ID3D12ShaderReflection
 {
     struct d3d12_reflection *reflection = impl_from_ID3D12ShaderReflection(iface);
 
-    FIXME("iface %p, desc %p partial stub!\n", iface, desc);
+    TRACE("iface %p, desc %p.\n", iface, desc);
 
-    *desc = reflection->desc;
+    memcpy(desc, &reflection->desc, reflection->desc_size);
 
     return S_OK;
 }
@@ -460,12 +477,13 @@ static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetResourceBindingDesc(
         return E_INVALIDARG;
     }
 
-    *desc = reflection->bindings[index];
+    memcpy(desc, &reflection->bindings[index], reflection->bind_desc_size);
+
     return S_OK;
 }
 
 static HRESULT get_signature_parameter(const struct vkd3d_shader_signature *signature,
-        unsigned int index, D3D12_SIGNATURE_PARAMETER_DESC *desc, bool output)
+        unsigned int index, D3D12_SIGNATURE_PARAMETER_DESC *desc, bool output, unsigned int version)
 {
     const struct vkd3d_shader_signature_element *e;
 
@@ -479,12 +497,17 @@ static HRESULT get_signature_parameter(const struct vkd3d_shader_signature *sign
     desc->SemanticName = e->semantic_name;
     desc->SemanticIndex = e->semantic_index;
     desc->Register = e->register_index;
-    desc->SystemValueType = (D3D_NAME)e->sysval_semantic;
+    if (version < 35 && e->sysval_semantic >= VKD3D_SHADER_SV_TARGET)
+        desc->SystemValueType = D3D_NAME_UNDEFINED;
+    else
+        desc->SystemValueType = (D3D_NAME)e->sysval_semantic;
     desc->ComponentType = (D3D_REGISTER_COMPONENT_TYPE)e->component_type;
     desc->Mask = e->mask;
     desc->ReadWriteMask = output ? (0xf ^ e->used_mask) : e->used_mask;
-    desc->Stream = e->stream_index;
-    desc->MinPrecision = (D3D_MIN_PRECISION)e->min_precision;
+    if (version >= 40)
+        desc->Stream = e->stream_index;
+    if (version >= 46)
+        desc->MinPrecision = (D3D_MIN_PRECISION)e->min_precision;
 
     return S_OK;
 }
@@ -496,7 +519,7 @@ static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetInputParameterDesc(
 
     TRACE("iface %p, index %u, desc %p.\n", iface, index, desc);
 
-    return get_signature_parameter(&reflection->signature_info.input, index, desc, false);
+    return get_signature_parameter(&reflection->signature_info.input, index, desc, false, reflection->version);
 }
 
 static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetOutputParameterDesc(
@@ -506,7 +529,7 @@ static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetOutputParameterDesc(
 
     TRACE("iface %p, index %u, desc %p.\n", iface, index, desc);
 
-    return get_signature_parameter(&reflection->signature_info.output, index, desc, true);
+    return get_signature_parameter(&reflection->signature_info.output, index, desc, true, reflection->version);
 }
 
 static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetPatchConstantParameterDesc(
@@ -517,7 +540,8 @@ static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetPatchConstantParameterDesc(
 
     TRACE("iface %p, index %u, desc %p.\n", iface, index, desc);
 
-    return get_signature_parameter(&reflection->signature_info.patch_constant, index, desc, output);
+    return get_signature_parameter(&reflection->signature_info.patch_constant,
+            index, desc, output, reflection->version);
 }
 
 static struct ID3D12ShaderReflectionVariable * STDMETHODCALLTYPE d3d12_reflection_GetVariableByName(
@@ -762,8 +786,8 @@ struct rdef_binding
     uint32_t id;
 };
 
-static HRESULT d3d12_type_init(struct d3d12_type *type, uint32_t type_offset, uint32_t type_size,
-        const struct vkd3d_shader_code *section, uint32_t field_offset)
+static HRESULT d3d12_type_init(struct d3d12_type *type, struct d3d12_reflection *reflection,
+        uint32_t type_offset, uint32_t type_size, const struct vkd3d_shader_code *section, uint32_t field_offset)
 {
     struct rdef_type normalized_type = {0};
     const struct rdef_type *rdef_type;
@@ -788,6 +812,11 @@ static HRESULT d3d12_type_init(struct d3d12_type *type, uint32_t type_offset, ui
     type->desc.Offset = field_offset;
     type->desc.Name = name;
 
+    if (reflection->version >= 40)
+        type->desc_size = sizeof(D3D12_SHADER_TYPE_DESC);
+    else
+        type->desc_size = sizeof(D3D10_SHADER_TYPE_DESC);
+
     if (normalized_type.field_count)
     {
         const struct rdef_field *rdef_fields;
@@ -803,8 +832,8 @@ static HRESULT d3d12_type_init(struct d3d12_type *type, uint32_t type_offset, ui
         {
             const struct rdef_field *rdef_field = &rdef_fields[i];
 
-            if ((hr = d3d12_type_init(&type->fields[i].type, rdef_field->type_offset,
-                    type_size, section, rdef_field->offset)))
+            if (FAILED(hr = d3d12_type_init(&type->fields[i].type, reflection,
+                    rdef_field->type_offset, type_size, section, rdef_field->offset)))
                 return hr;
         }
     }
@@ -812,8 +841,8 @@ static HRESULT d3d12_type_init(struct d3d12_type *type, uint32_t type_offset, ui
     return S_OK;
 }
 
-static HRESULT d3d12_variable_init(struct d3d12_variable *variable, const struct rdef_variable *rdef_variable,
-        const struct vkd3d_shader_code *section, uint32_t type_size)
+static HRESULT d3d12_variable_init(struct d3d12_variable *variable, struct d3d12_reflection *reflection,
+        const struct rdef_variable *rdef_variable, const struct vkd3d_shader_code *section, uint32_t type_size)
 {
     HRESULT hr;
     char *name;
@@ -843,10 +872,16 @@ static HRESULT d3d12_variable_init(struct d3d12_variable *variable, const struct
             return E_OUTOFMEMORY;
     }
 
-    return d3d12_type_init(&variable->type, rdef_variable->type_offset, type_size, section, 0);
+    if (reflection->version >= 41)
+        variable->desc_size = sizeof(D3D12_SHADER_VARIABLE_DESC);
+    else
+        variable->desc_size = sizeof(D3D10_SHADER_VARIABLE_DESC);
+
+    return d3d12_type_init(&variable->type, reflection, rdef_variable->type_offset, type_size, section, 0);
 }
 
-static HRESULT d3d12_buffer_init(struct d3d12_buffer *buffer, const struct rdef_buffer *rdef_buffer,
+static HRESULT d3d12_buffer_init(struct d3d12_buffer *buffer,
+        struct d3d12_reflection *reflection, const struct rdef_buffer *rdef_buffer,
         const struct vkd3d_shader_code *section, uint32_t variable_size, uint32_t type_size)
 {
     HRESULT hr;
@@ -878,11 +913,17 @@ static HRESULT d3d12_buffer_init(struct d3d12_buffer *buffer, const struct rdef_
         normalized_variable.sampler_binding = ~0u;
         memcpy(&normalized_variable, rdef_variable, variable_size);
 
-        if ((hr = d3d12_variable_init(&buffer->variables[i], &normalized_variable, section, type_size)))
+        if (FAILED(hr = d3d12_variable_init(&buffer->variables[i],
+                reflection, &normalized_variable, section, type_size)))
             return hr;
     }
 
     return S_OK;
+}
+
+static bool rdef_header_version_ge(const struct rdef_header *header, unsigned int major, unsigned int minor)
+{
+    return header->major_version > major || (header->major_version == major && header->minor_version >= minor);
 }
 
 static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3d_shader_code *section)
@@ -896,6 +937,13 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
 
     if (!(header = get_data_ptr(section, 0, 1, sizeof(*header))))
         return E_INVALIDARG;
+
+    if (reflection->version < 40 && rdef_header_version_ge(header, 5, 0))
+    {
+        WARN("Shader version %u.%u, type %#x is not supported by compiler version %u.\n",
+                header->major_version, header->minor_version, header->type, reflection->version);
+        return E_INVALIDARG;
+    }
 
     if (header->major_version >= 5)
     {
@@ -967,7 +1015,8 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
 
         for (uint32_t i = 0; i < header->buffer_count; ++i)
         {
-            if ((hr = d3d12_buffer_init(&reflection->buffers[i], &rdef_buffers[i], section, variable_size, type_size)))
+            if (FAILED(hr = d3d12_buffer_init(&reflection->buffers[i], reflection,
+                    &rdef_buffers[i], section, variable_size, type_size)))
                 return hr;
         }
     }
@@ -1017,7 +1066,8 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
     return S_OK;
 }
 
-static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection, const void *data, size_t data_size)
+static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection,
+        const IID *iid, const void *data, size_t data_size, unsigned int version)
 {
     struct vkd3d_shader_compile_info compile_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO};
     struct vkd3d_shader_dxbc_desc dxbc_desc;
@@ -1027,6 +1077,7 @@ static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection, const 
 
     reflection->ID3D12ShaderReflection_iface.lpVtbl = &d3d12_reflection_vtbl;
     reflection->refcount = 1;
+    reflection->version = version;
 
     compile_info.source.code = data;
     compile_info.source.size = data_size;
@@ -1037,6 +1088,16 @@ static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection, const 
 
     if (FAILED(hr = hresult_from_vkd3d_result(vkd3d_shader_scan(&compile_info, NULL))))
         return hr;
+
+    if (reflection->version >= 40)
+        reflection->desc_size = sizeof(D3D12_SHADER_DESC);
+    else
+        reflection->desc_size = sizeof(D3D10_SHADER_DESC);
+
+    if (IsEqualGUID(iid, &IID_ID3D12ShaderReflection))
+        reflection->bind_desc_size = sizeof(D3D12_SHADER_INPUT_BIND_DESC);
+    else
+        reflection->bind_desc_size = sizeof(D3D10_SHADER_INPUT_BIND_DESC);
 
     if ((ret = vkd3d_shader_parse_dxbc(&compile_info.source, 0, &dxbc_desc, NULL)))
     {
@@ -1062,20 +1123,27 @@ static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection, const 
         }
         else if (section->tag == TAG_SHDR || section->tag == TAG_SHEX)
         {
-            const uint32_t *version;
+            const uint32_t *shader_version;
 
-            if (!(version = get_data_ptr(&section->data, 0, 1, sizeof(*version))))
+            if (!(shader_version = get_data_ptr(&section->data, 0, 1, sizeof(*shader_version))))
             {
                 hr = E_INVALIDARG;
                 goto fail;
             }
-            reflection->desc.Version = *version;
+            reflection->desc.Version = *shader_version;
         }
     }
 
     reflection->desc.InputParameters = reflection->signature_info.input.element_count;
     reflection->desc.OutputParameters = reflection->signature_info.output.element_count;
     reflection->desc.PatchConstantParameters = reflection->signature_info.patch_constant.element_count;
+
+    if (!reflection_iid_supported(iid, version))
+    {
+        WARN("Unhandled iid %s, version %u.\n", debugstr_guid(iid), version);
+        hr = version == 47 ? E_INVALIDARG : E_NOINTERFACE;
+        goto fail;
+    }
 
     vkd3d_shader_free_dxbc(&dxbc_desc);
 
@@ -1095,20 +1163,12 @@ HRESULT WINAPI D3DReflectVKD3D(const void *data, SIZE_T data_size, REFIID iid, v
     TRACE("data %p, data_size %"PRIuPTR", iid %s, reflection %p, version %u.\n",
             data, (uintptr_t)data_size, debugstr_guid(iid), reflection, version);
 
-    if (version < 47 || !IsEqualGUID(iid, &IID_ID3D12ShaderReflection))
-    {
-        WARN("Unhandled iid %s, version %u.\n", debugstr_guid(iid), version);
-        if (version == 47)
-            return E_INVALIDARG;
-        return E_NOINTERFACE;
-    }
-
     if (!(object = vkd3d_calloc(1, sizeof(*object))))
         return E_OUTOFMEMORY;
 
-    if (FAILED(hr = d3d12_reflection_init(object, data, data_size)))
+    if (FAILED(hr = d3d12_reflection_init(object, iid, data, data_size, version)))
     {
-        free(object);
+        vkd3d_free(object);
         return hr;
     }
 
