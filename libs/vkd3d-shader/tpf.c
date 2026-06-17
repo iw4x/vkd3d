@@ -3227,6 +3227,8 @@ bool sm4_sysval_semantic_from_semantic_name(enum vkd3d_shader_sysval_semantic *s
         return false;
     if (!output && version->type == VKD3D_SHADER_TYPE_GEOMETRY)
         return false;
+    if (output && version->type == VKD3D_SHADER_TYPE_PIXEL)
+        return false;
 
     *sysval_semantic = VKD3D_SHADER_SV_NONE;
     return true;
