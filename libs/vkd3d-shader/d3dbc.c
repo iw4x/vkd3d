@@ -1759,7 +1759,6 @@ bool sm1_usage_from_semantic_name(const struct vkd3d_shader_version *version, co
         {"sample",          VKD3D_DECL_USAGE_SAMPLE},
         {"sv_depth",        VKD3D_DECL_USAGE_DEPTH},
         {"sv_position",     VKD3D_DECL_USAGE_POSITION},
-        {"sv_target",       VKD3D_DECL_USAGE_COLOR},
         {"tangent",         VKD3D_DECL_USAGE_TANGENT},
         {"tessfactor",      VKD3D_DECL_USAGE_TESS_FACTOR},
         {"texcoord",        VKD3D_DECL_USAGE_TEXCOORD},

@@ -17,7 +17,7 @@ float4 main(out float4 x : USER) : SV_POSITION
 }
 
 % SV_TARGET is not a valid vertex shader output.
-[vertex-shader fail todo(sm=3)]
+[vertex-shader fail]
 float4 main(out float4 x : SV_TARGET) : SV_POSITION
 {
     return x = float4(0, 0, 0, 0);
@@ -53,7 +53,7 @@ float4 main(float4 x : SV_DEPTH) : SV_TARGET
 }
 
 % But not SV_TARGET.
-[pixel-shader fail todo(sm=3)]
+[pixel-shader fail]
 float4 main(float4 x : SV_TARGET) : SV_TARGET
 {
     return x;
