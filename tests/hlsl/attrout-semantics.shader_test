@@ -34,7 +34,7 @@ probe (0, 0) f32(1, 1, 1, 1)
 
 % FOG can be used as a pixel shader input in ps_3_0, but not ps_2_0.
 % On ps_4_0 and above, it behaves as a regular semantic, without sysval.
-[pixel shader fail(sm<3) todo(sm<3)]
+[pixel-shader fail(sm<3)]
 float4 main(float fog : FOG) : sv_target
 {
     return fog;
@@ -63,7 +63,7 @@ probe (0, 0) f32(1, 1, 1, 1)
 
 % PSIZE cannot be used as a pixel shader input in ps_2_0 nor ps_3_0.
 % On ps_4_0 and above, it behaves as a regular semantic, without sysval.
-[pixel shader fail(sm<4) todo(sm<4)]
+[pixel-shader fail(sm<4) todo(sm=3)]
 float4 main(float psize : PSIZE) : sv_target
 {
     return psize;

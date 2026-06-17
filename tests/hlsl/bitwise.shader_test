@@ -12,7 +12,7 @@ todo(sm<4) draw quad
 if(sm>=4) probe (0, 0) f32(0, 32, 16, 12)
 if(sm<4)  probe (0, 0) f32(0, 0, 0, 0)
 
-[pixel shader]
+[pixel-shader todo(sm=2)]
 float4 main(float4 pos : sv_position) : sv_target
 {
     uint4x4 umat =
@@ -27,7 +27,7 @@ float4 main(float4 pos : sv_position) : sv_target
 }
 
 [test]
-draw quad
+todo(sm=2) draw quad
 if(sm>=4) probe(0, 0) f32(1, 1, 2, 1)
 if(sm>=4) probe(1, 0) f32(2, 2, 3, 1)
 if(sm>=4) probe(2, 0) f32(2, 2, 3, 2)

@@ -13,7 +13,7 @@ float4 main(float4 pos : POSITION) : sv_position
     return pos;
 }
 
-[pixel shader fail(sm<4) todo(sm<4)]
+[pixel-shader fail(sm<4) todo(sm=3)]
 float4 main(float4 pos : sv_position) : sv_target
 {
     return pos;
@@ -56,7 +56,7 @@ probe (560, 140) f32(  0.0,   0.0, 0.0, 0.0)
 probe (560, 420) f32(560.5, 420.5, 0.550675929, 1.229981) 192
 
 % sm4 forbids sv_position from being any less than 4 components.
-[pixel shader fail todo]
+[pixel-shader fail todo(sm>=4)]
 float4 main(float3 pos : sv_position) : sv_target
 {
     return float4(pos, 0);
@@ -69,7 +69,7 @@ float4 main(float3 pos : vpos) : sv_target
     return float4(pos, 0);
 }
 
-[pixel shader fail(sm<3|sm>=4) todo(sm<3|sm>=4)]
+[pixel-shader fail(sm<3|sm>=4) todo(sm>=4)]
 float4 main(float2 pos : sv_position) : sv_target
 {
     return float4(pos, 0, 0);
@@ -82,7 +82,7 @@ draw triangle strip 4
 if(sm<4)  probe ( 80, 420) f32( 80.0, 420.0, 0.0, 0.0)
 if(sm>=4) probe ( 80, 420) f32( 80.5, 420.5, 0.0, 0.0)
 
-[pixel shader fail(sm<3|sm>=4) todo(sm<3|sm>=4)]
+[pixel-shader fail(sm<3|sm>=4) todo(sm>=4)]
 float4 main(float pos : sv_position) : sv_target
 {
     return float4(pos, 0, 0, 0);

@@ -1736,8 +1736,8 @@ bool sm1_register_from_semantic_name(const struct vkd3d_shader_version *version,
     return false;
 }
 
-bool sm1_usage_from_semantic_name(const char *semantic_name,
-        uint32_t semantic_index, enum vkd3d_decl_usage *usage, uint32_t *usage_idx)
+bool sm1_usage_from_semantic_name(const struct vkd3d_shader_version *version, const char *semantic_name,
+        uint32_t semantic_index, bool output, enum vkd3d_decl_usage *usage, uint32_t *usage_idx)
 {
     static const struct
     {
@@ -1766,6 +1766,12 @@ bool sm1_usage_from_semantic_name(const char *semantic_name,
     };
 
     unsigned int i;
+
+    /* Generic I/O registers are used for shader model 3 varyings, as well as
+     * for vertex shader inputs in all versions. */
+    if ((version->major != 3 || (version->type == VKD3D_SHADER_TYPE_PIXEL && output))
+            && !(version->type == VKD3D_SHADER_TYPE_VERTEX && !output))
+        return false;
 
     for (i = 0; i < ARRAY_SIZE(semantics); ++i)
     {
@@ -2275,7 +2281,8 @@ static void d3dbc_write_semantic_dcl(struct d3dbc_compiler *compiler,
     }
     else
     {
-        ret = sm1_usage_from_semantic_name(element->semantic_name, element->semantic_index, &usage, &usage_idx);
+        ret = sm1_usage_from_semantic_name(version, element->semantic_name,
+                element->semantic_index, output, &usage, &usage_idx);
         VKD3D_ASSERT(ret);
         reg.reg.type = output ? VSIR_REGISTER_OUTPUT : VSIR_REGISTER_INPUT;
         reg.reg.idx[0].offset = element->register_index;

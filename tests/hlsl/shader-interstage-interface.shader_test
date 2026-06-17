@@ -17,7 +17,7 @@ float4 main(out float4 x : USER) : SV_POSITION
 }
 
 % SV_TARGET is not a valid vertex shader output.
-[vertex-shader fail todo(sm<4)]
+[vertex-shader fail todo(sm=3)]
 float4 main(out float4 x : SV_TARGET) : SV_POSITION
 {
     return x = float4(0, 0, 0, 0);
@@ -32,28 +32,28 @@ float4 main(float4 x : USER) : SV_TARGET
 }
 
 % SV_POSITION is a valid input for shader model 4+ pixel shaders.
-[pixel-shader fail(sm<4) todo(sm<4)]
+[pixel-shader fail(sm<4) todo(sm=3)]
 float4 main(float4 x : SV_POSITION) : SV_TARGET
 {
     return x;
 }
 
 % It's valid in shader model 3 as well, but needs to be a float2.
-[pixel-shader fail(sm<3 | sm>=4) todo(sm<3 | sm>=4)]
+[pixel-shader fail(sm<3 | sm>=4) todo(sm>=4)]
 float4 main(float2 x : SV_POSITION) : SV_TARGET
 {
     return x.xxyy;
 }
 
 % SV_DEPTH is a valid input for shader model 3 pixel shaders.
-[pixel-shader fail(sm<3 | sm>=4) todo(sm<3)]
+[pixel-shader fail(sm<3 | sm>=4)]
 float4 main(float4 x : SV_DEPTH) : SV_TARGET
 {
     return x;
 }
 
 % But not SV_TARGET.
-[pixel-shader fail todo(sm<4)]
+[pixel-shader fail todo(sm=3)]
 float4 main(float4 x : SV_TARGET) : SV_TARGET
 {
     return x;

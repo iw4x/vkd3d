@@ -7678,7 +7678,8 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
 
         builtin = sm1_register_from_semantic_name(&version,
                 var->semantic.name, var->semantic.index, output, NULL, &type, &reg);
-        if (!builtin && !sm1_usage_from_semantic_name(var->semantic.name, var->semantic.index, &usage, &usage_idx))
+        if (!builtin && !sm1_usage_from_semantic_name(&version, var->semantic.name,
+                var->semantic.index, output, &usage, &usage_idx))
         {
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
                     "Invalid semantic '%s'.", var->semantic.name);
@@ -9515,7 +9516,8 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
 
             register_index = var->regs[HLSL_REGSET_NUMERIC].id;
 
-            ret = sm1_usage_from_semantic_name(var->semantic.name, var->semantic.index, &usage, &usage_idx);
+            ret = sm1_usage_from_semantic_name(&program->shader_version,
+                    var->semantic.name, var->semantic.index, output, &usage, &usage_idx);
             VKD3D_ASSERT(ret);
             /* With the exception of vertex POSITION output, none of these are
              * system values. Pixel POSITION input is not equivalent to

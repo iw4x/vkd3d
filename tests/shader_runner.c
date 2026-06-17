@@ -409,6 +409,15 @@ static bool check_qualifier_args_conjunction(struct shader_runner *runner,
             if (runner->shader_model >= model)
                 holds = false;
         }
+        else if (!strncmp(line, "sm=", 3))
+        {
+            match = true;
+            line += 3;
+            model = match_shader_model_string(line, &line);
+            *model_mask &= 1u << model;
+            if (runner->shader_model != model)
+                holds = false;
+        }
         else
         {
             match = match_shader_runner_tag(runner, line, &line, &holds);
