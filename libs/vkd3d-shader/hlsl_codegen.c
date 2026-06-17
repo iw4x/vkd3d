@@ -7673,6 +7673,9 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
         enum vkd3d_decl_usage usage;
         uint32_t usage_idx;
 
+        if ((!output && !var->last_read) || (output && !var->first_write))
+            return;
+
         builtin = sm1_register_from_semantic_name(&version,
                 var->semantic.name, var->semantic.index, output, NULL, &type, &reg);
         if (!builtin && !sm1_usage_from_semantic_name(var->semantic.name, var->semantic.index, &usage, &usage_idx))
@@ -7681,9 +7684,6 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
                     "Invalid semantic '%s'.", var->semantic.name);
             return;
         }
-
-        if ((!output && !var->last_read) || (output && !var->first_write))
-            return;
 
         optimize = false;
     }
