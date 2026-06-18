@@ -963,7 +963,7 @@ static void shader_sm4_read_dcl_index_range(struct vkd3d_shader_instruction *ins
     struct vkd3d_shader_index_range *index_range = &ins->declaration.index_range;
     struct vsir_program *program = priv->program;
     unsigned int i, register_idx, register_count;
-    const struct shader_signature *signature;
+    const struct vsir_signature *signature;
     struct sm4_index_range_array *ranges;
     enum vsir_register_type type;
     unsigned int *io_masks;
@@ -2797,7 +2797,7 @@ static bool shader_sm4_init(struct vkd3d_shader_sm4_parser *sm4, struct vsir_pro
     return true;
 }
 
-static void uninvert_used_masks(struct shader_signature *signature)
+static void uninvert_used_masks(struct vsir_signature *signature)
 {
     for (unsigned int i = 0; i < signature->element_count; ++i)
     {
@@ -2808,7 +2808,7 @@ static void uninvert_used_masks(struct shader_signature *signature)
 }
 
 static bool shader_sm4_parser_validate_signature(struct vkd3d_shader_sm4_parser *sm4,
-        const struct shader_signature *signature, unsigned int *masks, const char *name)
+        const struct vsir_signature *signature, unsigned int *masks, const char *name)
 {
     unsigned int i, register_idx, register_count, mask;
 
@@ -2908,7 +2908,7 @@ int tpf_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t con
             if (program->patch_constant_signature.element_count != 0)
             {
                 WARN("The patch constant signature only makes sense for Hull and Domain Shaders, ignoring it.\n");
-                shader_signature_cleanup(&program->patch_constant_signature);
+                vsir_signature_cleanup(&program->patch_constant_signature);
             }
             break;
     }
@@ -3260,7 +3260,7 @@ static int signature_element_pointer_compare(const void *x, const void *y)
     return vkd3d_u32_compare(e->mask, f->mask);
 }
 
-static void tpf_write_signature(struct tpf_compiler *tpf, const struct shader_signature *signature, uint32_t tag)
+static void tpf_write_signature(struct tpf_compiler *tpf, const struct vsir_signature *signature, uint32_t tag)
 {
     bool has_minimum_precision = tpf->program->global_flags & VKD3DSGF_ENABLE_MINIMUM_PRECISION;
     const struct vkd3d_shader_version *version = &tpf->program->shader_version;

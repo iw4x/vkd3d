@@ -1465,7 +1465,7 @@ static void shader_glsl_print_sysval_name(struct vkd3d_string_buffer *buffer, st
 
 static void shader_glsl_shader_prologue(struct vkd3d_glsl_generator *gen)
 {
-    const struct shader_signature *signature = &gen->program->input_signature;
+    const struct vsir_signature *signature = &gen->program->input_signature;
     struct vkd3d_string_buffer *buffer = gen->buffer;
     const struct signature_element *e;
     unsigned int i;
@@ -1523,7 +1523,7 @@ static void shader_glsl_shader_prologue(struct vkd3d_glsl_generator *gen)
 
 static void shader_glsl_shader_epilogue(struct vkd3d_glsl_generator *gen)
 {
-    const struct shader_signature *signature = &gen->program->output_signature;
+    const struct vsir_signature *signature = &gen->program->output_signature;
     struct vkd3d_string_buffer *buffer = gen->buffer;
     enum vkd3d_shader_component_type type;
     const struct signature_element *e;
@@ -2287,7 +2287,7 @@ static void shader_glsl_generate_descriptor_declarations(struct vkd3d_glsl_gener
 }
 
 static const struct signature_element *signature_get_element_by_location(
-        const struct shader_signature *signature, unsigned int location)
+        const struct vsir_signature *signature, unsigned int location)
 {
     const struct signature_element *e;
     unsigned int i;
@@ -2306,7 +2306,7 @@ static const struct signature_element *signature_get_element_by_location(
 }
 
 static const char *shader_glsl_get_interpolation(struct vkd3d_glsl_generator *gen,
-        const struct shader_signature *signature, const char *type, unsigned int location)
+        const struct vsir_signature *signature, const char *type, unsigned int location)
 {
     enum vkd3d_shader_interpolation_mode m;
     const struct signature_element *e;
@@ -2331,7 +2331,7 @@ static const char *shader_glsl_get_interpolation(struct vkd3d_glsl_generator *ge
 }
 
 static void shader_glsl_generate_interface_block(struct vkd3d_glsl_generator *gen,
-        const struct shader_signature *signature, const char *type, unsigned int count)
+        const struct vsir_signature *signature, const char *type, unsigned int count)
 {
     struct vkd3d_string_buffer *buffer = gen->buffer;
     const char *interpolation;
@@ -2348,7 +2348,7 @@ static void shader_glsl_generate_interface_block(struct vkd3d_glsl_generator *ge
 
 static void shader_glsl_generate_input_declarations(struct vkd3d_glsl_generator *gen)
 {
-    const struct shader_signature *signature = &gen->program->input_signature;
+    const struct vsir_signature *signature = &gen->program->input_signature;
     struct vkd3d_string_buffer *buffer = gen->buffer;
     const struct signature_element *e;
     unsigned int i, count;
@@ -2409,7 +2409,7 @@ static void shader_glsl_generate_input_declarations(struct vkd3d_glsl_generator 
 
 static void shader_glsl_generate_output_declarations(struct vkd3d_glsl_generator *gen)
 {
-    const struct shader_signature *signature = &gen->program->output_signature;
+    const struct vsir_signature *signature = &gen->program->output_signature;
     struct vkd3d_string_buffer *buffer = gen->buffer;
     const struct signature_element *e;
     unsigned int i, count;

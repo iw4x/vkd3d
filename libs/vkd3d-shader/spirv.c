@@ -5574,7 +5574,7 @@ static void spirv_compiler_emit_input(struct spirv_compiler *compiler,
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     unsigned int component_idx, input_component_count;
     const struct signature_element *signature_element;
-    const struct shader_signature *shader_signature;
+    const struct vsir_signature *shader_signature;
     const struct vkd3d_spirv_builtin *builtin;
     enum vkd3d_shader_sysval_semantic sysval;
     enum vsir_register_type sysval_reg_type;
@@ -5785,7 +5785,7 @@ static void spirv_compiler_emit_output(struct spirv_compiler *compiler,
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     unsigned int component_idx, output_component_count;
     const struct signature_element *signature_element;
-    const struct shader_signature *shader_signature;
+    const struct vsir_signature *shader_signature;
     const struct vkd3d_spirv_builtin *builtin;
     enum vkd3d_shader_sysval_semantic sysval;
     bool use_private_variable = false;
@@ -5935,7 +5935,7 @@ static void spirv_compiler_emit_output(struct spirv_compiler *compiler,
 }
 
 static void spirv_compiler_emit_store_shader_output(struct spirv_compiler *compiler,
-        const struct shader_signature *signature, const struct signature_element *output,
+        const struct vsir_signature *signature, const struct signature_element *output,
         const struct vkd3d_shader_output_info *output_info,
         uint32_t output_index_id, uint32_t val_id, uint32_t write_mask)
 {
@@ -6008,7 +6008,7 @@ static void spirv_compiler_emit_shader_epilogue_function(struct spirv_compiler *
     uint32_t param_type_id[MAX_REG_OUTPUT + 1], param_id[MAX_REG_OUTPUT + 1] = {0};
     uint32_t void_id, type_id, ptr_type_id, function_type_id, function_id;
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
-    const struct shader_signature *signature;
+    const struct vsir_signature *signature;
     uint32_t output_index_id = 0;
     bool is_patch_constant;
     unsigned int i, count;

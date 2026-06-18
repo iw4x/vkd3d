@@ -1887,7 +1887,7 @@ static const char *get_semantic_register_name(enum vkd3d_shader_sysval_semantic 
 }
 
 static enum vkd3d_result dump_dxbc_signature(struct vkd3d_d3d_asm_compiler *compiler,
-        const char *name, const char *register_name, const struct shader_signature *signature)
+        const char *name, const char *register_name, const struct vsir_signature *signature)
 {
     struct vkd3d_string_buffer *buffer = &compiler->buffer;
     unsigned int i;
@@ -2211,7 +2211,7 @@ enum vkd3d_result d3d_asm_compile(struct vsir_program *program, const struct vkd
  * dump_dxbc_signature(), it doesn't try particularly hard to make the output
  * nice or easily parsable, and it dumps all fields, not just the DXBC ones.
  * This format isn't meant to be stable. */
-static void trace_signature(const struct shader_signature *signature, const char *signature_type)
+static void trace_signature(const struct vsir_signature *signature, const char *signature_type)
 {
     struct vkd3d_string_buffer buffer;
     unsigned int i;

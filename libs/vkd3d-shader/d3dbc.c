@@ -625,7 +625,7 @@ static void d3dbc_parse_dst_operand(struct vkd3d_shader_sm1_parser *d3dbc,
     }
 }
 
-static struct signature_element *find_signature_element(const struct shader_signature *signature,
+static struct signature_element *find_signature_element(const struct vsir_signature *signature,
         const char *semantic_name, unsigned int semantic_index)
 {
     struct signature_element *e = signature->elements;
@@ -642,7 +642,7 @@ static struct signature_element *find_signature_element(const struct shader_sign
 }
 
 static struct signature_element *find_signature_element_by_register_index(
-        const struct shader_signature *signature, unsigned int register_index)
+        const struct vsir_signature *signature, unsigned int register_index)
 {
     struct signature_element *e = signature->elements;
     unsigned int i;
@@ -676,8 +676,8 @@ static bool add_signature_element(struct vkd3d_shader_sm1_parser *sm1, bool outp
         unsigned int register_index, bool is_dcl, unsigned int mask, uint32_t dst_modifiers)
 {
     struct vsir_program *program = sm1->program;
-    struct shader_signature *signature;
     struct signature_element *element;
+    struct vsir_signature *signature;
 
     if (output)
         signature = &program->output_signature;
@@ -719,8 +719,8 @@ static void add_signature_mask(struct vkd3d_shader_sm1_parser *sm1, bool output,
         unsigned int register_index, unsigned int mask)
 {
     struct vsir_program *program = sm1->program;
-    struct shader_signature *signature;
     struct signature_element *element;
+    struct vsir_signature *signature;
 
     if (output)
         signature = &program->output_signature;

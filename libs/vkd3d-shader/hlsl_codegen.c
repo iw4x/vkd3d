@@ -9387,7 +9387,7 @@ void hlsl_run_const_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
 }
 
 static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *program,
-        struct shader_signature *signature, bool output, struct hlsl_ir_var *var)
+        struct vsir_signature *signature, bool output, struct hlsl_ir_var *var)
 {
     enum vkd3d_shader_component_type component_type = VKD3D_SHADER_COMPONENT_VOID;
     enum vkd3d_shader_interpolation_mode interpolation_mode = VKD3DSIM_NONE;

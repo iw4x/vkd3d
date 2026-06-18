@@ -1297,19 +1297,19 @@ static inline bool vsir_signature_element_is_array(const struct signature_elemen
     return false;
 }
 
-struct shader_signature
+struct vsir_signature
 {
     struct signature_element *elements;
     size_t elements_capacity;
     unsigned int element_count;
 };
 
-struct signature_element *vsir_signature_find_element_for_reg(const struct shader_signature *signature,
+void vsir_signature_cleanup(struct vsir_signature *signature);
+struct signature_element *vsir_signature_find_element_for_reg(const struct vsir_signature *signature,
         unsigned int reg_idx, unsigned int write_mask);
-bool vsir_signature_find_sysval(const struct shader_signature *signature,
+bool vsir_signature_find_sysval(const struct vsir_signature *signature,
         enum vkd3d_shader_sysval_semantic sysval, unsigned int semantic_index, unsigned int *element_index);
-unsigned int vsir_signature_next_location(const struct shader_signature *signature);
-void shader_signature_cleanup(struct shader_signature *signature);
+unsigned int vsir_signature_next_location(const struct vsir_signature *signature);
 
 struct vsir_features
 {
@@ -1322,9 +1322,9 @@ struct dxbc_shader_desc
     const uint32_t *byte_code;
     size_t byte_code_size;
     bool is_dxil;
-    struct shader_signature input_signature;
-    struct shader_signature output_signature;
-    struct shader_signature patch_constant_signature;
+    struct vsir_signature input_signature;
+    struct vsir_signature output_signature;
+    struct vsir_signature patch_constant_signature;
     struct vsir_features features;
 };
 
@@ -1692,9 +1692,9 @@ struct vsir_program
     struct vkd3d_shader_version shader_version;
     struct vkd3d_shader_instruction_array instructions;
 
-    struct shader_signature input_signature;
-    struct shader_signature output_signature;
-    struct shader_signature patch_constant_signature;
+    struct vsir_signature input_signature;
+    struct vsir_signature output_signature;
+    struct vsir_signature patch_constant_signature;
 
     struct vkd3d_shader_scan_descriptor_info1 descriptors;
     size_t descriptors_size;
@@ -1973,7 +1973,7 @@ void free_dxbc_shader_desc(struct dxbc_shader_desc *desc);
 int shader_extract_from_dxbc(const struct vkd3d_shader_code *dxbc,
         struct vkd3d_shader_message_context *message_context, const char *source_name, struct dxbc_shader_desc *desc);
 int shader_parse_input_signature(const struct vkd3d_shader_code *dxbc,
-        struct vkd3d_shader_message_context *message_context, struct shader_signature *signature);
+        struct vkd3d_shader_message_context *message_context, struct vsir_signature *signature);
 
 int d3dbc_compile(struct vsir_program *program, uint64_t config_flags,
         const struct vkd3d_shader_compile_info *compile_info, const struct vkd3d_shader_code *ctab,
