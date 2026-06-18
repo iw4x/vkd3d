@@ -9152,8 +9152,7 @@ static void spirv_compiler_emit_store_uav_raw_structured(struct spirv_compiler *
                 &src[0], VKD3DSP_WRITEMASK_0, &src[1], VKD3DSP_WRITEMASK_0);
 
         data = &src[instruction->src_count - 1];
-        VKD3D_ASSERT(data->reg.data_type == VSIR_DATA_U32);
-        val_id = spirv_compiler_emit_load_src(compiler, data, dst->write_mask);
+        val_id = spirv_compiler_emit_load_src_with_type(compiler, data, dst->write_mask, VSIR_DATA_U32);
 
         component_count = vsir_write_mask_component_count(dst->write_mask);
         for (component_idx = 0; component_idx < component_count; ++component_idx)
@@ -9180,8 +9179,7 @@ static void spirv_compiler_emit_store_uav_raw_structured(struct spirv_compiler *
                 type_id, image.structure_stride, &src[0], VKD3DSP_WRITEMASK_0, &src[1], VKD3DSP_WRITEMASK_0);
 
         data = &src[instruction->src_count - 1];
-        VKD3D_ASSERT(data->reg.data_type == VSIR_DATA_U32);
-        val_id = spirv_compiler_emit_load_src(compiler, data, dst->write_mask);
+        val_id = spirv_compiler_emit_load_src_with_type(compiler, data, dst->write_mask, VSIR_DATA_U32);
 
         component_count = vsir_write_mask_component_count(dst->write_mask);
         for (component_idx = 0; component_idx < component_count; ++component_idx)
