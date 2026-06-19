@@ -7641,7 +7641,7 @@ static enum vkd3d_shader_interpolation_mode get_interpolation_mode(const struct 
 }
 
 static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var *var,
-        struct register_allocator *allocator, bool output, bool optimize)
+        struct register_allocator *allocator, bool output)
 {
     static const char *const shader_names[] =
     {
@@ -7659,6 +7659,7 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
     enum vsir_register_type type;
     bool vip_allocation = false;
     bool clip_cull = false;
+    bool packed = false;
     uint32_t reg;
     bool builtin;
 
@@ -7685,8 +7686,6 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
                     "Invalid semantic '%s'.", var->semantic.name);
             return;
         }
-
-        optimize = false;
     }
     else
     {
@@ -7722,6 +7721,11 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
                 || (version.type == VKD3D_SHADER_TYPE_DOMAIN && !output && !is_primitive)
                 || (ctx->is_patch_constant_func && output))
             special_interpolation = true;
+
+        /* VS input and PS output are not packed; all inter-stage varyings are. */
+        if (!(ctx->profile->type == VKD3D_SHADER_TYPE_PIXEL && output)
+                && !(ctx->profile->type == VKD3D_SHADER_TYPE_VERTEX && !output))
+            packed = true;
     }
 
     if (builtin)
@@ -7733,7 +7737,7 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
     {
         unsigned int component_count = is_primitive
                 ? var->data_type->e.array.type->e.numeric.dimx : var->data_type->e.numeric.dimx;
-        unsigned int reg_size = optimize ? component_count : 4;
+        unsigned int reg_size = packed ? component_count : 4;
         int mode = VKD3DSIM_NONE;
 
         if (version.major >= 4 && !special_interpolation)
@@ -7759,8 +7763,6 @@ static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct list *seman
 {
     struct register_allocator input_allocator = {0}, output_allocators[VKD3D_MAX_STREAM_COUNT] = {{0}};
     struct register_allocator in_prim_allocator = {0}, patch_constant_out_patch_allocator = {0};
-    bool is_vertex_shader = ctx->profile->type == VKD3D_SHADER_TYPE_VERTEX;
-    bool is_pixel_shader = ctx->profile->type == VKD3D_SHADER_TYPE_PIXEL;
     struct hlsl_ir_var *var;
 
     in_prim_allocator.type = VSIR_REGISTER_INPUT;
@@ -7785,21 +7787,18 @@ static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct list *seman
                         var->data_type->e.array.array_type == HLSL_ARRAY_PATCH_OUTPUT;
 
                 if (is_patch_constant_output_patch)
-                    allocate_semantic_register(ctx, var, &patch_constant_out_patch_allocator, false,
-                            !is_vertex_shader);
+                    allocate_semantic_register(ctx, var, &patch_constant_out_patch_allocator, false);
                 else
-                    allocate_semantic_register(ctx, var, &in_prim_allocator, false,
-                            !is_vertex_shader);
+                    allocate_semantic_register(ctx, var, &in_prim_allocator, false);
             }
             else
-                allocate_semantic_register(ctx, var, &input_allocator, false, !is_vertex_shader);
+                allocate_semantic_register(ctx, var, &input_allocator, false);
         }
 
         if (var->is_output_semantic)
         {
             VKD3D_ASSERT(var->semantic.stream_index < ARRAY_SIZE(output_allocators));
-            allocate_semantic_register(ctx, var, &output_allocators[var->semantic.stream_index],
-                    true, !is_pixel_shader);
+            allocate_semantic_register(ctx, var, &output_allocators[var->semantic.stream_index], true);
         }
     }
 
