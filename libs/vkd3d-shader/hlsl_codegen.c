@@ -7761,16 +7761,14 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
 
 static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct list *semantic_vars, uint32_t *output_reg_count)
 {
-    struct register_allocator input_allocator = {0}, output_allocators[VKD3D_MAX_STREAM_COUNT] = {{0}};
-    struct register_allocator in_prim_allocator = {0}, patch_constant_out_patch_allocator = {0};
+    struct register_allocator input_allocator = {0}, patch_constant_allocator = {0};
+    struct register_allocator output_allocators[VKD3D_MAX_STREAM_COUNT] = {{0}};
     struct hlsl_ir_var *var;
 
-    in_prim_allocator.type = VSIR_REGISTER_INPUT;
-    in_prim_allocator.prioritize_smaller_writemasks = true;
-    patch_constant_out_patch_allocator.type = VSIR_REGISTER_INPUT;
-    patch_constant_out_patch_allocator.prioritize_smaller_writemasks = true;
     input_allocator.type = VSIR_REGISTER_INPUT;
     input_allocator.prioritize_smaller_writemasks = true;
+    patch_constant_allocator.type = VSIR_REGISTER_PATCHCONST;
+    patch_constant_allocator.prioritize_smaller_writemasks = true;
     for (unsigned int i = 0; i < ARRAY_SIZE(output_allocators); ++i)
     {
         output_allocators[i].type = VSIR_REGISTER_OUTPUT;
@@ -7781,24 +7779,32 @@ static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct list *seman
     {
         if (var->is_input_semantic)
         {
-            if (hlsl_type_is_primitive_array(var->data_type))
+            if (ctx->is_patch_constant_func)
             {
-                bool is_patch_constant_output_patch = ctx->is_patch_constant_func &&
-                        var->data_type->e.array.array_type == HLSL_ARRAY_PATCH_OUTPUT;
-
-                if (is_patch_constant_output_patch)
-                    allocate_semantic_register(ctx, var, &patch_constant_out_patch_allocator, false);
+                if (!hlsl_type_is_patch_array(var->data_type))
+                    allocate_semantic_register(ctx, var, &patch_constant_allocator, false);
+                else if (var->data_type->e.array.array_type == HLSL_ARRAY_PATCH_OUTPUT)
+                    allocate_semantic_register(ctx, var, &output_allocators[0], false);
                 else
-                    allocate_semantic_register(ctx, var, &in_prim_allocator, false);
+                    allocate_semantic_register(ctx, var, &input_allocator, false);
+            }
+            else if (ctx->profile->type == VKD3D_SHADER_TYPE_DOMAIN && !hlsl_type_is_patch_array(var->data_type))
+            {
+                allocate_semantic_register(ctx, var, &patch_constant_allocator, false);
             }
             else
+            {
                 allocate_semantic_register(ctx, var, &input_allocator, false);
+            }
         }
 
         if (var->is_output_semantic)
         {
             VKD3D_ASSERT(var->semantic.stream_index < ARRAY_SIZE(output_allocators));
-            allocate_semantic_register(ctx, var, &output_allocators[var->semantic.stream_index], true);
+            if (ctx->is_patch_constant_func)
+                allocate_semantic_register(ctx, var, &patch_constant_allocator, true);
+            else
+                allocate_semantic_register(ctx, var, &output_allocators[var->semantic.stream_index], true);
         }
     }
 
@@ -7806,9 +7812,8 @@ static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct list *seman
     for (unsigned int i = 1; i < ARRAY_SIZE(output_allocators); ++i)
         *output_reg_count = max(*output_reg_count, output_allocators[i].reg_count);
 
-    vkd3d_free(in_prim_allocator.allocations);
-    vkd3d_free(patch_constant_out_patch_allocator.allocations);
     vkd3d_free(input_allocator.allocations);
+    vkd3d_free(patch_constant_allocator.allocations);
     for (unsigned int i = 0; i < ARRAY_SIZE(output_allocators); ++i)
         vkd3d_free(output_allocators[i].allocations);
 }
