@@ -7640,10 +7640,7 @@ static enum vkd3d_shader_interpolation_mode get_interpolation_mode(const struct 
     return VKD3DSIM_LINEAR;
 }
 
-static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *program,
-        struct vsir_signature *signature, bool output, struct hlsl_ir_var *var);
-
-static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program *program,
+static void generate_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *program,
         struct hlsl_ir_var *var, struct vsir_signature *signature, struct register_allocator *allocator, bool output)
 {
     static const char *const shader_names[] =
@@ -7656,13 +7653,16 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
         [VKD3D_SHADER_TYPE_COMPUTE] = "Compute",
     };
 
+    enum vkd3d_shader_component_type component_type = VKD3D_SHADER_COMPONENT_VOID;
     enum vkd3d_shader_interpolation_mode interpolation_mode = VKD3DSIM_NONE;
     bool is_primitive = hlsl_type_is_primitive_array(var->data_type);
     const struct hlsl_type *base_type = var->data_type;
     enum vkd3d_shader_sysval_semantic sysval;
+    const char *name = var->semantic.name;
     struct vkd3d_shader_version version;
     bool special_interpolation = false;
     struct vkd3d_string_buffer *string;
+    struct signature_element *element;
     enum vsir_register_type type;
     bool vip_allocation = false;
     bool clip_cull = false;
@@ -7691,17 +7691,20 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
         if ((!output && !var->last_read) || (output && !var->first_write))
             return;
 
-        builtin = sm1_register_from_semantic_name(&version,
-                var->semantic.name, var->semantic.index, output, NULL, &type, &reg);
-        if (!builtin && !sm1_usage_from_semantic_name(&version, var->semantic.name,
-                var->semantic.index, output, &usage, &usage_idx))
+        if ((builtin = sm1_register_from_semantic_name(&version,
+                var->semantic.name, var->semantic.index, output, &sysval, &type, &reg)))
         {
-            hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
-                    "Invalid semantic '%s'.", var->semantic.name);
-            return;
+            if (version.major < 3)
+            {
+                if (type == VSIR_REGISTER_RASTOUT)
+                    reg += SM1_RASTOUT_REGISTER_OFFSET;
+                else if (type == VSIR_REGISTER_ATTROUT
+                        || (type == VSIR_REGISTER_INPUT && ctx->profile->type == VKD3D_SHADER_TYPE_PIXEL))
+                    reg += SM1_COLOR_REGISTER_OFFSET;
+            }
         }
-
-        if (!builtin)
+        else if (sm1_usage_from_semantic_name(&version, var->semantic.name,
+                var->semantic.index, output, &usage, &usage_idx))
         {
             /* With the exception of vertex POSITION output, none of these are
              * system values. Pixel POSITION input is not equivalent to
@@ -7713,6 +7716,12 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
                 sysval = VKD3D_SHADER_SV_POSITION;
             else
                 sysval = VKD3D_SHADER_SV_NONE;
+        }
+        else
+        {
+            hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
+                    "Invalid semantic '%s'.", var->semantic.name);
+            return;
         }
 
         if (builtin && interpolation_mode == VKD3DSIM_LINEAR_CENTROID
@@ -7736,6 +7745,8 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
                     "FOG output must have only 1 component in this shader model.");
         }
+
+        component_type = VKD3D_SHADER_COMPONENT_FLOAT;
     }
     else
     {
@@ -7750,7 +7761,7 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
         }
 
         if ((builtin = sm4_register_from_semantic_name(&version, var->semantic.name, output, &type, &has_idx)))
-            reg = has_idx ? var->semantic.index : 0;
+            reg = has_idx ? var->semantic.index : ~0u;
 
         if (sysval == VKD3D_SHADER_SV_STENCIL_REF)
         {
@@ -7793,6 +7804,40 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
         if (!(ctx->profile->type == VKD3D_SHADER_TYPE_PIXEL && output)
                 && !(ctx->profile->type == VKD3D_SHADER_TYPE_VERTEX && !output))
             packed = true;
+
+        switch (base_type->e.numeric.type)
+        {
+            case HLSL_TYPE_FLOAT:
+            case HLSL_TYPE_HALF:
+                component_type = VKD3D_SHADER_COMPONENT_FLOAT;
+                break;
+
+            case HLSL_TYPE_INT:
+                component_type = VKD3D_SHADER_COMPONENT_INT;
+                break;
+
+            case HLSL_TYPE_BOOL:
+            case HLSL_TYPE_MIN16UINT:
+            case HLSL_TYPE_UINT:
+                component_type = VKD3D_SHADER_COMPONENT_UINT;
+                break;
+
+            case HLSL_TYPE_DOUBLE:
+                if ((string = hlsl_type_to_string(ctx, var->data_type)))
+                    hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                            "Invalid data type %s for semantic variable %s.", string->buffer, var->name);
+                hlsl_release_string_buffer(ctx, string);
+                break;
+        }
+
+        if (sysval == VKD3D_SHADER_SV_TARGET && ascii_strcasecmp(name, "SV_Target"))
+            name = "SV_Target";
+        else if (sysval == VKD3D_SHADER_SV_DEPTH && ascii_strcasecmp(name, "SV_Depth"))
+            name = "SV_Depth";
+        else if (sysval == VKD3D_SHADER_SV_POSITION && ascii_strcasecmp(name, "SV_Position"))
+            name = "SV_Position";
+        else if (sysval == VKD3D_SHADER_SV_IS_FRONT_FACE && ascii_strcasecmp(name, "SV_IsFrontFace"))
+            name = "SV_IsFrontFace";
     }
 
     if (builtin)
@@ -7832,8 +7877,65 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
      * result in signature generation, if they're not present in the entry
      * point. (The same doesn't apply to output patches because it's illegal
      * to return void from a hull shader entry point.) */
-    if (!ctx->is_patch_constant_func || !is_primitive)
-        generate_vsir_signature_entry(ctx, program, signature, output, var);
+    if (ctx->is_patch_constant_func && is_primitive)
+        return;
+    if (sysval == ~0u)
+        return;
+
+    if (!vkd3d_array_reserve((void **)&signature->elements, &signature->elements_capacity,
+            signature->element_count + 1, sizeof(*signature->elements)))
+    {
+        ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
+        return;
+    }
+    element = &signature->elements[signature->element_count++];
+    memset(element, 0, sizeof(*element));
+
+    if (!(element->semantic_name = vkd3d_strdup(name)))
+    {
+        --signature->element_count;
+        ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
+        return;
+    }
+    element->semantic_index = var->semantic.index;
+    element->stream_index = var->semantic.stream_index;
+    element->sysval_semantic = sysval;
+    element->component_type = component_type;
+    element->register_count = 1;
+    element->interpolation_mode = interpolation_mode;
+
+    if (builtin)
+    {
+        element->register_index = reg;
+        element->mask = (1u << base_type->e.numeric.dimx) - 1;
+    }
+    else
+    {
+        element->register_index = var->regs[HLSL_REGSET_NUMERIC].id;
+        element->mask = var->regs[HLSL_REGSET_NUMERIC].writemask;
+    }
+    /* For some reason PSIZE has all components set. */
+    if (!ascii_strcasecmp(var->semantic.name, "PSIZE") && output
+            && program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX)
+        element->mask = VKD3DSP_WRITEMASK_ALL;
+    element->used_mask = element->mask; /* FIXME */
+    element->target_location = element->register_index;
+
+    switch (base_type->e.numeric.type)
+    {
+        case HLSL_TYPE_BOOL:
+        case HLSL_TYPE_DOUBLE:
+        case HLSL_TYPE_FLOAT:
+        case HLSL_TYPE_HALF:
+        case HLSL_TYPE_INT:
+        case HLSL_TYPE_UINT:
+            element->min_precision = VKD3D_SHADER_MINIMUM_PRECISION_NONE;
+            break;
+
+        case HLSL_TYPE_MIN16UINT:
+            element->min_precision = VKD3D_SHADER_MINIMUM_PRECISION_UINT_16;
+            break;
+    }
 }
 
 static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct vsir_program *program,
@@ -7860,23 +7962,23 @@ static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct vsir_progra
             if (ctx->is_patch_constant_func)
             {
                 if (!hlsl_type_is_patch_array(var->data_type))
-                    allocate_semantic_register(ctx, program, var, &program->patch_constant_signature,
+                    generate_signature_entry(ctx, program, var, &program->patch_constant_signature,
                             &patch_constant_allocator, false);
                 else if (var->data_type->e.array.array_type == HLSL_ARRAY_PATCH_OUTPUT)
-                    allocate_semantic_register(ctx, program, var, &program->output_signature,
+                    generate_signature_entry(ctx, program, var, &program->output_signature,
                             &output_allocators[0], false);
                 else
-                    allocate_semantic_register(ctx, program, var, &program->input_signature,
+                    generate_signature_entry(ctx, program, var, &program->input_signature,
                             &input_allocator, false);
             }
             else if (ctx->profile->type == VKD3D_SHADER_TYPE_DOMAIN && !hlsl_type_is_patch_array(var->data_type))
             {
-                allocate_semantic_register(ctx, program, var, &program->patch_constant_signature,
+                generate_signature_entry(ctx, program, var, &program->patch_constant_signature,
                         &patch_constant_allocator, false);
             }
             else
             {
-                allocate_semantic_register(ctx, program, var, &program->input_signature,
+                generate_signature_entry(ctx, program, var, &program->input_signature,
                         &input_allocator, false);
             }
         }
@@ -7885,10 +7987,10 @@ static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct vsir_progra
         {
             VKD3D_ASSERT(var->semantic.stream_index < ARRAY_SIZE(output_allocators));
             if (ctx->is_patch_constant_func)
-                allocate_semantic_register(ctx, program, var, &program->patch_constant_signature,
+                generate_signature_entry(ctx, program, var, &program->patch_constant_signature,
                         &patch_constant_allocator, true);
             else
-                allocate_semantic_register(ctx, program, var, &program->output_signature,
+                generate_signature_entry(ctx, program, var, &program->output_signature,
                         &output_allocators[var->semantic.stream_index], true);
         }
     }
@@ -9473,181 +9575,6 @@ void hlsl_run_const_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
         progress = hlsl_run_folding_passes(ctx, body);
         progress |= hlsl_transform_ir(ctx, flatten_conditional_branches, body, NULL);
     } while (progress);
-}
-
-static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *program,
-        struct vsir_signature *signature, bool output, struct hlsl_ir_var *var)
-{
-    enum vkd3d_shader_component_type component_type = VKD3D_SHADER_COMPONENT_VOID;
-    enum vkd3d_shader_interpolation_mode interpolation_mode = VKD3DSIM_NONE;
-    bool is_primitive = hlsl_type_is_primitive_array(var->data_type);
-    enum vkd3d_shader_sysval_semantic sysval = VKD3D_SHADER_SV_NONE;
-    unsigned int register_index, mask, use_mask;
-    const char *name = var->semantic.name;
-    struct signature_element *element;
-    enum vsir_register_type type;
-
-    if (program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL && !output)
-        interpolation_mode = get_interpolation_mode(&program->shader_version, var->data_type, var->storage_modifiers);
-
-    if (hlsl_version_ge(ctx, 4, 0))
-    {
-        struct vkd3d_string_buffer *string;
-        enum hlsl_base_type numeric_type;
-        bool has_idx, ret;
-
-        ret = sm4_sysval_semantic_from_semantic_name(&sysval, &program->shader_version, ctx->compatibility_flags,
-                ctx->domain, var->semantic.name, var->semantic.index, output, ctx->is_patch_constant_func, is_primitive);
-        VKD3D_ASSERT(ret);
-        if (sysval == ~0u)
-            return;
-
-        if (sm4_register_from_semantic_name(&program->shader_version, var->semantic.name, output, &type, &has_idx))
-        {
-            register_index = has_idx ? var->semantic.index : ~0u;
-            mask = (1u << var->data_type->e.numeric.dimx) - 1;
-        }
-        else
-        {
-            VKD3D_ASSERT(var->regs[HLSL_REGSET_NUMERIC].allocated);
-            register_index = var->regs[HLSL_REGSET_NUMERIC].id;
-            mask = var->regs[HLSL_REGSET_NUMERIC].writemask;
-        }
-
-        use_mask = mask; /* FIXME: retrieve use mask accurately. */
-
-        if (var->data_type->class == HLSL_CLASS_ARRAY)
-            numeric_type = var->data_type->e.array.type->e.numeric.type;
-        else
-            numeric_type = var->data_type->e.numeric.type;
-
-        switch (numeric_type)
-        {
-            case HLSL_TYPE_FLOAT:
-            case HLSL_TYPE_HALF:
-                component_type = VKD3D_SHADER_COMPONENT_FLOAT;
-                break;
-
-            case HLSL_TYPE_INT:
-                component_type = VKD3D_SHADER_COMPONENT_INT;
-                break;
-
-            case HLSL_TYPE_BOOL:
-            case HLSL_TYPE_MIN16UINT:
-            case HLSL_TYPE_UINT:
-                component_type = VKD3D_SHADER_COMPONENT_UINT;
-                break;
-
-            case HLSL_TYPE_DOUBLE:
-                if ((string = hlsl_type_to_string(ctx, var->data_type)))
-                    hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
-                            "Invalid data type %s for semantic variable %s.", string->buffer, var->name);
-                hlsl_release_string_buffer(ctx, string);
-                break;
-        }
-
-        if (sysval == VKD3D_SHADER_SV_TARGET && ascii_strcasecmp(name, "SV_Target"))
-            name = "SV_Target";
-        else if (sysval == VKD3D_SHADER_SV_DEPTH && ascii_strcasecmp(name, "SV_Depth"))
-            name = "SV_Depth";
-        else if (sysval == VKD3D_SHADER_SV_POSITION && ascii_strcasecmp(name, "SV_Position"))
-            name = "SV_Position";
-        else if (sysval == VKD3D_SHADER_SV_IS_FRONT_FACE && ascii_strcasecmp(name, "SV_IsFrontFace"))
-            name = "SV_IsFrontFace";
-    }
-    else
-    {
-        if ((!output && !var->last_read) || (output && !var->first_write))
-            return;
-
-        if (sm1_register_from_semantic_name(&program->shader_version,
-                var->semantic.name, var->semantic.index, output, &sysval, &type, &register_index))
-        {
-            if (!vkd3d_shader_ver_ge(&program->shader_version, 3, 0))
-            {
-                if (type == VSIR_REGISTER_RASTOUT)
-                    register_index += SM1_RASTOUT_REGISTER_OFFSET;
-                else if (type == VSIR_REGISTER_ATTROUT
-                        || (type == VSIR_REGISTER_INPUT && program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL))
-                    register_index += SM1_COLOR_REGISTER_OFFSET;
-            }
-        }
-        else
-        {
-            enum vkd3d_decl_usage usage;
-            unsigned int usage_idx;
-            bool ret;
-
-            register_index = var->regs[HLSL_REGSET_NUMERIC].id;
-
-            ret = sm1_usage_from_semantic_name(&program->shader_version,
-                    var->semantic.name, var->semantic.index, output, &usage, &usage_idx);
-            VKD3D_ASSERT(ret);
-            /* With the exception of vertex POSITION output, none of these are
-             * system values. Pixel POSITION input is not equivalent to
-             * SV_Position; the closer equivalent is VPOS, which is not declared
-             * as a semantic. */
-            if (program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX
-                    && output && usage == VKD3D_DECL_USAGE_POSITION)
-                sysval = VKD3D_SHADER_SV_POSITION;
-            else
-                sysval = VKD3D_SHADER_SV_NONE;
-        }
-
-        mask = (1 << var->data_type->e.numeric.dimx) - 1;
-
-        if (!ascii_strcasecmp(var->semantic.name, "PSIZE") && output
-                && program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX)
-        {
-            /* For some reason the writemask has all components set. */
-            mask = VKD3DSP_WRITEMASK_ALL;
-        }
-
-        use_mask = mask; /* FIXME: retrieve use mask accurately. */
-        component_type = VKD3D_SHADER_COMPONENT_FLOAT;
-    }
-
-    if (!vkd3d_array_reserve((void **)&signature->elements, &signature->elements_capacity,
-            signature->element_count + 1, sizeof(*signature->elements)))
-    {
-        ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
-        return;
-    }
-    element = &signature->elements[signature->element_count++];
-    memset(element, 0, sizeof(*element));
-
-    if (!(element->semantic_name = vkd3d_strdup(name)))
-    {
-        --signature->element_count;
-        ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
-        return;
-    }
-    element->semantic_index = var->semantic.index;
-    element->stream_index = var->semantic.stream_index;
-    element->sysval_semantic = sysval;
-    element->component_type = component_type;
-    element->register_index = register_index;
-    element->target_location = register_index;
-    element->register_count = 1;
-    element->mask = mask;
-    element->used_mask = use_mask;
-    element->interpolation_mode = interpolation_mode;
-
-    switch (var->data_type->e.numeric.type)
-    {
-        case HLSL_TYPE_BOOL:
-        case HLSL_TYPE_DOUBLE:
-        case HLSL_TYPE_FLOAT:
-        case HLSL_TYPE_HALF:
-        case HLSL_TYPE_INT:
-        case HLSL_TYPE_UINT:
-            element->min_precision = VKD3D_SHADER_MINIMUM_PRECISION_NONE;
-            break;
-
-        case HLSL_TYPE_MIN16UINT:
-            element->min_precision = VKD3D_SHADER_MINIMUM_PRECISION_UINT_16;
-            break;
-    }
 }
 
 static enum vsir_data_type vsir_data_type_from_hlsl_type(struct hlsl_ctx *ctx, const struct hlsl_type *type)
