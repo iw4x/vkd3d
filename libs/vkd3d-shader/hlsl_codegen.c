@@ -7656,9 +7656,13 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
         [VKD3D_SHADER_TYPE_COMPUTE] = "Compute",
     };
 
+    enum vkd3d_shader_interpolation_mode interpolation_mode = VKD3DSIM_NONE;
     bool is_primitive = hlsl_type_is_primitive_array(var->data_type);
+    const struct hlsl_type *base_type = var->data_type;
+    enum vkd3d_shader_sysval_semantic sysval;
     struct vkd3d_shader_version version;
     bool special_interpolation = false;
+    struct vkd3d_string_buffer *string;
     enum vsir_register_type type;
     bool vip_allocation = false;
     bool clip_cull = false;
@@ -7668,9 +7672,16 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
 
     VKD3D_ASSERT(var->semantic.name);
 
+    if (base_type->class == HLSL_CLASS_ARRAY)
+        base_type = base_type->e.array.type;
+    VKD3D_ASSERT(base_type->class <= HLSL_CLASS_VECTOR);
+
     version.major = ctx->profile->major_version;
     version.minor = ctx->profile->minor_version;
     version.type = ctx->profile->type;
+
+    if (program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL && !output)
+        interpolation_mode = get_interpolation_mode(&program->shader_version, var->data_type, var->storage_modifiers);
 
     if (version.major < 4)
     {
@@ -7689,13 +7700,48 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
                     "Invalid semantic '%s'.", var->semantic.name);
             return;
         }
+
+        if (!builtin)
+        {
+            /* With the exception of vertex POSITION output, none of these are
+             * system values. Pixel POSITION input is not equivalent to
+             * SV_Position; the closer equivalent is VPOS, which is not declared
+             * as a semantic. */
+            if (program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX && output
+                    && (!ascii_strcasecmp(var->semantic.name, "POSITION")
+                    || !ascii_strcasecmp(var->semantic.name, "SV_Position")))
+                sysval = VKD3D_SHADER_SV_POSITION;
+            else
+                sysval = VKD3D_SHADER_SV_NONE;
+        }
+
+        if (builtin && interpolation_mode == VKD3DSIM_LINEAR_CENTROID
+                && (vkd3d_shader_ver_ge(&program->shader_version, 3, 0) || type != VSIR_REGISTER_TEXTURE))
+        {
+            hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_MODIFIER,
+                    "The centroid interpolation mode is not supported by the '%s' semantic.", var->semantic.name);
+        }
+
+        if (!ascii_strcasecmp(var->semantic.name, "PSIZE") && output
+                && program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX)
+        {
+            program->has_point_size = true;
+            if (var->data_type->e.numeric.dimx > 1)
+                hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
+                        "PSIZE output must have only 1 component in this shader model.");
+        }
+        if (!ascii_strcasecmp(var->semantic.name, "FOG") && output && program->shader_version.major < 3
+                && program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX && var->data_type->e.numeric.dimx > 1)
+        {
+            hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
+                    "FOG output must have only 1 component in this shader model.");
+        }
     }
     else
     {
-        enum vkd3d_shader_sysval_semantic semantic;
         bool has_idx;
 
-        if (!sm4_sysval_semantic_from_semantic_name(&semantic, &version, ctx->compatibility_flags, ctx->domain,
+        if (!sm4_sysval_semantic_from_semantic_name(&sysval, &version, ctx->compatibility_flags, ctx->domain,
                 var->semantic.name, var->semantic.index, output, ctx->is_patch_constant_func, is_primitive))
         {
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
@@ -7706,21 +7752,39 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
         if ((builtin = sm4_register_from_semantic_name(&version, var->semantic.name, output, &type, &has_idx)))
             reg = has_idx ? var->semantic.index : 0;
 
-        if (semantic == VKD3D_SHADER_SV_TESS_FACTOR_TRIINT)
+        if (sysval == VKD3D_SHADER_SV_STENCIL_REF)
+        {
+            if (hlsl_version_lt(ctx, 5, 0))
+                hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INCOMPATIBLE_PROFILE,
+                        "Stencil export is only supported in shader model 5.0 or higher.");
+            if (var->semantic.index)
+                hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
+                        "Invalid semantic index %u for semantic variable %s.", var->semantic.index, var->name);
+            if (!hlsl_is_vec1(var->data_type) || base_type->e.numeric.type != HLSL_TYPE_UINT)
+            {
+                if ((string = hlsl_type_to_string(ctx, var->data_type)))
+                    hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                            "Invalid data type %s for semantic variable %s.", string->buffer, var->name);
+                hlsl_release_string_buffer(ctx, string);
+            }
+            program->global_flags |= VKD3DSGF_ENABLE_STENCIL_REF;
+        }
+
+        if (sysval == VKD3D_SHADER_SV_TESS_FACTOR_TRIINT)
         {
             /* While SV_InsideTessFactor can be declared as 'float' for "tri"
              * domains, it is allocated as if it was 'float[1]'. */
             var->force_align = true;
         }
 
-        if (semantic == VKD3D_SHADER_SV_RENDER_TARGET_ARRAY_INDEX
-                || semantic == VKD3D_SHADER_SV_VIEWPORT_ARRAY_INDEX
-                || semantic == VKD3D_SHADER_SV_PRIMITIVE_ID)
+        if (sysval == VKD3D_SHADER_SV_RENDER_TARGET_ARRAY_INDEX
+                || sysval == VKD3D_SHADER_SV_VIEWPORT_ARRAY_INDEX
+                || sysval == VKD3D_SHADER_SV_PRIMITIVE_ID)
             vip_allocation = true;
-        else if (vsir_sysval_semantic_is_clip_cull(semantic))
+        else if (vsir_sysval_semantic_is_clip_cull(sysval))
             clip_cull = true;
 
-        if (semantic == VKD3D_SHADER_SV_IS_FRONT_FACE || semantic == VKD3D_SHADER_SV_SAMPLE_INDEX
+        if (sysval == VKD3D_SHADER_SV_IS_FRONT_FACE || sysval == VKD3D_SHADER_SV_SAMPLE_INDEX
                 || (version.type == VKD3D_SHADER_TYPE_DOMAIN && !output && !is_primitive)
                 || (ctx->is_patch_constant_func && output))
             special_interpolation = true;
@@ -7738,8 +7802,7 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
     }
     else
     {
-        unsigned int component_count = is_primitive
-                ? var->data_type->e.array.type->e.numeric.dimx : var->data_type->e.numeric.dimx;
+        unsigned int component_count = base_type->e.numeric.dimx;
         unsigned int reg_size = packed ? component_count : 4;
         int mode = VKD3DSIM_NONE;
 
@@ -7760,6 +7823,10 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program
         TRACE("Allocated %s to %s (mode %d).\n", var->name,
                 debug_register(var->regs[HLSL_REGSET_NUMERIC], var->data_type), mode);
     }
+
+    if (sysval == VKD3D_SHADER_SV_IS_FRONT_FACE && base_type->e.numeric.dimx > 1)
+        hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
+                "%s input must have only 1 component.", var->semantic.name);
 
     /* FIXME: Actually input patches in the patch constant function should
      * result in signature generation, if they're not present in the entry
@@ -9479,24 +9546,6 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
                 break;
         }
 
-        if (sysval == VKD3D_SHADER_SV_STENCIL_REF)
-        {
-            if (hlsl_version_lt(ctx, 5, 0))
-                hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INCOMPATIBLE_PROFILE,
-                        "Stencil export is only supported in shader model 5.0 or higher.");
-            if (var->semantic.index)
-                hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
-                        "Invalid semantic index %u for semantic variable %s.", var->semantic.index, var->name);
-            if (!hlsl_is_vec1(var->data_type) || numeric_type != HLSL_TYPE_UINT)
-            {
-                if ((string = hlsl_type_to_string(ctx, var->data_type)))
-                    hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
-                            "Invalid data type %s for semantic variable %s.", string->buffer, var->name);
-                hlsl_release_string_buffer(ctx, string);
-            }
-            program->global_flags |= VKD3DSGF_ENABLE_STENCIL_REF;
-        }
-
         if (sysval == VKD3D_SHADER_SV_TARGET && ascii_strcasecmp(name, "SV_Target"))
             name = "SV_Target";
         else if (sysval == VKD3D_SHADER_SV_DEPTH && ascii_strcasecmp(name, "SV_Depth"))
@@ -9521,13 +9570,6 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
                 else if (type == VSIR_REGISTER_ATTROUT
                         || (type == VSIR_REGISTER_INPUT && program->shader_version.type == VKD3D_SHADER_TYPE_PIXEL))
                     register_index += SM1_COLOR_REGISTER_OFFSET;
-            }
-
-            if (interpolation_mode == VKD3DSIM_LINEAR_CENTROID
-                    && (vkd3d_shader_ver_ge(&program->shader_version, 3, 0) || type != VSIR_REGISTER_TEXTURE))
-            {
-                hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_MODIFIER,
-                        "The centroid interpolation mode is not supported by the '%s' semantic.", var->semantic.name);
             }
         }
         else
@@ -9557,25 +9599,13 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
         if (!ascii_strcasecmp(var->semantic.name, "PSIZE") && output
                 && program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX)
         {
-            program->has_point_size = true;
-            if (var->data_type->e.numeric.dimx > 1)
-                hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
-                        "PSIZE output must have only 1 component in this shader model.");
             /* For some reason the writemask has all components set. */
             mask = VKD3DSP_WRITEMASK_ALL;
         }
-        if (!ascii_strcasecmp(var->semantic.name, "FOG") && output && program->shader_version.major < 3
-                && program->shader_version.type == VKD3D_SHADER_TYPE_VERTEX && var->data_type->e.numeric.dimx > 1)
-            hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
-                    "FOG output must have only 1 component in this shader model.");
 
         use_mask = mask; /* FIXME: retrieve use mask accurately. */
         component_type = VKD3D_SHADER_COMPONENT_FLOAT;
     }
-
-    if (sysval == VKD3D_SHADER_SV_IS_FRONT_FACE && var->data_type->e.numeric.dimx > 1)
-        hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
-                "%s input must have only 1 component.", var->semantic.name);
 
     if (!vkd3d_array_reserve((void **)&signature->elements, &signature->elements_capacity,
             signature->element_count + 1, sizeof(*signature->elements)))
