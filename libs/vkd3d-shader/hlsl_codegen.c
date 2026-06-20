@@ -7640,8 +7640,11 @@ static enum vkd3d_shader_interpolation_mode get_interpolation_mode(const struct 
     return VKD3DSIM_LINEAR;
 }
 
-static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var *var,
-        struct register_allocator *allocator, bool output)
+static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *program,
+        struct vsir_signature *signature, bool output, struct hlsl_ir_var *var);
+
+static void allocate_semantic_register(struct hlsl_ctx *ctx, struct vsir_program *program,
+        struct hlsl_ir_var *var, struct vsir_signature *signature, struct register_allocator *allocator, bool output)
 {
     static const char *const shader_names[] =
     {
@@ -7757,9 +7760,17 @@ static void allocate_semantic_register(struct hlsl_ctx *ctx, struct hlsl_ir_var 
         TRACE("Allocated %s to %s (mode %d).\n", var->name,
                 debug_register(var->regs[HLSL_REGSET_NUMERIC], var->data_type), mode);
     }
+
+    /* FIXME: Actually input patches in the patch constant function should
+     * result in signature generation, if they're not present in the entry
+     * point. (The same doesn't apply to output patches because it's illegal
+     * to return void from a hull shader entry point.) */
+    if (!ctx->is_patch_constant_func || !is_primitive)
+        generate_vsir_signature_entry(ctx, program, signature, output, var);
 }
 
-static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct list *semantic_vars, uint32_t *output_reg_count)
+static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct vsir_program *program,
+        struct list *semantic_vars, uint32_t *output_reg_count)
 {
     struct register_allocator input_allocator = {0}, patch_constant_allocator = {0};
     struct register_allocator output_allocators[VKD3D_MAX_STREAM_COUNT] = {{0}};
@@ -7782,19 +7793,24 @@ static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct list *seman
             if (ctx->is_patch_constant_func)
             {
                 if (!hlsl_type_is_patch_array(var->data_type))
-                    allocate_semantic_register(ctx, var, &patch_constant_allocator, false);
+                    allocate_semantic_register(ctx, program, var, &program->patch_constant_signature,
+                            &patch_constant_allocator, false);
                 else if (var->data_type->e.array.array_type == HLSL_ARRAY_PATCH_OUTPUT)
-                    allocate_semantic_register(ctx, var, &output_allocators[0], false);
+                    allocate_semantic_register(ctx, program, var, &program->output_signature,
+                            &output_allocators[0], false);
                 else
-                    allocate_semantic_register(ctx, var, &input_allocator, false);
+                    allocate_semantic_register(ctx, program, var, &program->input_signature,
+                            &input_allocator, false);
             }
             else if (ctx->profile->type == VKD3D_SHADER_TYPE_DOMAIN && !hlsl_type_is_patch_array(var->data_type))
             {
-                allocate_semantic_register(ctx, var, &patch_constant_allocator, false);
+                allocate_semantic_register(ctx, program, var, &program->patch_constant_signature,
+                        &patch_constant_allocator, false);
             }
             else
             {
-                allocate_semantic_register(ctx, var, &input_allocator, false);
+                allocate_semantic_register(ctx, program, var, &program->input_signature,
+                        &input_allocator, false);
             }
         }
 
@@ -7802,9 +7818,11 @@ static void allocate_semantic_registers(struct hlsl_ctx *ctx, struct list *seman
         {
             VKD3D_ASSERT(var->semantic.stream_index < ARRAY_SIZE(output_allocators));
             if (ctx->is_patch_constant_func)
-                allocate_semantic_register(ctx, var, &patch_constant_allocator, true);
+                allocate_semantic_register(ctx, program, var, &program->patch_constant_signature,
+                        &patch_constant_allocator, true);
             else
-                allocate_semantic_register(ctx, var, &output_allocators[var->semantic.stream_index], true);
+                allocate_semantic_register(ctx, program, var, &program->output_signature,
+                        &output_allocators[var->semantic.stream_index], true);
         }
     }
 
@@ -9599,48 +9617,6 @@ static void generate_vsir_signature_entry(struct hlsl_ctx *ctx, struct vsir_prog
         case HLSL_TYPE_MIN16UINT:
             element->min_precision = VKD3D_SHADER_MINIMUM_PRECISION_UINT_16;
             break;
-    }
-}
-
-static void generate_vsir_signature(struct hlsl_ctx *ctx, struct vsir_program *program,
-        struct hlsl_ir_function_decl *func, struct list *semantic_vars)
-{
-    bool is_domain = program->shader_version.type == VKD3D_SHADER_TYPE_DOMAIN;
-    struct hlsl_ir_var *var;
-
-    ctx->is_patch_constant_func = func == ctx->patch_constant_func;
-
-    LIST_FOR_EACH_ENTRY(var, semantic_vars, struct hlsl_ir_var, extern_entry)
-    {
-        if (var->is_input_semantic)
-        {
-            bool is_patch = hlsl_type_is_patch_array(var->data_type);
-
-            if (ctx->is_patch_constant_func)
-            {
-                if (!is_patch)
-                    generate_vsir_signature_entry(ctx, program, &program->patch_constant_signature, false, var);
-            }
-            else if (is_domain)
-            {
-                if (is_patch)
-                    generate_vsir_signature_entry(ctx, program, &program->input_signature, false, var);
-                else
-                    generate_vsir_signature_entry(ctx, program, &program->patch_constant_signature, false, var);
-            }
-            else
-            {
-                generate_vsir_signature_entry(ctx, program, &program->input_signature, false, var);
-            }
-        }
-
-        if (var->is_output_semantic)
-        {
-            if (ctx->is_patch_constant_func)
-                generate_vsir_signature_entry(ctx, program, &program->patch_constant_signature, true, var);
-            else
-                generate_vsir_signature_entry(ctx, program, &program->output_signature, true, var);
-        }
     }
 }
 
@@ -16009,7 +15985,8 @@ static struct hlsl_ir_node *lower_isinf(struct hlsl_ctx *ctx, struct hlsl_ir_nod
     return hlsl_block_add_simple_load(ctx, block, func->return_var, &node->loc);
 }
 
-static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_vars, struct hlsl_block *body,
+static void process_entry_function(struct hlsl_ctx *ctx, struct vsir_program *program,
+        struct list *semantic_vars, struct hlsl_block *body,
         const struct hlsl_block *global_uniform_block, struct hlsl_ir_function_decl *entry_func)
 {
     struct stream_append_ctx stream_append_ctx = { .semantic_vars = semantic_vars };
@@ -16333,7 +16310,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct list *semantic_v
     calculate_resource_register_counts(ctx);
 
     allocate_register_reservations(ctx, &ctx->extern_vars);
-    allocate_semantic_registers(ctx, semantic_vars, &output_reg_count);
+    allocate_semantic_registers(ctx, program, semantic_vars, &output_reg_count);
 
     if (profile->type == VKD3D_SHADER_TYPE_GEOMETRY)
         validate_max_output_size(ctx, semantic_vars, output_reg_count, &entry_func->loc);
@@ -16396,7 +16373,7 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
         }
     }
 
-    process_entry_function(ctx, &semantic_vars, &body, &initializer_block, entry_func);
+    process_entry_function(ctx, program, &semantic_vars, &body, &initializer_block, entry_func);
 
     if (ctx->result)
     {
@@ -16407,7 +16384,8 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
 
     if (profile->type == VKD3D_SHADER_TYPE_HULL)
     {
-        process_entry_function(ctx, &patch_semantic_vars, &patch_body, &initializer_block, ctx->patch_constant_func);
+        process_entry_function(ctx, program, &patch_semantic_vars,
+                &patch_body, &initializer_block, ctx->patch_constant_func);
         if (ctx->result)
             goto done;
     }
@@ -16438,10 +16416,6 @@ int hlsl_emit_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_compile_info 
 
     if (ctx->result)
         goto done;
-
-    generate_vsir_signature(ctx, program, entry_func, &semantic_vars);
-    if (program->shader_version.type == VKD3D_SHADER_TYPE_HULL)
-        generate_vsir_signature(ctx, program, ctx->patch_constant_func, &patch_semantic_vars);
 
     generate_vsir_descriptors(ctx, program);
 
