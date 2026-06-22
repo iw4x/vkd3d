@@ -367,8 +367,8 @@ static int vsir_signature_parse(struct vsir_signature *s, const struct vkd3d_sha
 {
     bool has_stream_index, has_min_precision;
     const char *data = section->data.code;
+    struct vsir_signature_element *e;
     uint32_t count, header_size;
-    struct signature_element *e;
     const char *ptr = data;
     bool fail = false;
     unsigned int i;

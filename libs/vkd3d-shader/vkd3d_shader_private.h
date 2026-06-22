@@ -1255,7 +1255,7 @@ static inline bool vsir_sysval_semantic_is_clip_cull(enum vkd3d_shader_sysval_se
     return sysval_semantic == VKD3D_SHADER_SV_CLIP_DISTANCE || sysval_semantic == VKD3D_SHADER_SV_CULL_DISTANCE;
 }
 
-struct signature_element
+struct vsir_signature_element
 {
     /* sort_index is not a property of the signature element, it is just a
      * convenience field used to retain the original order in a signature and
@@ -1278,12 +1278,12 @@ struct signature_element
     unsigned int target_location;
 };
 
-static inline void vsir_signature_element_cleanup(struct signature_element *e)
+static inline void vsir_signature_element_cleanup(struct vsir_signature_element *e)
 {
     vkd3d_free((void *)e->semantic_name);
 }
 
-static inline bool vsir_signature_element_is_array(const struct signature_element *element,
+static inline bool vsir_signature_element_is_array(const struct vsir_signature_element *element,
         const struct vsir_normalisation_flags *flags)
 {
     enum vkd3d_shader_sysval_semantic semantic = element->sysval_semantic;
@@ -1299,13 +1299,13 @@ static inline bool vsir_signature_element_is_array(const struct signature_elemen
 
 struct vsir_signature
 {
-    struct signature_element *elements;
+    struct vsir_signature_element *elements;
     size_t elements_capacity;
     unsigned int element_count;
 };
 
 void vsir_signature_cleanup(struct vsir_signature *signature);
-struct signature_element *vsir_signature_find_element_for_reg(const struct vsir_signature *signature,
+struct vsir_signature_element *vsir_signature_find_element_for_reg(const struct vsir_signature *signature,
         unsigned int reg_idx, unsigned int write_mask);
 bool vsir_signature_find_sysval(const struct vsir_signature *signature,
         enum vkd3d_shader_sysval_semantic sysval, unsigned int semantic_index, unsigned int *element_index);

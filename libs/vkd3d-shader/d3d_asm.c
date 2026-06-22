@@ -1900,7 +1900,7 @@ static enum vkd3d_result dump_dxbc_signature(struct vkd3d_d3d_asm_compiler *comp
 
     for (i = 0; i < signature->element_count; ++i)
     {
-        struct signature_element *element = &signature->elements[i];
+        struct vsir_signature_element *element = &signature->elements[i];
 
         vkd3d_string_buffer_printf(buffer, "%s.param%s %s", compiler->colours.opcode,
                 compiler->colours.reset, element->semantic_name);
@@ -2222,7 +2222,7 @@ static void trace_signature(const struct vsir_signature *signature, const char *
 
     for (i = 0; i < signature->element_count; ++i)
     {
-        const struct signature_element *element = &signature->elements[i];
+        const struct vsir_signature_element *element = &signature->elements[i];
 
         vkd3d_string_buffer_clear(&buffer);
 

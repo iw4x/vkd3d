@@ -7658,11 +7658,11 @@ static void generate_signature_entry(struct hlsl_ctx *ctx, struct vsir_program *
     bool is_primitive = hlsl_type_is_primitive_array(var->data_type);
     const struct hlsl_type *base_type = var->data_type;
     enum vkd3d_shader_sysval_semantic sysval;
+    struct vsir_signature_element *element;
     const char *name = var->semantic.name;
     struct vkd3d_shader_version version;
     bool special_interpolation = false;
     struct vkd3d_string_buffer *string;
-    struct signature_element *element;
     enum vsir_register_type type;
     bool vip_allocation = false;
     bool clip_cull = false;

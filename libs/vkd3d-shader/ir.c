@@ -833,7 +833,7 @@ const struct vkd3d_shader_parameter1 *vsir_program_get_parameter(
     return NULL;
 }
 
-static struct signature_element *vsir_signature_find_element_by_name(
+static struct vsir_signature_element *vsir_signature_find_element_by_name(
         const struct vsir_signature *signature, const char *semantic_name, unsigned int semantic_index)
 {
     for (unsigned int i = 0; i < signature->element_count; ++i)
@@ -849,7 +849,7 @@ static struct signature_element *vsir_signature_find_element_by_name(
 bool vsir_signature_find_sysval(const struct vsir_signature *signature,
         enum vkd3d_shader_sysval_semantic sysval, unsigned int semantic_index, unsigned int *element_index)
 {
-    const struct signature_element *e;
+    const struct vsir_signature_element *e;
     unsigned int i;
 
     for (i = 0; i < signature->element_count; ++i)
@@ -1005,8 +1005,8 @@ static void vsir_src_operand_init_const_u32(struct vsir_src_operand *src, uint32
     src->reg.u.immconst_u32[0] = value;
 }
 
-static void vsir_src_operand_init_io(struct vsir_src_operand *src,
-        enum vsir_register_type reg_type, const struct signature_element *e, unsigned int idx_count)
+static void vsir_src_operand_init_io(struct vsir_src_operand *src, enum vsir_register_type reg_type,
+        const struct vsir_signature_element *e, unsigned int idx_count)
 {
     vsir_src_operand_init(src, reg_type, vsir_data_type_from_component_type(e->component_type), idx_count);
     src->reg.dimension = VSIR_DIMENSION_VEC4;
@@ -1121,7 +1121,7 @@ void vsir_dst_operand_init(struct vsir_dst_operand *dst, enum vsir_register_type
 }
 
 static void vsir_dst_operand_init_io(struct vsir_dst_operand *dst, enum vsir_register_type reg_type,
-        const struct signature_element *e, unsigned int idx_count)
+        const struct vsir_signature_element *e, unsigned int idx_count)
 {
     vsir_dst_operand_init(dst, reg_type, vsir_data_type_from_component_type(e->component_type), idx_count);
     dst->reg.dimension = VSIR_DIMENSION_VEC4;
@@ -3793,8 +3793,8 @@ static enum vkd3d_result vsir_program_normalise_vs3_point_size_output(struct vsi
         struct vsir_transformation_context *ctx)
 {
     struct vsir_program_iterator it = vsir_program_iterator(&program->instructions);
+    const struct vsir_signature_element *e;
     struct vkd3d_shader_instruction *ins;
-    const struct signature_element *e;
 
     if (!program->has_point_size)
         return VKD3D_OK;
@@ -3849,11 +3849,11 @@ static enum vkd3d_result vsir_program_clamp_vs2_color_output(struct vsir_program
     return VKD3D_OK;
 }
 
-static struct signature_element *add_signature_element(struct vsir_signature *signature,
+static struct vsir_signature_element *add_signature_element(struct vsir_signature *signature,
         const char *semantic_name, uint32_t semantic_index, uint32_t mask, uint32_t register_index,
         enum vkd3d_shader_interpolation_mode interpolation_mode)
 {
-    struct signature_element *new_elements, *e;
+    struct vsir_signature_element *new_elements, *e;
 
     if (!(new_elements = vkd3d_realloc(signature->elements,
             (signature->element_count + 1) * sizeof(*signature->elements))))
@@ -3878,7 +3878,7 @@ static enum vkd3d_result vsir_program_add_diffuse_output(struct vsir_program *pr
         struct vsir_transformation_context *ctx)
 {
     struct vsir_signature *signature = &program->output_signature;
-    struct signature_element *e;
+    struct vsir_signature_element *e;
 
     if (program->shader_version.type != VKD3D_SHADER_TYPE_VERTEX)
         return VKD3D_OK;
@@ -3986,7 +3986,7 @@ static bool target_allows_subset_masks(const struct vkd3d_shader_compile_info *i
 static void remove_unread_output_components(const struct vsir_signature *signature,
         struct vkd3d_shader_instruction *ins, struct vsir_dst_operand *dst)
 {
-    const struct signature_element *e;
+    const struct vsir_signature_element *e;
 
     switch (dst->reg.type)
     {
@@ -4030,7 +4030,7 @@ static enum vkd3d_result vsir_program_remap_output_signature(struct vsir_program
     struct vsir_signature *signature = &program->output_signature;
     unsigned int orig_element_count = signature->element_count;
     const struct vkd3d_shader_varying_map_info *varying_map;
-    struct signature_element *new_elements, *e;
+    struct vsir_signature_element *new_elements, *e;
     unsigned int uninit_varying_count = 0;
     unsigned int subset_varying_count = 0;
     struct vkd3d_shader_instruction *ins;
@@ -4452,8 +4452,8 @@ static enum vkd3d_result control_point_normaliser_emit_hs_input(struct control_p
         const struct vsir_signature *s, unsigned int input_control_point_count,
         struct vsir_program_iterator *dst_it, const struct vkd3d_shader_location *location)
 {
+    const struct vsir_signature_element *e;
     struct vkd3d_shader_instruction *ins;
-    const struct signature_element *e;
     unsigned int i, count = 2;
 
     for (i = 0; i < s->element_count; ++i)
@@ -4617,7 +4617,7 @@ struct io_normaliser
 static bool shader_signature_find_element_for_reg(const struct vsir_signature *signature,
         unsigned int reg_idx, unsigned int write_mask, unsigned int *element_idx)
 {
-    const struct signature_element *e;
+    const struct vsir_signature_element *e;
     unsigned int i;
 
     for (i = 0; i < signature->element_count; ++i)
@@ -4634,7 +4634,7 @@ static bool shader_signature_find_element_for_reg(const struct vsir_signature *s
     return false;
 }
 
-struct signature_element *vsir_signature_find_element_for_reg(const struct vsir_signature *signature,
+struct vsir_signature_element *vsir_signature_find_element_for_reg(const struct vsir_signature *signature,
         unsigned int reg_idx, unsigned int write_mask)
 {
     unsigned int element_idx;
@@ -4751,7 +4751,7 @@ static enum vkd3d_result io_normaliser_add_index_range(struct io_normaliser *nor
 
     for (i = 0; i < range->register_count; ++i)
     {
-        struct signature_element *element;
+        struct vsir_signature_element *element;
 
         if ((element = vsir_signature_find_element_for_reg(signature, reg_idx + i, mask)))
         {
@@ -4765,13 +4765,14 @@ static enum vkd3d_result io_normaliser_add_index_range(struct io_normaliser *nor
 
 static int signature_element_mask_compare(const void *a, const void *b)
 {
-    const struct signature_element *e = a, *f = b;
+    const struct vsir_signature_element *e = a, *f = b;
     int ret;
 
     return (ret = vkd3d_u32_compare(e->mask, f->mask)) ? ret : vkd3d_u32_compare(e->register_index, f->register_index);
 }
 
-static bool sysval_semantics_should_merge(const struct signature_element *e, const struct signature_element *f)
+static bool sysval_semantics_should_merge(const struct vsir_signature_element *e,
+        const struct vsir_signature_element *f)
 {
     if (e->sysval_semantic < VKD3D_SHADER_SV_TESS_FACTOR_QUADEDGE
             || e->sysval_semantic > VKD3D_SHADER_SV_TESS_FACTOR_LINEDEN)
@@ -4790,8 +4791,8 @@ static bool sysval_semantics_should_merge(const struct signature_element *e, con
 static enum vkd3d_result shader_signature_map_patch_constant_index_ranges(struct io_normaliser *normaliser,
         struct vsir_signature *s, struct io_normaliser_register_data range_map[])
 {
+    struct vsir_signature_element *e, *f;
     unsigned int i, j, register_count;
-    struct signature_element *e, *f;
     enum vkd3d_result ret;
 
     qsort(s->elements, s->element_count, sizeof(s->elements[0]), signature_element_mask_compare);
@@ -4827,7 +4828,7 @@ static enum vkd3d_result shader_signature_map_patch_constant_index_ranges(struct
 
 static int signature_element_register_compare(const void *a, const void *b)
 {
-    const struct signature_element *e = a, *f = b;
+    const struct vsir_signature_element *e = a, *f = b;
     int ret;
 
     if ((ret = vkd3d_u32_compare(e->register_index, f->register_index)))
@@ -4860,7 +4861,7 @@ static int signature_element_register_compare(const void *a, const void *b)
 
 static int signature_element_index_compare(const void *a, const void *b)
 {
-    const struct signature_element *e = a, *f = b;
+    const struct vsir_signature_element *e = a, *f = b;
 
     return vkd3d_u32_compare(e->sort_index, f->sort_index);
 }
@@ -4869,9 +4870,9 @@ static enum vkd3d_result vsir_signature_merge(struct io_normaliser *normaliser,
         struct vsir_signature *s, struct io_normaliser_register_data range_map[], bool is_patch_constant)
 {
     unsigned int i, j, element_count, new_count, register_count;
-    struct signature_element *elements;
+    struct vsir_signature_element *elements;
+    struct vsir_signature_element *e, *f;
     enum vkd3d_result ret = VKD3D_OK;
-    struct signature_element *e, *f;
     bool used;
 
     element_count = s->element_count;
@@ -5004,9 +5005,9 @@ static bool vsir_dst_operand_io_normalise(struct vsir_dst_operand *dst,
         struct io_normaliser *normaliser, struct vkd3d_shader_instruction *ins)
 {
     unsigned int id_idx, reg_idx, write_mask, element_idx;
+    const struct vsir_signature_element *e;
     const struct vsir_signature *signature;
     struct vsir_operand *reg = &dst->reg;
-    const struct signature_element *e;
 
     write_mask = dst->write_mask;
 
@@ -5101,9 +5102,9 @@ static void vsir_src_operand_io_normalise(struct vsir_src_operand *src,
         struct io_normaliser *normaliser, struct vkd3d_shader_instruction *ins)
 {
     unsigned int i, id_idx, reg_idx, write_mask, element_idx, component_idx;
+    const struct vsir_signature_element *e;
     const struct vsir_signature *signature;
     struct vsir_operand *reg = &src->reg;
-    const struct signature_element *e;
 
     /* Input/output registers from one phase can be used as inputs in
      * subsequent phases. Specifically:
@@ -5202,7 +5203,7 @@ static enum vkd3d_result io_normaliser_init_misctype(struct vsir_program_iterato
         struct vsir_program *program, struct io_normaliser *normaliser)
 {
     struct vkd3d_shader_location location = vsir_program_iterator_current(it)->location;
-    const struct signature_element *element;
+    const struct vsir_signature_element *element;
     struct vkd3d_shader_instruction *ins;
     unsigned int signature_idx;
 
@@ -9075,7 +9076,7 @@ static enum vkd3d_result vsir_program_apply_flat_interpolation(struct vsir_progr
 
     for (i = 0; i < program->input_signature.element_count; ++i)
     {
-        struct signature_element *element = &program->input_signature.elements[i];
+        struct vsir_signature_element *element = &program->input_signature.elements[i];
 
         if (!ascii_strcasecmp(element->semantic_name, "COLOR"))
             element->interpolation_mode = VKD3DSIM_CONSTANT;
@@ -9311,7 +9312,7 @@ static enum vkd3d_result vsir_program_insert_clip_planes(struct vsir_program *pr
     const struct vkd3d_shader_parameter1 *mask_parameter = NULL;
     uint32_t position_signature_idx, position_temp, mask;
     unsigned int plane_count, next_register_index;
-    struct signature_element *clip_element;
+    struct vsir_signature_element *clip_element;
     struct vkd3d_shader_instruction *ins;
     int ret;
 
@@ -9479,7 +9480,7 @@ static enum vkd3d_result sysval_array_normaliser_init(struct vsir_transformation
         bool output, struct sysval_array_normaliser *normaliser)
 {
     unsigned int component_count = 0, next_register_index;
-    struct signature_element *element;
+    struct vsir_signature_element *element;
     struct vsir_signature *signature;
     enum vkd3d_result res;
 
@@ -9548,8 +9549,8 @@ static enum vkd3d_result sysval_array_normaliser_add_output_copy(
 {
     struct vsir_program *program = normaliser->ctx->program;
     unsigned int output_component_count = 0;
+    struct vsir_signature_element *element;
     struct vkd3d_shader_instruction *mov;
-    struct signature_element *element;
     struct vkd3d_shader_location loc;
 
     if (!normaliser->output)
@@ -9639,8 +9640,8 @@ static enum vkd3d_result sysval_array_normaliser_add_input_copy(
         struct sysval_array_normaliser *normaliser, struct vsir_program_iterator *it)
 {
     struct vsir_program *program = normaliser->ctx->program;
+    struct vsir_signature_element *element;
     struct vkd3d_shader_instruction *mov;
-    struct signature_element *element;
     unsigned int control_point_count;
     struct vkd3d_shader_location loc;
 
@@ -9800,7 +9801,7 @@ static enum vkd3d_result sysval_array_normaliser_map_register(struct sysval_arra
     struct vsir_register_index i_idx = {0}, p_idx = {0};
     unsigned int element_index, control_point_count;
     struct vkd3d_shader_instruction *ssa_ins;
-    struct signature_element *element;
+    struct vsir_signature_element *element;
     struct vkd3d_shader_location loc;
     struct vsir_signature *signature;
     unsigned int q;
@@ -10015,7 +10016,7 @@ static void vsir_program_remove_signature_element(struct vsir_program *program,
 static void sysval_array_normaliser_remove_old_signature_elements(struct sysval_array_normaliser *normaliser)
 {
     struct vsir_program *program = normaliser->ctx->program;
-    struct signature_element *element;
+    struct vsir_signature_element *element;
     struct vsir_signature *signature;
     enum vsir_register_type type;
 
@@ -10314,8 +10315,8 @@ static bool has_texcoord_signature_element(const struct vsir_signature *signatur
 static bool replace_texcoord_with_point_coord(struct vsir_program *program,
         struct vsir_src_operand *src, unsigned int coord_temp)
 {
+    const struct vsir_signature_element *e;
     uint32_t prev_swizzle = src->swizzle;
-    const struct signature_element *e;
 
     /* The input semantic may have a nontrivial mask, which we need to
      * correct for. E.g. if the mask is .yz, and we read from .y, that needs
@@ -10488,7 +10489,7 @@ static enum vkd3d_result vsir_program_add_fog_input(struct vsir_program *program
         struct vsir_transformation_context *ctx)
 {
     struct vsir_signature *signature = &program->input_signature;
-    struct signature_element *e;
+    struct vsir_signature_element *e;
     uint32_t register_idx = 0;
 
     if (program->shader_version.type != VKD3D_SHADER_TYPE_PIXEL)
@@ -10685,7 +10686,7 @@ static enum vkd3d_result vsir_program_insert_fragment_fog(struct vsir_program *p
     struct vkd3d_shader_message_context *message_context = ctx->message_context;
     uint32_t colour_signature_idx, fog_signature_idx, colour_temp;
     const struct vkd3d_shader_parameter1 *mode_parameter = NULL;
-    const struct signature_element *fog_element;
+    const struct vsir_signature_element *fog_element;
     enum vkd3d_shader_fog_fragment_mode mode;
     struct vkd3d_shader_instruction *ins;
     int ret;
@@ -10796,7 +10797,7 @@ static enum vkd3d_result vsir_program_add_fog_output(struct vsir_program *progra
 static enum vkd3d_result insert_vertex_fog_before_ret(struct vsir_program *program, struct vsir_program_iterator *it,
         enum vkd3d_shader_fog_source source, uint32_t temp, uint32_t fog_signature_idx, uint32_t source_signature_idx)
 {
-    const struct signature_element *e = &program->output_signature.elements[source_signature_idx];
+    const struct vsir_signature_element *e = &program->output_signature.elements[source_signature_idx];
     struct vkd3d_shader_instruction *ret = vsir_program_iterator_current(it);
     const struct vkd3d_shader_location loc = ret->location;
     struct vkd3d_shader_instruction *ins;
@@ -10831,9 +10832,9 @@ static enum vkd3d_result vsir_program_insert_vertex_fog(struct vsir_program *pro
     struct vkd3d_shader_message_context *message_context = ctx->message_context;
     const struct vkd3d_shader_parameter1 *source_parameter = NULL;
     uint32_t fog_signature_idx, source_signature_idx, temp;
+    const struct vsir_signature_element *e;
     struct vkd3d_shader_instruction *ins;
     enum vkd3d_shader_fog_source source;
-    const struct signature_element *e;
 
     if (!is_pre_rasterization_shader(program->shader_version.type))
         return VKD3D_OK;
@@ -12158,7 +12159,7 @@ struct validation_context
             {
                 struct validation_context_signature_component_data
                 {
-                    const struct signature_element *element;
+                    const struct vsir_signature_element *element;
                 } components[VKD3D_VEC4_SIZE];
             } registers[MAX_REG_OUTPUT];
         } streams[VKD3D_MAX_STREAM_COUNT];
@@ -12449,7 +12450,7 @@ static void vsir_validate_io_register(struct validation_context *ctx, const stru
     }
     else
     {
-        struct signature_element *element;
+        struct vsir_signature_element *element;
         unsigned int expected_idx_count;
         unsigned int signature_idx;
         bool is_array = false;
@@ -13050,7 +13051,7 @@ static void vsir_validate_register(struct validation_context *ctx, const struct 
 static void vsir_validate_io_dst_operand(struct validation_context *ctx, const struct vsir_dst_operand *dst)
 {
     struct vsir_io_register_data io_reg_data;
-    const struct signature_element *e;
+    const struct vsir_signature_element *e;
     unsigned int idx;
 
     if (!vsir_get_io_register_data(ctx, dst->reg.type, &io_reg_data) || !(io_reg_data.flags & OUTPUT_BIT))
@@ -13455,8 +13456,8 @@ static void vsir_validate_signature_element(struct validation_context *ctx,
 {
     enum vkd3d_tessellator_domain expected_tess_domain = VKD3D_TESSELLATOR_DOMAIN_INVALID;
     bool integer_type = false, is_outer = false, is_gs_output, require_index = true;
+    const struct vsir_signature_element *element = &signature->elements[idx];
     const char *signature_type_name = signature_type_names[signature_type];
-    const struct signature_element *element = &signature->elements[idx];
     unsigned int semantic_index_max = 0, i, j;
 
     if (element->register_count == 0)
@@ -13734,7 +13735,7 @@ static void vsir_validate_signature(struct validation_context *ctx, const struct
 
     if (signature_type == SIGNATURE_TYPE_PATCH_CONSTANT)
     {
-        const struct signature_element *first_element, *element;
+        const struct vsir_signature_element *first_element, *element;
         unsigned int expected_outer_count = 0;
         unsigned int expected_inner_count = 0;
 
@@ -14388,7 +14389,7 @@ static void vsir_validate_dcl_index_range(struct validation_context *ctx,
 
         for (j = 0; j < signature->element_count; ++j)
         {
-            const struct signature_element *element = &signature->elements[j];
+            const struct vsir_signature_element *element = &signature->elements[j];
 
             if (base_register_idx + i != element->register_index || !(range->dst.write_mask & element->mask))
                 continue;
@@ -14424,7 +14425,7 @@ static void vsir_validate_dcl_index_range(struct validation_context *ctx,
 
         for (j = 0; j < signature->element_count; ++j)
         {
-            const struct signature_element *element = &signature->elements[j];
+            const struct vsir_signature_element *element = &signature->elements[j];
 
             if (base_register_idx + i != element->register_index || !(effective_write_mask & element->mask))
                 continue;

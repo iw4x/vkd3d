@@ -1700,8 +1700,8 @@ static void msl_generate_input_struct_declarations(struct msl_generator *gen)
     const struct vsir_signature *signature = &gen->program->input_signature;
     enum vkd3d_shader_type type = gen->program->shader_version.type;
     struct vkd3d_string_buffer *buffer = gen->buffer;
+    const struct vsir_signature_element *e;
     bool locations[MAX_IO_REG_COUNT] = {0};
-    const struct signature_element *e;
     unsigned int i;
 
     vkd3d_string_buffer_printf(buffer, "struct vkd3d_%s_in\n{\n", gen->prefix);
@@ -1840,7 +1840,8 @@ static void msl_generate_input_struct_declarations(struct msl_generator *gen)
     vkd3d_string_buffer_printf(buffer, "};\n\n");
 }
 
-static void msl_generate_vertex_output_element_attribute(struct msl_generator *gen, const struct signature_element *e)
+static void msl_generate_vertex_output_element_attribute(struct msl_generator *gen,
+        const struct vsir_signature_element *e)
 {
     switch (e->sysval_semantic)
     {
@@ -1857,7 +1858,8 @@ static void msl_generate_vertex_output_element_attribute(struct msl_generator *g
     }
 }
 
-static void msl_generate_pixel_output_element_attribute(struct msl_generator *gen, const struct signature_element *e)
+static void msl_generate_pixel_output_element_attribute(struct msl_generator *gen,
+        const struct vsir_signature_element *e)
 {
     switch (e->sysval_semantic)
     {
@@ -1876,8 +1878,8 @@ static void msl_generate_output_struct_declarations(struct msl_generator *gen)
     const struct vsir_signature *signature = &gen->program->output_signature;
     enum vkd3d_shader_type type = gen->program->shader_version.type;
     struct vkd3d_string_buffer *buffer = gen->buffer;
+    const struct vsir_signature_element *e;
     bool locations[MAX_IO_REG_COUNT] = {0};
-    const struct signature_element *e;
     unsigned int i;
 
     vkd3d_string_buffer_printf(buffer, "struct vkd3d_%s_out\n{\n", gen->prefix);
@@ -2033,7 +2035,7 @@ static void msl_generate_entrypoint_prologue(struct msl_generator *gen)
 {
     const struct vsir_signature *signature = &gen->program->input_signature;
     struct vkd3d_string_buffer *buffer = gen->buffer;
-    const struct signature_element *e;
+    const struct vsir_signature_element *e;
     unsigned int i;
 
     for (i = 0; i < signature->element_count; ++i)
@@ -2115,7 +2117,7 @@ static void msl_generate_entrypoint_epilogue(struct msl_generator *gen)
 {
     const struct vsir_signature *signature = &gen->program->output_signature;
     struct vkd3d_string_buffer *buffer = gen->buffer;
-    const struct signature_element *e;
+    const struct vsir_signature_element *e;
     unsigned int i;
 
     for (i = 0; i < signature->element_count; ++i)

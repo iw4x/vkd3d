@@ -992,7 +992,7 @@ static bool vkd3d_shader_signature_from_vsir(struct vkd3d_shader_signature *sign
         const struct vsir_signature *src)
 {
     struct vkd3d_shader_signature_element *d;
-    const struct signature_element *e;
+    const struct vsir_signature_element *e;
     size_t count, i, j;
 
     for (i = 0, count = 0; i < src->element_count; ++i)

@@ -625,10 +625,10 @@ static void d3dbc_parse_dst_operand(struct vkd3d_shader_sm1_parser *d3dbc,
     }
 }
 
-static struct signature_element *find_signature_element(const struct vsir_signature *signature,
+static struct vsir_signature_element *find_signature_element(const struct vsir_signature *signature,
         const char *semantic_name, unsigned int semantic_index)
 {
-    struct signature_element *e = signature->elements;
+    struct vsir_signature_element *e = signature->elements;
     unsigned int i;
 
     for (i = 0; i < signature->element_count; ++i)
@@ -641,10 +641,10 @@ static struct signature_element *find_signature_element(const struct vsir_signat
     return NULL;
 }
 
-static struct signature_element *find_signature_element_by_register_index(
+static struct vsir_signature_element *find_signature_element_by_register_index(
         const struct vsir_signature *signature, unsigned int register_index)
 {
-    struct signature_element *e = signature->elements;
+    struct vsir_signature_element *e = signature->elements;
     unsigned int i;
 
     for (i = 0; i < signature->element_count; ++i)
@@ -676,7 +676,7 @@ static bool add_signature_element(struct vkd3d_shader_sm1_parser *sm1, bool outp
         unsigned int register_index, bool is_dcl, unsigned int mask, uint32_t dst_modifiers)
 {
     struct vsir_program *program = sm1->program;
-    struct signature_element *element;
+    struct vsir_signature_element *element;
     struct vsir_signature *signature;
 
     if (output)
@@ -719,7 +719,7 @@ static void add_signature_mask(struct vkd3d_shader_sm1_parser *sm1, bool output,
         unsigned int register_index, unsigned int mask)
 {
     struct vsir_program *program = sm1->program;
-    struct signature_element *element;
+    struct vsir_signature_element *element;
     struct vsir_signature *signature;
 
     if (output)
@@ -767,7 +767,7 @@ static bool add_signature_element_from_operand(struct vkd3d_shader_sm1_parser *s
 {
     const struct vkd3d_shader_version *version = &sm1->program->shader_version;
     unsigned int register_index = reg->idx_count > 0 ? reg->idx[0].offset : 0;
-    struct signature_element *e;
+    struct vsir_signature_element *e;
 
     switch (reg->type)
     {
@@ -2262,7 +2262,7 @@ static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *compiler, const 
 }
 
 static void d3dbc_write_semantic_dcl(struct d3dbc_compiler *compiler,
-        const struct signature_element *element, bool output)
+        const struct vsir_signature_element *element, bool output)
 {
     const struct vkd3d_shader_version *version = &compiler->program->shader_version;
     struct vkd3d_bytecode_buffer *buffer = &compiler->buffer;

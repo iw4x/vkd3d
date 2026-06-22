@@ -5433,8 +5433,8 @@ static const struct vkd3d_shader_phase *spirv_compiler_get_current_shader_phase(
             ? &compiler->control_point_phase : &compiler->patch_constant_phase;
 }
 
-static void spirv_compiler_decorate_xfb_output(struct spirv_compiler *compiler,
-        uint32_t id, unsigned int component_count, const struct signature_element *signature_element)
+static void spirv_compiler_decorate_xfb_output(struct spirv_compiler *compiler, uint32_t id,
+        unsigned int component_count, const struct vsir_signature_element *signature_element)
 {
     const struct vkd3d_shader_transform_feedback_info *xfb_info = compiler->xfb_info;
     const struct vkd3d_shader_transform_feedback_element *xfb_element;
@@ -5572,8 +5572,8 @@ static void spirv_compiler_emit_input(struct spirv_compiler *compiler,
         enum vsir_register_type reg_type, unsigned int element_idx)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
+    const struct vsir_signature_element *signature_element;
     unsigned int component_idx, input_component_count;
-    const struct signature_element *signature_element;
     const struct vsir_signature *shader_signature;
     const struct vkd3d_spirv_builtin *builtin;
     enum vkd3d_shader_sysval_semantic sysval;
@@ -5783,8 +5783,8 @@ static void spirv_compiler_emit_output(struct spirv_compiler *compiler,
         enum vsir_register_type reg_type, unsigned int element_idx)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
+    const struct vsir_signature_element *signature_element;
     unsigned int component_idx, output_component_count;
-    const struct signature_element *signature_element;
     const struct vsir_signature *shader_signature;
     const struct vkd3d_spirv_builtin *builtin;
     enum vkd3d_shader_sysval_semantic sysval;
@@ -5935,13 +5935,13 @@ static void spirv_compiler_emit_output(struct spirv_compiler *compiler,
 }
 
 static void spirv_compiler_emit_store_shader_output(struct spirv_compiler *compiler,
-        const struct vsir_signature *signature, const struct signature_element *output,
+        const struct vsir_signature *signature, const struct vsir_signature_element *output,
         const struct vkd3d_shader_output_info *output_info,
         uint32_t output_index_id, uint32_t val_id, uint32_t write_mask)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     uint32_t dst_write_mask, use_mask, uninit_mask, swizzle;
-    const struct signature_element *element;
+    const struct vsir_signature_element *element;
     uint32_t type_id, zero_id, ptr_type_id;
     enum vsir_data_type data_type;
     uint32_t output_id;
