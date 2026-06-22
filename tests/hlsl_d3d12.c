@@ -1586,11 +1586,6 @@ static HRESULT reflect_hr(const IID *iid, unsigned int compiler_version, unsigne
     return E_INVALIDARG;
 }
 
-static bool reflection_iid_todo(const IID *iid)
-{
-    return IsEqualGUID(iid, &IID_ID3D10ShaderReflection1);
-}
-
 static void test_reflection_version(const IID *iid, unsigned int compiler_version)
 {
     unsigned int refcount;
@@ -2033,8 +2028,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         expect_hr = reflect_hr(iid, compiler_version, tests[t].min_compiler);
         hr = D3DReflectVKD3D(ID3D10Blob_GetBufferPointer(code),
                 ID3D10Blob_GetBufferSize(code), iid, (void **)&reflection, compiler_version);
-        todo_if ((compiler_version >= 40 && compiler_version < 46 && t == 1)
-                || (reflection_iid_todo(iid) && expect_hr == S_OK))
+        todo_if (compiler_version >= 40 && compiler_version < 46 && t == 1)
             ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
         if (FAILED(hr))
         {
@@ -3768,8 +3762,7 @@ static void test_signature_reflection_version(const IID *iid, unsigned int compi
         expect_hr = reflect_hr(iid, compiler_version, tests[i].min_compiler);
         hr = D3DReflectVKD3D(ID3D10Blob_GetBufferPointer(code),
                 ID3D10Blob_GetBufferSize(code), iid, (void **)&reflection, compiler_version);
-        todo_if ((compiler_version != 47 && expect_hr == E_INVALIDARG && (i == 0 || i == 1 || i == 20))
-                || (reflection_iid_todo(iid) && expect_hr == S_OK))
+        todo_if (compiler_version != 47 && expect_hr == E_INVALIDARG && (i == 0 || i == 1 || i == 20))
             ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
         if (FAILED(hr))
         {

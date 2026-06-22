@@ -26,6 +26,7 @@
 #include "vkd3d_blob.h"
 #include "vkd3d_memory.h"
 #include "vkd3d_d3d10shader.h"
+#include "vkd3d_d3d10_1shader.h"
 #include "vkd3d_d3d11shader.h"
 #include "vkd3d_d3d12shader.h"
 
