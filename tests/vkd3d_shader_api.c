@@ -2470,6 +2470,271 @@ static void test_query_denormal_mode(void)
         IDxcCompiler3_Release(dxc_compiler);
 }
 
+static void test_scan_global_flags(void)
+{
+    IDxcCompiler3 *dxc_compiler;
+    unsigned int i;
+
+    /* NOTE: fxc produces the same bytecode for ps_2_0 whether the -Gis flag
+     * is passed or not. */
+    static const uint32_t code_ps_2_0[] =
+    {
+        0xffff0200,                                                             /* ps_2_0 */
+        0x05000051, 0xa00f0000, 0x3f800000, 0x40000000, 0x40400000, 0x40800000, /* def c0, 1, 2, 3, 4 */
+        0x02000001, 0x800f0800, 0xa0e40000,                                     /* mov oC0, c0 */
+        0x0000ffff,                                                             /* end */
+    };
+
+    /* NOTE: fxc produces the same bytecode for ps_3_0 whether the -Gis flag
+     * is passed or not. */
+    static const uint32_t code_ps_3_0[] =
+    {
+        0xffff0300,                                                             /* ps_3_0 */
+        0x05000051, 0xa00f0000, 0x3f800000, 0x40000000, 0x40400000, 0x40800000, /* def c0, 1, 2, 3, 4 */
+        0x02000001, 0x800f0800, 0xa0e40000,                                     /* mov oC0, c0 */
+        0x0000ffff,                                                             /* end */
+    };
+
+    /* NOTE: fxc produces the same bytecode for ps_4_0 whether the -Gis flag
+     * is passed or not. */
+    static const uint32_t code_ps_4_0[] =
+    {
+        0x43425844, 0x91aeb10d, 0xa6ba5243, 0x1fe866a8, 0x421598fd, 0x00000001, /* DXBC header */
+        0x000000b0, 0x00000003, 0x0000002c, 0x0000003c, 0x00000070,             /* */
+        0x4e475349, 0x00000008, 0x00000000, 0x00000008,                         /* .input */
+        0x4e47534f, 0x0000002c, 0x00000001, 0x00000008,                         /* .output */
+        0x00000020, 0x00000000, 0x00000000, 0x00000003, 0x00000000, 0x0000000f, /* .param sv_target.xyzw, o0.xyzw, float, TARGET */
+        0x745f7673, 0x65677261, 0xabab0074,                                     /* */
+        0x52444853, 0x00000038, 0x00000040, 0x0000000e,                         /* .text ps_4_0 */
+        0x03000065, 0x001020f2, 0x00000000,                                     /* dcl_output o0.xyzw */
+        0x08000036, 0x001020f2, 0x00000000,                                     /* mov o0.xyzw, */
+                    0x00004002, 0x3f800000, 0x40000000, 0x40400000, 0x40800000, /*     l(1.0, 2.0, 3.0, 4.0) */
+        0x0100003e,                                                             /* ret */
+    };
+
+    static const uint32_t code_ps_4_1[] =
+    {
+        0x43425844, 0x6aea6ef2, 0x6b7c24f2, 0x8ebd38c6, 0xdd1b28ce, 0x00000001, /* DXBC header */
+        0x000000b4, 0x00000003, 0x0000002c, 0x0000003c, 0x00000070,             /* */
+        0x4e475349, 0x00000008, 0x00000000, 0x00000008,                         /* .input */
+        0x4e47534f, 0x0000002c, 0x00000001, 0x00000008,                         /* .output */
+        0x00000020, 0x00000000, 0x00000000, 0x00000003, 0x00000000, 0x0000000f, /* .param sv_target.xyzw, o0.xyzw, float, TARGET */
+        0x745f7673, 0x65677261, 0xabab0074,                                     /* */
+        0x52444853, 0x0000003c, 0x00000041, 0x0000000f,                         /* .text ps_4_1 */
+        0x0100086a,                                                             /* dcl_globalFlags refactoringAllowed */
+        0x03000065, 0x001020f2, 0x00000000,                                     /* dcl_output o0.xyzw */
+        0x08000036, 0x001020f2, 0x00000000,                                     /* mov o0.xyzw, */
+                    0x00004002, 0x3f800000, 0x40000000, 0x40400000, 0x40800000, /*     l(1.0, 2.0, 3.0, 4.0) */
+        0x0100003e,                                                             /* ret */
+    };
+
+    static const uint32_t code_ps_4_1_Gis[] =
+    {
+        0x43425844, 0xf40e8c61, 0xdc8ed926, 0xdaa68531, 0x8b5140b7, 0x00000001, /* DXBC header */
+        0x000000b4, 0x00000003, 0x0000002c, 0x0000003c, 0x00000070,             /* */
+        0x4e475349, 0x00000008, 0x00000000, 0x00000008,                         /* .input */
+        0x4e47534f, 0x0000002c, 0x00000001, 0x00000008,                         /* .output */
+        0x00000020, 0x00000000, 0x00000000, 0x00000003, 0x00000000, 0x0000000f, /* .param sv_target.xyzw, o0.xyzw, float, TARGET */
+        0x745f7673, 0x65677261, 0xabab0074,                                     /* */
+        0x52444853, 0x0000003c, 0x00000041, 0x0000000f,                         /* .text ps_4_1 */
+        0x0100006a,                                                             /* dcl_globalFlags none */
+        0x03000065, 0x001020f2, 0x00000000,                                     /* dcl_output o0.xyzw */
+        0x08000036, 0x001020f2, 0x00000000,                                     /* mov o0.xyzw, */
+                    0x00004002, 0x3f800000, 0x40000000, 0x40400000, 0x40800000, /*     l(1.0, 2.0, 3.0, 4.0) */
+        0x0100003e,                                                             /* ret */
+    };
+
+    static const uint32_t code_ps_5_0[] =
+    {
+        0x43425844, 0xd560a886, 0xc393f9af, 0x9098230e, 0x13207bba, 0x00000001, /* DXBC header */
+        0x000000b4, 0x00000003, 0x0000002c, 0x0000003c, 0x00000070,             /* */
+        0x4e475349, 0x00000008, 0x00000000, 0x00000008,                         /* .input */
+        0x4e47534f, 0x0000002c, 0x00000001, 0x00000008,                         /* .output */
+        0x00000020, 0x00000000, 0x00000000, 0x00000003, 0x00000000, 0x0000000f, /* .param sv_target.xyzw, o0.xyzw, float, TARGET */
+        0x745f7673, 0x65677261, 0xabab0074,                                     /* */
+        0x58454853, 0x0000003c, 0x00000050, 0x0000000f,                         /* .text ps_5_0 */
+        0x0100086a,                                                             /* dcl_globalFlags refactoringAllowed */
+        0x03000065, 0x001020f2, 0x00000000,                                     /* dcl_output o0.xyzw */
+        0x08000036, 0x001020f2, 0x00000000,                                     /* mov o0.xyzw, */
+                    0x00004002, 0x3f800000, 0x40000000, 0x40400000, 0x40800000, /*     l(1.0, 2.0, 3.0, 4.0) */
+        0x0100003e,                                                             /* ret */
+    };
+
+    static const uint32_t code_ps_5_0_Gis[] =
+    {
+        0x43425844, 0x6921ae18, 0x14d46025, 0x0665610b, 0xe0774f87, 0x00000001, /* DXBC header */
+        0x000000b4, 0x00000003, 0x0000002c, 0x0000003c, 0x00000070,             /* */
+        0x4e475349, 0x00000008, 0x00000000, 0x00000008,                         /* .input */
+        0x4e47534f, 0x0000002c, 0x00000001, 0x00000008,                         /* .output */
+        0x00000020, 0x00000000, 0x00000000, 0x00000003, 0x00000000, 0x0000000f, /* .param sv_target.xyzw, o0.xyzw, float, TARGET */
+        0x745f7673, 0x65677261, 0xabab0074,                                     /* */
+        0x58454853, 0x0000003c, 0x00000050, 0x0000000f,                         /* .text ps_5_0 */
+        0x0100086a,                                                             /* dcl_globalFlags refactoringAllowed */
+        0x03000065, 0x001020f2, 0x00000000,                                     /* dcl_output o0.xyzw */
+        0x08780036, 0x001020f2, 0x00000000,                                     /* mov [precise] o0.xyzw, */
+                    0x00004002, 0x3f800000, 0x40000000, 0x40400000, 0x40800000, /*     l(1.0, 2.0, 3.0, 4.0) */
+        0x0100003e,                                                             /* ret */
+    };
+
+    static const uint32_t code_ps_5_1[] =
+    {
+        0x43425844, 0x7683c01f, 0x7d781753, 0xe95ba8b9, 0x18740eb5, 0x00000001, /* DXBC header */
+        0x000000b4, 0x00000003, 0x0000002c, 0x0000003c, 0x00000070,             /* */
+        0x4e475349, 0x00000008, 0x00000000, 0x00000008,                         /* .input */
+        0x4e47534f, 0x0000002c, 0x00000001, 0x00000008,                         /* .output */
+        0x00000020, 0x00000000, 0x00000000, 0x00000003, 0x00000000, 0x0000000f, /* .param sv_target.xyzw, o0.xyzw, float, TARGET */
+        0x745f7673, 0x65677261, 0xabab0074,                                     /* */
+        0x58454853, 0x0000003c, 0x00000051, 0x0000000f,                         /* .text ps_5_1 */
+        0x0100086a,                                                             /* dcl_globalFlags refactoringAllowed */
+        0x03000065, 0x001020f2, 0x00000000,                                     /* dcl_output o0.xyzw */
+        0x08000036, 0x001020f2, 0x00000000,                                     /* mov o0.xyzw, */
+        0x00004002, 0x3f800000, 0x40000000, 0x40400000, 0x40800000,             /*     l(1.0, 2.0, 3.0, 4.0) */
+        0x0100003e,                                                             /* ret */
+    };
+
+    static const uint32_t code_ps_5_1_Gis[] =
+    {
+        0x43425844, 0xc1d26800, 0x5da96b8e, 0x9983979d, 0xe88a9f56, 0x00000001, /* DXBC header */
+        0x000000b4, 0x00000003, 0x0000002c, 0x0000003c, 0x00000070,             /* */
+        0x4e475349, 0x00000008, 0x00000000, 0x00000008,                         /* .input */
+        0x4e47534f, 0x0000002c, 0x00000001, 0x00000008,                         /* .output */
+        0x00000020, 0x00000000, 0x00000000, 0x00000003, 0x00000000, 0x0000000f, /* .param sv_target.xyzw, o0.xyzw, float, TARGET */
+        0x745f7673, 0x65677261, 0xabab0074,                                     /* */
+        0x58454853, 0x0000003c, 0x00000051, 0x0000000f,                         /* .text ps_5_1 */
+        0x0100086a,                                                             /* dcl_globalFlags refactoringAllowed */
+        0x03000065, 0x001020f2, 0x00000000,                                     /* dcl_output o0.xyzw */
+        0x08780036, 0x001020f2, 0x00000000,                                     /* mov [precise] o0.xyzw, */
+                    0x00004002, 0x3f800000, 0x40000000, 0x40400000, 0x40800000, /*     l(1.0, 2.0, 3.0, 4.0) */
+        0x0100003e,                                                             /* ret */
+    };
+
+    static const uint32_t REFACT_ALLOWED = VKD3D_SHADER_GLOBAL_FLAGS0_REFACTORING_ALLOWED;
+    static const struct query_global_flags_test
+    {
+        unsigned int shader_model;
+        const uint32_t *code;
+        size_t code_size;
+        uint32_t expected_flags0;
+        uint32_t expected_flags1;
+    }
+    tests[] =
+    {
+        {2, code_ps_2_0,     sizeof(code_ps_2_0),     REFACT_ALLOWED},
+        {3, code_ps_3_0,     sizeof(code_ps_3_0),     REFACT_ALLOWED},
+        {4, code_ps_4_0,     sizeof(code_ps_4_0),     0},
+        {4, code_ps_4_1,     sizeof(code_ps_4_1),     REFACT_ALLOWED},
+        {4, code_ps_4_1_Gis, sizeof(code_ps_4_1_Gis), 0},
+        {5, code_ps_5_0,     sizeof(code_ps_5_0),     REFACT_ALLOWED},
+        {5, code_ps_5_0_Gis, sizeof(code_ps_5_0_Gis), REFACT_ALLOWED},
+        {5, code_ps_5_1,     sizeof(code_ps_5_1),     REFACT_ALLOWED},
+        {5, code_ps_5_1_Gis, sizeof(code_ps_5_1_Gis), REFACT_ALLOWED},
+    };
+
+    for (i = 0; i < ARRAY_SIZE(tests); ++i)
+    {
+        const struct query_global_flags_test *test = &tests[i];
+        struct vkd3d_shader_compile_option api_version =
+        {
+            .name = VKD3D_SHADER_COMPILE_OPTION_API_VERSION,
+            .value = VKD3D_SHADER_API_VERSION_CURRENT,
+        };
+        struct vkd3d_shader_scan_global_flags_info global_flags_info =
+        {
+            .type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_GLOBAL_FLAGS_INFO,
+        };
+        struct vkd3d_shader_compile_info scan_info =
+        {
+            .type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO,
+            .next = &global_flags_info,
+            .source_type = test->shader_model < 4 ? VKD3D_SHADER_SOURCE_D3D_BYTECODE : VKD3D_SHADER_SOURCE_DXBC_TPF,
+            .target_type = VKD3D_SHADER_TARGET_D3D_ASM,
+            .log_level = VKD3D_SHADER_LOG_NONE,
+            .source.code = test->code,
+            .source.size = test->code_size,
+        };
+        int ret;
+
+        vkd3d_test_push_context("test %u, SM %u", i, test->shader_model);
+
+        global_flags_info.flags0 = 0xdeadf00d;
+        global_flags_info.flags1 = 0xdeadf00d;
+
+        scan_info.options = &api_version;
+        scan_info.option_count = 1;
+        ret = vkd3d_shader_scan(&scan_info, NULL);
+        ok(ret == VKD3D_OK, "Got ret %d.\n", ret);
+        ok(global_flags_info.flags0 == test->expected_flags0, "Got flags0 %#x, expected %#x.\n",
+                global_flags_info.flags0, test->expected_flags0);
+        ok(global_flags_info.flags1 == test->expected_flags1, "Got flags1 %#x, expected %#x.\n",
+                global_flags_info.flags1, test->expected_flags1);
+
+        vkd3d_test_pop_context();
+    }
+
+    /* Shader model 6.0 tests. */
+    if (!(dxc_compiler = dxcompiler_create()))
+    {
+        skip("DXIL tests not supported.\n");
+        return;
+    }
+    for (i = 0; i < 2; ++i)
+    {
+        struct vkd3d_shader_compile_option api_version =
+        {
+            .name = VKD3D_SHADER_COMPILE_OPTION_API_VERSION,
+            .value = VKD3D_SHADER_API_VERSION_CURRENT,
+        };
+        struct vkd3d_shader_scan_global_flags_info global_flags_info =
+        {
+            .type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_GLOBAL_FLAGS_INFO,
+        };
+        struct vkd3d_shader_compile_info scan_info =
+        {
+            .type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO,
+            .next = &global_flags_info,
+            .source_type = VKD3D_SHADER_SOURCE_DXBC_DXIL,
+            .target_type = VKD3D_SHADER_TARGET_D3D_ASM,
+            .log_level = VKD3D_SHADER_LOG_NONE,
+        };
+        const uint32_t expected_flags0 = 0;
+        const uint32_t expected_flags1 = 0;
+        struct vkd3d_shader_code compiled;
+        unsigned int compile_options;
+        int ret;
+
+        static const char code_ps_6_0[] =
+                "float4 main() : SV_Target\n"
+                "{\n"
+                "    return float4(1.0, 2.0, 3.0, 4.0);\n"
+                "}\n";
+
+        vkd3d_test_push_context("test %u, SM %u", ARRAY_SIZE(tests) + i, 6);
+
+        compile_options = (i == 1) ? D3DCOMPILE_IEEE_STRICTNESS : 0;
+        ret = dxc_compile(dxc_compiler, L"ps_6_0", compile_options,
+                false, DENORM_NOT_SPECIFIED, code_ps_6_0, &compiled);
+        ok(ret == S_OK, "Got ret %#x.\n", ret);
+
+        global_flags_info.flags0 = 0xdeadf00d;
+        global_flags_info.flags1 = 0xdeadf00d;
+
+        scan_info.source = compiled;
+        scan_info.options = &api_version;
+        scan_info.option_count = 1;
+        ret = vkd3d_shader_scan(&scan_info, NULL);
+        ok(ret == VKD3D_OK, "Got ret %d.\n", ret);
+        ok(global_flags_info.flags0 == expected_flags0, "Got flags0 %#x, expected %#x.\n",
+                global_flags_info.flags0, expected_flags0);
+        ok(global_flags_info.flags1 == expected_flags1, "Got flags1 %#x, expected %#x.\n",
+                global_flags_info.flags1, expected_flags1);
+        vkd3d_shader_free_shader_code(&compiled);
+
+        vkd3d_test_pop_context();
+    }
+
+    IDxcCompiler3_Release(dxc_compiler);
+}
+
 static void test_hlsl_locale(void)
 {
 #ifdef HAVE_OPENGL
@@ -2579,5 +2844,6 @@ START_TEST(vkd3d_shader_api)
     run_test(test_parameters);
     run_test(test_scan_thread_group_size);
     run_test(test_query_denormal_mode);
+    run_test(test_scan_global_flags);
     run_test(test_hlsl_locale);
 }
