@@ -282,7 +282,7 @@ static bool replace_deref_path_with_offset(struct hlsl_ctx *ctx, struct hlsl_der
      * are removed later by dce. So it is not a problem to just cleanup their derefs. */
     if (type->class == HLSL_CLASS_STRUCT || type->class == HLSL_CLASS_ARRAY)
     {
-        hlsl_cleanup_deref(deref);
+        hlsl_deref_cleanup(deref);
         return true;
     }
 
@@ -291,7 +291,7 @@ static bool replace_deref_path_with_offset(struct hlsl_ctx *ctx, struct hlsl_der
     offset = new_offset_instr_from_deref(ctx, &block, deref, &offset_component, &instr->loc);
     list_move_before(&instr->entry, &block.instrs);
 
-    hlsl_cleanup_deref(deref);
+    hlsl_deref_cleanup(deref);
     hlsl_src_from_node(&deref->rel_offset, offset);
     deref->const_offset = offset_component;
 
@@ -601,7 +601,7 @@ static void prepend_input_copy(struct hlsl_ctx *ctx, struct list *semantic_vars,
                     modifiers, semantic, 0, false, force_align, true, loc)))
                 return;
             ++semantic->index;
-            hlsl_init_simple_deref_from_var(&prim_deref, input);
+            hlsl_deref_init_simple(&prim_deref, input);
 
             idx = hlsl_block_add_uint_constant(ctx, block, prim_index, &var->loc);
 
@@ -1377,7 +1377,7 @@ static struct hlsl_ir_node *add_zero_mipmap_level(struct hlsl_ctx *ctx, struct h
             hlsl_get_vector_type(ctx, HLSL_TYPE_UINT, dim_count + 1), loc)))
         return NULL;
 
-    hlsl_init_simple_deref_from_var(&coords_deref, coords);
+    hlsl_deref_init_simple(&coords_deref, coords);
     hlsl_block_add_store_index(ctx, block, &coords_deref, NULL, index, (1u << dim_count) - 1, loc);
 
     zero = hlsl_block_add_uint_constant(ctx, block, 0, loc);
@@ -1425,7 +1425,7 @@ static struct hlsl_ir_node *lower_complex_casts(struct hlsl_ctx *ctx,
 
     if (!(var = hlsl_new_synthetic_var(ctx, "cast", dst_type, &instr->loc)))
         return NULL;
-    hlsl_init_simple_deref_from_var(&var_deref, var);
+    hlsl_deref_init_simple(&var_deref, var);
 
     for (dst_idx = 0; dst_idx < dst_comp_count; ++dst_idx)
     {
@@ -1481,7 +1481,7 @@ static struct hlsl_ir_node *lower_matrix_swizzles(struct hlsl_ctx *ctx,
 
     if (!(var = hlsl_new_synthetic_var(ctx, "matrix-swizzle", instr->data_type, &instr->loc)))
         return NULL;
-    hlsl_init_simple_deref_from_var(&var_deref, var);
+    hlsl_deref_init_simple(&var_deref, var);
 
     for (i = 0; i < instr->data_type->e.numeric.dimx; ++i)
     {
@@ -1604,7 +1604,7 @@ static struct hlsl_ir_node *lower_index_load(struct hlsl_ctx *ctx, struct hlsl_i
 
                 if (!(var = hlsl_new_synthetic_var(ctx, "row", instr->data_type, &instr->loc)))
                     return NULL;
-                hlsl_init_simple_deref_from_var(&row_deref, var);
+                hlsl_deref_init_simple(&row_deref, var);
 
                 for (unsigned int i = 0; i < mat->data_type->e.numeric.dimx; ++i)
                 {
@@ -1690,7 +1690,7 @@ static struct hlsl_ir_node *lower_index_load(struct hlsl_ctx *ctx, struct hlsl_i
     {
         if (!(var = hlsl_new_synthetic_var(ctx, "index-val", val->data_type, &instr->loc)))
             return NULL;
-        hlsl_init_simple_deref_from_var(&var_deref, var);
+        hlsl_deref_init_simple(&var_deref, var);
         deref = &var_deref;
 
         hlsl_block_add_simple_store(ctx, block, var, val);
@@ -1706,7 +1706,7 @@ static struct hlsl_ir_node *lower_index_load(struct hlsl_ctx *ctx, struct hlsl_i
 
         if (!(var = hlsl_new_synthetic_var(ctx, "row", instr->data_type, &instr->loc)))
             return NULL;
-        hlsl_init_simple_deref_from_var(&row_deref, var);
+        hlsl_deref_init_simple(&row_deref, var);
 
         for (i = 0; i < mat->data_type->e.numeric.dimx; ++i)
         {
@@ -1898,7 +1898,7 @@ static enum vkd3d_result resource_access_from_deref(struct hlsl_ctx *ctx, struct
         return VKD3D_ERROR_NOT_FOUND;
     }
 
-    if (!hlsl_init_deref(ctx, resource_deref, deref->var, resource_idx))
+    if (!hlsl_deref_init(resource_deref, deref->var, resource_idx, ctx))
     {
         vkd3d_free(deref_types);
         return VKD3D_ERROR;
@@ -2029,7 +2029,7 @@ static struct hlsl_ir_node *lower_resource_stores(struct hlsl_ctx *ctx,
                 NULL, coords, store->rhs.node, store->writemask, &instr->loc);
     }
 
-    hlsl_cleanup_deref(&resource_deref);
+    hlsl_deref_cleanup(&resource_deref);
     return res;
 }
 
@@ -2082,12 +2082,12 @@ static struct hlsl_ir_node *generate_interlocked_coords(struct hlsl_ctx *ctx,
                 hlsl_get_vector_type(ctx, HLSL_TYPE_UINT, 2), &instr->loc)))
             goto done;
 
-        hlsl_init_simple_deref_from_var(&structured_coords_deref, structured_coords);
+        hlsl_deref_init_simple(&structured_coords_deref, structured_coords);
 
         hlsl_block_add_store_component(ctx, block, &structured_coords_deref, 0, coords);
         hlsl_block_add_store_component(ctx, block, &structured_coords_deref, 1, field_offset);
 
-        hlsl_cleanup_deref(&structured_coords_deref);
+        hlsl_deref_cleanup(&structured_coords_deref);
 
         coords = hlsl_block_add_simple_load(ctx, block, structured_coords, &instr->loc);
     }
@@ -2112,9 +2112,9 @@ static struct hlsl_ir_node *generate_interlocked_coords(struct hlsl_ctx *ctx,
     {
         struct hlsl_ir_interlocked *new_interlocked = hlsl_ir_interlocked(res);
 
-        hlsl_cleanup_deref(&new_interlocked->dst);
+        hlsl_deref_cleanup(&new_interlocked->dst);
 
-        if (!hlsl_copy_deref(ctx, &new_interlocked->dst, &resource_deref))
+        if (!hlsl_deref_copy(&new_interlocked->dst, &resource_deref, ctx))
         {
             hlsl_free_instr(res);
             res = NULL;
@@ -2127,7 +2127,7 @@ static struct hlsl_ir_node *generate_interlocked_coords(struct hlsl_ctx *ctx,
     }
 
 done:
-    hlsl_cleanup_deref(&resource_deref);
+    hlsl_deref_cleanup(&resource_deref);
     return res;
 }
 
@@ -2855,7 +2855,7 @@ static bool copy_propagation_replace_with_deref(struct hlsl_ctx *ctx,
             goto done;
     }
 
-    if (!hlsl_init_deref(ctx, &tmp_deref, x, path_len))
+    if (!hlsl_deref_init(&tmp_deref, x, path_len, ctx))
         goto done;
 
     for (k = 0; k < path_len; ++k)
@@ -2907,7 +2907,7 @@ static bool copy_propagation_replace_with_deref(struct hlsl_ctx *ctx,
     success = true;
 
 done:
-    hlsl_cleanup_deref(&tmp_deref);
+    hlsl_deref_cleanup(&tmp_deref);
     hlsl_block_cleanup(&block);
     vkd3d_free(c);
     vkd3d_free(d);
@@ -3042,8 +3042,8 @@ static bool copy_propagation_transform_object_load(struct hlsl_ctx *ctx,
         return false;
     }
 
-    hlsl_cleanup_deref(deref);
-    hlsl_copy_deref(ctx, deref, &load->src);
+    hlsl_deref_cleanup(deref);
+    hlsl_deref_copy(deref, &load->src, ctx);
 
     return true;
 }
@@ -5096,12 +5096,12 @@ static struct hlsl_ir_node *lower_nonconstant_array_loads(struct hlsl_ctx *ctx,
 
         var_load = hlsl_block_add_simple_load(ctx, block, var, &cut_index->loc);
 
-        if (!hlsl_copy_deref(ctx, &deref_copy, deref))
+        if (!hlsl_deref_copy(&deref_copy, deref, ctx))
             return NULL;
         hlsl_src_remove(&deref_copy.path[i_cut]);
         hlsl_src_from_node(&deref_copy.path[i_cut], const_i);
         specific_load = hlsl_block_add_load_index(ctx, block, &deref_copy, NULL, &cut_index->loc);
-        hlsl_cleanup_deref(&deref_copy);
+        hlsl_deref_cleanup(&deref_copy);
 
         operands[0] = equals;
         operands[1] = specific_load;
@@ -5225,7 +5225,7 @@ static bool lower_separate_samples(struct hlsl_ctx *ctx, struct hlsl_ir_node *in
 
     /* Only change the deref's var, keep the path. */
     load->resource.var = var;
-    hlsl_cleanup_deref(&load->sampler);
+    hlsl_deref_cleanup(&load->sampler);
     load->sampler.var = NULL;
 
     return true;
@@ -5322,7 +5322,7 @@ static bool lower_combined_samples(struct hlsl_ctx *ctx, struct hlsl_ir_node *in
 
     }
 
-    hlsl_copy_deref(ctx, &load->sampler, &load->resource);
+    hlsl_deref_copy(&load->sampler, &load->resource, ctx);
     load->resource.var = var;
     VKD3D_ASSERT(hlsl_deref_get_type(ctx, &load->resource)->class == HLSL_CLASS_TEXTURE);
     VKD3D_ASSERT(hlsl_deref_get_type(ctx, &load->sampler)->class == HLSL_CLASS_SAMPLER);
@@ -5722,7 +5722,7 @@ static struct hlsl_ir_node *lower_trig(struct hlsl_ctx *ctx, struct hlsl_ir_node
 
         if (!(var = hlsl_new_synthetic_var(ctx, "sincos", type, &instr->loc)))
             return NULL;
-        hlsl_init_simple_deref_from_var(&var_deref, var);
+        hlsl_deref_init_simple(&var_deref, var);
 
         for (i = 0; i < type->e.numeric.dimx; ++i)
         {
