@@ -67,10 +67,12 @@ enum
     OPTION_EXTRACT,
     OPTION_HELP,
     OPTION_IGNORE_CHECKSUM,
+    OPTION_INPUT,
     OPTION_LIST,
     OPTION_LIST_DATA,
     OPTION_NO_COLOUR,
     OPTION_OUTPUT,
+    OPTION_UPDATE,
     OPTION_VERSION,
 };
 
@@ -80,6 +82,7 @@ struct action
     {
         ACTION_TYPE_EMIT,
         ACTION_TYPE_EXTRACT,
+        ACTION_TYPE_UPDATE,
     } type;
     union
     {
@@ -92,18 +95,26 @@ struct action
             const char *section;
             const char *output_filename;
         } extract;
+        struct update
+        {
+            const char *section;
+            const struct vkd3d_shader_code *input;
+        } update;
     } u;
 };
 
 struct options
 {
-    const char *input_filename;
+    const struct vkd3d_shader_code *input;
     const char *output_filename;
     bool print_help;
     bool list;
     bool list_data;
     bool print_version;
     bool ignore_checksum;
+
+    struct vkd3d_shader_code *inputs;
+    size_t input_count, input_capacity;
 
     struct action *actions;
     size_t action_count, action_capacity;
@@ -154,9 +165,79 @@ static bool has_colour(void)
 #endif
 }
 
+static bool action_push_emit(struct options *options)
+{
+    struct action *action;
+
+    action = action_push(options, ACTION_TYPE_EMIT);
+    if (!options->output_filename && isatty(fileno(stdout)))
+    {
+        fprintf(stderr, "Output is a tty and output format is binary, exiting.\n"
+                "If this is really what you intended, specify the output explicitly.\n");
+        return false;
+    }
+    action->u.emit.output_filename = options->output_filename;
+
+    return true;
+}
+
+static FILE *open_input(const char *filename, bool *close)
+{
+    FILE *f;
+
+    *close = false;
+
+    if (!filename || !strcmp(filename, "-"))
+        return stdin;
+
+    if (!(f = fopen(filename, "rb")))
+    {
+        fprintf(stderr, "Unable to open '%s' for reading.\n", filename);
+        return NULL;
+    }
+
+    *close = true;
+    return f;
+}
+
+static struct vkd3d_shader_code *input_push(struct options *options, const char *filename)
+{
+    struct vkd3d_shader_code *input;
+    bool close_input;
+    FILE *f;
+    int ret;
+
+    if (!(f = open_input(filename, &close_input)))
+        return NULL;
+
+    if (!array_reserve((void **)&options->inputs, &options->input_capacity,
+            options->input_count + 1, sizeof(*options->inputs)))
+    {
+        fprintf(stderr, "Out of memory.\n");
+        input = NULL;
+        goto done;
+    }
+
+    input = &options->inputs[options->input_count];
+    if ((ret = vkd3d_shader_code_from_file(input, f)) < 0)
+    {
+        fprintf(stderr, "Failed to read input blob, ret %d.\n", ret);
+        input = NULL;
+        goto done;
+    }
+    ++options->input_count;
+
+done:
+    if (close_input)
+        fclose(f);
+
+    return input;
+}
+
 static bool parse_command_line(int argc, char **argv, struct options *options)
 {
     struct action *action;
+    bool emit = false;
     int option;
 
     static struct option long_options[] =
@@ -166,10 +247,12 @@ static bool parse_command_line(int argc, char **argv, struct options *options)
         {"extract",         required_argument, NULL, OPTION_EXTRACT},
         {"help",            no_argument,       NULL, OPTION_HELP},
         {"ignore-checksum", no_argument,       NULL, OPTION_IGNORE_CHECKSUM},
+        {"input",           required_argument, NULL, OPTION_INPUT},
         {"list",            no_argument,       NULL, OPTION_LIST},
         {"list-data",       no_argument,       NULL, OPTION_LIST_DATA},
         {"no-colour",       no_argument,       NULL, OPTION_NO_COLOUR},
         {"output",          required_argument, NULL, OPTION_OUTPUT},
+        {"update",          required_argument, NULL, OPTION_UPDATE},
         {"version",         no_argument,       NULL, OPTION_VERSION},
         {NULL,              0,                 NULL, 0},
     };
@@ -198,7 +281,7 @@ static bool parse_command_line(int argc, char **argv, struct options *options)
 
     for (;;)
     {
-        if ((option = getopt_long(argc, argv, "ex:hto:V", long_options, NULL)) == -1)
+        if ((option = getopt_long(argc, argv, "ex:hi:to:u:V", long_options, NULL)) == -1)
             break;
 
         switch (option)
@@ -209,14 +292,9 @@ static bool parse_command_line(int argc, char **argv, struct options *options)
 
             case 'e':
             case OPTION_EMIT:
-                action = action_push(options, ACTION_TYPE_EMIT);
-                if (!options->output_filename && isatty(fileno(stdout)))
-                {
-                    fprintf(stderr, "Output is a tty and output format is binary, exiting.\n"
-                            "If this is really what you intended, specify the output explicitly.\n");
+                if (!action_push_emit(options))
                     return false;
-                }
-                action->u.emit.output_filename = options->output_filename;
+                emit = false;
                 break;
 
             case 'x':
@@ -231,6 +309,12 @@ static bool parse_command_line(int argc, char **argv, struct options *options)
             case OPTION_HELP:
                 options->print_help = true;
                 return true;
+
+            case 'i':
+            case OPTION_INPUT:
+                if (!(options->input = input_push(options, optarg)))
+                    return false;
+                break;
 
             case OPTION_IGNORE_CHECKSUM:
                 options->ignore_checksum = true;
@@ -254,6 +338,17 @@ static bool parse_command_line(int argc, char **argv, struct options *options)
                 options->output_filename = optarg;
                 break;
 
+            case 'u':
+            case OPTION_UPDATE:
+                if (!options->input && !(options->input = input_push(options, NULL)))
+                    return false;
+                if (!(action = action_push(options, ACTION_TYPE_UPDATE)))
+                    return false;
+                action->u.update.section = optarg;
+                action->u.update.input = options->input;
+                emit = true;
+                break;
+
             case 'V':
             case OPTION_VERSION:
                 options->print_version = true;
@@ -264,8 +359,11 @@ static bool parse_command_line(int argc, char **argv, struct options *options)
         }
     }
 
-    if (optind < argc)
-        options->input_filename = argv[argc - 1];
+    if (emit && !action_push_emit(options))
+        return false;
+
+    if (!(options->input = input_push(options, optind < argc ? argv[argc - 1] : NULL)))
+        return false;
 
     return true;
 }
@@ -288,10 +386,14 @@ static void print_usage(const char *program_name)
         "  -h, --help               Display this information and exit.\n"
         "  --ignore-checksum        Do not validate the checksum when parsing the DXBC\n"
         "                           blob.\n"
+        "  -i, --input=<file>       Set the input filename for --update.\n"
         "  -t, --list               List the contents of the DXBC blob.\n"
         "  --list-data              List the data contained in the DXBC sections.\n"
         "  --no-colour              Disable colour, even when supported by the output.\n"
         "  -o, --output=<file>      Set the output filename for --emit or --extract.\n"
+        "  -u, --update=<section>   Update the data contained in <section>. The format of\n"
+        "                           <section> is decribed in the description for\n"
+        "                           '--extract'.\n"
         "  -V, --version            Display version information and exit.\n"
         "  --                       Stop option processing. Any subsequent argument is\n"
         "                           interpreted as a filename.\n"
@@ -309,25 +411,6 @@ static void print_usage(const char *program_name)
         "closest previous --output occurrence as output filename.\n";
 
     fprintf(stderr, "Usage: %s %s", program_name, usage);
-}
-
-static FILE *open_input(const char *filename, bool *close)
-{
-    FILE *f;
-
-    *close = false;
-
-    if (!filename || !strcmp(filename, "-"))
-        return stdin;
-
-    if (!(f = fopen(filename, "rb")))
-    {
-        fprintf(stderr, "Unable to open '%s' for reading.\n", filename);
-        return NULL;
-    }
-
-    *close = true;
-    return f;
 }
 
 static FILE *open_output(const char *filename, bool *close)
@@ -593,6 +676,17 @@ static bool extract_section(struct vkd3d_shader_dxbc_desc *dxbc_desc, const stru
     return success;
 }
 
+static bool update_section(struct vkd3d_shader_dxbc_desc *dxbc_desc, const struct update *update)
+{
+    struct vkd3d_shader_dxbc_section_desc *section;
+
+    if (!(section = get_section(dxbc_desc->section_count, dxbc_desc->sections, update->section)))
+        return false;
+    section->data = *update->input;
+
+    return true;
+}
+
 static bool apply_actions(struct vkd3d_shader_dxbc_desc *dxbc_desc,
         size_t action_count, const struct action *actions)
 {
@@ -611,6 +705,11 @@ static bool apply_actions(struct vkd3d_shader_dxbc_desc *dxbc_desc,
                 if (!extract_section(dxbc_desc, &action->u.extract))
                     return false;
                 break;
+
+            case ACTION_TYPE_UPDATE:
+                if (!update_section(dxbc_desc, &action->u.update))
+                    return false;
+                break;
         }
     }
 
@@ -620,13 +719,11 @@ static bool apply_actions(struct vkd3d_shader_dxbc_desc *dxbc_desc,
 int main(int argc, char **argv)
 {
     struct vkd3d_shader_dxbc_desc dxbc_desc;
-    struct vkd3d_shader_code dxbc;
-    bool close_input = false;
     struct options options;
     char *messages;
     uint32_t flags;
     int fail = 1;
-    FILE *input;
+    size_t i;
     int ret;
 
     if (!parse_command_line(argc, argv, &options))
@@ -651,39 +748,29 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    if (!(input = open_input(options.input_filename, &close_input)))
-        goto done;
-
-    if ((ret = vkd3d_shader_code_from_file(&dxbc, input)) < 0)
-    {
-        fprintf(stderr, "Failed to read input blob, ret %d.\n", ret);
-        goto done;
-    }
-
     flags = 0;
     if (options.ignore_checksum)
         flags |= VKD3D_SHADER_PARSE_DXBC_IGNORE_CHECKSUM;
 
-    ret = vkd3d_shader_parse_dxbc(&dxbc, flags, &dxbc_desc, &messages);
+    ret = vkd3d_shader_parse_dxbc(options.input, flags, &dxbc_desc, &messages);
     if (messages)
         fputs(messages, stderr);
     vkd3d_shader_free_messages(messages);
     if (ret < 0)
-    {
-        vkd3d_shader_free_shader_code(&dxbc);
         goto done;
-    }
 
     if (options.list || options.list_data)
-        dump_dxbc(&dxbc, &dxbc_desc, &options);
+        dump_dxbc(options.input, &dxbc_desc, &options);
 
     fail = !apply_actions(&dxbc_desc, options.action_count, options.actions);
 
     vkd3d_shader_free_dxbc(&dxbc_desc);
-    vkd3d_shader_free_shader_code(&dxbc);
 done:
+    for (i = 0; i < options.input_count; ++i)
+    {
+        vkd3d_shader_free_shader_code(&options.inputs[i]);
+    }
     free(options.actions);
-    if (close_input)
-        fclose(input);
+
     return fail;
 }
