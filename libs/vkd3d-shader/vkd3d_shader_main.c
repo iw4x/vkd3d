@@ -1067,7 +1067,6 @@ struct vkd3d_shader_scan_context
     struct vkd3d_shader_scan_combined_resource_sampler_info *combined_sampler_info;
     size_t combined_samplers_size;
 
-    enum vkd3d_shader_tessellator_output_primitive output_primitive;
     enum vkd3d_shader_tessellator_partitioning partitioning;
 };
 
@@ -1475,9 +1474,6 @@ static int vkd3d_shader_scan_instruction(struct vkd3d_shader_scan_context *conte
                     VKD3D_SHADER_RESOURCE_BUFFER, VSIR_DATA_U32, 0,
                     instruction->declaration.structured_resource.byte_stride, false, instruction->flags);
             break;
-        case VSIR_OP_DCL_TESSELLATOR_OUTPUT_PRIMITIVE:
-            context->output_primitive = instruction->declaration.tessellator_output_primitive;
-            break;
         case VSIR_OP_DCL_TESSELLATOR_PARTITIONING:
             context->partitioning = instruction->declaration.tessellator_partitioning;
             break;
@@ -1826,7 +1822,7 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
 
     if (!ret && tessellation_info)
     {
-        tessellation_info->output_primitive = context.output_primitive;
+        tessellation_info->output_primitive = program->tess_output_primitive;
         tessellation_info->partitioning = context.partitioning;
     }
 
