@@ -894,8 +894,8 @@ bool hlsl_deref_init(struct hlsl_deref *deref, struct hlsl_ir_var *var, unsigned
     return true;
 }
 
-static bool hlsl_deref_init_child(struct hlsl_deref *dst,
-        const struct hlsl_deref *src, struct hlsl_ir_node *idx, struct hlsl_ctx *ctx)
+bool hlsl_deref_init_child(struct hlsl_deref *dst, const struct hlsl_deref *src,
+        struct hlsl_ir_node *idx, struct hlsl_ctx *ctx)
 {
     if (!idx)
         return hlsl_deref_copy(dst, src, ctx);

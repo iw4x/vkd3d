@@ -1867,6 +1867,8 @@ bool hlsl_deref_copy(struct hlsl_deref *deref, const struct hlsl_deref *other, s
 struct hlsl_type *hlsl_deref_get_type(struct hlsl_ctx *ctx, const struct hlsl_deref *deref);
 enum hlsl_regset hlsl_deref_get_regset(struct hlsl_ctx *ctx, const struct hlsl_deref *deref);
 bool hlsl_deref_init(struct hlsl_deref *deref, struct hlsl_ir_var *var, unsigned int path_len, struct hlsl_ctx *ctx);
+bool hlsl_deref_init_child(struct hlsl_deref *dst, const struct hlsl_deref *src,
+        struct hlsl_ir_node *idx, struct hlsl_ctx *ctx);
 bool hlsl_deref_init_from_component_index(struct hlsl_deref *deref,
         struct hlsl_block *block, const struct hlsl_deref *prefix, unsigned int index,
         const struct vkd3d_shader_location *loc, struct hlsl_ctx *ctx);
