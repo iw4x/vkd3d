@@ -3890,10 +3890,10 @@ static void test_thread_group_size_reflection_version(const IID *iid, unsigned i
         {
             size_x = size_y = size_z = 0xbabababa;
             size_total = ID3D12ShaderReflection_GetThreadGroupSize(reflection, &size_x, &size_y, &size_z);
-            todo ok(size_x == tests[i].x, "Got size_x %u.\n", size_x);
-            todo ok(size_y == tests[i].y, "Got size_y %u.\n", size_y);
-            todo ok(size_z == tests[i].z, "Got size_z %u.\n", size_z);
-            todo ok(size_total == size_x * size_y * size_z, "Got size_total %u.\n", size_total);
+            ok(size_x == tests[i].x, "Got size_x %u.\n", size_x);
+            ok(size_y == tests[i].y, "Got size_y %u.\n", size_y);
+            ok(size_z == tests[i].z, "Got size_z %u.\n", size_z);
+            ok(size_total == size_x * size_y * size_z, "Got size_total %u.\n", size_total);
         }
 
         ID3D10Blob_Release(code);

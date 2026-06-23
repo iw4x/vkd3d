@@ -66,6 +66,7 @@ struct d3d12_reflection
     unsigned int version;
 
     struct vkd3d_shader_scan_signature_info signature_info;
+    struct vkd3d_shader_scan_thread_group_size_info thread_group_size_info;
 
     D3D12_SHADER_DESC desc;
     size_t desc_size, bind_desc_size;
@@ -634,11 +635,23 @@ static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetMinFeatureLevel(
 }
 
 static UINT STDMETHODCALLTYPE d3d12_reflection_GetThreadGroupSize(
-        ID3D12ShaderReflection *iface, UINT *sizex, UINT *sizey, UINT *sizez)
+        ID3D12ShaderReflection *iface, UINT *size_x, UINT *size_y, UINT *size_z)
 {
-    FIXME("iface %p, sizex %p, sizey %p, sizez %p stub!\n", iface, sizex, sizey, sizez);
+    struct d3d12_reflection *reflection = impl_from_ID3D12ShaderReflection(iface);
 
-    return 0;
+    TRACE("iface %p, size_x %p, size_y %p, size_z %p.\n", iface, size_x, size_y, size_z);
+
+    if (!size_x || !size_y || !size_z)
+    {
+        WARN("NULL size_x/size_y/size_z specified.\n");
+        return E_INVALIDARG;
+    }
+
+    *size_x = reflection->thread_group_size_info.x;
+    *size_y = reflection->thread_group_size_info.y;
+    *size_z = reflection->thread_group_size_info.z;
+
+    return *size_x * *size_y * *size_z;
 }
 
 static UINT64 STDMETHODCALLTYPE d3d12_reflection_GetRequiresFlags(ID3D12ShaderReflection *iface)
@@ -1332,12 +1345,15 @@ static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection,
     reflection->refcount = 1;
     reflection->version = version;
 
+    compile_info.next = &reflection->signature_info;
     compile_info.source.code = data;
     compile_info.source.size = data_size;
     compile_info.source_type = VKD3D_SHADER_SOURCE_DXBC_TPF;
 
-    compile_info.next = &reflection->signature_info;
     reflection->signature_info.type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_SIGNATURE_INFO;
+    reflection->signature_info.next = &reflection->thread_group_size_info;
+
+    reflection->thread_group_size_info.type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_THREAD_GROUP_SIZE_INFO;
 
     if (FAILED(hr = hresult_from_vkd3d_result(vkd3d_shader_scan(&compile_info, NULL))))
         return hr;
