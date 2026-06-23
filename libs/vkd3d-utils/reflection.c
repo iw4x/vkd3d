@@ -24,6 +24,8 @@
 #include <vkd3d_d3d11shader.h>
 #include <vkd3d_d3d12shader.h>
 
+#define RDEF_SHADER_TYPE_CS 0x4353u /* "CS" */
+
 struct d3d12_type
 {
     ID3D12ShaderReflectionType ID3D12ShaderReflectionType_iface;
@@ -1186,8 +1188,9 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
     if (!(header = get_data_ptr(section, 0, 1, sizeof(*header))))
         return E_INVALIDARG;
 
-    if ((reflection->version < 40 && rdef_header_version_ge(header, 5, 0))
-            || (reflection->version < 47 && rdef_header_version_ge(header, 5, 1)))
+    if ((reflection->version < 40 && (rdef_header_version_ge(header, 5, 0) || header->type == RDEF_SHADER_TYPE_CS))
+            || (reflection->version < 47 && rdef_header_version_ge(header, 5, 1)
+                    && header->type != RDEF_SHADER_TYPE_CS))
     {
         WARN("Shader version %u.%u, type %#x is not supported by compiler version %u.\n",
                 header->major_version, header->minor_version, header->type, reflection->version);

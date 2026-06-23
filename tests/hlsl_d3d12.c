@@ -3878,8 +3878,7 @@ static void test_thread_group_size_reflection_version(const IID *iid, unsigned i
         expect_hr = reflect_hr(iid, compiler_version, tests[i].min_compiler);
         hr = D3DReflectVKD3D(ID3D10Blob_GetBufferPointer(code),
                 ID3D10Blob_GetBufferSize(code), iid, (void **)&reflection, compiler_version);
-        todo_if((i == 0 && compiler_version < 40) || (i == 2 && compiler_version >= 40 && compiler_version < 47))
-            ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+        ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
         if (FAILED(hr))
         {
             ID3D10Blob_Release(code);
