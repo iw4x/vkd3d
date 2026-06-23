@@ -894,6 +894,21 @@ bool hlsl_deref_init(struct hlsl_deref *deref, struct hlsl_ir_var *var, unsigned
     return true;
 }
 
+static bool hlsl_deref_init_child(struct hlsl_deref *dst,
+        const struct hlsl_deref *src, struct hlsl_ir_node *idx, struct hlsl_ctx *ctx)
+{
+    if (!idx)
+        return hlsl_deref_copy(dst, src, ctx);
+
+    if (!hlsl_deref_init(dst, src->var, src->path_len + 1, ctx))
+        return false;
+    for (unsigned int i = 0; i < src->path_len; ++i)
+        hlsl_src_from_node(&dst->path[i], src->path[i].node);
+    hlsl_src_from_node(&dst->path[src->path_len], idx);
+
+    return true;
+}
+
 bool hlsl_deref_init_from_index_chain(struct hlsl_deref *deref, struct hlsl_ir_node *chain, struct hlsl_ctx *ctx)
 {
     struct hlsl_ir_index *index;
@@ -1658,7 +1673,6 @@ struct hlsl_ir_node *hlsl_new_store_index(struct hlsl_ctx *ctx, const struct hls
         struct hlsl_ir_node *idx, struct hlsl_ir_node *rhs, unsigned int writemask, const struct vkd3d_shader_location *loc)
 {
     struct hlsl_ir_store *store;
-    unsigned int i;
 
     VKD3D_ASSERT(lhs);
     VKD3D_ASSERT(!hlsl_deref_is_lowered(lhs));
@@ -1667,15 +1681,11 @@ struct hlsl_ir_node *hlsl_new_store_index(struct hlsl_ctx *ctx, const struct hls
         return NULL;
     init_node(&store->node, HLSL_IR_STORE, NULL, loc);
 
-    if (!hlsl_deref_init(&store->lhs, lhs->var, lhs->path_len + !!idx, ctx))
+    if (!hlsl_deref_init_child(&store->lhs, lhs, idx, ctx))
     {
         vkd3d_free(store);
         return NULL;
     }
-    for (i = 0; i < lhs->path_len; ++i)
-        hlsl_src_from_node(&store->lhs.path[i], lhs->path[i].node);
-    if (idx)
-        hlsl_src_from_node(&store->lhs.path[lhs->path_len], idx);
 
     hlsl_src_from_node(&store->rhs, rhs);
 
@@ -2109,7 +2119,6 @@ struct hlsl_ir_load *hlsl_new_load_index(struct hlsl_ctx *ctx, const struct hlsl
 {
     struct hlsl_ir_load *load;
     struct hlsl_type *type;
-    unsigned int i;
 
     VKD3D_ASSERT(!hlsl_deref_is_lowered(deref));
 
@@ -2121,15 +2130,11 @@ struct hlsl_ir_load *hlsl_new_load_index(struct hlsl_ctx *ctx, const struct hlsl
         return NULL;
     init_node(&load->node, HLSL_IR_LOAD, type, loc);
 
-    if (!hlsl_deref_init(&load->src, deref->var, deref->path_len + !!idx, ctx))
+    if (!hlsl_deref_init_child(&load->src, deref, idx, ctx))
     {
         vkd3d_free(load);
         return NULL;
     }
-    for (i = 0; i < deref->path_len; ++i)
-        hlsl_src_from_node(&load->src.path[i], deref->path[i].node);
-    if (idx)
-        hlsl_src_from_node(&load->src.path[deref->path_len], idx);
 
     return load;
 }
