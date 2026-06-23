@@ -2032,6 +2032,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
             ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
         if (FAILED(hr))
         {
+            ID3D10Blob_Release(code);
             vkd3d_test_pop_context();
             continue;
         }
@@ -2322,6 +2323,7 @@ static void test_default_values_reflection_version(const IID *iid, unsigned int 
         ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
         if (FAILED(hr))
         {
+            ID3D10Blob_Release(code);
             vkd3d_test_pop_context();
             continue;
         }
@@ -3766,6 +3768,7 @@ static void test_signature_reflection_version(const IID *iid, unsigned int compi
             ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
         if (FAILED(hr))
         {
+            ID3D10Blob_Release(code);
             vkd3d_test_pop_context();
             continue;
         }
