@@ -4449,8 +4449,8 @@ static bool vsir_dst_operand_normalise_outpointid(struct vsir_dst_operand *dst,
 }
 
 static enum vkd3d_result control_point_normaliser_emit_hs_input(struct control_point_normaliser *normaliser,
-        const struct vsir_signature *s, unsigned int input_control_point_count,
-        struct vsir_program_iterator *dst_it, const struct vkd3d_shader_location *location)
+        const struct vsir_signature *s, struct vsir_program_iterator *dst_it,
+        const struct vkd3d_shader_location *location)
 {
     const struct vsir_signature_element *e;
     struct vkd3d_shader_instruction *ins;
@@ -4509,7 +4509,6 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
         struct vsir_program *program, struct vsir_transformation_context *ctx)
 {
     struct control_point_normaliser normaliser;
-    unsigned int input_control_point_count;
     struct vkd3d_shader_location location;
     struct vkd3d_shader_instruction *ins;
     struct vsir_program_iterator it;
@@ -4550,15 +4549,11 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
     }
 
     normaliser.phase = VSIR_OP_INVALID;
-    input_control_point_count = 1;
 
     for (ins = vsir_program_iterator_head(&it), i = 0; ins; ins = vsir_program_iterator_next(&it), ++i)
     {
         switch (ins->opcode)
         {
-            case VSIR_OP_DCL_INPUT_CONTROL_POINT_COUNT:
-                input_control_point_count = ins->declaration.count;
-                break;
             case VSIR_OP_HS_CONTROL_POINT_PHASE:
                 program->normalisation_level = VSIR_NORMALISED_HULL_CONTROL_POINT_IO;
                 return VKD3D_OK;
@@ -4566,8 +4561,7 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
             case VSIR_OP_HS_JOIN_PHASE:
                 /* ins may be relocated if the instruction array expands. */
                 location = ins->location;
-                ret = control_point_normaliser_emit_hs_input(&normaliser,
-                        &program->input_signature, input_control_point_count, &it, &location);
+                ret = control_point_normaliser_emit_hs_input(&normaliser, &program->input_signature, &it, &location);
                 program->normalisation_level = VSIR_NORMALISED_HULL_CONTROL_POINT_IO;
                 return ret;
             default:
