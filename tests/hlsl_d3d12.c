@@ -3837,6 +3837,74 @@ static void test_signature_reflection_version(const IID *iid, unsigned int compi
     }
 }
 
+static void test_thread_group_size_reflection_version(const IID *iid, unsigned int compiler_version)
+{
+    unsigned int size_total, size_x, size_y, size_z, i;
+    ID3D12ShaderReflection *reflection;
+    unsigned int refcount;
+    HRESULT expect_hr, hr;
+    ID3D10Blob *code;
+
+    static const char cs1_source[] =
+        "[numthreads(1, 2, 4)]\n"
+        "void main() {}\n";
+    static const char cs2_source[] =
+        "[numthreads(2, 4, 8)]\n"
+        "void main() {}\n";
+    static const char ps1_source[] =
+        "float4 main() : sv_target { return float4(0.0, 1.0, 0.0, 1.0); }\n";
+
+    static const struct
+    {
+        unsigned int min_compiler;
+        const char *source;
+        const char *profile;
+        unsigned int x, y, z;
+    }
+    tests[] =
+    {
+        {40, cs1_source, "cs_4_0", 1, 2, 4},
+        {40, cs2_source, "cs_5_0", 2, 4, 8},
+        {40, cs1_source, "cs_5_1", 1, 2, 4},
+        { 0, ps1_source, "ps_4_0", 0, 0, 0},
+    };
+
+    for (i = 0; i < ARRAY_SIZE(tests); ++i)
+    {
+        vkd3d_test_push_context("Test %u", i);
+
+        code = compile_shader_flags(tests[i].source, tests[i].profile, 0);
+
+        expect_hr = reflect_hr(iid, compiler_version, tests[i].min_compiler);
+        hr = D3DReflectVKD3D(ID3D10Blob_GetBufferPointer(code),
+                ID3D10Blob_GetBufferSize(code), iid, (void **)&reflection, compiler_version);
+        todo_if((i == 0 && compiler_version < 40) || (i == 2 && compiler_version >= 40 && compiler_version < 47))
+            ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+        if (FAILED(hr))
+        {
+            ID3D10Blob_Release(code);
+            vkd3d_test_pop_context();
+            continue;
+        }
+
+        if (compiler_version >= 43)
+        {
+            size_x = size_y = size_z = 0xbabababa;
+            size_total = ID3D12ShaderReflection_GetThreadGroupSize(reflection, &size_x, &size_y, &size_z);
+            todo ok(size_x == tests[i].x, "Got size_x %u.\n", size_x);
+            todo ok(size_y == tests[i].y, "Got size_y %u.\n", size_y);
+            todo ok(size_z == tests[i].z, "Got size_z %u.\n", size_z);
+            todo ok(size_total == size_x * size_y * size_z, "Got size_total %u.\n", size_total);
+        }
+
+        ID3D10Blob_Release(code);
+        refcount = ID3D12ShaderReflection_Release(reflection);
+        ok(!refcount, "Got unexpected refcount %u.\n", refcount);
+
+        vkd3d_test_pop_context();
+    }
+}
+
 static void test_reflection(void)
 {
     unsigned int version, i, j;
@@ -3888,6 +3956,7 @@ static void test_reflection(void)
             test_reflection_version(iid, version);
             test_default_values_reflection_version(iid, version);
             test_signature_reflection_version(iid, version);
+            test_thread_group_size_reflection_version(iid, version);
             vkd3d_test_pop_context();
         }
 
