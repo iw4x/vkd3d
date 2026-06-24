@@ -771,13 +771,13 @@ static void prepend_input_var_copy(struct hlsl_ctx *ctx, struct hlsl_block *body
     list_move_head(&body->instrs, &block.instrs);
 }
 
-static void append_output_copy(struct hlsl_ctx *ctx, struct hlsl_block *block,
-        struct list *semantic_vars, struct hlsl_ir_load *rhs, uint32_t modifiers,
-        struct hlsl_semantic *semantic, uint32_t stream_index, bool force_align, bool create)
+static void append_output_copy(struct hlsl_ctx *ctx, struct hlsl_block *block, struct list *semantic_vars,
+        const struct hlsl_deref *deref, uint32_t modifiers, struct hlsl_semantic *semantic, uint32_t stream_index,
+        bool force_align, bool create, const struct vkd3d_shader_location *loc)
 {
-    struct hlsl_type *type = rhs->node.data_type, *vector_type;
-    struct vkd3d_shader_location *loc = &rhs->node.loc;
-    struct hlsl_ir_var *var = rhs->src.var;
+    const struct hlsl_type *type = hlsl_deref_get_type(ctx, deref);
+    struct hlsl_ir_var *var = deref->var;
+    struct hlsl_type *vector_type;
     struct hlsl_ir_node *c;
     unsigned int i;
 
@@ -810,25 +810,25 @@ static void append_output_copy(struct hlsl_ctx *ctx, struct hlsl_block *block,
         if (type->class == HLSL_CLASS_MATRIX)
         {
             c = hlsl_block_add_uint_constant(ctx, block, i, &var->loc);
-            load = hlsl_block_add_load_index(ctx, block, &rhs->src, c, &var->loc);
+            load = hlsl_block_add_load_index(ctx, block, deref, c, &var->loc);
         }
         else
         {
             VKD3D_ASSERT(i == 0);
 
-            load = hlsl_block_add_load_index(ctx, block, &rhs->src, NULL, &var->loc);
+            load = hlsl_block_add_load_index(ctx, block, deref, NULL, &var->loc);
         }
 
         hlsl_block_add_simple_store(ctx, block, output, load);
     }
 }
 
-static void append_output_copy_recurse(struct hlsl_ctx *ctx, struct hlsl_block *block, struct list *semantic_vars,
-        const struct hlsl_type *type, struct hlsl_ir_load *rhs, uint32_t modifiers, struct hlsl_semantic *semantic,
-        uint32_t stream_index, bool force_align, bool create)
+static void append_output_copy_recurse(struct hlsl_ctx *ctx, struct hlsl_block *block,
+        struct list *semantic_vars, const struct hlsl_type *type, const struct hlsl_deref *deref,
+        uint32_t modifiers, struct hlsl_semantic *semantic, uint32_t stream_index,
+        bool force_align, bool create, const struct vkd3d_shader_location *loc)
 {
-    struct vkd3d_shader_location *loc = &rhs->node.loc;
-    struct hlsl_ir_var *var = rhs->src.var;
+    struct hlsl_ir_var *var = deref->var;
     struct hlsl_ir_node *c;
     unsigned int i;
 
@@ -837,17 +837,16 @@ static void append_output_copy_recurse(struct hlsl_ctx *ctx, struct hlsl_block *
         for (i = 0; i < hlsl_type_element_count(type); ++i)
         {
             const struct hlsl_type *element_type;
-            struct hlsl_ir_load *element_load;
             struct hlsl_struct_field *field;
             uint32_t element_modifiers;
+            struct hlsl_deref child;
 
             if (type->class == HLSL_CLASS_STRUCT)
                 loc = &type->e.record.fields[i].loc;
 
             c = hlsl_block_add_uint_constant(ctx, block, i, &var->loc);
-            if (!(element_load = hlsl_new_load_index(ctx, &rhs->src, c, loc)))
+            if (!hlsl_deref_init_child(&child, deref, c, ctx))
                 return;
-            hlsl_block_add_instr(block, &element_load->node);
 
             if (type->class == HLSL_CLASS_ARRAY)
             {
@@ -855,14 +854,17 @@ static void append_output_copy_recurse(struct hlsl_ctx *ctx, struct hlsl_block *
                 element_modifiers = modifiers;
                 force_align = true;
 
-                append_output_copy_recurse(ctx, block, semantic_vars, element_type, element_load,
-                        element_modifiers, semantic, stream_index, force_align, create);
+                append_output_copy_recurse(ctx, block, semantic_vars, element_type, &child,
+                        element_modifiers, semantic, stream_index, force_align, create, loc);
             }
             else
             {
                 field = &type->e.record.fields[i];
                 if (hlsl_type_is_resource(field->type))
+                {
+                    hlsl_deref_cleanup(&child);
                     continue;
+                }
                 element_type = field->type;
                 element_modifiers = combine_field_storage_modifiers(modifiers, field->storage_modifiers);
                 force_align = (i == 0);
@@ -871,8 +873,8 @@ static void append_output_copy_recurse(struct hlsl_ctx *ctx, struct hlsl_block *
                 {
                     warn_on_field_semantic(ctx, field, semantic);
 
-                    append_output_copy_recurse(ctx, block, semantic_vars, element_type, element_load,
-                            element_modifiers, semantic, stream_index, force_align, create);
+                    append_output_copy_recurse(ctx, block, semantic_vars, element_type, &child,
+                            element_modifiers, semantic, stream_index, force_align, create, loc);
                 }
                 else
                 {
@@ -881,17 +883,23 @@ static void append_output_copy_recurse(struct hlsl_ctx *ctx, struct hlsl_block *
                     validate_field_semantic(ctx, field);
 
                     if (!hlsl_clone_semantic(ctx, &semantic_copy, &field->semantic))
+                    {
+                        hlsl_deref_cleanup(&child);
                         continue;
-                    append_output_copy_recurse(ctx, block, semantic_vars, element_type, element_load,
-                            element_modifiers, &semantic_copy, stream_index, force_align, create);
+                    }
+                    append_output_copy_recurse(ctx, block, semantic_vars, element_type, &child,
+                            element_modifiers, &semantic_copy, stream_index, force_align, create, loc);
                     hlsl_cleanup_semantic(&semantic_copy);
                 }
             }
+
+            hlsl_deref_cleanup(&child);
         }
     }
     else
     {
-        append_output_copy(ctx, block, semantic_vars, rhs, modifiers, semantic, stream_index, force_align, create);
+        append_output_copy(ctx, block, semantic_vars, deref, modifiers,
+                semantic, stream_index, force_align, create, loc);
     }
 }
 
@@ -902,18 +910,16 @@ static void append_output_var_copy(struct hlsl_ctx *ctx, struct hlsl_block *body
         struct list *semantic_vars, struct hlsl_ir_var *var)
 {
     struct hlsl_semantic semantic_copy;
-    struct hlsl_ir_load *load;
+    struct hlsl_deref deref;
 
-    /* This redundant load is expected to be deleted later by DCE. */
-    if (!(load = hlsl_new_var_load(ctx, var, &var->loc)))
-        return;
-    hlsl_block_add_instr(body, &load->node);
+    hlsl_deref_init_simple(&deref, var);
 
     if (!hlsl_clone_semantic(ctx, &semantic_copy, &var->semantic))
         return;
     append_output_copy_recurse(ctx, body, semantic_vars, var->data_type,
-            load, var->storage_modifiers, &semantic_copy, 0, false, true);
+            &deref, var->storage_modifiers, &semantic_copy, 0, false, true, &var->loc);
     hlsl_cleanup_semantic(&semantic_copy);
+    hlsl_deref_cleanup(&deref);
 }
 
 bool hlsl_transform_ir(struct hlsl_ctx *ctx, bool (*func)(struct hlsl_ctx *ctx, struct hlsl_ir_node *, void *),
@@ -4345,6 +4351,7 @@ static bool lower_stream_appends(struct hlsl_ctx *ctx, struct hlsl_ir_node *inst
     const struct hlsl_type *type;
     struct hlsl_ir_node *rhs;
     struct hlsl_ir_var *var;
+    struct hlsl_deref deref;
     struct hlsl_block block;
     uint32_t stream_index;
     bool progress = false;
@@ -4370,7 +4377,12 @@ static bool lower_stream_appends(struct hlsl_ctx *ctx, struct hlsl_ir_node *inst
 
     hlsl_block_init(&block);
 
-    if (rhs->type != HLSL_IR_LOAD)
+    if (rhs->type == HLSL_IR_LOAD)
+    {
+        if (!hlsl_deref_copy(&deref, &hlsl_ir_load(rhs)->src, ctx))
+            return false;
+    }
+    else
     {
         struct hlsl_ir_var *tmp_var;
 
@@ -4381,12 +4393,14 @@ static bool lower_stream_appends(struct hlsl_ctx *ctx, struct hlsl_ir_node *inst
             goto done;
         hlsl_block_add_simple_store(ctx, &block, tmp_var, rhs);
         split_copies(ctx, &block);
-        rhs = hlsl_block_add_simple_load(ctx, &block, tmp_var, &instr->loc);
+        hlsl_deref_init_simple(&deref, tmp_var);
     }
 
-    append_output_copy_recurse(ctx, &block, append_ctx->semantic_vars, type->e.so.type, hlsl_ir_load(rhs),
+    append_output_copy_recurse(ctx, &block, append_ctx->semantic_vars, type->e.so.type, &deref,
             var->storage_modifiers, &semantic_copy, var->regs[HLSL_REGSET_STREAM_OUTPUTS].index,
-            false, !append_ctx->created[stream_index]);
+            false, !append_ctx->created[stream_index], &instr->loc);
+
+    hlsl_deref_cleanup(&deref);
 
     append_ctx->created[stream_index] = true;
 
