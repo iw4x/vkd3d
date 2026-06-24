@@ -3618,6 +3618,7 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
             case VSIR_OP_DCL_SAMPLER:
             case VSIR_OP_DCL_TEMPS:
             case VSIR_OP_DCL_TESSELLATOR_DOMAIN:
+            case VSIR_OP_DCL_TESSELLATOR_OUTPUT_PRIMITIVE:
             case VSIR_OP_DCL_THREAD_GROUP:
             case VSIR_OP_DCL_UAV_RAW:
             case VSIR_OP_DCL_UAV_STRUCTURED:

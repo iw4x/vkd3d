@@ -10242,10 +10242,6 @@ static void spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
         case VSIR_OP_DCL_GS_INSTANCES:
             spirv_compiler_emit_dcl_gs_instances(compiler, instruction);
             break;
-        case VSIR_OP_DCL_TESSELLATOR_OUTPUT_PRIMITIVE:
-            spirv_compiler_emit_tessellator_output_primitive(compiler,
-                    instruction->declaration.tessellator_output_primitive);
-            break;
         case VSIR_OP_DCL_TESSELLATOR_PARTITIONING:
             spirv_compiler_emit_tessellator_partitioning(compiler,
                     instruction->declaration.tessellator_partitioning);
@@ -10719,6 +10715,7 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
             break;
         case VKD3D_SHADER_TYPE_HULL:
             spirv_compiler_emit_output_vertex_count(compiler, program->output_control_point_count);
+            spirv_compiler_emit_tessellator_output_primitive(compiler, program->tess_output_primitive);
             break;
         case VKD3D_SHADER_TYPE_GEOMETRY:
             spirv_compiler_emit_input_primitive(compiler);
