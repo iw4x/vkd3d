@@ -10562,7 +10562,6 @@ static void spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
             spirv_compiler_emit_wave_read_lane_first(compiler, instruction);
             break;
         case VSIR_OP_DCL_HS_MAX_TESSFACTOR:
-        case VSIR_OP_DCL_INPUT_CONTROL_POINT_COUNT:
         case VSIR_OP_HS_DECLS:
         case VSIR_OP_NOP:
             /* nothing to do */
