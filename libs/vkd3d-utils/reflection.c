@@ -1457,3 +1457,11 @@ HRESULT WINAPI D3DReflect(const void *data, SIZE_T data_size, REFIID iid, void *
 
     return D3DReflectVKD3D(data, data_size, iid, reflection, 47);
 }
+
+HRESULT WINAPI D3D10ReflectShader(const void *data, SIZE_T data_size, ID3D10ShaderReflection **reflection)
+{
+    TRACE("data %p, data_size %"PRIuPTR", reflection %p.\n",
+            data, (uintptr_t)data_size, reflection);
+
+    return D3DReflectVKD3D(data, data_size, &IID_ID3D10ShaderReflection, (void **)reflection, 0);
+}

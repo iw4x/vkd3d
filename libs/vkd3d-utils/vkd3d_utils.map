@@ -1,6 +1,7 @@
 VKD3D_1_0
 {
 global:
+    D3D10ReflectShader;
     D3D12CreateDevice;
     D3D12CreateDeviceVKD3D;
     D3D12CreateRootSignatureDeserializer;

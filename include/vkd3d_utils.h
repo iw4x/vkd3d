@@ -52,6 +52,8 @@ extern "C" {
 # define VKD3D_UTILS_API VKD3D_IMPORT
 #endif
 
+struct ID3D10ShaderReflection;
+
 /* 1.0 */
 VKD3D_UTILS_API HANDLE vkd3d_create_event(void);
 VKD3D_UTILS_API HRESULT vkd3d_signal_event(HANDLE event);
@@ -137,6 +139,9 @@ VKD3D_UTILS_API HRESULT WINAPI D3DDisassemble(const void *data,
         SIZE_T data_size, UINT flags, const char *comments, ID3DBlob **blob);
 /** \since 1.11 */
 VKD3D_UTILS_API HRESULT WINAPI D3DReflect(const void *data, SIZE_T data_size, REFIID iid, void **reflection);
+/** \since 2.1 */
+VKD3D_UTILS_API HRESULT WINAPI D3D10ReflectShader(const void *data,
+        SIZE_T data_size, struct ID3D10ShaderReflection **reflection);
 
 /**
  * As D3DCompile2(), but with an extra argument that allows targeting
