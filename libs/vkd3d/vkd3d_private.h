@@ -165,6 +165,8 @@ struct vkd3d_vulkan_info
     VkPhysicalDeviceLimits device_limits;
     struct vkd3d_device_descriptor_limits descriptor_limits;
 
+    VkPhysicalDeviceFloatControlsPropertiesKHR float_controls_properties;
+
     VkPhysicalDeviceSparseProperties sparse_properties;
     bool sparse_binding;
     bool sparse_residency_3d;
@@ -1788,6 +1790,7 @@ HRESULT return_interface(void *iface, REFIID iface_iid, REFIID requested_iid, vo
 const char *debug_cpu_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle);
 const char *debug_d3d12_box(const D3D12_BOX *box);
 const char *debug_d3d12_shader_component_mapping(unsigned int mapping);
+const char *debug_denormal_mode(enum vkd3d_shader_denormal_mode m);
 const char *debug_gpu_handle(D3D12_GPU_DESCRIPTOR_HANDLE handle);
 const char *debug_vk_extent_3d(VkExtent3D extent);
 const char *debug_vk_memory_heap_flags(VkMemoryHeapFlags flags);

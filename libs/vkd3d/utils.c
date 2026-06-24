@@ -696,6 +696,22 @@ const char *debug_d3d12_shader_component_mapping(unsigned int mapping)
             debug_d3d12_shader_component(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(3, mapping)));
 }
 
+const char *debug_denormal_mode(enum vkd3d_shader_denormal_mode m)
+{
+    switch (m)
+    {
+#define TO_STR(u) case VKD3D_SHADER_DENORMAL_MODE_##u: return #u;
+        TO_STR(ANY);
+        TO_STR(PRESERVE);
+        TO_STR(FLUSH_TO_ZERO);
+#undef TO_STR
+        case VKD3D_SHADER_DENORMAL_MODE_FORCE_32BIT:
+            break;
+    }
+
+    return vkd3d_dbg_sprintf("UNKNOWN(%#x)", m);
+}
+
 const char *debug_gpu_handle(D3D12_GPU_DESCRIPTOR_HANDLE handle)
 {
     return vkd3d_dbg_sprintf("{%#"PRIx64"}", handle.ptr);

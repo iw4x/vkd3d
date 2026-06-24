@@ -10740,8 +10740,9 @@ static void test_shader_instructions(void)
         {&ps_exp, {{ INFINITY}}, {{INFINITY}}},
         {&ps_exp, {{-INFINITY}}, {{   0.00f}}},
 
-        {&ps_log, {{  -0.00f}}, {{-INFINITY}}},
-        {&ps_log, {{   0.00f}}, {{-INFINITY}}},
+        /* Mesa returns +inf for log(0) with DenormPreserve. */
+        {&ps_log, {{  -0.00f}}, {{-INFINITY}}, false, true},
+        {&ps_log, {{   0.00f}}, {{-INFINITY}}, false, true},
         {&ps_log, {{INFINITY}}, {{ INFINITY}}},
         {&ps_log, {{   0.25f}}, {{    -2.0f}}},
         {&ps_log, {{   0.50f}}, {{    -1.0f}}},
