@@ -10242,9 +10242,6 @@ static void spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
         case VSIR_OP_DCL_GS_INSTANCES:
             spirv_compiler_emit_dcl_gs_instances(compiler, instruction);
             break;
-        case VSIR_OP_DCL_OUTPUT_CONTROL_POINT_COUNT:
-            spirv_compiler_emit_output_vertex_count(compiler, instruction->declaration.count);
-            break;
         case VSIR_OP_DCL_TESSELLATOR_OUTPUT_PRIMITIVE:
             spirv_compiler_emit_tessellator_output_primitive(compiler,
                     instruction->declaration.tessellator_output_primitive);
@@ -10714,16 +10711,24 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
         spirv_compiler_emit_temps(compiler, program->temp_count);
     if (program->ssa_count)
         spirv_compiler_allocate_ssa_register_ids(compiler, program->ssa_count);
-    if (compiler->shader_type == VKD3D_SHADER_TYPE_COMPUTE)
+
+    switch (compiler->shader_type)
     {
-        spirv_compiler_emit_thread_group_size(compiler, &program->thread_group_size);
+        case VKD3D_SHADER_TYPE_COMPUTE:
+            spirv_compiler_emit_thread_group_size(compiler, &program->thread_group_size);
+            break;
+        case VKD3D_SHADER_TYPE_HULL:
+            spirv_compiler_emit_output_vertex_count(compiler, program->output_control_point_count);
+            break;
+        case VKD3D_SHADER_TYPE_GEOMETRY:
+            spirv_compiler_emit_input_primitive(compiler);
+            spirv_compiler_emit_output_topology(compiler);
+            spirv_compiler_emit_output_vertex_count(compiler, program->vertices_out_count);
+            break;
+        default:
+            break;
     }
-    else if (compiler->shader_type == VKD3D_SHADER_TYPE_GEOMETRY)
-    {
-        spirv_compiler_emit_input_primitive(compiler);
-        spirv_compiler_emit_output_topology(compiler);
-        spirv_compiler_emit_output_vertex_count(compiler, program->vertices_out_count);
-    }
+
     spirv_compiler_emit_global_flags(compiler, program->global_flags);
 
     spirv_compiler_emit_descriptor_declarations(compiler);
