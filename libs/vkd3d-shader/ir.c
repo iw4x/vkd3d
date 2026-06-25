@@ -754,6 +754,25 @@ static int convert_parameter_info(const struct vkd3d_shader_compile_info *compil
     return VKD3D_OK;
 }
 
+void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d)
+{
+    const struct vkd3d_shader_compile_option *option;
+    unsigned int i;
+
+    *vsir = (struct vsir_compile_info)
+    {
+        .api_version = VKD3D_SHADER_API_VERSION_1_2,
+    };
+
+    for (i = 0; i < vkd3d->option_count; ++i)
+    {
+        option = &vkd3d->options[i];
+
+        if (option->name == VKD3D_SHADER_COMPILE_OPTION_API_VERSION)
+            vsir->api_version = option->value;
+    }
+}
+
 bool vsir_program_init(struct vsir_program *program, const struct vkd3d_shader_compile_info *compile_info,
         const struct vkd3d_shader_version *version, unsigned int reserve, enum vsir_control_flow_type cf_type,
         enum vsir_normalisation_level normalisation_level)

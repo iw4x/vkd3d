@@ -1688,6 +1688,13 @@ const struct vkd3d_shader_descriptor_info1 *vkd3d_shader_find_descriptor(
     enum vkd3d_shader_descriptor_type type, unsigned int register_id);
 void vkd3d_shader_free_scan_descriptor_info1(struct vkd3d_shader_scan_descriptor_info1 *scan_descriptor_info);
 
+struct vsir_compile_info
+{
+    enum vkd3d_shader_api_version api_version;
+};
+
+void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d);
+
 struct vsir_program
 {
     struct vkd3d_shader_version shader_version;
