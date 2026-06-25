@@ -1049,6 +1049,47 @@ struct rdef_binding
     uint32_t id;
 };
 
+struct stat
+{
+    uint32_t instruction_count;
+    uint32_t temp_count;
+    uint32_t def_count;
+    uint32_t dcl_count;
+    uint32_t float_count;
+    uint32_t int_count;
+    uint32_t uint_count;
+    uint32_t static_flow_control_count;
+    uint32_t dynamic_flow_control_count;
+    uint32_t macro_instruction_count;
+    uint32_t temp_array_count;
+    uint32_t array_instruction_count;
+    uint32_t cut_count;
+    uint32_t emit_count;
+    uint32_t sample_count;
+    uint32_t load_count;
+    uint32_t sample_compare_count;
+    uint32_t sample_bias_count;
+    uint32_t sample_grad_count;
+    uint32_t mov_count;
+    uint32_t movc_count;
+    uint32_t type_conversion_count;
+    uint32_t bitwise_count;
+    uint32_t input_primitive;
+    uint32_t gs_output_topology;
+    uint32_t gs_max_output_vertex_count;
+    uint32_t gather_count;
+    uint32_t lod_count;
+    uint32_t sample_frequency;
+    uint32_t gs_instance_count;
+    uint32_t control_point_count;
+    uint32_t hs_output_primitive;
+    uint32_t hs_partitioning;
+    uint32_t tessellator_domain;
+    uint32_t barrier_count;
+    uint32_t atomic_count;
+    uint32_t store_count;
+};
+
 static HRESULT d3d12_type_init(struct d3d12_type *type, struct d3d12_reflection *reflection,
         uint32_t type_offset, uint32_t type_size, const struct vkd3d_shader_code *section, uint32_t field_offset)
 {
@@ -1331,12 +1372,64 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
     return S_OK;
 }
 
+static HRESULT parse_stat(struct d3d12_reflection *r, const struct vkd3d_shader_code *section)
+{
+    struct stat normalised_stat = {0};
+    size_t stat_size = section->size;
+    const struct stat *stat;
+
+    if (stat_size != sizeof(struct stat)
+            && stat_size != offsetof(struct stat, gs_instance_count)
+            && stat_size != offsetof(struct stat, sample_frequency))
+    {
+        FIXME("Unexpected STAT size %#zx.\n", stat_size);
+        return E_FAIL;
+    }
+
+    if (!(stat = get_data_ptr(section, 0, 1, stat_size)))
+        return E_INVALIDARG;
+    memcpy(&normalised_stat, stat, stat_size);
+
+    r->desc.InstructionCount = normalised_stat.instruction_count;
+    r->desc.TempRegisterCount = normalised_stat.temp_count;
+    r->desc.DefCount = normalised_stat.def_count;
+    r->desc.DclCount = normalised_stat.dcl_count;
+    r->desc.FloatInstructionCount = normalised_stat.float_count;
+    r->desc.IntInstructionCount = normalised_stat.int_count;
+    r->desc.UintInstructionCount = normalised_stat.uint_count;
+    r->desc.StaticFlowControlCount = normalised_stat.static_flow_control_count;
+    r->desc.DynamicFlowControlCount = normalised_stat.dynamic_flow_control_count;
+    r->desc.MacroInstructionCount = normalised_stat.macro_instruction_count;
+    r->desc.TempArrayCount = normalised_stat.temp_array_count;
+    r->desc.ArrayInstructionCount = normalised_stat.array_instruction_count;
+    r->desc.CutInstructionCount = normalised_stat.cut_count;
+    r->desc.EmitInstructionCount = normalised_stat.emit_count;
+    r->desc.TextureNormalInstructions = normalised_stat.sample_count;
+    r->desc.TextureLoadInstructions = normalised_stat.load_count;
+    r->desc.TextureCompInstructions = normalised_stat.sample_compare_count;
+    r->desc.TextureBiasInstructions = normalised_stat.sample_bias_count;
+    r->desc.TextureGradientInstructions = normalised_stat.sample_grad_count;
+    r->desc.InputPrimitive = normalised_stat.input_primitive;
+    r->desc.GSOutputTopology = normalised_stat.gs_output_topology;
+    r->desc.GSMaxOutputVertexCount = normalised_stat.gs_max_output_vertex_count;
+    r->desc.cGSInstanceCount = normalised_stat.gs_instance_count;
+    r->desc.cControlPoints = normalised_stat.control_point_count;
+    r->desc.HSOutputPrimitive = normalised_stat.hs_output_primitive;
+    r->desc.HSPartitioning = normalised_stat.hs_partitioning;
+    r->desc.TessellatorDomain = normalised_stat.tessellator_domain;
+    r->desc.cBarrierInstructions = normalised_stat.barrier_count;
+    r->desc.cInterlockedInstructions = normalised_stat.atomic_count;
+    r->desc.cTextureStoreInstructions = normalised_stat.store_count;
+
+    return S_OK;
+}
+
 static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection,
         const IID *iid, const void *data, size_t data_size, unsigned int version)
 {
     struct vkd3d_shader_compile_info compile_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO};
+    bool found_rdef = false, found_stat = false;
     struct vkd3d_shader_dxbc_desc dxbc_desc;
-    bool found_rdef = false;
     enum vkd3d_result ret;
     HRESULT hr;
 
@@ -1382,7 +1475,7 @@ static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection,
         {
             if (found_rdef)
             {
-                FIXME("Multiple RDEF chunks.\n");
+                FIXME("Multiple RDEF sections.\n");
                 continue;
             }
 
@@ -1400,6 +1493,18 @@ static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection,
                 goto fail;
             }
             reflection->desc.Version = *shader_version;
+        }
+        else if (section->tag == TAG_STAT)
+        {
+            if (found_stat)
+            {
+                FIXME("Multiple STAT sections.\n");
+                continue;
+            }
+
+            if (FAILED(hr = parse_stat(reflection, &section->data)))
+                goto fail;
+            found_stat = true;
         }
     }
 

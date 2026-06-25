@@ -3953,44 +3953,44 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
     ok(!desc.BoundResources, "Got BoundResources %u.\n", desc.BoundResources);
     ok(!desc.InputParameters, "Got InputParameters %u.\n", desc.InputParameters);
     ok(desc.OutputParameters == 1, "Got OutputParameters %u.\n", desc.OutputParameters);
-    todo ok(desc.InstructionCount == 1, "Got InstructionCount %u.\n", desc.InstructionCount);
-    todo ok(desc.TempRegisterCount == 2, "Got TempRegisterCount %u.\n", desc.TempRegisterCount);
-    todo ok(desc.TempArrayCount == 11, "Got TempArrayCount %u.\n", desc.TempArrayCount);
-    todo ok(desc.DefCount == 3, "Got DefCount %u.\n", desc.DefCount);
-    todo ok(desc.DclCount == 4, "Got DclCount %u.\n", desc.DclCount);
-    todo ok(desc.TextureNormalInstructions == 15,
+    ok(desc.InstructionCount == 1, "Got InstructionCount %u.\n", desc.InstructionCount);
+    ok(desc.TempRegisterCount == 2, "Got TempRegisterCount %u.\n", desc.TempRegisterCount);
+    ok(desc.TempArrayCount == 11, "Got TempArrayCount %u.\n", desc.TempArrayCount);
+    ok(desc.DefCount == 3, "Got DefCount %u.\n", desc.DefCount);
+    ok(desc.DclCount == 4, "Got DclCount %u.\n", desc.DclCount);
+    ok(desc.TextureNormalInstructions == 15,
             "Got TextureNormalInstructions %u.\n", desc.TextureNormalInstructions);
-    todo ok(desc.TextureLoadInstructions == 16, "Got TextureLoadInstructions %u.\n", desc.TextureLoadInstructions);
-    todo ok(desc.TextureCompInstructions == 17, "Got TextureCompInstructions %u.\n", desc.TextureCompInstructions);
-    todo ok(desc.TextureBiasInstructions == 18, "Got TextureBiasInstructions %u.\n", desc.TextureBiasInstructions);
-    todo ok(desc.TextureGradientInstructions == 19,
+    ok(desc.TextureLoadInstructions == 16, "Got TextureLoadInstructions %u.\n", desc.TextureLoadInstructions);
+    ok(desc.TextureCompInstructions == 17, "Got TextureCompInstructions %u.\n", desc.TextureCompInstructions);
+    ok(desc.TextureBiasInstructions == 18, "Got TextureBiasInstructions %u.\n", desc.TextureBiasInstructions);
+    ok(desc.TextureGradientInstructions == 19,
             "Got TextureGradientInstructions %u.\n", desc.TextureGradientInstructions);
-    todo ok(desc.FloatInstructionCount == 5, "Got FloatInstructionCount %u.\n", desc.FloatInstructionCount);
-    todo ok(desc.IntInstructionCount == 6, "Got IntInstructionCount %u.\n", desc.IntInstructionCount);
-    todo ok(desc.UintInstructionCount == 7, "Got UintInstructionCount %u.\n", desc.UintInstructionCount);
-    todo ok(desc.StaticFlowControlCount == 8, "Got StaticFlowControlCount %u.\n", desc.StaticFlowControlCount);
-    todo ok(desc.DynamicFlowControlCount == 9, "Got DynamicFlowControlCount %u.\n", desc.DynamicFlowControlCount);
-    todo ok(desc.MacroInstructionCount == 10, "Got MacroInstructionCount %u.\n", desc.MacroInstructionCount);
-    todo ok(desc.ArrayInstructionCount == 12, "Got ArrayInstructionCount %u.\n", desc.ArrayInstructionCount);
-    todo ok(desc.CutInstructionCount == 13, "Got CutInstructionCount %u.\n", desc.CutInstructionCount);
-    todo ok(desc.EmitInstructionCount == 14, "Got EmitInstructionCount %u.\n", desc.EmitInstructionCount);
-    todo_if (compiler_version) ok(desc.GSOutputTopology == (compiler_version ? 0x19 : 0),
+    ok(desc.FloatInstructionCount == 5, "Got FloatInstructionCount %u.\n", desc.FloatInstructionCount);
+    ok(desc.IntInstructionCount == 6, "Got IntInstructionCount %u.\n", desc.IntInstructionCount);
+    ok(desc.UintInstructionCount == 7, "Got UintInstructionCount %u.\n", desc.UintInstructionCount);
+    ok(desc.StaticFlowControlCount == 8, "Got StaticFlowControlCount %u.\n", desc.StaticFlowControlCount);
+    ok(desc.DynamicFlowControlCount == 9, "Got DynamicFlowControlCount %u.\n", desc.DynamicFlowControlCount);
+    ok(desc.MacroInstructionCount == 10, "Got MacroInstructionCount %u.\n", desc.MacroInstructionCount);
+    ok(desc.ArrayInstructionCount == 12, "Got ArrayInstructionCount %u.\n", desc.ArrayInstructionCount);
+    ok(desc.CutInstructionCount == 13, "Got CutInstructionCount %u.\n", desc.CutInstructionCount);
+    ok(desc.EmitInstructionCount == 14, "Got EmitInstructionCount %u.\n", desc.EmitInstructionCount);
+    todo_if (!compiler_version) ok(desc.GSOutputTopology == (compiler_version ? 0x19 : 0),
             "Got GSOutputTopology %#x.\n", desc.GSOutputTopology);
-    todo_if (compiler_version) ok(desc.GSMaxOutputVertexCount == (compiler_version ? 26 : 0),
+    todo_if (!compiler_version) ok(desc.GSMaxOutputVertexCount == (compiler_version ? 26 : 0),
             "Got GSMaxOutputVertexCount %u.\n", desc.GSMaxOutputVertexCount);
     if (compiler_version >= 40)
     {
-        todo ok(desc.InputPrimitive == 0x18, "Got InputPrimitive %#x.\n", desc.InputPrimitive);
+        ok(desc.InputPrimitive == 0x18, "Got InputPrimitive %#x.\n", desc.InputPrimitive);
         ok(!desc.PatchConstantParameters, "Got PatchConstantParameters %u.\n", desc.PatchConstantParameters);
-        todo ok(desc.cGSInstanceCount == 30, "Got cGSInstanceCount %u.\n", desc.cGSInstanceCount);
-        todo ok(desc.cControlPoints == 31, "Got cControlPoints %u.\n", desc.cControlPoints);
-        todo ok(desc.HSOutputPrimitive == 0x20, "Got HSOutputPrimitive %#x.\n", desc.HSOutputPrimitive);
-        todo ok(desc.HSPartitioning == 0x21, "Got HSPartitioning %#x.\n", desc.HSPartitioning);
-        todo ok(desc.TessellatorDomain == 0x22, "Got TessellatorDomain %#x.\n", desc.TessellatorDomain);
-        todo ok(desc.cBarrierInstructions == 35, "Got cBarrierInstructions %u.\n", desc.cBarrierInstructions);
-        todo ok(desc.cInterlockedInstructions == 36,
+        ok(desc.cGSInstanceCount == 30, "Got cGSInstanceCount %u.\n", desc.cGSInstanceCount);
+        ok(desc.cControlPoints == 31, "Got cControlPoints %u.\n", desc.cControlPoints);
+        ok(desc.HSOutputPrimitive == 0x20, "Got HSOutputPrimitive %#x.\n", desc.HSOutputPrimitive);
+        ok(desc.HSPartitioning == 0x21, "Got HSPartitioning %#x.\n", desc.HSPartitioning);
+        ok(desc.TessellatorDomain == 0x22, "Got TessellatorDomain %#x.\n", desc.TessellatorDomain);
+        ok(desc.cBarrierInstructions == 35, "Got cBarrierInstructions %u.\n", desc.cBarrierInstructions);
+        ok(desc.cInterlockedInstructions == 36,
                 "Got cInterlockedInstructions %u.\n", desc.cInterlockedInstructions);
-        todo ok(desc.cTextureStoreInstructions == 37,
+        ok(desc.cTextureStoreInstructions == 37,
                 "Got cTextureStoreInstructions %u.\n", desc.cTextureStoreInstructions);
     }
     else
