@@ -3056,6 +3056,53 @@ static void spirv_compiler_destroy(struct spirv_compiler *compiler)
     vkd3d_free(compiler);
 }
 
+static const char *spirv_extension_get_name(enum vkd3d_shader_spirv_extension extension, const char *error)
+{
+    static const char * const names[] =
+    {
+        [VKD3D_SHADER_SPIRV_EXTENSION_NONE]
+            = "<none>",
+        [VKD3D_SHADER_SPIRV_EXTENSION_EXT_DEMOTE_TO_HELPER_INVOCATION]
+            = "SPV_EXT_demote_to_helper_invocation",
+        [VKD3D_SHADER_SPIRV_EXTENSION_EXT_DESCRIPTOR_INDEXING]
+            = "SPV_EXT_descriptor_indexing",
+        [VKD3D_SHADER_SPIRV_EXTENSION_EXT_STENCIL_EXPORT]
+            = "SPV_EXT_shader_stencil_export",
+        [VKD3D_SHADER_SPIRV_EXTENSION_EXT_VIEWPORT_INDEX_LAYER]
+            = "SPV_EXT_shader_viewport_index_layer",
+        [VKD3D_SHADER_SPIRV_EXTENSION_EXT_FRAGMENT_SHADER_INTERLOCK]
+            = "SPV_EXT_fragment_shader_interlock",
+        [VKD3D_SHADER_SPIRV_EXTENSION_KHR_FLOAT_CONTROLS]
+            = "SPV_KHR_float_controls",
+    };
+
+    if ((size_t)extension < ARRAY_SIZE(names))
+        return names[extension] ? names[extension] : error;
+    return error;
+}
+
+#define spirv_compiler_trace_extensions(compiler) spirv_compiler_trace_extensions_(compiler, __FUNCTION__)
+static void spirv_compiler_trace_extensions_(const struct spirv_compiler *compiler, const char *function)
+{
+    const struct vkd3d_shader_spirv_target_info *info = compiler->spirv_target_info;
+
+    vkd3d_debug_channel_printf(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME,
+            VKD3D_DEBUG_CLASS_TRACE, function, "Available SPIR-V extensions:\n");
+    if (!info || !info->extension_count)
+    {
+        vkd3d_debug_channel_printf(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME,
+                VKD3D_DEBUG_CLASS_TRACE, function, "    <none>\n");
+        return;
+    }
+
+    for (unsigned int i = 0; i < info->extension_count; ++i)
+    {
+        vkd3d_debug_channel_printf(vkd3d_debug_channel_default, VKD3D_DEBUG_ENV_NAME,
+                VKD3D_DEBUG_CLASS_TRACE, function, "    %s (%#x)\n",
+                spirv_extension_get_name(info->extensions[i], "<unknown>"), info->extensions[i]);
+    }
+}
+
 static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program,
         const struct vkd3d_shader_compile_info *compile_info,
         struct vkd3d_shader_message_context *message_context, uint64_t config_flags)
@@ -3091,6 +3138,9 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
 
         compiler->spirv_target_info = target_info;
     }
+
+    if (TRACE_ON())
+        spirv_compiler_trace_extensions(compiler);
 
     vkd3d_spirv_builder_init(&compiler->spirv_builder,
             spirv_compiler_get_entry_point_name(compiler), compile_info->source_name);
