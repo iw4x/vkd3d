@@ -13857,6 +13857,7 @@ static void vsir_validate_signature(struct validation_context *ctx, const struct
 static void vsir_validate_descriptors(struct validation_context *ctx)
 {
     const struct vkd3d_shader_scan_descriptor_info1 *descriptors = &ctx->program->descriptors;
+    enum vsir_data_type data_type;
     unsigned int i;
 
     for (i = 0; i < descriptors->descriptor_count; ++i)
@@ -13877,14 +13878,18 @@ static void vsir_validate_descriptors(struct validation_context *ctx)
                     "Descriptor %u has invalid resource type %#x for descriptor type %#x.",
                     i, descriptor->resource_type, descriptor->type);
 
-        if (descriptor->resource_data_type >= VSIR_DATA_TYPE_COUNT)
+        data_type = descriptor->resource_data_type;
+        if (data_type >= VSIR_DATA_TYPE_COUNT)
             validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                    "Descriptor %u has invalid resource data type %#x.", i, descriptor->resource_data_type);
-        else if ((descriptor->resource_data_type == VSIR_DATA_UNUSED)
-                != (descriptor->type == VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER))
+                    "Descriptor %u has invalid resource data type %#x.", i, data_type);
+        else if ((data_type == VSIR_DATA_UNUSED) != (descriptor->type == VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER))
             validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
                     "Descriptor %u has invalid resource data type %#x for descriptor type %#x.",
-                    i, descriptor->resource_data_type, descriptor->type);
+                    i, data_type, descriptor->type);
+        else if ((descriptor->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_RAW_BUFFER) && data_type != VSIR_DATA_U32)
+            validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
+                    "Descriptor %u is a raw buffer descriptor but has resource data type \"%s\" (%#x).",
+                    i, vsir_data_type_get_name(data_type, "<unknown>"), data_type);
 
         if (!descriptor->count || (descriptor->count > UINT_MAX - descriptor->register_index
                 && descriptor->count != UINT_MAX))
