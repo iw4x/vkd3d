@@ -3904,6 +3904,167 @@ static void test_thread_group_size_reflection_version(const IID *iid, unsigned i
     }
 }
 
+static void test_stat_reflection_version(const IID *iid, unsigned int compiler_version)
+{
+    ID3D12ShaderReflection *reflection;
+    D3D12_SHADER_DESC desc;
+    unsigned int refcount;
+    HRESULT expect_hr, hr;
+    UINT ret;
+
+    static const uint32_t dxbc[] =
+    {
+        /*
+         * echo "float4 main() : sv_target { return float(0).xxxx; }" \
+         *         | vkd3d-compiler --profile ps_4_0 \
+         *         | vkd3d-dxbc -i <(seq 1 37 | perl -e 'print pack("L*", <STDIN>)') -u t:STAT
+         */
+        0x43425844, 0x835a6cba, 0xfef8e704, 0xbb542e6a, 0x5400ebac, 0x00000001, 0x0000019c, 0x00000005,
+        0x00000034, 0x00000044, 0x00000078, 0x000000c0, 0x00000100, 0x4e475349, 0x00000008, 0x00000000,
+        0x00000008, 0x4e47534f, 0x0000002c, 0x00000001, 0x00000008, 0x00000020, 0x00000000, 0x00000000,
+        0x00000003, 0x00000000, 0x0000000f, 0x745f7673, 0x65677261, 0xabab0074, 0x46454452, 0x00000040,
+        0x00000000, 0x0000001c, 0x00000000, 0x0000001c, 0xffff0400, 0x00000000, 0x0000001c, 0x33646b76,
+        0x68732d64, 0x72656461, 0x302e3220, 0x69672820, 0x31312074, 0x32313832, 0x29626635, 0xababab00,
+        0x52444853, 0x00000038, 0x00000040, 0x0000000e, 0x03000065, 0x001020f2, 0x00000000, 0x08000036,
+        0x001020f2, 0x00000000, 0x00004002, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x0100003e,
+        0x54415453, 0x00000094, 0x00000001, 0x00000002, 0x00000003, 0x00000004, 0x00000005, 0x00000006,
+        0x00000007, 0x00000008, 0x00000009, 0x0000000a, 0x0000000b, 0x0000000c, 0x0000000d, 0x0000000e,
+        0x0000000f, 0x00000010, 0x00000011, 0x00000012, 0x00000013, 0x00000014, 0x00000015, 0x00000016,
+        0x00000017, 0x00000018, 0x00000019, 0x0000001a, 0x0000001b, 0x0000001c, 0x0000001d, 0x0000001e,
+        0x0000001f, 0x00000020, 0x00000021, 0x00000022, 0x00000023, 0x00000024, 0x00000025,
+    };
+
+    expect_hr = reflect_hr(iid, compiler_version, 0);
+    hr = D3DReflectVKD3D(dxbc, sizeof(dxbc), iid, (void **)&reflection, compiler_version);
+    ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    if (FAILED(hr))
+        return;
+
+    memset(&desc, 0xba, sizeof(desc));
+    hr = ID3D12ShaderReflection_GetDesc(reflection, &desc);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+
+    ok(desc.Version == 0x00000040, "Got version 0x%08x.\n", desc.Version);
+    todo ok(desc.Creator, "Got Creator %p.\n", desc.Creator);
+    if (desc.Creator)
+        ok(!strcmp(desc.Creator, "vkd3d-shader 2.0 (git 1128125fb)"), "Got Creator \"%s\".\n", desc.Creator);
+    ok(!desc.Flags, "Got Flags %#x.\n", desc.Flags);
+    ok(!desc.ConstantBuffers, "Got ConstantBuffers %u.\n", desc.ConstantBuffers);
+    ok(!desc.BoundResources, "Got BoundResources %u.\n", desc.BoundResources);
+    ok(!desc.InputParameters, "Got InputParameters %u.\n", desc.InputParameters);
+    ok(desc.OutputParameters == 1, "Got OutputParameters %u.\n", desc.OutputParameters);
+    todo ok(desc.InstructionCount == 1, "Got InstructionCount %u.\n", desc.InstructionCount);
+    todo ok(desc.TempRegisterCount == 2, "Got TempRegisterCount %u.\n", desc.TempRegisterCount);
+    todo ok(desc.TempArrayCount == 11, "Got TempArrayCount %u.\n", desc.TempArrayCount);
+    todo ok(desc.DefCount == 3, "Got DefCount %u.\n", desc.DefCount);
+    todo ok(desc.DclCount == 4, "Got DclCount %u.\n", desc.DclCount);
+    todo ok(desc.TextureNormalInstructions == 15,
+            "Got TextureNormalInstructions %u.\n", desc.TextureNormalInstructions);
+    todo ok(desc.TextureLoadInstructions == 16, "Got TextureLoadInstructions %u.\n", desc.TextureLoadInstructions);
+    todo ok(desc.TextureCompInstructions == 17, "Got TextureCompInstructions %u.\n", desc.TextureCompInstructions);
+    todo ok(desc.TextureBiasInstructions == 18, "Got TextureBiasInstructions %u.\n", desc.TextureBiasInstructions);
+    todo ok(desc.TextureGradientInstructions == 19,
+            "Got TextureGradientInstructions %u.\n", desc.TextureGradientInstructions);
+    todo ok(desc.FloatInstructionCount == 5, "Got FloatInstructionCount %u.\n", desc.FloatInstructionCount);
+    todo ok(desc.IntInstructionCount == 6, "Got IntInstructionCount %u.\n", desc.IntInstructionCount);
+    todo ok(desc.UintInstructionCount == 7, "Got UintInstructionCount %u.\n", desc.UintInstructionCount);
+    todo ok(desc.StaticFlowControlCount == 8, "Got StaticFlowControlCount %u.\n", desc.StaticFlowControlCount);
+    todo ok(desc.DynamicFlowControlCount == 9, "Got DynamicFlowControlCount %u.\n", desc.DynamicFlowControlCount);
+    todo ok(desc.MacroInstructionCount == 10, "Got MacroInstructionCount %u.\n", desc.MacroInstructionCount);
+    todo ok(desc.ArrayInstructionCount == 12, "Got ArrayInstructionCount %u.\n", desc.ArrayInstructionCount);
+    todo ok(desc.CutInstructionCount == 13, "Got CutInstructionCount %u.\n", desc.CutInstructionCount);
+    todo ok(desc.EmitInstructionCount == 14, "Got EmitInstructionCount %u.\n", desc.EmitInstructionCount);
+    todo_if (compiler_version) ok(desc.GSOutputTopology == (compiler_version ? 0x19 : 0),
+            "Got GSOutputTopology %#x.\n", desc.GSOutputTopology);
+    todo_if (compiler_version) ok(desc.GSMaxOutputVertexCount == (compiler_version ? 26 : 0),
+            "Got GSMaxOutputVertexCount %u.\n", desc.GSMaxOutputVertexCount);
+    if (compiler_version >= 40)
+    {
+        todo ok(desc.InputPrimitive == 0x18, "Got InputPrimitive %#x.\n", desc.InputPrimitive);
+        ok(!desc.PatchConstantParameters, "Got PatchConstantParameters %u.\n", desc.PatchConstantParameters);
+        todo ok(desc.cGSInstanceCount == 30, "Got cGSInstanceCount %u.\n", desc.cGSInstanceCount);
+        todo ok(desc.cControlPoints == 31, "Got cControlPoints %u.\n", desc.cControlPoints);
+        todo ok(desc.HSOutputPrimitive == 0x20, "Got HSOutputPrimitive %#x.\n", desc.HSOutputPrimitive);
+        todo ok(desc.HSPartitioning == 0x21, "Got HSPartitioning %#x.\n", desc.HSPartitioning);
+        todo ok(desc.TessellatorDomain == 0x22, "Got TessellatorDomain %#x.\n", desc.TessellatorDomain);
+        todo ok(desc.cBarrierInstructions == 35, "Got cBarrierInstructions %u.\n", desc.cBarrierInstructions);
+        todo ok(desc.cInterlockedInstructions == 36,
+                "Got cInterlockedInstructions %u.\n", desc.cInterlockedInstructions);
+        todo ok(desc.cTextureStoreInstructions == 37,
+                "Got cTextureStoreInstructions %u.\n", desc.cTextureStoreInstructions);
+    }
+    else
+    {
+        ok(desc.InputPrimitive == 0xbabababa, "Got InputPrimitive %#x.\n", desc.InputPrimitive);
+        ok(desc.PatchConstantParameters == 0xbabababa,
+                "Got PatchConstantParameters %#x.\n", desc.PatchConstantParameters);
+        ok(desc.cGSInstanceCount == 0xbabababa, "Got cGSInstanceCount %#x.\n", desc.cGSInstanceCount);
+        ok(desc.cControlPoints == 0xbabababa, "Got cControlPoints %#x.\n", desc.cControlPoints);
+        ok(desc.HSOutputPrimitive == 0xbabababa, "Got HSOutputPrimitive %#x.\n", desc.HSOutputPrimitive);
+        ok(desc.HSPartitioning == 0xbabababa, "Got HSPartitioning %#x.\n", desc.HSPartitioning);
+        ok(desc.TessellatorDomain == 0xbabababa, "Got TessellatorDomain %#x.\n", desc.TessellatorDomain);
+        ok(desc.cBarrierInstructions == 0xbabababa, "Got cBarrierInstructions %#x.\n", desc.cBarrierInstructions);
+        ok(desc.cInterlockedInstructions == 0xbabababa,
+                "Got cInterlockedInstructions %#x.\n", desc.cInterlockedInstructions);
+        ok(desc.cTextureStoreInstructions == 0xbabababa,
+                "Got cTextureStoreInstructions %#x.\n", desc.cTextureStoreInstructions);
+    }
+
+    if (IsEqualGUID(iid, &IID_ID3D10ShaderReflection1))
+    {
+        ID3D10ShaderReflection1 *r = (ID3D10ShaderReflection1 *)reflection;
+
+        hr = ID3D10ShaderReflection1_GetMovInstructionCount(r, &ret);
+        ok(hr == S_OK, "Got hr %#x.\n", hr);
+        todo ok(ret == 20, "Got ret %u.\n", ret);
+
+        hr = ID3D10ShaderReflection1_GetMovcInstructionCount(r, &ret);
+        ok(hr == S_OK, "Got hr %#x.\n", hr);
+        todo ok(ret == 21, "Got ret %u.\n", ret);
+
+        hr = ID3D10ShaderReflection1_GetConversionInstructionCount(r, &ret);
+        ok(hr == S_OK, "Got hr %#x.\n", hr);
+        todo ok(ret == 22, "Got ret %u.\n", ret);
+
+        hr = ID3D10ShaderReflection1_GetBitwiseInstructionCount(r, &ret);
+        ok(hr == S_OK, "Got hr %#x.\n", hr);
+        todo ok(ret == 23, "Got ret %u.\n", ret);
+
+        hr = ID3D10ShaderReflection1_GetGSInputPrimitive(r, &ret);
+        ok(hr == S_OK, "Got hr %#x.\n", hr);
+        todo ok(ret == 0x18, "Got ret %#x.\n", ret);
+
+        if (compiler_version >= 35)
+        {
+            hr = ID3D10ShaderReflection1_IsLevel9Shader(r, (BOOL *)&ret);
+            todo ok(hr == S_OK, "Got hr %#x.\n", hr);
+            ok(!ret, "Got ret %u.\n", ret);
+
+            hr = ID3D10ShaderReflection1_IsSampleFrequencyShader(r, (BOOL *)&ret);
+            ok(hr == S_OK, "Got hr %#x.\n", hr);
+            todo ok(ret == 0x1d, "Got ret %#x.\n", ret);
+        }
+    }
+    else if (!IsEqualGUID(iid, &IID_ID3D10ShaderReflection))
+    {
+        ret = ID3D12ShaderReflection_GetMovInstructionCount(reflection);
+        todo ok(ret == 20, "Got ret %u.\n", ret);
+        ret = ID3D12ShaderReflection_GetMovcInstructionCount(reflection);
+        todo ok(ret == 21, "Got ret %u.\n", ret);
+        ret = ID3D12ShaderReflection_GetConversionInstructionCount(reflection);
+        todo ok(ret == 22, "Got ret %u.\n", ret);
+        ret = ID3D12ShaderReflection_GetBitwiseInstructionCount(reflection);
+        todo ok(ret == 23, "Got ret %u.\n", ret);
+        ret = ID3D12ShaderReflection_GetGSInputPrimitive(reflection);
+        todo ok(ret == 0x18, "Got ret %#x.\n", ret);
+        ret = ID3D12ShaderReflection_IsSampleFrequencyShader(reflection);
+        todo ok(ret == 0x1d, "Got ret %#x.\n", ret);
+    }
+
+    refcount = ID3D12ShaderReflection_Release(reflection);
+    ok(!refcount, "Got refcount %u.\n", refcount);
+}
+
 static void test_reflection(void)
 {
     unsigned int version, i, j;
@@ -3956,6 +4117,7 @@ static void test_reflection(void)
             test_default_values_reflection_version(iid, version);
             test_signature_reflection_version(iid, version);
             test_thread_group_size_reflection_version(iid, version);
+            test_stat_reflection_version(iid, version);
             vkd3d_test_pop_context();
         }
 
