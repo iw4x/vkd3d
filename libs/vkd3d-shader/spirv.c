@@ -6675,7 +6675,7 @@ static const struct vkd3d_spirv_resource_type *spirv_compiler_enable_resource_ty
     return resource_type_info;
 }
 
-static SpvImageFormat image_format_for_image_read(enum vsir_data_type data_type)
+static SpvImageFormat image_format_for_image_read(struct spirv_compiler *compiler, enum vsir_data_type data_type)
 {
     /* The following formats are supported by Direct3D 11 hardware for UAV
      * typed loads. A newer hardware may support more formats for UAV typed
@@ -6692,7 +6692,9 @@ static SpvImageFormat image_format_for_image_read(enum vsir_data_type data_type)
         case VSIR_DATA_U32:
             return SpvImageFormatR32ui;
         default:
-            FIXME("Unhandled type %#x.\n", data_type);
+            spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_NOT_IMPLEMENTED,
+                    "Unhandled data type \"%s\" (%#x).",
+                    vsir_data_type_get_name(data_type, "<unknown>"), data_type);
             return SpvImageFormatUnknown;
     }
 }
@@ -6715,7 +6717,7 @@ static uint32_t spirv_compiler_get_image_type_id(struct spirv_compiler *compiler
         uav_read = !!(d->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_UAV_READ);
         uav_atomics = !!(d->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_UAV_ATOMICS);
         if (raw_structured || uav_atomics || (uav_read && !compiler->uav_read_without_format))
-            format = image_format_for_image_read(data_type);
+            format = image_format_for_image_read(compiler, data_type);
         else if (uav_read)
             vkd3d_spirv_enable_capability(builder, SpvCapabilityStorageImageReadWithoutFormat);
     }
