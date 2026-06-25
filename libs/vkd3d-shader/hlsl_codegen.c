@@ -13841,7 +13841,7 @@ static enum vsir_data_type get_vsir_resource_data_type(const struct hlsl_type *t
     const struct hlsl_type *format = type->e.resource.format;
 
     if (type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)
-        return VSIR_DATA_MIXED;
+        return VSIR_DATA_U32;
 
     switch (format->e.numeric.type)
     {
