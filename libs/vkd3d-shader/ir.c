@@ -13890,6 +13890,10 @@ static void vsir_validate_descriptors(struct validation_context *ctx)
             validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
                     "Descriptor %u is a raw buffer descriptor but has resource data type \"%s\" (%#x).",
                     i, vsir_data_type_get_name(data_type, "<unknown>"), data_type);
+        else if (descriptor->structure_stride && data_type != VSIR_DATA_U32)
+            validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
+                    "Descriptor %u is a structured resource descriptor but has resource data type \"%s\" (%#x).",
+                    i, vsir_data_type_get_name(data_type, "<unknown>"), data_type);
 
         if (!descriptor->count || (descriptor->count > UINT_MAX - descriptor->register_index
                 && descriptor->count != UINT_MAX))
