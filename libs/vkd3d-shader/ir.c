@@ -909,14 +909,14 @@ struct vkd3d_shader_descriptor_info1 *vsir_program_add_descriptor(struct vsir_pr
     if (!info)
         return NULL;
 
-    if (!vkd3d_array_reserve((void **)&info->descriptors, &program->descriptors_size,
-            info->descriptor_count + 1, sizeof(*info->descriptors)))
+    if (!vkd3d_array_reserve((void **)&info->descriptors, &info->capacity,
+            info->count + 1, sizeof(*info->descriptors)))
     {
         ERR("Failed to allocate descriptor info.\n");
         return NULL;
     }
 
-    d = &info->descriptors[info->descriptor_count];
+    d = &info->descriptors[info->count];
     memset(d, 0, sizeof(*d));
     d->type = type;
     d->register_id = register_id;
@@ -925,7 +925,7 @@ struct vkd3d_shader_descriptor_info1 *vsir_program_add_descriptor(struct vsir_pr
     d->resource_type = resource_type;
     d->resource_data_type = resource_data_type;
     d->count = (range->last == ~0u) ? ~0u : range->last - range->first + 1;
-    ++info->descriptor_count;
+    ++info->count;
 
     return d;
 }
@@ -13860,7 +13860,7 @@ static void vsir_validate_descriptors(struct validation_context *ctx)
     enum vsir_data_type data_type;
     unsigned int i;
 
-    for (i = 0; i < descriptors->descriptor_count; ++i)
+    for (i = 0; i < descriptors->count; ++i)
     {
         const struct vkd3d_shader_descriptor_info1 *descriptor = &descriptors->descriptors[i];
         uint32_t flags_mask = 0, uav_flags_mask = 0;

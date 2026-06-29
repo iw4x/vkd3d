@@ -6463,7 +6463,7 @@ static const struct vkd3d_shader_descriptor_info1 *spirv_compiler_get_descriptor
     const struct vkd3d_shader_descriptor_info1 *d;
     unsigned int i;
 
-    for (i = 0; i < descriptor_info->descriptor_count; ++i)
+    for (i = 0; i < descriptor_info->count; ++i)
     {
         d = &descriptor_info->descriptors[i];
         if (d->type == type && d->register_space == range->space && d->register_index <= range->first
@@ -10672,7 +10672,7 @@ static void spirv_compiler_emit_descriptor_declarations(struct spirv_compiler *c
     const struct vsir_descriptor_info *descriptors = &compiler->program->descriptors;
     unsigned int i;
 
-    for (i = 0; i < descriptors->descriptor_count; ++i)
+    for (i = 0; i < descriptors->count; ++i)
     {
         const struct vkd3d_shader_descriptor_info1 *descriptor = &descriptors->descriptors[i];
         struct vsir_register_range range;

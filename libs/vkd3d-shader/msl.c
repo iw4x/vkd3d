@@ -2185,7 +2185,7 @@ static void msl_generate_entrypoint(struct msl_generator *gen)
         vkd3d_string_buffer_printf(gen->buffer, "void ");
     vkd3d_string_buffer_printf(gen->buffer, "shader_entry(\n");
 
-    if (gen->program->descriptors.descriptor_count)
+    if (gen->program->descriptors.count)
     {
         msl_print_indent(gen->buffer, 2);
         /* TODO: Configurable argument buffer binding location. */
@@ -2263,7 +2263,7 @@ static void msl_generate_entrypoint(struct msl_generator *gen)
         vkd3d_string_buffer_printf(gen->buffer, ", v_local_thread_index");
     if (bitmap_is_set(gen->program->io_dcls, VSIR_REGISTER_OUTSTENCILREF))
         vkd3d_string_buffer_printf(gen->buffer, ", o_stencil_ref");
-    if (gen->program->descriptors.descriptor_count)
+    if (gen->program->descriptors.count)
         vkd3d_string_buffer_printf(gen->buffer, ", descriptors");
     vkd3d_string_buffer_printf(gen->buffer, ");\n\n");
 
@@ -2321,7 +2321,7 @@ static int msl_generator_generate(struct msl_generator *gen, struct vkd3d_shader
     vkd3d_string_buffer_printf(gen->buffer, "    int4 i;\n");
     vkd3d_string_buffer_printf(gen->buffer, "    float4 f;\n};\n\n");
 
-    if (gen->program->descriptors.descriptor_count > 0)
+    if (gen->program->descriptors.count)
     {
         vkd3d_string_buffer_printf(gen->buffer,
                 "struct descriptor\n"
@@ -2368,7 +2368,7 @@ static int msl_generator_generate(struct msl_generator *gen, struct vkd3d_shader
         vkd3d_string_buffer_printf(gen->buffer, ", thread vkd3d_vec4 &v_local_thread_index");
     if (bitmap_is_set(gen->program->io_dcls, VSIR_REGISTER_OUTSTENCILREF))
         vkd3d_string_buffer_printf(gen->buffer, ", thread vkd3d_scalar &o_stencil_ref");
-    if (gen->program->descriptors.descriptor_count)
+    if (gen->program->descriptors.count)
         vkd3d_string_buffer_printf(gen->buffer, ", constant descriptor *descriptors");
     vkd3d_string_buffer_printf(gen->buffer, ")\n{\n");
 

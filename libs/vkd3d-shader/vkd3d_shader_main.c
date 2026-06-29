@@ -1037,7 +1037,6 @@ struct vkd3d_shader_scan_context
     const struct vkd3d_shader_d3dbc_source_info *d3dbc_source_info;
 
     struct vsir_descriptor_info *scan_descriptor_info;
-    size_t descriptors_size;
 
     struct vkd3d_shader_message_context *message_context;
     struct vkd3d_shader_location location;
@@ -1181,7 +1180,7 @@ static void vkd3d_shader_scan_add_uav_flag(const struct vkd3d_shader_scan_contex
     if (!context->scan_descriptor_info)
         return;
 
-    for (i = 0; i < context->scan_descriptor_info->descriptor_count; ++i)
+    for (i = 0; i < context->scan_descriptor_info->count; ++i)
     {
         if (context->scan_descriptor_info->descriptors[i].type == VKD3D_SHADER_DESCRIPTOR_TYPE_UAV
                 && context->scan_descriptor_info->descriptors[i].register_id == range_id)
@@ -1247,14 +1246,14 @@ static struct vkd3d_shader_descriptor_info1 *vkd3d_shader_scan_add_descriptor(st
     if (!info)
         return NULL;
 
-    if (!vkd3d_array_reserve((void **)&info->descriptors, &context->descriptors_size,
-            info->descriptor_count + 1, sizeof(*info->descriptors)))
+    if (!vkd3d_array_reserve((void **)&info->descriptors, &info->capacity,
+            info->count + 1, sizeof(*info->descriptors)))
     {
         ERR("Failed to allocate descriptor info.\n");
         return NULL;
     }
 
-    d = &info->descriptors[info->descriptor_count];
+    d = &info->descriptors[info->count];
     memset(d, 0, sizeof(*d));
     d->type = type;
     d->register_id = reg->idx[0].offset;
@@ -1263,7 +1262,7 @@ static struct vkd3d_shader_descriptor_info1 *vkd3d_shader_scan_add_descriptor(st
     d->resource_type = resource_type;
     d->resource_data_type = resource_data_type;
     d->count = (range->last == ~0u) ? ~0u : range->last - range->first + 1;
-    ++info->descriptor_count;
+    ++info->count;
 
     return d;
 }
@@ -1297,7 +1296,7 @@ static void vkd3d_shader_scan_sampler_declaration(struct vkd3d_shader_scan_conte
 const struct vkd3d_shader_descriptor_info1 *vkd3d_shader_find_descriptor(const struct vsir_descriptor_info *info,
         enum vkd3d_shader_descriptor_type type, unsigned int register_id)
 {
-    for (unsigned int i = 0; i < info->descriptor_count; ++i)
+    for (unsigned int i = 0; i < info->count; ++i)
     {
         const struct vkd3d_shader_descriptor_info1 *d = &info->descriptors[i];
 
@@ -1693,10 +1692,10 @@ static enum vkd3d_result convert_descriptor_info(struct vkd3d_shader_scan_contex
 {
     unsigned int i;
 
-    if (!(info->descriptors = vkd3d_calloc(vsir->descriptor_count, sizeof(*info->descriptors))))
+    if (!(info->descriptors = vkd3d_calloc(vsir->count, sizeof(*info->descriptors))))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
-    for (i = 0; i < vsir->descriptor_count; ++i)
+    for (i = 0; i < vsir->count; ++i)
     {
         const struct vkd3d_shader_descriptor_info1 *src = &vsir->descriptors[i];
         struct vkd3d_shader_descriptor_info *dst = &info->descriptors[i];
@@ -1721,7 +1720,7 @@ static enum vkd3d_result convert_descriptor_info(struct vkd3d_shader_scan_contex
             dst->resource_data_type = VKD3D_SHADER_RESOURCE_DATA_FLOAT;
         }
     }
-    info->descriptor_count = vsir->descriptor_count;
+    info->descriptor_count = vsir->count;
 
     return VKD3D_OK;
 }

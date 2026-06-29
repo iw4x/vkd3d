@@ -1680,7 +1680,7 @@ struct vkd3d_shader_descriptor_info1
 struct vsir_descriptor_info
 {
     struct vkd3d_shader_descriptor_info1 *descriptors;
-    unsigned int descriptor_count;
+    size_t capacity, count;
 };
 
 const struct vkd3d_shader_descriptor_info1 *vkd3d_shader_find_descriptor(
@@ -1704,7 +1704,6 @@ struct vsir_program
     struct vsir_signature patch_constant_signature;
 
     struct vsir_descriptor_info descriptors;
-    size_t descriptors_size;
 
     unsigned int parameter_count;
     const struct vkd3d_shader_parameter1 *parameters;

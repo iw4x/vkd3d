@@ -2014,7 +2014,7 @@ static void shader_print_descriptors(struct vkd3d_d3d_asm_compiler *compiler,
 
     vkd3d_string_buffer_printf(buffer, "%s.descriptors%s\n",
             compiler->colours.opcode, compiler->colours.reset);
-    for (i = 0; i < descriptors->descriptor_count; ++i)
+    for (i = 0; i < descriptors->count; ++i)
     {
         const struct vkd3d_shader_descriptor_info1 *d = &descriptors->descriptors[i];
 
