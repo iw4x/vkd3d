@@ -830,7 +830,7 @@ void vsir_program_cleanup(struct vsir_program *program)
     vsir_signature_cleanup(&program->input_signature);
     vsir_signature_cleanup(&program->output_signature);
     vsir_signature_cleanup(&program->patch_constant_signature);
-    vkd3d_shader_free_scan_descriptor_info1(&program->descriptors);
+    vsir_descriptor_info_cleanup(&program->descriptors);
     shader_param_allocator_destroy(&program->src_operands);
     shader_param_allocator_destroy(&program->dst_operands);
     for (i = 0; i < program->icb_count; ++i)
@@ -903,7 +903,7 @@ struct vkd3d_shader_descriptor_info1 *vsir_program_add_descriptor(struct vsir_pr
         enum vkd3d_shader_descriptor_type type, unsigned int register_id, const struct vsir_register_range *range,
         enum vkd3d_shader_resource_type resource_type, enum vsir_data_type resource_data_type)
 {
-    struct vkd3d_shader_scan_descriptor_info1 *info = &program->descriptors;
+    struct vsir_descriptor_info *info = &program->descriptors;
     struct vkd3d_shader_descriptor_info1 *d;
 
     if (!info)
@@ -13856,7 +13856,7 @@ static void vsir_validate_signature(struct validation_context *ctx, const struct
 
 static void vsir_validate_descriptors(struct validation_context *ctx)
 {
-    const struct vkd3d_shader_scan_descriptor_info1 *descriptors = &ctx->program->descriptors;
+    const struct vsir_descriptor_info *descriptors = &ctx->program->descriptors;
     enum vsir_data_type data_type;
     unsigned int i;
 

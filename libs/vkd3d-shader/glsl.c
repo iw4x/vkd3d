@@ -130,7 +130,7 @@ static const struct glsl_resource_type_info *shader_glsl_get_resource_type_info(
 static const struct vkd3d_shader_descriptor_info1 *shader_glsl_get_descriptor(struct vkd3d_glsl_generator *gen,
         enum vkd3d_shader_descriptor_type type, unsigned int idx, unsigned int space)
 {
-    const struct vkd3d_shader_scan_descriptor_info1 *info = &gen->program->descriptors;
+    const struct vsir_descriptor_info *info = &gen->program->descriptors;
 
     for (unsigned int i = 0; i < info->descriptor_count; ++i)
     {
@@ -2259,7 +2259,7 @@ static void shader_glsl_generate_sampler_declaration(struct vkd3d_glsl_generator
 static void shader_glsl_generate_descriptor_declarations(struct vkd3d_glsl_generator *gen)
 {
     const struct vkd3d_shader_scan_combined_resource_sampler_info *sampler_info = gen->combined_sampler_info;
-    const struct vkd3d_shader_scan_descriptor_info1 *info = &gen->program->descriptors;
+    const struct vsir_descriptor_info *info = &gen->program->descriptors;
     const struct vkd3d_shader_descriptor_info1 *descriptor;
     unsigned int i;
 

@@ -1677,16 +1677,15 @@ struct vkd3d_shader_descriptor_info1
     uint32_t uav_flags;
 };
 
-struct vkd3d_shader_scan_descriptor_info1
+struct vsir_descriptor_info
 {
     struct vkd3d_shader_descriptor_info1 *descriptors;
     unsigned int descriptor_count;
 };
 
 const struct vkd3d_shader_descriptor_info1 *vkd3d_shader_find_descriptor(
-    const struct vkd3d_shader_scan_descriptor_info1 *info,
-    enum vkd3d_shader_descriptor_type type, unsigned int register_id);
-void vkd3d_shader_free_scan_descriptor_info1(struct vkd3d_shader_scan_descriptor_info1 *scan_descriptor_info);
+    const struct vsir_descriptor_info *info, enum vkd3d_shader_descriptor_type type, unsigned int register_id);
+void vsir_descriptor_info_cleanup(struct vsir_descriptor_info *info);
 
 struct vsir_compile_info
 {
@@ -1704,7 +1703,7 @@ struct vsir_program
     struct vsir_signature output_signature;
     struct vsir_signature patch_constant_signature;
 
-    struct vkd3d_shader_scan_descriptor_info1 descriptors;
+    struct vsir_descriptor_info descriptors;
     size_t descriptors_size;
 
     unsigned int parameter_count;

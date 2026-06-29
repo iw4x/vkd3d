@@ -6458,7 +6458,7 @@ static const struct vkd3d_shader_descriptor_info1 *spirv_compiler_get_descriptor
         struct spirv_compiler *compiler, enum vkd3d_shader_descriptor_type type,
         const struct vsir_register_range *range)
 {
-    const struct vkd3d_shader_scan_descriptor_info1 *descriptor_info = &compiler->program->descriptors;
+    const struct vsir_descriptor_info *descriptor_info = &compiler->program->descriptors;
     unsigned int register_last = (range->last == ~0u) ? range->first : range->last;
     const struct vkd3d_shader_descriptor_info1 *d;
     unsigned int i;
@@ -10669,7 +10669,7 @@ static void spirv_compiler_emit_io_declarations(struct spirv_compiler *compiler)
 
 static void spirv_compiler_emit_descriptor_declarations(struct spirv_compiler *compiler)
 {
-    const struct vkd3d_shader_scan_descriptor_info1 *descriptors = &compiler->program->descriptors;
+    const struct vsir_descriptor_info *descriptors = &compiler->program->descriptors;
     unsigned int i;
 
     for (i = 0; i < descriptors->descriptor_count; ++i)

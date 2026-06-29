@@ -2007,7 +2007,7 @@ static void shader_print_descriptor_name(struct vkd3d_d3d_asm_compiler *compiler
 }
 
 static void shader_print_descriptors(struct vkd3d_d3d_asm_compiler *compiler,
-        const struct vkd3d_shader_scan_descriptor_info1 *descriptors)
+        const struct vsir_descriptor_info *descriptors)
 {
     struct vkd3d_string_buffer *buffer = &compiler->buffer;
     unsigned int i;
