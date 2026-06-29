@@ -127,14 +127,14 @@ static const struct glsl_resource_type_info *shader_glsl_get_resource_type_info(
     return &info[t];
 }
 
-static const struct vkd3d_shader_descriptor_info1 *shader_glsl_get_descriptor(struct vkd3d_glsl_generator *gen,
+static const struct vsir_descriptor *shader_glsl_get_descriptor(struct vkd3d_glsl_generator *gen,
         enum vkd3d_shader_descriptor_type type, unsigned int idx, unsigned int space)
 {
     const struct vsir_descriptor_info *info = &gen->program->descriptors;
 
     for (unsigned int i = 0; i < info->count; ++i)
     {
-        const struct vkd3d_shader_descriptor_info1 *d = &info->descriptors[i];
+        const struct vsir_descriptor *d = &info->descriptors[i];
 
         if (d->type == type && d->register_space == space && d->register_index == idx)
             return d;
@@ -788,9 +788,9 @@ static void shader_glsl_ld(struct vkd3d_glsl_generator *gen, const struct vkd3d_
 {
     unsigned int coord_size, resource_id, resource_idx, resource_space, sample_count;
     const struct glsl_resource_type_info *resource_type_info;
-    const struct vkd3d_shader_descriptor_info1 *d;
     enum vkd3d_shader_resource_type resource_type;
     struct vkd3d_string_buffer *fetch;
+    const struct vsir_descriptor *d;
     enum vsir_data_type data_type;
     struct glsl_src coord;
     struct glsl_dst dst;
@@ -908,10 +908,10 @@ static void shader_glsl_sample(struct vkd3d_glsl_generator *gen, const struct vk
     unsigned int resource_id, resource_idx, resource_space;
     unsigned int sampler_id, sampler_idx, sampler_space;
     const struct vsir_src_operand *resource, *sampler;
-    const struct vkd3d_shader_descriptor_info1 *d;
     enum vkd3d_shader_resource_type resource_type;
     unsigned int component_idx, coord_size;
     struct vkd3d_string_buffer *sample;
+    const struct vsir_descriptor *d;
     enum vsir_data_type data_type;
     struct glsl_dst dst;
 
@@ -1061,9 +1061,9 @@ static void shader_glsl_load_raw_structured(struct vkd3d_glsl_generator *gen,
 {
     unsigned int count, descriptor_id, resource_idx, resource_space, i, stride, src_idx = 0;
     const struct vsir_src_operand *resource_src = &ins->src[ins->src_count - 1];
-    const struct vkd3d_shader_descriptor_info1 *d;
     struct vkd3d_string_buffer *coord, *load;
     uint32_t dst_mask, mask, swizzle;
+    const struct vsir_descriptor *d;
     enum vsir_register_type type;
     struct glsl_dst dst;
 
@@ -1138,10 +1138,10 @@ static void shader_glsl_load_raw_structured(struct vkd3d_glsl_generator *gen,
 static void shader_glsl_load_uav_typed(struct vkd3d_glsl_generator *gen, const struct vkd3d_shader_instruction *ins)
 {
     const struct glsl_resource_type_info *resource_type_info;
-    const struct vkd3d_shader_descriptor_info1 *d;
     enum vkd3d_shader_resource_type resource_type;
     unsigned int uav_id, uav_idx, uav_space;
     struct vkd3d_string_buffer *load;
+    const struct vsir_descriptor *d;
     enum vsir_data_type data_type;
     struct glsl_src coord;
     struct glsl_dst dst;
@@ -1200,8 +1200,8 @@ static void shader_glsl_store_raw_structured(struct vkd3d_glsl_generator *gen,
 {
     unsigned int descriptor_id, resource_idx, resource_space, i, stride, src_idx = 0;
     struct vkd3d_string_buffer *buffer = gen->buffer;
-    const struct vkd3d_shader_descriptor_info1 *d;
     struct vkd3d_string_buffer *coord;
+    const struct vsir_descriptor *d;
     enum vsir_register_type type;
     uint32_t mask;
 
@@ -1264,10 +1264,10 @@ static void shader_glsl_store_raw_structured(struct vkd3d_glsl_generator *gen,
 static void shader_glsl_store_uav_typed(struct vkd3d_glsl_generator *gen, const struct vkd3d_shader_instruction *ins)
 {
     const struct glsl_resource_type_info *resource_type_info;
-    const struct vkd3d_shader_descriptor_info1 *d;
     enum vkd3d_shader_resource_type resource_type;
     unsigned int uav_id, uav_idx, uav_space;
     struct vkd3d_string_buffer *image_data;
+    const struct vsir_descriptor *d;
     enum vsir_data_type data_type;
     struct glsl_src image_coord;
     uint32_t coord_mask;
@@ -1903,8 +1903,7 @@ static bool shader_glsl_get_uav_binding(const struct vkd3d_glsl_generator *gen, 
     return false;
 }
 
-static void shader_glsl_generate_uav_declaration(struct vkd3d_glsl_generator *gen,
-        const struct vkd3d_shader_descriptor_info1 *uav)
+static void shader_glsl_generate_uav_declaration(struct vkd3d_glsl_generator *gen, const struct vsir_descriptor *uav)
 {
     const struct glsl_resource_type_info *resource_type_info;
     const char *image_type_prefix, *image_type, *read_format;
@@ -2032,8 +2031,7 @@ static bool shader_glsl_get_cbv_binding(const struct vkd3d_glsl_generator *gen,
     return false;
 }
 
-static void shader_glsl_generate_cbv_declaration(struct vkd3d_glsl_generator *gen,
-        const struct vkd3d_shader_descriptor_info1 *cbv)
+static void shader_glsl_generate_cbv_declaration(struct vkd3d_glsl_generator *gen, const struct vsir_descriptor *cbv)
 {
     const struct vkd3d_shader_descriptor_binding *binding;
     const struct vkd3d_shader_descriptor_offset *offset;
@@ -2136,12 +2134,12 @@ static bool shader_glsl_get_combined_sampler_binding(const struct vkd3d_glsl_gen
 static void shader_glsl_generate_sampler_declaration(struct vkd3d_glsl_generator *gen,
         const struct vkd3d_shader_combined_resource_sampler_info *crs)
 {
-    const struct vkd3d_shader_descriptor_info1 *sampler, *srv;
     const struct glsl_resource_type_info *resource_type_info;
     const struct vkd3d_shader_descriptor_binding *binding;
     struct vkd3d_string_buffer *buffer = gen->buffer;
     const char *sampler_type, *sampler_type_prefix;
     enum vkd3d_shader_resource_type resource_type;
+    const struct vsir_descriptor *sampler, *srv;
     unsigned int binding_idx;
     bool shadow = false;
 
@@ -2260,7 +2258,7 @@ static void shader_glsl_generate_descriptor_declarations(struct vkd3d_glsl_gener
 {
     const struct vkd3d_shader_scan_combined_resource_sampler_info *sampler_info = gen->combined_sampler_info;
     const struct vsir_descriptor_info *descriptors = &gen->program->descriptors;
-    const struct vkd3d_shader_descriptor_info1 *descriptor;
+    const struct vsir_descriptor *descriptor;
     unsigned int i;
 
     for (i = 0; i < descriptors->count; ++i)

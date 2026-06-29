@@ -14142,9 +14142,9 @@ static void generate_vsir_descriptors_for_var(struct hlsl_ctx *ctx, struct vsir_
     for (unsigned int k = 0; k < component_count; ++k)
     {
         const struct hlsl_type *component_type = hlsl_type_get_component_type(ctx, var->data_type, k);
-        struct vkd3d_shader_descriptor_info1 *d;
         struct vsir_register_range range;
         unsigned int regset_offset;
+        struct vsir_descriptor *d;
         enum hlsl_regset regset;
         uint32_t id;
 
@@ -14206,9 +14206,9 @@ static void generate_vsir_descriptors_for_var(struct hlsl_ctx *ctx, struct vsir_
 
 static void generate_vsir_descriptors(struct hlsl_ctx *ctx, struct vsir_program *program)
 {
-    struct vkd3d_shader_descriptor_info1 *d;
     struct vsir_register_range range;
     const struct hlsl_ir_var *var;
+    struct vsir_descriptor *d;
 
     if (program->shader_version.major < 4)
     {

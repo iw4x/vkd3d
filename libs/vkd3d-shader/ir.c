@@ -899,12 +899,12 @@ unsigned int vsir_signature_next_location(const struct vsir_signature *signature
     return max_row;
 }
 
-struct vkd3d_shader_descriptor_info1 *vsir_program_add_descriptor(struct vsir_program *program,
+struct vsir_descriptor *vsir_program_add_descriptor(struct vsir_program *program,
         enum vkd3d_shader_descriptor_type type, unsigned int register_id, const struct vsir_register_range *range,
         enum vkd3d_shader_resource_type resource_type, enum vsir_data_type resource_data_type)
 {
     struct vsir_descriptor_info *info = &program->descriptors;
-    struct vkd3d_shader_descriptor_info1 *d;
+    struct vsir_descriptor *d;
 
     if (!info)
         return NULL;
@@ -2322,8 +2322,8 @@ fail:
 static enum vkd3d_result vsir_program_lower_texld_sm1(struct vsir_program *program,
         struct vkd3d_shader_instruction *ins, struct vkd3d_shader_message_context *message_context)
 {
-    const struct vkd3d_shader_descriptor_info1 *sampler;
     unsigned int idx = ins->dst[0].reg.idx[0].offset;
+    const struct vsir_descriptor *sampler;
     struct vsir_src_operand *srcs;
 
     /* texld DST, t# -> sample DST, t#, resource#, sampler# */
@@ -2415,8 +2415,8 @@ static enum vkd3d_result vsir_program_lower_texldp(struct vsir_program *program,
 static enum vkd3d_result vsir_program_lower_texld(struct vsir_program *program,
         struct vkd3d_shader_instruction *tex, struct vkd3d_shader_message_context *message_context)
 {
-    const struct vkd3d_shader_descriptor_info1 *sampler;
     unsigned int idx = tex->src[1].reg.idx[0].offset;
+    const struct vsir_descriptor *sampler;
     struct vsir_src_operand *srcs;
 
     VKD3D_ASSERT(tex->src[1].reg.idx_count == 1);
@@ -2554,7 +2554,7 @@ static enum vkd3d_result vsir_program_lower_tex(struct vsir_program *program,
     struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(it);
     const struct vkd3d_shader_location location = ins->location;
     unsigned int idxN = ins->dst[0].reg.idx[0].offset, idxM;
-    const struct vkd3d_shader_descriptor_info1 *sampler;
+    const struct vsir_descriptor *sampler;
     struct vsir_src_operand *srcs;
     uint32_t coords_swizzle;
 
@@ -2963,11 +2963,11 @@ static enum vkd3d_result vsir_program_lower_texbem(struct vsir_program *program,
 {
     struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(it);
     const struct vkd3d_shader_location location = ins->location;
-    const struct vkd3d_shader_descriptor_info1 *descriptor;
     bool is_texbeml = (ins->opcode == VSIR_OP_TEXBEML);
     unsigned int idx = ins->dst[0].reg.idx[0].offset;
     uint32_t ssa_coords, ssa_luminance, ssa_sample;
     const struct vsir_src_operand *src = ins->src;
+    const struct vsir_descriptor *descriptor;
     struct vsir_src_operand orig_coords;
     bool projected;
 
@@ -12688,7 +12688,7 @@ static void vsir_validate_label_register(struct validation_context *ctx, const s
 static void vsir_validate_descriptor_indices(struct validation_context *ctx,
         const struct vsir_operand *reg, enum vkd3d_shader_descriptor_type type, const char *name)
 {
-    const struct vkd3d_shader_descriptor_info1 *descriptor;
+    const struct vsir_descriptor *descriptor;
 
     if (reg->idx[0].rel_addr)
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_INDEX,
@@ -13862,7 +13862,7 @@ static void vsir_validate_descriptors(struct validation_context *ctx)
 
     for (i = 0; i < descriptors->count; ++i)
     {
-        const struct vkd3d_shader_descriptor_info1 *descriptor = &descriptors->descriptors[i];
+        const struct vsir_descriptor *descriptor = &descriptors->descriptors[i];
         uint32_t flags_mask = 0, uav_flags_mask = 0;
 
         if (descriptor->type >= VKD3D_SHADER_DESCRIPTOR_TYPE_COUNT)

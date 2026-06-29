@@ -6454,13 +6454,12 @@ static void spirv_compiler_emit_push_constant_buffers(struct spirv_compiler *com
     }
 }
 
-static const struct vkd3d_shader_descriptor_info1 *spirv_compiler_get_descriptor_info(
-        struct spirv_compiler *compiler, enum vkd3d_shader_descriptor_type type,
-        const struct vsir_register_range *range)
+static const struct vsir_descriptor *spirv_compiler_get_descriptor_info(struct spirv_compiler *compiler,
+        enum vkd3d_shader_descriptor_type type, const struct vsir_register_range *range)
 {
     const struct vsir_descriptor_info *descriptor_info = &compiler->program->descriptors;
     unsigned int register_last = (range->last == ~0u) ? range->first : range->last;
-    const struct vkd3d_shader_descriptor_info1 *d;
+    const struct vsir_descriptor *d;
     unsigned int i;
 
     for (i = 0; i < descriptor_info->count; ++i)
@@ -6494,7 +6493,7 @@ static void spirv_compiler_decorate_descriptor(struct spirv_compiler *compiler,
 static uint32_t spirv_compiler_build_descriptor_variable(struct spirv_compiler *compiler,
         SpvStorageClass storage_class, uint32_t type_id, const struct vsir_operand *reg,
         const struct vsir_register_range *range, enum vkd3d_shader_resource_type resource_type,
-        const struct vkd3d_shader_descriptor_info1 *descriptor, bool is_uav_counter,
+        const struct vsir_descriptor *descriptor, bool is_uav_counter,
         struct vkd3d_descriptor_variable_info *var_info)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
@@ -6567,7 +6566,7 @@ static uint32_t spirv_compiler_build_descriptor_variable(struct spirv_compiler *
 }
 
 static void spirv_compiler_emit_cbv_declaration(struct spirv_compiler *compiler,
-        const struct vsir_register_range *range, const struct vkd3d_shader_descriptor_info1 *descriptor)
+        const struct vsir_register_range *range, const struct vsir_descriptor *descriptor)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     uint32_t vec4_id, array_type_id, length_id, struct_id, var_id;
@@ -6628,7 +6627,7 @@ static void spirv_compiler_emit_cbv_declaration(struct spirv_compiler *compiler,
 }
 
 static void spirv_compiler_emit_sampler_declaration(struct spirv_compiler *compiler,
-        const struct vsir_register_range *range, const struct vkd3d_shader_descriptor_info1 *descriptor)
+        const struct vsir_register_range *range, const struct vsir_descriptor *descriptor)
 {
     const SpvStorageClass storage_class = SpvStorageClassUniformConstant;
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
@@ -6704,7 +6703,7 @@ static uint32_t spirv_compiler_get_image_type_id(struct spirv_compiler *compiler
         const struct vkd3d_spirv_resource_type *resource_type_info, enum vsir_data_type data_type, bool raw_structured)
 {
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
-    const struct vkd3d_shader_descriptor_info1 *d;
+    const struct vsir_descriptor *d;
     bool uav_read, uav_atomics;
     uint32_t sampled_type_id;
     SpvImageFormat format;
@@ -6801,7 +6800,7 @@ static void spirv_compiler_emit_combined_sampler_declarations(struct spirv_compi
 }
 
 static void spirv_compiler_emit_resource_declaration(struct spirv_compiler *compiler,
-        const struct vsir_register_range *range, const struct vkd3d_shader_descriptor_info1 *descriptor)
+        const struct vsir_register_range *range, const struct vsir_descriptor *descriptor)
 {
     bool raw = descriptor->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_RAW_BUFFER;
     enum vkd3d_shader_resource_type resource_type = descriptor->resource_type;
@@ -10674,7 +10673,7 @@ static void spirv_compiler_emit_descriptor_declarations(struct spirv_compiler *c
 
     for (i = 0; i < descriptors->count; ++i)
     {
-        const struct vkd3d_shader_descriptor_info1 *descriptor = &descriptors->descriptors[i];
+        const struct vsir_descriptor *descriptor = &descriptors->descriptors[i];
         struct vsir_register_range range;
 
         range.first = descriptor->register_index;

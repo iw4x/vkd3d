@@ -1661,7 +1661,7 @@ enum vsir_normalisation_level
 
 const char *vsir_denorm_mode_get_name(enum vkd3d_shader_denormal_mode m, const char *error);
 
-struct vkd3d_shader_descriptor_info1
+struct vsir_descriptor
 {
     enum vkd3d_shader_descriptor_type type;
     unsigned int register_space;
@@ -1679,11 +1679,11 @@ struct vkd3d_shader_descriptor_info1
 
 struct vsir_descriptor_info
 {
-    struct vkd3d_shader_descriptor_info1 *descriptors;
+    struct vsir_descriptor *descriptors;
     size_t capacity, count;
 };
 
-const struct vkd3d_shader_descriptor_info1 *vkd3d_shader_find_descriptor(
+const struct vsir_descriptor *vkd3d_shader_find_descriptor(
     const struct vsir_descriptor_info *info, enum vkd3d_shader_descriptor_type type, unsigned int register_id);
 void vsir_descriptor_info_cleanup(struct vsir_descriptor_info *info);
 
@@ -1750,7 +1750,7 @@ struct vsir_program
     enum vkd3d_shader_denormal_mode f64_denormal_mode;
 };
 
-struct vkd3d_shader_descriptor_info1 *vsir_program_add_descriptor(struct vsir_program *program,
+struct vsir_descriptor *vsir_program_add_descriptor(struct vsir_program *program,
         enum vkd3d_shader_descriptor_type type, unsigned int register_id, const struct vsir_register_range *range,
         enum vkd3d_shader_resource_type resource_type, enum vsir_data_type resource_data_type);
 bool vsir_program_add_icb(struct vsir_program *program, struct vkd3d_shader_immediate_constant_buffer *icb);

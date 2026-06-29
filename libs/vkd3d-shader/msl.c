@@ -211,7 +211,7 @@ static bool msl_check_shader_visibility(const struct msl_generator *gen,
     }
 }
 
-static bool msl_get_binding(const struct msl_generator *gen, const struct vkd3d_shader_descriptor_info1 *descriptor,
+static bool msl_get_binding(const struct msl_generator *gen, const struct vsir_descriptor *descriptor,
         unsigned int register_idx, enum vkd3d_shader_binding_flag flags, unsigned int *idx)
 {
     const struct vkd3d_shader_interface_info *interface_info = gen->interface_info;
@@ -251,19 +251,19 @@ static bool msl_get_binding(const struct msl_generator *gen, const struct vkd3d_
 }
 
 static bool msl_get_cbv_binding(const struct msl_generator *gen,
-        const struct vkd3d_shader_descriptor_info1 *descriptor, unsigned int register_idx, unsigned int *idx)
+        const struct vsir_descriptor *descriptor, unsigned int register_idx, unsigned int *idx)
 {
     return msl_get_binding(gen, descriptor, register_idx, VKD3D_SHADER_BINDING_FLAG_BUFFER, idx);
 }
 
 static bool msl_get_sampler_binding(const struct msl_generator *gen,
-        const struct vkd3d_shader_descriptor_info1 *descriptor, unsigned int register_idx, unsigned int *idx)
+        const struct vsir_descriptor *descriptor, unsigned int register_idx, unsigned int *idx)
 {
     return msl_get_binding(gen, descriptor, register_idx, 0, idx);
 }
 
 static bool msl_get_srv_binding(const struct msl_generator *gen,
-        const struct vkd3d_shader_descriptor_info1 *descriptor, unsigned int register_idx, unsigned int *idx)
+        const struct vsir_descriptor *descriptor, unsigned int register_idx, unsigned int *idx)
 {
     return msl_get_binding(gen, descriptor, register_idx,
             descriptor->resource_type == VKD3D_SHADER_RESOURCE_BUFFER
@@ -271,7 +271,7 @@ static bool msl_get_srv_binding(const struct msl_generator *gen,
 }
 
 static bool msl_get_uav_binding(const struct msl_generator *gen,
-        const struct vkd3d_shader_descriptor_info1 *descriptor, unsigned int register_idx, unsigned int *idx)
+        const struct vsir_descriptor *descriptor, unsigned int register_idx, unsigned int *idx)
 {
     return msl_get_binding(gen, descriptor, register_idx,
             descriptor->resource_type == VKD3D_SHADER_RESOURCE_BUFFER
@@ -311,7 +311,7 @@ static void msl_print_uav_name(struct vkd3d_string_buffer *buffer, struct msl_ge
 static enum msl_data_type msl_print_operand_name(struct vkd3d_string_buffer *buffer,
         struct msl_generator *gen, const struct vsir_operand *reg)
 {
-    const struct vkd3d_shader_descriptor_info1 *descriptor;
+    const struct vsir_descriptor *descriptor;
     unsigned int binding, cbv_id, cbv_idx;
 
     switch (reg->type)
@@ -928,8 +928,8 @@ static void msl_ld(struct msl_generator *gen, const struct vkd3d_shader_instruct
 {
     unsigned int resource_id, resource_idx, resource_space, sample_count;
     const struct msl_resource_type_info *resource_type_info;
-    const struct vkd3d_shader_descriptor_info1 *descriptor;
     enum vkd3d_shader_resource_type resource_type;
+    const struct vsir_descriptor *descriptor;
     uint32_t coord_mask, write_mask_size;
     struct vkd3d_string_buffer *read;
     enum vsir_data_type data_type;
@@ -1042,10 +1042,10 @@ static void msl_sample(struct msl_generator *gen, const struct vkd3d_shader_inst
     unsigned int sampler_id, sampler_idx, sampler_space;
     const struct vsir_src_operand *resource, *sampler;
     unsigned int srv_binding = 0, sampler_binding = 0;
-    const struct vkd3d_shader_descriptor_info1 *d;
     enum vkd3d_shader_resource_type resource_type;
     uint32_t coord_mask, write_mask_size;
     struct vkd3d_string_buffer *sample;
+    const struct vsir_descriptor *d;
     enum vsir_data_type data_type;
     unsigned int component_idx;
     struct msl_dst dst;
@@ -1239,10 +1239,10 @@ static void msl_sample(struct msl_generator *gen, const struct vkd3d_shader_inst
 static void msl_store_uav_typed(struct msl_generator *gen, const struct vkd3d_shader_instruction *ins)
 {
     const struct msl_resource_type_info *resource_type_info;
-    const struct vkd3d_shader_descriptor_info1 *d;
     enum vkd3d_shader_resource_type resource_type;
     unsigned int uav_id, uav_idx, uav_space;
     struct vkd3d_string_buffer *image_data;
+    const struct vsir_descriptor *d;
     enum vsir_data_type data_type;
     unsigned int uav_binding = 0;
     uint32_t coord_mask;
