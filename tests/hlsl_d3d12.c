@@ -4016,7 +4016,7 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
 
         hr = ID3D10ShaderReflection1_GetMovInstructionCount(r, &ret);
         ok(hr == S_OK, "Got hr %#x.\n", hr);
-        todo ok(ret == 20, "Got ret %u.\n", ret);
+        ok(ret == 20, "Got ret %u.\n", ret);
 
         hr = ID3D10ShaderReflection1_GetMovcInstructionCount(r, &ret);
         ok(hr == S_OK, "Got hr %#x.\n", hr);
@@ -4048,7 +4048,7 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
     else if (!IsEqualGUID(iid, &IID_ID3D10ShaderReflection))
     {
         ret = ID3D12ShaderReflection_GetMovInstructionCount(reflection);
-        todo ok(ret == 20, "Got ret %u.\n", ret);
+        ok(ret == 20, "Got ret %u.\n", ret);
         ret = ID3D12ShaderReflection_GetMovcInstructionCount(reflection);
         todo ok(ret == 21, "Got ret %u.\n", ret);
         ret = ID3D12ShaderReflection_GetConversionInstructionCount(reflection);
