@@ -72,6 +72,7 @@ struct d3d12_reflection
     size_t desc_size, bind_desc_size;
 
     uint32_t mov_count;
+    uint32_t movc_count;
 
     struct d3d12_buffer *buffers;
 
@@ -590,9 +591,11 @@ static UINT STDMETHODCALLTYPE d3d12_reflection_GetMovInstructionCount(ID3D12Shad
 
 static UINT STDMETHODCALLTYPE d3d12_reflection_GetMovcInstructionCount(ID3D12ShaderReflection *iface)
 {
-    FIXME("iface %p stub!\n", iface);
+    struct d3d12_reflection *reflection = impl_from_ID3D12ShaderReflection(iface);
 
-    return 0;
+    TRACE("iface %p.\n", iface);
+
+    return reflection->movc_count;
 }
 
 static UINT STDMETHODCALLTYPE d3d12_reflection_GetConversionInstructionCount(ID3D12ShaderReflection *iface)
@@ -1414,6 +1417,7 @@ static HRESULT parse_stat(struct d3d12_reflection *r, const struct vkd3d_shader_
     r->desc.TextureBiasInstructions = normalised_stat.sample_bias_count;
     r->desc.TextureGradientInstructions = normalised_stat.sample_grad_count;
     r->mov_count = normalised_stat.mov_count;
+    r->movc_count = normalised_stat.movc_count;
     r->desc.InputPrimitive = normalised_stat.input_primitive;
     r->desc.GSOutputTopology = normalised_stat.gs_output_topology;
     r->desc.GSMaxOutputVertexCount = normalised_stat.gs_max_output_vertex_count;
