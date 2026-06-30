@@ -620,9 +620,11 @@ static UINT STDMETHODCALLTYPE d3d12_reflection_GetBitwiseInstructionCount(ID3D12
 
 static D3D_PRIMITIVE STDMETHODCALLTYPE d3d12_reflection_GetGSInputPrimitive(ID3D12ShaderReflection *iface)
 {
-    FIXME("iface %p stub!\n", iface);
+    struct d3d12_reflection *reflection = impl_from_ID3D12ShaderReflection(iface);
 
-    return 0;
+    TRACE("iface %p.\n", iface);
+
+    return reflection->desc.InputPrimitive;
 }
 
 static BOOL STDMETHODCALLTYPE d3d12_reflection_IsSampleFrequencyShader(ID3D12ShaderReflection *iface)
