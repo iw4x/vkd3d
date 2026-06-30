@@ -4024,7 +4024,7 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
 
         hr = ID3D10ShaderReflection1_GetConversionInstructionCount(r, &ret);
         ok(hr == S_OK, "Got hr %#x.\n", hr);
-        todo ok(ret == 22, "Got ret %u.\n", ret);
+        ok(ret == 22, "Got ret %u.\n", ret);
 
         hr = ID3D10ShaderReflection1_GetBitwiseInstructionCount(r, &ret);
         ok(hr == S_OK, "Got hr %#x.\n", hr);
@@ -4052,7 +4052,7 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
         ret = ID3D12ShaderReflection_GetMovcInstructionCount(reflection);
         ok(ret == 21, "Got ret %u.\n", ret);
         ret = ID3D12ShaderReflection_GetConversionInstructionCount(reflection);
-        todo ok(ret == 22, "Got ret %u.\n", ret);
+        ok(ret == 22, "Got ret %u.\n", ret);
         ret = ID3D12ShaderReflection_GetBitwiseInstructionCount(reflection);
         todo ok(ret == 23, "Got ret %u.\n", ret);
         ret = ID3D12ShaderReflection_GetGSInputPrimitive(reflection);
