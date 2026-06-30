@@ -4042,7 +4042,7 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
 
             hr = ID3D10ShaderReflection1_IsSampleFrequencyShader(r, (BOOL *)&ret);
             ok(hr == S_OK, "Got hr %#x.\n", hr);
-            todo ok(ret == 0x1d, "Got ret %#x.\n", ret);
+            ok(ret == 0x1d, "Got ret %#x.\n", ret);
         }
     }
     else if (!IsEqualGUID(iid, &IID_ID3D10ShaderReflection))
@@ -4058,7 +4058,7 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
         ret = ID3D12ShaderReflection_GetGSInputPrimitive(reflection);
         ok(ret == 0x18, "Got ret %#x.\n", ret);
         ret = ID3D12ShaderReflection_IsSampleFrequencyShader(reflection);
-        todo ok(ret == 0x1d, "Got ret %#x.\n", ret);
+        ok(ret == 0x1d, "Got ret %#x.\n", ret);
     }
 
     refcount = ID3D12ShaderReflection_Release(reflection);

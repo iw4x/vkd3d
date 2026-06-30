@@ -75,6 +75,7 @@ struct d3d12_reflection
     uint32_t movc_count;
     uint32_t type_conversion_count;
     uint32_t bitwise_count;
+    uint32_t sample_frequency;
 
     struct d3d12_buffer *buffers;
 
@@ -629,9 +630,11 @@ static D3D_PRIMITIVE STDMETHODCALLTYPE d3d12_reflection_GetGSInputPrimitive(ID3D
 
 static BOOL STDMETHODCALLTYPE d3d12_reflection_IsSampleFrequencyShader(ID3D12ShaderReflection *iface)
 {
-    FIXME("iface %p stub!\n", iface);
+    struct d3d12_reflection *reflection = impl_from_ID3D12ShaderReflection(iface);
 
-    return FALSE;
+    TRACE("iface %p.\n", iface);
+
+    return reflection->sample_frequency;
 }
 
 static UINT STDMETHODCALLTYPE d3d12_reflection_GetNumInterfaceSlots(ID3D12ShaderReflection *iface)
@@ -1431,6 +1434,7 @@ static HRESULT parse_stat(struct d3d12_reflection *r, const struct vkd3d_shader_
     r->desc.InputPrimitive = normalised_stat.input_primitive;
     r->desc.GSOutputTopology = normalised_stat.gs_output_topology;
     r->desc.GSMaxOutputVertexCount = normalised_stat.gs_max_output_vertex_count;
+    r->sample_frequency = normalised_stat.sample_frequency;
     r->desc.cGSInstanceCount = normalised_stat.gs_instance_count;
     r->desc.cControlPoints = normalised_stat.control_point_count;
     r->desc.HSOutputPrimitive = normalised_stat.hs_output_primitive;
