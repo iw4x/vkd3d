@@ -276,6 +276,10 @@ static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
             vkd3d_string_buffer_printf(buffer, "uvec4(gl_GlobalInvocationID, 0)");
             break;
 
+        case VSIR_REGISTER_THREADGROUPID:
+            vkd3d_string_buffer_printf(buffer, "uvec4(gl_WorkGroupID, 0)");
+            break;
+
         case VSIR_REGISTER_LOCALTHREADINDEX:
             vkd3d_string_buffer_printf(buffer, "uvec4(gl_LocalInvocationIndex, 0, 0, 0)");
             break;
@@ -406,6 +410,7 @@ static void shader_glsl_print_src(struct vkd3d_string_buffer *buffer, struct vkd
     {
         case VSIR_REGISTER_IMMCONST:
         case VSIR_REGISTER_THREADID:
+        case VSIR_REGISTER_THREADGROUPID:
         case VSIR_REGISTER_LOCALTHREADINDEX:
             src_data_type = VSIR_DATA_U32;
             break;
