@@ -2997,7 +2997,6 @@ struct spirv_compiler
     struct vkd3d_shader_spec_constant *spec_constants;
     size_t spec_constants_size;
     enum vkd3d_shader_compile_option_feature_flags features;
-    bool write_tess_geom_point_size;
 
     struct vkd3d_string_buffer_cache string_buffers;
 
@@ -3142,7 +3141,6 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
     vkd3d_spirv_builder_init(&compiler->spirv_builder,
             spirv_compiler_get_entry_point_name(compiler), compile_info->source_name);
 
-    compiler->write_tess_geom_point_size = true;
     compiler->fragment_coordinate_origin = SpvExecutionModeOriginUpperLeft;
 
     for (i = 0; i < compile_info->option_count; ++i)
@@ -3151,10 +3149,6 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
 
         switch (option->name)
         {
-            case VKD3D_SHADER_COMPILE_OPTION_WRITE_TESS_GEOM_POINT_SIZE:
-                compiler->write_tess_geom_point_size = option->value;
-                break;
-
             case VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN:
                 if (option->value == VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN_UPPER_LEFT)
                     compiler->fragment_coordinate_origin = SpvExecutionModeOriginUpperLeft;
@@ -3173,6 +3167,7 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
             case VKD3D_SHADER_COMPILE_OPTION_FORMATTING:
             case VKD3D_SHADER_COMPILE_OPTION_API_VERSION:
             case VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV:
+            case VKD3D_SHADER_COMPILE_OPTION_WRITE_TESS_GEOM_POINT_SIZE:
             case VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ORDER:
             case VKD3D_SHADER_COMPILE_OPTION_BACKWARD_COMPATIBILITY:
             case VKD3D_SHADER_COMPILE_OPTION_CHILD_EFFECT:
@@ -7009,7 +7004,7 @@ static void spirv_compiler_emit_point_size(struct spirv_compiler *compiler)
      * PointSize for tessellation and geometry shaders. In that case the point
      * size defaults to 1.0. */
     if (spirv_compiler_is_opengl_target(compiler) || compiler->shader_type == VKD3D_SHADER_TYPE_VERTEX
-            || compiler->write_tess_geom_point_size)
+            || compiler->compile_info.write_tess_geom_point_size)
     {
         struct vsir_dst_operand dst;
 

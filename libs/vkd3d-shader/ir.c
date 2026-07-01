@@ -764,6 +764,7 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
         .formatting = VKD3D_SHADER_COMPILE_OPTION_FORMATTING_INDENT
                 | VKD3D_SHADER_COMPILE_OPTION_FORMATTING_HEADER,
         .api_version = VKD3D_SHADER_API_VERSION_1_2,
+        .write_tess_geom_point_size = true,
     };
 
     if (!vkd3d)
@@ -803,6 +804,10 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
                     vsir->uav_read_without_format = true;
                 else
                     WARN("Ignoring unrecognised value %#x for option %#x.\n", option->value, option->name);
+                break;
+
+            case VKD3D_SHADER_COMPILE_OPTION_WRITE_TESS_GEOM_POINT_SIZE:
+                vsir->write_tess_geom_point_size = !!option->value;
                 break;
 
             default:
