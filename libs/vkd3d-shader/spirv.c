@@ -2944,7 +2944,6 @@ struct spirv_compiler
     bool failed;
 
     struct vsir_compile_info compile_info;
-    bool uav_read_without_format;
     SpvExecutionMode fragment_coordinate_origin;
 
     struct rb_tree symbol_table;
@@ -3152,15 +3151,6 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
 
         switch (option->name)
         {
-            case VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV:
-                if (option->value == VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV_READ_FORMAT_R32)
-                    compiler->uav_read_without_format = false;
-                else if (option->value == VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV_READ_FORMAT_UNKNOWN)
-                    compiler->uav_read_without_format = true;
-                else
-                    WARN("Ignoring unrecognised value %#x for option %#x.\n", option->value, option->name);
-                break;
-
             case VKD3D_SHADER_COMPILE_OPTION_WRITE_TESS_GEOM_POINT_SIZE:
                 compiler->write_tess_geom_point_size = option->value;
                 break;
@@ -3182,6 +3172,7 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
             case VKD3D_SHADER_COMPILE_OPTION_BUFFER_UAV:
             case VKD3D_SHADER_COMPILE_OPTION_FORMATTING:
             case VKD3D_SHADER_COMPILE_OPTION_API_VERSION:
+            case VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV:
             case VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ORDER:
             case VKD3D_SHADER_COMPILE_OPTION_BACKWARD_COMPATIBILITY:
             case VKD3D_SHADER_COMPILE_OPTION_CHILD_EFFECT:
@@ -6242,7 +6233,7 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
 
     if (flags & VKD3DSGF_ENABLE_RELAXED_TYPED_UAV_FORMATS)
     {
-        if (!compiler->uav_read_without_format)
+        if (!compiler->compile_info.uav_read_without_format)
             spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_UNSUPPORTED_FEATURE,
                     "The target environment does not support accessing storage images without specifying a format.");
         flags &= ~VKD3DSGF_ENABLE_RELAXED_TYPED_UAV_FORMATS;
@@ -6695,7 +6686,7 @@ static uint32_t spirv_compiler_get_image_type_id(struct spirv_compiler *compiler
                 VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, range);
         uav_read = !!(d->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_UAV_READ);
         uav_atomics = !!(d->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_UAV_ATOMICS);
-        if (raw_structured || uav_atomics || (uav_read && !compiler->uav_read_without_format))
+        if (raw_structured || uav_atomics || (uav_read && !compiler->compile_info.uav_read_without_format))
             format = image_format_for_image_read(compiler, data_type);
         else if (uav_read)
             vkd3d_spirv_enable_capability(builder, SpvCapabilityStorageImageReadWithoutFormat);

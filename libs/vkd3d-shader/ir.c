@@ -796,6 +796,15 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
                 vsir->api_version = option->value;
                 break;
 
+            case VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV:
+                if (option->value == VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV_READ_FORMAT_R32)
+                    vsir->uav_read_without_format = false;
+                else if (option->value == VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV_READ_FORMAT_UNKNOWN)
+                    vsir->uav_read_without_format = true;
+                else
+                    WARN("Ignoring unrecognised value %#x for option %#x.\n", option->value, option->name);
+                break;
+
             default:
                 break;
         }
