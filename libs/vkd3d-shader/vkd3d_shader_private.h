@@ -1693,6 +1693,7 @@ struct vsir_compile_info
     enum vkd3d_shader_api_version api_version;
 
     uint32_t strip_debug : 1;
+    uint32_t ssbo_uavs : 1;
 };
 
 void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d);

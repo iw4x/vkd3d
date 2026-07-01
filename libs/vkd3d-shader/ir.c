@@ -779,6 +779,15 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
                 vsir->strip_debug = !!option->value;
                 break;
 
+            case VKD3D_SHADER_COMPILE_OPTION_BUFFER_UAV:
+                if (option->value == VKD3D_SHADER_COMPILE_OPTION_BUFFER_UAV_STORAGE_TEXEL_BUFFER)
+                    vsir->ssbo_uavs = false;
+                else if (option->value == VKD3D_SHADER_COMPILE_OPTION_BUFFER_UAV_STORAGE_BUFFER)
+                    vsir->ssbo_uavs = true;
+                else
+                    WARN("Ignoring unrecognised value %#x for option %#x.\n", option->value, option->name);
+                break;
+
             case VKD3D_SHADER_COMPILE_OPTION_FORMATTING:
                 vsir->formatting = option->value;
                 break;

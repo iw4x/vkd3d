@@ -2944,7 +2944,6 @@ struct spirv_compiler
     bool failed;
 
     struct vsir_compile_info compile_info;
-    bool ssbo_uavs;
     bool uav_read_without_format;
     SpvExecutionMode fragment_coordinate_origin;
 
@@ -3153,15 +3152,6 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
 
         switch (option->name)
         {
-            case VKD3D_SHADER_COMPILE_OPTION_BUFFER_UAV:
-                if (option->value == VKD3D_SHADER_COMPILE_OPTION_BUFFER_UAV_STORAGE_TEXEL_BUFFER)
-                    compiler->ssbo_uavs = false;
-                else if (option->value == VKD3D_SHADER_COMPILE_OPTION_BUFFER_UAV_STORAGE_BUFFER)
-                    compiler->ssbo_uavs = true;
-                else
-                    WARN("Ignoring unrecognised value %#x for option %#x.\n", option->value, option->name);
-                break;
-
             case VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV:
                 if (option->value == VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV_READ_FORMAT_R32)
                     compiler->uav_read_without_format = false;
@@ -3189,6 +3179,7 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
                 break;
 
             case VKD3D_SHADER_COMPILE_OPTION_STRIP_DEBUG:
+            case VKD3D_SHADER_COMPILE_OPTION_BUFFER_UAV:
             case VKD3D_SHADER_COMPILE_OPTION_FORMATTING:
             case VKD3D_SHADER_COMPILE_OPTION_API_VERSION:
             case VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ORDER:
@@ -3262,7 +3253,8 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
 static bool spirv_compiler_use_storage_buffer(const struct spirv_compiler *compiler,
         const struct vkd3d_symbol_resource_data *resource)
 {
-    return compiler->ssbo_uavs && resource->resource_type_info->resource_type == VKD3D_SHADER_RESOURCE_BUFFER;
+    return compiler->compile_info.ssbo_uavs
+            && resource->resource_type_info->resource_type == VKD3D_SHADER_RESOURCE_BUFFER;
 }
 
 static enum vkd3d_shader_spirv_environment spirv_compiler_get_target_environment(
@@ -4260,7 +4252,7 @@ static bool spirv_compiler_enable_descriptor_indexing(struct spirv_compiler *com
             break;
         case VSIR_REGISTER_UAV:
             if (resource_type == VKD3D_SHADER_RESOURCE_BUFFER)
-                vkd3d_spirv_enable_capability(builder, compiler->ssbo_uavs
+                vkd3d_spirv_enable_capability(builder, compiler->compile_info.ssbo_uavs
                         ? SpvCapabilityStorageBufferArrayDynamicIndexing
                         : SpvCapabilityStorageTexelBufferArrayDynamicIndexingEXT);
             else
@@ -6828,7 +6820,7 @@ static void spirv_compiler_emit_resource_declaration(struct spirv_compiler *comp
         return;
     }
 
-    if (compiler->ssbo_uavs && is_uav && resource_type == VKD3D_SHADER_RESOURCE_BUFFER)
+    if (compiler->compile_info.ssbo_uavs && is_uav && resource_type == VKD3D_SHADER_RESOURCE_BUFFER)
     {
         uint32_t array_type_id, struct_id;
 
@@ -6880,7 +6872,7 @@ static void spirv_compiler_emit_resource_declaration(struct spirv_compiler *comp
                 storage_class = SpvStorageClassAtomicCounter;
                 type_id = counter_type_id;
             }
-            else if (compiler->ssbo_uavs)
+            else if (compiler->compile_info.ssbo_uavs)
             {
                 uint32_t length_id, array_type_id, struct_id;
 
@@ -9373,7 +9365,7 @@ static void spirv_compiler_emit_uav_counter_instruction(struct spirv_compiler *c
         pointer_id = counter_id;
         memory_semantics |= SpvMemorySemanticsAtomicCounterMemoryMask;
     }
-    else if (compiler->ssbo_uavs)
+    else if (compiler->compile_info.ssbo_uavs)
     {
         ptr_type_id = vkd3d_spirv_get_op_type_pointer(builder, SpvStorageClassUniform, type_id);
         coordinate_id = spirv_compiler_get_constant_uint(compiler, 0);
@@ -9589,7 +9581,7 @@ static void spirv_compiler_emit_bufinfo(struct spirv_compiler *compiler,
     uint32_t constituents[2];
     unsigned int write_mask;
 
-    if (compiler->ssbo_uavs && src->reg.type == VSIR_REGISTER_UAV)
+    if (compiler->compile_info.ssbo_uavs && src->reg.type == VSIR_REGISTER_UAV)
     {
         resource_symbol = spirv_compiler_find_resource(compiler, &src->reg);
 
