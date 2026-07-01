@@ -775,6 +775,10 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
 
         switch (option->name)
         {
+            case VKD3D_SHADER_COMPILE_OPTION_STRIP_DEBUG:
+                vsir->strip_debug = !!option->value;
+                break;
+
             case VKD3D_SHADER_COMPILE_OPTION_FORMATTING:
                 vsir->formatting = option->value;
                 break;

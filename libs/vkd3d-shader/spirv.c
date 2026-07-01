@@ -2944,7 +2944,6 @@ struct spirv_compiler
     bool failed;
 
     struct vsir_compile_info compile_info;
-    bool strip_debug;
     bool ssbo_uavs;
     bool uav_read_without_format;
     SpvExecutionMode fragment_coordinate_origin;
@@ -3154,10 +3153,6 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
 
         switch (option->name)
         {
-            case VKD3D_SHADER_COMPILE_OPTION_STRIP_DEBUG:
-                compiler->strip_debug = !!option->value;
-                break;
-
             case VKD3D_SHADER_COMPILE_OPTION_BUFFER_UAV:
                 if (option->value == VKD3D_SHADER_COMPILE_OPTION_BUFFER_UAV_STORAGE_TEXEL_BUFFER)
                     compiler->ssbo_uavs = false;
@@ -3193,6 +3188,7 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
                 compiler->features = option->value;
                 break;
 
+            case VKD3D_SHADER_COMPILE_OPTION_STRIP_DEBUG:
             case VKD3D_SHADER_COMPILE_OPTION_FORMATTING:
             case VKD3D_SHADER_COMPILE_OPTION_API_VERSION:
             case VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ORDER:
@@ -10263,7 +10259,7 @@ static void spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
      * This is an issue for hull shaders in particular, because we don't go
      * through vkd3d_spirv_builder_begin_main_function() before getting here
      * in that case. */
-    if (!compiler->strip_debug && compiler->spirv_builder.function_stream.word_count)
+    if (!compiler->compile_info.strip_debug && compiler->spirv_builder.function_stream.word_count)
         vkd3d_spirv_build_op_line(&compiler->spirv_builder, &instruction->location);
 
     switch (instruction->opcode)
@@ -10848,7 +10844,7 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
         spirv_compiler_emit_shader_epilogue_function(compiler);
     }
 
-    if (compiler->strip_debug)
+    if (compiler->compile_info.strip_debug)
         vkd3d_spirv_stream_clear(&builder->debug_stream);
 
     environment = spirv_compiler_get_target_environment(compiler);
