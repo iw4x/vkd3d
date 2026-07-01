@@ -2943,6 +2943,7 @@ struct spirv_compiler
     struct vkd3d_shader_location location;
     bool failed;
 
+    struct vsir_compile_info compile_info;
     bool strip_debug;
     bool ssbo_uavs;
     bool uav_read_without_format;
@@ -2998,9 +2999,7 @@ struct spirv_compiler
     unsigned int spec_constant_count;
     struct vkd3d_shader_spec_constant *spec_constants;
     size_t spec_constants_size;
-    enum vkd3d_shader_compile_option_formatting_flags formatting;
     enum vkd3d_shader_compile_option_feature_flags features;
-    enum vkd3d_shader_api_version api_version;
     bool write_tess_geom_point_size;
 
     struct vkd3d_string_buffer_cache string_buffers;
@@ -3139,14 +3138,13 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
         compiler->spirv_target_info = target_info;
     }
 
+    vsir_compile_info_init(&compiler->compile_info, compile_info);
     if (TRACE_ON())
         spirv_compiler_trace_extensions(compiler);
 
     vkd3d_spirv_builder_init(&compiler->spirv_builder,
             spirv_compiler_get_entry_point_name(compiler), compile_info->source_name);
 
-    compiler->formatting = VKD3D_SHADER_COMPILE_OPTION_FORMATTING_INDENT
-            | VKD3D_SHADER_COMPILE_OPTION_FORMATTING_HEADER;
     compiler->write_tess_geom_point_size = true;
     compiler->fragment_coordinate_origin = SpvExecutionModeOriginUpperLeft;
 
@@ -3167,14 +3165,6 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
                     compiler->ssbo_uavs = true;
                 else
                     WARN("Ignoring unrecognised value %#x for option %#x.\n", option->value, option->name);
-                break;
-
-            case VKD3D_SHADER_COMPILE_OPTION_FORMATTING:
-                compiler->formatting = option->value;
-                break;
-
-            case VKD3D_SHADER_COMPILE_OPTION_API_VERSION:
-                compiler->api_version = option->value;
                 break;
 
             case VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV:
@@ -3203,6 +3193,8 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
                 compiler->features = option->value;
                 break;
 
+            case VKD3D_SHADER_COMPILE_OPTION_FORMATTING:
+            case VKD3D_SHADER_COMPILE_OPTION_API_VERSION:
             case VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ORDER:
             case VKD3D_SHADER_COMPILE_OPTION_BACKWARD_COMPATIBILITY:
             case VKD3D_SHADER_COMPILE_OPTION_CHILD_EFFECT:
@@ -3221,7 +3213,7 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
     }
 
     /* Explicit enabling of float64 was not required for API versions <= 1.10. */
-    if (compiler->api_version <= VKD3D_SHADER_API_VERSION_1_10)
+    if (compiler->compile_info.api_version <= VKD3D_SHADER_API_VERSION_1_10)
         compiler->features |= VKD3D_SHADER_COMPILE_OPTION_FEATURE_FLOAT64;
 
     rb_init(&compiler->symbol_table, vkd3d_symbol_compare);
@@ -10897,7 +10889,7 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
     {
         struct vkd3d_shader_code text;
         if (vkd3d_spirv_binary_to_text(spirv, compile_info->source_name, environment,
-                compiler->formatting, &text, compiler->message_context) != VKD3D_OK)
+                compiler->compile_info.formatting, &text, compiler->message_context) != VKD3D_OK)
             return VKD3D_ERROR;
         vkd3d_shader_free_shader_code(spirv);
         *spirv = text;

@@ -761,15 +761,31 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
 
     *vsir = (struct vsir_compile_info)
     {
+        .formatting = VKD3D_SHADER_COMPILE_OPTION_FORMATTING_INDENT
+                | VKD3D_SHADER_COMPILE_OPTION_FORMATTING_HEADER,
         .api_version = VKD3D_SHADER_API_VERSION_1_2,
     };
+
+    if (!vkd3d)
+        return;
 
     for (i = 0; i < vkd3d->option_count; ++i)
     {
         option = &vkd3d->options[i];
 
-        if (option->name == VKD3D_SHADER_COMPILE_OPTION_API_VERSION)
-            vsir->api_version = option->value;
+        switch (option->name)
+        {
+            case VKD3D_SHADER_COMPILE_OPTION_FORMATTING:
+                vsir->formatting = option->value;
+                break;
+
+            case VKD3D_SHADER_COMPILE_OPTION_API_VERSION:
+                vsir->api_version = option->value;
+                break;
+
+            default:
+                break;
+        }
     }
 }
 

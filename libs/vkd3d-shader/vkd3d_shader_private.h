@@ -1689,6 +1689,7 @@ void vsir_descriptor_info_cleanup(struct vsir_descriptor_info *info);
 
 struct vsir_compile_info
 {
+    enum vkd3d_shader_compile_option_formatting_flags formatting;
     enum vkd3d_shader_api_version api_version;
 };
 
@@ -1850,7 +1851,7 @@ enum vsir_asm_flags
 };
 
 enum vkd3d_result d3d_asm_compile(struct vsir_program *program,
-        const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_code *out,
+        const struct vsir_compile_info *compile_info, struct vkd3d_shader_code *out,
         enum vsir_asm_flags flags, struct vkd3d_shader_message_context *message_context);
 void vkd3d_string_buffer_cleanup(struct vkd3d_string_buffer *buffer);
 struct vkd3d_string_buffer *vkd3d_string_buffer_get(struct vkd3d_string_buffer_cache *list);
