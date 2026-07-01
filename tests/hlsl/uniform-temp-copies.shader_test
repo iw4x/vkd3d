@@ -1,0 +1,166 @@
+[header]
+test-shader-models (2.0 3.0 4.0 5.0)
+
+% When backward compatibility is enabled, components of uniforms can be
+% assigned to, and then loaded from. For these components, a temporary copy of
+% the variable is created, and this affects which components of the uniform
+% are considered to be used for the purpose of register allocation in d3dbc
+% target profiles.
+
+% In the following shaders, comments pertain to d3dbc targets.
+
+[require]
+options: backcompat
+shader model < 5.1
+
+[pixel-shader]
+struct
+{
+    float2 arr[3];
+    float k;
+} ap;    /* Doesn't allocate cX registers. */
+float b; /* Allocates c0. */
+
+float4 main() : sv_target
+{
+    ap.k = 10;
+    ap.arr[2] = 30;
+    return float4(ap.k, b, ap.arr[2]);
+}
+
+[test]
+if(sm<4) write cbv-0 (0) f32(42.0)
+if(sm<4) draw quad
+if(sm<4) probe (0, 0) f32(10, 42, 30, 30)
+if(sm>=4) write cbv-0 (0) f32(0, 0, 0, 0)
+if(sm>=4) write cbv-0 (4) f32(0, 0, 0, 0)
+if(sm>=4) write cbv-0 (8) f32(0, 0, 11, 22)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(10, 22, 30, 30)
+
+[pixel-shader]
+float4 arr[3]; /* Allocates c0-c1. */
+int i;         /* Allocates c2. */
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    arr[0] = 10;
+    arr[2] = 30;
+    sum += arr[i]; /* only arr[1] loads from uniform. */
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-0 (0) f32(1.1, 1.2, 1.3, 1.4)
+if(sm<4) write cbv-0 (4) f32(2.1, 2.2, 2.3, 2.4)
+if(sm<4) write cbv-0 (8) f32(0)
+if(sm<4) write cbv-0 (12) f32(-1, -1, -1, -1)
+if(sm<4) draw quad
+if(sm<4) todo probe (0, 0) f32(10, 10, 10, 10)
+if(sm<4) write cbv-0 (8) f32(1)
+if(sm<4) draw quad
+if(sm<4) todo probe (0, 0) f32(2.1, 2.2, 2.3, 2.4)
+if(sm<4) write cbv-0 (8) f32(2)
+if(sm<4) draw quad
+if(sm<4) todo probe (0, 0) f32(30, 30, 30, 30)
+if(sm>=4) write cbv-0 (0) f32(1.1, 1.2, 1.3, 1.4)
+if(sm>=4) write cbv-0 (4) f32(2.1, 2.2, 2.3, 2.4)
+if(sm>=4) write cbv-0 (8) f32(3.1, 3.2, 3.3, 3.4)
+if(sm>=4) write cbv-0 (12) i32(0)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(10, 10, 10, 10)
+if(sm>=4) write cbv-0 (12) i32(1)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(2.1, 2.2, 2.3, 2.4)
+if(sm>=4) write cbv-0 (12) i32(2)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(30, 30, 30, 30)
+
+[pixel-shader]
+float4 arr[3]; // Doesn't allocate cX registers. */
+int i;         // Allocates c0. */
+
+float4 main() : sv_target
+{
+    float4 sum = 0;
+
+    arr[0] = 10;
+    arr[1] = 20;
+    arr[2] = 30;
+    sum += arr[i]; /* Loads from static copy. */
+    return sum;
+}
+
+[test]
+if(sm<4) write cbv-0 (0) f32(0)
+if(sm<4) write cbv-0 (4) f32(-1, -1, -1, -1)
+if(sm<4) draw quad
+if(sm<4) todo probe (0, 0) f32(10, 10, 10, 10)
+if(sm<4) write cbv-0 (0) f32(1)
+if(sm<4) draw quad
+if(sm<4) todo probe (0, 0) f32(20, 20, 20, 20)
+if(sm<4) write cbv-0 (0) f32(2)
+if(sm<4) draw quad
+if(sm<4) todo probe (0, 0) f32(30, 30, 30, 30)
+if(sm>=4) write cbv-0 (0) f32(0, 0, 0, 0)
+if(sm>=4) write cbv-0 (4) f32(0, 0, 0, 0)
+if(sm>=4) write cbv-0 (8) f32(0, 0, 0, 0)
+if(sm>=4) write cbv-0 (12) i32(0)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(10, 10, 10, 10)
+if(sm>=4) write cbv-0 (12) i32(1)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(20, 20, 20, 20)
+if(sm>=4) write cbv-0 (12) i32(2)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(30, 30, 30, 30)
+
+[vertex-shader]
+float4 arr[8];  /* Allocates c0-c6. */
+int i;          /* Allocates c7. */
+
+void main(float4 pos : POSITION, out float4 txc : TEXCOORD, out float4 opos : SV_POSITION)
+{
+    opos = pos;
+
+    arr[7] = 42; /* This forces flattening the indirect addressing. */
+    txc = arr[i];
+}
+
+[pixel-shader]
+float4 main(float4 txc : TEXCOORD) : sv_target
+{
+    return txc;
+}
+
+[test]
+if(sm<4) write cbv-0 (0) f32(0.1, 0.2, 0.3, 0.4)
+if(sm<4) write cbv-0 (4) f32(1.1, 1.2, 1.3, 1.4)
+if(sm<4) write cbv-0 (8) f32(2.1, 2.2, 2.3, 2.4)
+if(sm<4) write cbv-0 (12) f32(3.1, 3.2, 3.3, 3.4)
+if(sm<4) write cbv-0 (16) f32(4.1, 4.2, 4.3, 4.4)
+if(sm<4) write cbv-0 (20) f32(5.1, 5.2, 5.3, 5.4)
+if(sm<4) write cbv-0 (24) f32(6.1, 6.2, 6.3, 6.4)
+if(sm<4) write cbv-0 (28) f32(3)
+if(sm<4) write cbv-0 (32) f32(-1, -1, -1, -1)
+if(sm<4) draw quad
+if(sm<4) todo probe (0, 0) f32(3.1, 3.2, 3.3, 3.4)
+if(sm<4) write cbv-0 (28) f32(7)
+if(sm<4) draw quad
+if(sm<4) todo probe (0, 0) f32(42, 42, 42, 42)
+if(sm>=4) write cbv-0 (0) f32(0.1, 0.2, 0.3, 0.4)
+if(sm>=4) write cbv-0 (4) f32(1.1, 1.2, 1.3, 1.4)
+if(sm>=4) write cbv-0 (8) f32(2.1, 2.2, 2.3, 2.4)
+if(sm>=4) write cbv-0 (12) f32(3.1, 3.2, 3.3, 3.4)
+if(sm>=4) write cbv-0 (16) f32(4.1, 4.2, 4.3, 4.4)
+if(sm>=4) write cbv-0 (20) f32(5.1, 5.2, 5.3, 5.4)
+if(sm>=4) write cbv-0 (24) f32(6.1, 6.2, 6.3, 6.4)
+if(sm>=4) write cbv-0 (28) f32(7.1, 7.2, 7.3, 7.4)
+if(sm>=4) write cbv-0 (32) i32(3)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(3.1, 3.2, 3.3, 3.4)
+if(sm>=4) write cbv-0 (32) i32(7)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(42, 42, 42, 42)
