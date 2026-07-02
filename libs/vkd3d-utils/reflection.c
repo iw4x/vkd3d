@@ -1216,7 +1216,11 @@ static HRESULT d3d12_variable_init(struct d3d12_variable *variable, struct d3d12
         variable->desc_size = sizeof(D3D10_SHADER_VARIABLE_DESC);
 
     if (FAILED(hr = d3d12_type_init(&variable->type, reflection, rdef_variable->type_offset, type_size, section, 0)))
+    {
+        vkd3d_free(variable->desc.DefaultValue);
         vkd3d_free(name);
+    }
+
     return hr;
 }
 
