@@ -88,7 +88,7 @@ void main(uint local_idx : SV_GroupIndex, uint group_id : SV_GroupID)
 }
 
 [test]
-todo(glsl) dispatch 1 1 1
+dispatch 1 1 1
 probe uav-2 (0) f32(42.0, 42.0, 42.0, 42.0)
 
 [require]

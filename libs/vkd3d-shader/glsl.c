@@ -1626,6 +1626,43 @@ static void shader_glsl_dcl_indexable_temp(struct vkd3d_glsl_generator *gen,
             ins->declaration.indexable_temp.register_size);
 }
 
+static void shader_glsl_barrier(struct vkd3d_glsl_generator *gen, const struct vkd3d_shader_instruction *ins)
+{
+    uint32_t flags = ins->flags;
+
+    if (flags & VKD3DSSF_GLOBAL_UAV)
+    {
+        shader_glsl_print_indent(gen->buffer, gen->indent);
+        vkd3d_string_buffer_printf(gen->buffer, "memoryBarrier();\n");
+        flags &= ~(VKD3DSSF_GLOBAL_UAV | VKD3DSSF_THREAD_GROUP_UAV | VKD3DSSF_GROUP_SHARED_MEMORY);
+    }
+
+    if (flags & VKD3DSSF_THREAD_GROUP_UAV)
+    {
+        shader_glsl_print_indent(gen->buffer, gen->indent);
+        vkd3d_string_buffer_printf(gen->buffer, "groupMemoryBarrier();\n");
+        flags &= ~VKD3DSSF_THREAD_GROUP_UAV;
+    }
+
+    if (flags & VKD3DSSF_GROUP_SHARED_MEMORY)
+    {
+        shader_glsl_print_indent(gen->buffer, gen->indent);
+        vkd3d_string_buffer_printf(gen->buffer, "memoryBarrierShared();\n");
+        flags &= ~VKD3DSSF_GROUP_SHARED_MEMORY;
+    }
+
+    if (flags & VKD3DSSF_THREAD_GROUP)
+    {
+        shader_glsl_print_indent(gen->buffer, gen->indent);
+        vkd3d_string_buffer_printf(gen->buffer, "barrier();\n");
+        flags &= ~VKD3DSSF_THREAD_GROUP;
+    }
+
+    if (flags)
+        vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                "Internal compiler error: Unhandled synchronisation flags %#x.", flags);
+}
+
 static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
         const struct vkd3d_shader_instruction *ins)
 {
@@ -1830,6 +1867,9 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
             break;
         case VSIR_OP_SWITCH:
             shader_glsl_switch(gen, ins);
+            break;
+        case VSIR_OP_SYNC:
+            shader_glsl_barrier(gen, ins);
             break;
         case VSIR_OP_UDIV_SIMPLE:
             shader_glsl_binop(gen, ins, "/");
