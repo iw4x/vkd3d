@@ -1243,7 +1243,10 @@ static HRESULT d3d12_buffer_init(struct d3d12_buffer *buffer,
     buffer->desc.Name = name;
 
     if (!(buffer->variables = vkd3d_calloc(rdef_buffer->var_count, sizeof(*buffer->variables))))
+    {
+        vkd3d_free(name);
         return E_OUTOFMEMORY;
+    }
 
     for (uint32_t i = 0; i < rdef_buffer->var_count; ++i)
     {
@@ -1251,7 +1254,10 @@ static HRESULT d3d12_buffer_init(struct d3d12_buffer *buffer,
         const struct rdef_variable *rdef_variable;
 
         if (!(rdef_variable = get_data_ptr(section, rdef_buffer->vars_offset + (i * variable_size), 1, variable_size)))
+        {
+            vkd3d_free(name);
             return E_INVALIDARG;
+        }
 
         normalized_variable.resource_binding = ~0u;
         normalized_variable.sampler_binding = ~0u;
@@ -1259,7 +1265,10 @@ static HRESULT d3d12_buffer_init(struct d3d12_buffer *buffer,
 
         if (FAILED(hr = d3d12_variable_init(&buffer->variables[i],
                 reflection, &normalized_variable, section, type_size)))
+        {
+            vkd3d_free(name);
             return hr;
+        }
     }
 
     return S_OK;
