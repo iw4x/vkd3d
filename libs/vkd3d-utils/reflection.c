@@ -1145,10 +1145,16 @@ static HRESULT d3d12_type_init(struct d3d12_type *type, struct d3d12_reflection 
 
         if (!(rdef_fields = get_data_ptr(section, normalized_type.fields_offset,
                 normalized_type.field_count, sizeof(*rdef_fields))))
+        {
+            vkd3d_free(name);
             return E_INVALIDARG;
+        }
 
         if (!(type->fields = vkd3d_calloc(normalized_type.field_count, sizeof(*type->fields))))
-            return false;
+        {
+            vkd3d_free(name);
+            return E_OUTOFMEMORY;
+        }
 
         for (uint32_t i = 0; i < normalized_type.field_count; ++i)
         {
@@ -1156,7 +1162,10 @@ static HRESULT d3d12_type_init(struct d3d12_type *type, struct d3d12_reflection 
 
             if (FAILED(hr = d3d12_type_init(&type->fields[i].type, reflection,
                     rdef_field->type_offset, type_size, section, rdef_field->offset)))
+            {
+                vkd3d_free(name);
                 return hr;
+            }
         }
     }
 
