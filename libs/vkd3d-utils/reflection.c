@@ -405,10 +405,10 @@ static ULONG STDMETHODCALLTYPE d3d12_reflection_AddRef(ID3D12ShaderReflection *i
     return refcount;
 }
 
-static void free_type(struct d3d12_type *type)
+static void d3d12_type_cleanup(struct d3d12_type *type)
 {
     for (UINT i = 0; i < type->desc.Members; ++i)
-        free_type(&type->fields[i].type);
+        d3d12_type_cleanup(&type->fields[i].type);
     vkd3d_free(type->fields);
     vkd3d_free((void *)type->desc.Name);
 }
@@ -430,7 +430,7 @@ static ULONG STDMETHODCALLTYPE d3d12_reflection_Release(ID3D12ShaderReflection *
             {
                 struct d3d12_variable *variable = &buffer->variables[j];
 
-                free_type(&variable->type);
+                d3d12_type_cleanup(&variable->type);
                 vkd3d_free((void *)variable->desc.DefaultValue);
                 vkd3d_free((void *)variable->desc.Name);
             }
@@ -1163,7 +1163,8 @@ static HRESULT d3d12_type_init(struct d3d12_type *type, struct d3d12_reflection 
             if (FAILED(hr = d3d12_type_init(&type->fields[i].type, reflection,
                     rdef_field->type_offset, type_size, section, rdef_field->offset)))
             {
-                vkd3d_free(name);
+                type->desc.Members = i;
+                d3d12_type_cleanup(type);
                 return hr;
             }
         }
