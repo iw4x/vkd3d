@@ -1198,10 +1198,16 @@ static HRESULT d3d12_variable_init(struct d3d12_variable *variable, struct d3d12
         const void *default_value;
 
         if (!(default_value = get_data_ptr(section, rdef_variable->default_value_offset, 1, rdef_variable->size)))
+        {
+            vkd3d_free(name);
             return E_INVALIDARG;
+        }
 
         if (!(variable->desc.DefaultValue = vkd3d_memdup(default_value, rdef_variable->size)))
+        {
+            vkd3d_free(name);
             return E_OUTOFMEMORY;
+        }
     }
 
     if (reflection->version >= 41)
@@ -1209,7 +1215,9 @@ static HRESULT d3d12_variable_init(struct d3d12_variable *variable, struct d3d12
     else
         variable->desc_size = sizeof(D3D10_SHADER_VARIABLE_DESC);
 
-    return d3d12_type_init(&variable->type, reflection, rdef_variable->type_offset, type_size, section, 0);
+    if (FAILED(hr = d3d12_type_init(&variable->type, reflection, rdef_variable->type_offset, type_size, section, 0)))
+        vkd3d_free(name);
+    return hr;
 }
 
 static HRESULT d3d12_buffer_init(struct d3d12_buffer *buffer,
