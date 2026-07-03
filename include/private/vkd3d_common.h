@@ -514,6 +514,11 @@ static inline int vkd3d_ptr_compare(const void *x, const void *y)
     return (x > y) - (x < y);
 }
 
+static inline int vkd3d_ptrptr_compare(const void *x, const void *y)
+{
+    return vkd3d_ptr_compare(*(void **)x, *(void **)y);
+}
+
 #define VKD3D_BITMAP_SIZE(x) (((x) + 0x1f) >> 5)
 
 static inline bool bitmap_clear(uint32_t *map, unsigned int idx)
