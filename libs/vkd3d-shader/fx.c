@@ -2046,8 +2046,6 @@ static bool is_type_supported_fx_2(struct hlsl_ctx *ctx, const struct hlsl_type 
         case HLSL_CLASS_HULL_SHADER:
         case HLSL_CLASS_GEOMETRY_SHADER:
         case HLSL_CLASS_BLEND_STATE:
-            return false;
-
         case HLSL_CLASS_EFFECT_GROUP:
         case HLSL_CLASS_ERROR:
         case HLSL_CLASS_PASS:
@@ -2055,11 +2053,10 @@ static bool is_type_supported_fx_2(struct hlsl_ctx *ctx, const struct hlsl_type 
         case HLSL_CLASS_CONSTANT_BUFFER:
         case HLSL_CLASS_NULL:
         case HLSL_CLASS_STREAM_OUTPUT:
-            /* This cannot appear as an extern variable. */
             break;
     }
 
-    vkd3d_unreachable();
+    return false;
 }
 
 static void write_fx_2_parameters(struct fx_write_context *fx)
@@ -2073,7 +2070,7 @@ static void write_fx_2_parameters(struct fx_write_context *fx)
         IS_SHARED = 0x1,
     };
 
-    LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
+    LIST_FOR_EACH_ENTRY(var, &ctx->globals->vars, struct hlsl_ir_var, scope_entry)
     {
         if (!is_type_supported_fx_2(ctx, var->data_type, &var->loc))
             continue;
