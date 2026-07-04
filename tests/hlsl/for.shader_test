@@ -97,3 +97,24 @@ float4 main() : sv_target
     break;
     return float4(0.0, 0.0, 0.0, 0.0);
 }
+
+% Function call in an iterator. Make sure we're handling that correctly.
+[pixel-shader]
+    float func()
+    {
+        return 1;
+    }
+
+    float4 main() : sv_target
+    {
+        float x = 0;
+        int i;
+        [unroll]
+        for (i = 0; i < 4; i += func())
+            x += i;
+        return float4(x, i, 0, 0);
+    }
+
+[test]
+draw quad
+probe (0, 0) f32(6.0, 4.0, 0.0, 0.0)

@@ -3959,12 +3959,18 @@ static void dump_ir_jump(struct vkd3d_string_buffer *buffer, const struct hlsl_i
 
 static void dump_ir_loop(struct hlsl_ctx *ctx, struct vkd3d_string_buffer *buffer, const struct hlsl_ir_loop *loop)
 {
-    vkd3d_string_buffer_printf(buffer, "for (;;) {");
+    vkd3d_string_buffer_printf(buffer, "loop {");
     if (loop->limiter)
         vkd3d_string_buffer_printf(buffer, " // limiter: %s[%u]", loop->limiter->name, loop->limiter_component);
     vkd3d_string_buffer_printf(buffer, "\n");
     dump_block(ctx, buffer, &loop->body);
     vkd3d_string_buffer_printf(buffer, "      %10s   }", "");
+    if (!list_empty(&loop->iter.instrs))
+    {
+        vkd3d_string_buffer_printf(buffer, " iterator {\n");
+        dump_block(ctx, buffer, &loop->iter);
+        vkd3d_string_buffer_printf(buffer, "      %10s   }", "");
+    }
 }
 
 static void dump_ir_resource_load(struct vkd3d_string_buffer *buffer, const struct hlsl_ir_resource_load *load)
@@ -4464,8 +4470,8 @@ static void free_ir_load(struct hlsl_ir_load *load)
 
 static void free_ir_loop(struct hlsl_ir_loop *loop)
 {
-    hlsl_block_cleanup(&loop->body);
     hlsl_block_cleanup(&loop->iter);
+    hlsl_block_cleanup(&loop->body);
     hlsl_src_remove(&loop->unroll_limit);
     vkd3d_free(loop);
 }

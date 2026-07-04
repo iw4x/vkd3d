@@ -936,7 +936,10 @@ bool hlsl_transform_ir(struct hlsl_ctx *ctx, bool (*func)(struct hlsl_ctx *ctx, 
         }
         else if (instr->type == HLSL_IR_LOOP)
         {
-            progress |= hlsl_transform_ir(ctx, func, &hlsl_ir_loop(instr)->body, context);
+            struct hlsl_ir_loop *loop = hlsl_ir_loop(instr);
+
+            progress |= hlsl_transform_ir(ctx, func, &loop->body, context);
+            progress |= hlsl_transform_ir(ctx, func, &loop->iter, context);
         }
         else if (instr->type == HLSL_IR_SWITCH)
         {
@@ -977,7 +980,11 @@ static bool hlsl_transform_ir_once(struct hlsl_ctx *ctx,
         }
         else if (instr->type == HLSL_IR_LOOP)
         {
-            if (hlsl_transform_ir_once(ctx, func, &hlsl_ir_loop(instr)->body, context))
+            struct hlsl_ir_loop *loop = hlsl_ir_loop(instr);
+
+            if (hlsl_transform_ir_once(ctx, func, &loop->body, context))
+                return true;
+            if (hlsl_transform_ir_once(ctx, func, &loop->iter, context))
                 return true;
         }
         else if (instr->type == HLSL_IR_SWITCH)
@@ -1218,6 +1225,10 @@ static bool lower_return(struct hlsl_ctx *ctx, struct hlsl_ir_function_decl *fun
         else if (instr->type == HLSL_IR_LOOP)
         {
             has_early_return |= lower_return(ctx, func, &hlsl_ir_loop(instr)->body, true);
+            /* The iterator can't directly contain a return, since it can only
+             * contain an expression and return is a statement. However it can
+             * contain a call. */
+            lower_return(ctx, func, &hlsl_ir_loop(instr)->iter, true);
 
             if (has_early_return)
             {
@@ -1763,6 +1774,7 @@ void hlsl_lower_index_loads(struct hlsl_ctx *ctx, struct hlsl_block *block)
 
             case HLSL_IR_LOOP:
                 hlsl_lower_index_loads(ctx, &hlsl_ir_loop(instr)->body);
+                hlsl_lower_index_loads(ctx, &hlsl_ir_loop(instr)->iter);
                 break;
 
             case HLSL_IR_SWITCH:
@@ -2139,8 +2151,11 @@ static unsigned int index_instructions(struct hlsl_block *block, unsigned int in
         }
         else if (instr->type == HLSL_IR_LOOP)
         {
-            index = index_instructions(&hlsl_ir_loop(instr)->body, index);
-            hlsl_ir_loop(instr)->next_index = index;
+            struct hlsl_ir_loop *loop = hlsl_ir_loop(instr);
+
+            index = index_instructions(&loop->body, index);
+            index = index_instructions(&loop->iter, index);
+            loop->next_index = index;
         }
         else if (instr->type == HLSL_IR_SWITCH)
         {
@@ -3128,6 +3143,7 @@ static void copy_propagation_invalidate_from_block(struct hlsl_ctx *ctx, struct 
                 struct hlsl_ir_loop *loop = hlsl_ir_loop(instr);
 
                 copy_propagation_invalidate_from_block(ctx, state, &loop->body, time);
+                copy_propagation_invalidate_from_block(ctx, state, &loop->iter, time);
 
                 break;
             }
@@ -3186,11 +3202,29 @@ static bool copy_propagation_process_loop(struct hlsl_ctx *ctx, struct hlsl_ir_l
 {
     bool progress = false;
 
+    /* With if/else and switch, we can propagate stores from before the CF into
+     * the body of the CF. Invalidation is for the benefit of the containing
+     * block. With loops, invalidation serves a dual purpose; besides
+     * invalidating for the benefit of the containing block we also need to
+     * invalidate for the benefit of the loop block itself. I.e. in a sense the
+     * loop block might have already executed.
+     *
+     * For that reason we invalidate before processing. On the other hand, we
+     * don't need to invalidate again after processing. The containing code
+     * doesn't care where we invalidate and we only need to do it once. The
+     * stores we add during processing only go in the scope we're going to pop. */
     copy_propagation_invalidate_from_block(ctx, state, &loop->body, loop->node.index);
     copy_propagation_invalidate_from_block(ctx, state, &loop->iter, loop->node.index);
 
     copy_propagation_push_scope(state, ctx);
     progress |= copy_propagation_transform_block(ctx, &loop->body, state);
+    if (state->stopped)
+        return progress;
+    copy_propagation_pop_scope(state);
+
+    /* The existence of 'continue' means this can't be in the same scope. */
+    copy_propagation_push_scope(state, ctx);
+    progress |= copy_propagation_transform_block(ctx, &loop->iter, state);
     if (state->stopped)
         return progress;
     copy_propagation_pop_scope(state);
@@ -3410,7 +3444,10 @@ static void find_vectorizable_expr_groups(struct hlsl_ctx *ctx, struct hlsl_bloc
         }
         else if (instr->type == HLSL_IR_LOOP)
         {
-            find_vectorizable_expr_groups(ctx, &hlsl_ir_loop(instr)->body, state);
+            struct hlsl_ir_loop *loop = hlsl_ir_loop(instr);
+
+            find_vectorizable_expr_groups(ctx, &loop->body, state);
+            find_vectorizable_expr_groups(ctx, &loop->iter, state);
         }
         else if (instr->type == HLSL_IR_SWITCH)
         {
@@ -3761,7 +3798,10 @@ static void find_vectorizable_store_groups(struct hlsl_ctx *ctx, struct hlsl_blo
         }
         else if (instr->type == HLSL_IR_LOOP)
         {
-            find_vectorizable_store_groups(ctx, &hlsl_ir_loop(instr)->body, state);
+            struct hlsl_ir_loop *loop = hlsl_ir_loop(instr);
+
+            find_vectorizable_store_groups(ctx, &loop->body, state);
+            find_vectorizable_store_groups(ctx, &loop->iter, state);
         }
         else if (instr->type == HLSL_IR_SWITCH)
         {
@@ -6507,6 +6547,8 @@ static void compute_liveness_recurse(struct hlsl_block *block, unsigned int loop
 
             compute_liveness_recurse(&loop->body, loop_first ? loop_first : instr->index,
                     loop_last ? loop_last : loop->next_index);
+            compute_liveness_recurse(&loop->iter, loop_first ? loop_first : instr->index,
+                    loop_last ? loop_last : loop->next_index);
             if (loop->unroll_limit.node)
                 loop->unroll_limit.node->last_read = last_read;
             break;
@@ -7181,6 +7223,7 @@ static void allocate_temp_registers_recurse(struct hlsl_ctx *ctx, struct hlsl_bl
             {
                 struct hlsl_ir_loop *loop = hlsl_ir_loop(instr);
                 allocate_temp_registers_recurse(ctx, &loop->body);
+                VKD3D_ASSERT(list_empty(&loop->iter.instrs));
                 break;
             }
 
