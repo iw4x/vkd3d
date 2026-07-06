@@ -2996,7 +2996,6 @@ struct spirv_compiler
     unsigned int spec_constant_count;
     struct vkd3d_shader_spec_constant *spec_constants;
     size_t spec_constants_size;
-    enum vkd3d_shader_compile_option_feature_flags features;
 
     struct vkd3d_string_buffer_cache string_buffers;
 
@@ -3145,44 +3144,6 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
         compiler->fragment_coordinate_origin = SpvExecutionModeOriginLowerLeft;
     else
         compiler->fragment_coordinate_origin = SpvExecutionModeOriginUpperLeft;
-
-    for (i = 0; i < compile_info->option_count; ++i)
-    {
-        const struct vkd3d_shader_compile_option *option = &compile_info->options[i];
-
-        switch (option->name)
-        {
-            case VKD3D_SHADER_COMPILE_OPTION_FEATURE:
-                compiler->features = option->value;
-                break;
-
-            case VKD3D_SHADER_COMPILE_OPTION_STRIP_DEBUG:
-            case VKD3D_SHADER_COMPILE_OPTION_BUFFER_UAV:
-            case VKD3D_SHADER_COMPILE_OPTION_FORMATTING:
-            case VKD3D_SHADER_COMPILE_OPTION_API_VERSION:
-            case VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV:
-            case VKD3D_SHADER_COMPILE_OPTION_WRITE_TESS_GEOM_POINT_SIZE:
-            case VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ORDER:
-            case VKD3D_SHADER_COMPILE_OPTION_BACKWARD_COMPATIBILITY:
-            case VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN:
-            case VKD3D_SHADER_COMPILE_OPTION_CHILD_EFFECT:
-            case VKD3D_SHADER_COMPILE_OPTION_WARN_IMPLICIT_TRUNCATION:
-            case VKD3D_SHADER_COMPILE_OPTION_INCLUDE_EMPTY_BUFFERS_IN_EFFECTS:
-            case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16:
-            case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32:
-            case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64:
-                /* Explicitly ignored for this target. */
-                break;
-
-            default:
-                WARN("Ignoring unrecognised option %#x with value %#x.\n", option->name, option->value);
-                break;
-        }
-    }
-
-    /* Explicit enabling of float64 was not required for API versions <= 1.10. */
-    if (compiler->compile_info.api_version <= VKD3D_SHADER_API_VERSION_1_10)
-        compiler->features |= VKD3D_SHADER_COMPILE_OPTION_FEATURE_FLOAT64;
 
     rb_init(&compiler->symbol_table, vkd3d_symbol_compare);
 
@@ -6198,7 +6159,7 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
 
     if (flags & (VKD3DSGF_ENABLE_DOUBLE_PRECISION_FLOAT_OPS | VKD3DSGF_ENABLE_11_1_DOUBLE_EXTENSIONS))
     {
-        if (compiler->features & VKD3D_SHADER_COMPILE_OPTION_FEATURE_FLOAT64)
+        if (compiler->compile_info.feature_float64)
         {
             vkd3d_spirv_enable_capability(&compiler->spirv_builder, SpvCapabilityFloat64);
             spirv_compiler_emit_denormal_mode(compiler, 64, compiler->program->f64_denormal_mode);
@@ -6213,7 +6174,7 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
 
     if (flags & VKD3DSGF_ENABLE_INT64)
     {
-        if (compiler->features & VKD3D_SHADER_COMPILE_OPTION_FEATURE_INT64)
+        if (compiler->compile_info.feature_int64)
             vkd3d_spirv_enable_capability(&compiler->spirv_builder, SpvCapabilityInt64);
         else
             spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_UNSUPPORTED_FEATURE,
@@ -6231,7 +6192,7 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
 
     if (flags & VKD3DSGF_ENABLE_WAVE_INTRINSICS)
     {
-        if (!(compiler->features & VKD3D_SHADER_COMPILE_OPTION_FEATURE_WAVE_OPS))
+        if (!compiler->compile_info.feature_wave_ops)
             spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_UNSUPPORTED_FEATURE,
                     "The target environment does not support wave ops.");
         else if (!spirv_compiler_is_spirv_min_1_3_target(compiler))
@@ -6898,7 +6859,7 @@ static void spirv_compiler_emit_workgroup_memory(struct spirv_compiler *compiler
     const SpvStorageClass storage_class = SpvStorageClassWorkgroup;
     struct vkd3d_symbol reg_symbol;
 
-    if (zero_init && !(compiler->features & VKD3D_SHADER_COMPILE_OPTION_FEATURE_ZERO_INITIALIZE_WORKGROUP_MEMORY))
+    if (zero_init && !compiler->compile_info.feature_zero_init_tgsm)
         spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_UNSUPPORTED_FEATURE,
                 "The target environment does not support zero-initialized workgroup memory.");
 

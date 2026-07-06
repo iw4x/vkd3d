@@ -757,6 +757,7 @@ static int convert_parameter_info(const struct vkd3d_shader_compile_info *compil
 void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d)
 {
     enum vkd3d_shader_compile_option_backward_compatibility compatibility_flags = 0;
+    enum vkd3d_shader_compile_option_feature_flags features = 0;
     const struct vkd3d_shader_compile_option *option;
     unsigned int i;
 
@@ -769,7 +770,7 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
     };
 
     if (!vkd3d)
-        return;
+        goto done;
 
     for (i = 0; i < vkd3d->option_count; ++i)
     {
@@ -832,11 +833,25 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
                     WARN("Ignoring unrecognised value %#x for option %#x.\n", option->value, option->name);
                 break;
 
+            case VKD3D_SHADER_COMPILE_OPTION_FEATURE:
+                features = option->value;
+                break;
+
+            case VKD3D_SHADER_COMPILE_OPTION_CHILD_EFFECT:
+            case VKD3D_SHADER_COMPILE_OPTION_WARN_IMPLICIT_TRUNCATION:
+            case VKD3D_SHADER_COMPILE_OPTION_INCLUDE_EMPTY_BUFFERS_IN_EFFECTS:
+            case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16:
+            case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32:
+            case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64:
+                break;
+
             default:
+                WARN("Ignoring unrecognised option %#x with value %#x.\n", option->name, option->value);
                 break;
         }
     }
 
+done:
     if (compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_MAP_SEMANTIC_NAMES)
         vsir->map_semantic_names = true;
     if (compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_DOUBLE_AS_FLOAT_ALIAS)
@@ -845,6 +860,15 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
         vsir->const_global_uniforms = true;
     if (compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_ALLOW_HALF_GLOBALS)
         vsir->allow_half_globals = true;
+
+    if (features & VKD3D_SHADER_COMPILE_OPTION_FEATURE_INT64)
+        vsir->feature_int64 = true;
+    if (features & VKD3D_SHADER_COMPILE_OPTION_FEATURE_FLOAT64 || vsir->api_version <= VKD3D_SHADER_API_VERSION_1_10)
+        vsir->feature_float64 = true;
+    if (features & VKD3D_SHADER_COMPILE_OPTION_FEATURE_WAVE_OPS)
+        vsir->feature_wave_ops = true;
+    if (features & VKD3D_SHADER_COMPILE_OPTION_FEATURE_ZERO_INITIALIZE_WORKGROUP_MEMORY)
+        vsir->feature_zero_init_tgsm = true;
 }
 
 bool vsir_program_init(struct vsir_program *program, const struct vkd3d_shader_compile_info *compile_info,

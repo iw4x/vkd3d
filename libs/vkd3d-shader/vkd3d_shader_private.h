@@ -1702,6 +1702,10 @@ struct vsir_compile_info
     uint32_t const_global_uniforms : 1;
     uint32_t allow_half_globals : 1;
     uint32_t fragment_origin_lower_left : 1;
+    uint32_t feature_int64 : 1;
+    uint32_t feature_float64 : 1;
+    uint32_t feature_wave_ops : 1;
+    uint32_t feature_zero_init_tgsm : 1;
 };
 
 void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d);
