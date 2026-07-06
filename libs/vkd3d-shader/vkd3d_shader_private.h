@@ -1697,6 +1697,10 @@ struct vsir_compile_info
     uint32_t ssbo_uavs : 1;
     uint32_t uav_read_without_format : 1;
     uint32_t write_tess_geom_point_size : 1;
+    uint32_t map_semantic_names : 1;
+    uint32_t double_as_float_alias : 1;
+    uint32_t const_global_uniforms : 1;
+    uint32_t allow_half_globals : 1;
 };
 
 void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d);
@@ -1965,8 +1969,7 @@ bool sm4_register_from_semantic_name(const struct vkd3d_shader_version *version,
         const char *semantic_name, bool output, enum vsir_register_type *type, bool *has_idx);
 bool shader_sm4_is_scalar_register(const struct vsir_operand *reg);
 bool sm4_sysval_semantic_from_semantic_name(enum vkd3d_shader_sysval_semantic *sysval_semantic,
-        const struct vkd3d_shader_version *version,
-        enum vkd3d_shader_compile_option_backward_compatibility compatibility_flags,
+        const struct vkd3d_shader_version *version, bool semantic_compat_mapping,
         enum vkd3d_tessellator_domain domain, const char *semantic_name,
         unsigned int semantic_idx, bool output, bool is_patch_constant_func, bool is_primitive);
 

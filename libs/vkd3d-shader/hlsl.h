@@ -1119,6 +1119,7 @@ struct hlsl_buffer
 
 struct hlsl_ctx
 {
+    struct vsir_compile_info compile_info;
     const struct hlsl_profile_info *profile;
 
     struct vkd3d_shader_source_list *source_files;
@@ -1276,7 +1277,6 @@ struct hlsl_ctx
     /* Whether the numthreads() attribute has been provided in the entry-point function. */
     uint32_t found_numthreads : 1;
 
-    enum vkd3d_shader_compile_option_backward_compatibility compatibility_flags;
     bool child_effect;
     bool include_empty_buffers;
     bool warn_implicit_truncation;

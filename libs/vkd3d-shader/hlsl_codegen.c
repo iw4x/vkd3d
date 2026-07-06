@@ -611,8 +611,7 @@ static void prepend_input_copy(struct hlsl_ctx *ctx, struct list *semantic_vars,
             instr = &load->node;
         }
         else if (ctx->profile->type == VKD3D_SHADER_TYPE_PIXEL && hlsl_version_ge(ctx, 4, 0)
-                && (ctx->compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_MAP_SEMANTIC_NAMES)
-                && !ascii_strcasecmp(semantic->name, "VFACE"))
+                && ctx->compile_info.map_semantic_names && !ascii_strcasecmp(semantic->name, "VFACE"))
         {
             /* VFACE on sm4 has sm3 semantics, returning 1.0 or -1.0.
              * Also, the variable can be declared as float (which is not true
@@ -7786,8 +7785,9 @@ static struct vsir_signature_element *generate_signature_entry(struct hlsl_ctx *
     {
         bool has_idx;
 
-        if (!sm4_sysval_semantic_from_semantic_name(&sysval, &version, ctx->compatibility_flags, ctx->domain,
-                var->semantic.name, var->semantic.index, output, ctx->is_patch_constant_func, is_primitive))
+        if (!sm4_sysval_semantic_from_semantic_name(&sysval, &version,
+                ctx->compile_info.map_semantic_names, ctx->domain, var->semantic.name,
+                var->semantic.index, output, ctx->is_patch_constant_func, is_primitive))
         {
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC,
                     "Invalid semantic '%s'.", var->semantic.name);
@@ -10356,7 +10356,7 @@ static bool sm1_generate_vsir_instr_expr_cast(struct hlsl_ctx *ctx,
                     return true;
 
                 case HLSL_TYPE_DOUBLE:
-                    if (ctx->compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_DOUBLE_AS_FLOAT_ALIAS)
+                    if (ctx->compile_info.double_as_float_alias)
                     {
                         generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_MOV, 0, 0, true);
                         return true;
@@ -10426,8 +10426,7 @@ static bool sm1_generate_vsir_instr_expr(struct hlsl_ctx *ctx, struct vsir_progr
     if (!hlsl_is_numeric_type(type))
         goto err;
 
-    if (type->e.numeric.type == HLSL_TYPE_DOUBLE
-            && !(ctx->compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_DOUBLE_AS_FLOAT_ALIAS))
+    if (type->e.numeric.type == HLSL_TYPE_DOUBLE && !ctx->compile_info.double_as_float_alias)
     {
         hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
                 "The 'double' type is not supported for the %s profile.", ctx->profile->name);
@@ -11589,7 +11588,7 @@ static void ctab_write_uniforms(struct ctab_ctx *ctab)
                         switch (comp_type->e.numeric.type)
                         {
                             case HLSL_TYPE_DOUBLE:
-                                if (ctx->compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_DOUBLE_AS_FLOAT_ALIAS)
+                                if (ctx->compile_info.double_as_float_alias)
                                     uni.u = var->default_values[k].number.u;
                                 else
                                     uni.u = 0;
@@ -11728,7 +11727,7 @@ static void sm4_generate_vsir_instr_dcl_semantic(struct hlsl_ctx *ctx, struct vs
     uint32_t write_mask;
     bool has_idx;
 
-    sm4_sysval_semantic_from_semantic_name(&semantic, version, ctx->compatibility_flags, ctx->domain,
+    sm4_sysval_semantic_from_semantic_name(&semantic, version, ctx->compile_info.map_semantic_names, ctx->domain,
             var->semantic.name, var->semantic.index, output, ctx->is_patch_constant_func, is_primitive);
     if (semantic == ~0u)
         semantic = VKD3D_SHADER_SV_NONE;

@@ -756,6 +756,7 @@ static int convert_parameter_info(const struct vkd3d_shader_compile_info *compil
 
 void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d)
 {
+    enum vkd3d_shader_compile_option_backward_compatibility compatibility_flags = 0;
     const struct vkd3d_shader_compile_option *option;
     unsigned int i;
 
@@ -818,10 +819,23 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
                     WARN("Ignoring unrecognised value %#x for option %#x.\n", option->value, option->name);
                 break;
 
+            case VKD3D_SHADER_COMPILE_OPTION_BACKWARD_COMPATIBILITY:
+                compatibility_flags = option->value;
+                break;
+
             default:
                 break;
         }
     }
+
+    if (compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_MAP_SEMANTIC_NAMES)
+        vsir->map_semantic_names = true;
+    if (compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_DOUBLE_AS_FLOAT_ALIAS)
+        vsir->double_as_float_alias = true;
+    if (compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_CONST_GLOBAL_UNIFORMS)
+        vsir->const_global_uniforms = true;
+    if (compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_ALLOW_HALF_GLOBALS)
+        vsir->allow_half_globals = true;
 }
 
 bool vsir_program_init(struct vsir_program *program, const struct vkd3d_shader_compile_info *compile_info,

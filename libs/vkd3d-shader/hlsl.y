@@ -2499,8 +2499,7 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
     type = basic_type;
 
     if (basic_type->class <= HLSL_CLASS_LAST_NUMERIC && basic_type->e.numeric.type == HLSL_TYPE_HALF
-            && !v->arrays.count && ctx->cur_scope == ctx->globals
-            && !(ctx->compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_ALLOW_HALF_GLOBALS)
+            && !v->arrays.count && ctx->cur_scope == ctx->globals && !ctx->compile_info.allow_half_globals
             && ctx->profile->type != VKD3D_SHADER_TYPE_EFFECT)
     {
         hlsl_error(ctx, &v->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
@@ -2606,7 +2605,7 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
         modifiers |= HLSL_STORAGE_UNIFORM;
 
     if (ctx->cur_scope == ctx->globals && (modifiers & HLSL_STORAGE_UNIFORM)
-            && (ctx->compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_CONST_GLOBAL_UNIFORMS))
+            && ctx->compile_info.const_global_uniforms)
         type = hlsl_type_clone(ctx, type, 0, HLSL_MODIFIER_CONST);
 
     if (!(var = hlsl_new_var(ctx, var_name, type, &v->loc, &new_semantic, modifiers, &v->reg_reservation)))
