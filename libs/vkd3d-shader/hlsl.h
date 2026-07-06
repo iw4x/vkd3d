@@ -1277,7 +1277,6 @@ struct hlsl_ctx
     /* Whether the numthreads() attribute has been provided in the entry-point function. */
     uint32_t found_numthreads : 1;
 
-    bool child_effect;
     bool include_empty_buffers;
     bool warn_implicit_truncation;
 };

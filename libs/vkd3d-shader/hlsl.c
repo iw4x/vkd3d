@@ -5209,10 +5209,6 @@ static bool hlsl_ctx_init(struct hlsl_ctx *ctx, struct vkd3d_shader_source_list 
 
         switch (option->name)
         {
-            case VKD3D_SHADER_COMPILE_OPTION_CHILD_EFFECT:
-                ctx->child_effect = option->value;
-                break;
-
             case VKD3D_SHADER_COMPILE_OPTION_WARN_IMPLICIT_TRUNCATION:
                 ctx->warn_implicit_truncation = option->value;
                 break;

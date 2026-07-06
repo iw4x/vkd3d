@@ -1706,6 +1706,7 @@ struct vsir_compile_info
     uint32_t feature_float64 : 1;
     uint32_t feature_wave_ops : 1;
     uint32_t feature_zero_init_tgsm : 1;
+    uint32_t child_effect : 1;
 };
 
 void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d);
