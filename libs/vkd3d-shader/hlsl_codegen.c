@@ -2721,7 +2721,6 @@ static bool copy_propagation_replace_with_deref(struct hlsl_ctx *ctx,
     const struct hlsl_ir_var *var = deref->var;
     unsigned int time = load->node.index;
     struct hlsl_deref tmp_deref = {0};
-    struct hlsl_ir_load *new_load;
     struct hlsl_ir_var *x = NULL;
     int *c = NULL, *d = NULL;
     uint32_t ret_swizzle = 0;
@@ -2855,10 +2854,7 @@ static bool copy_propagation_replace_with_deref(struct hlsl_ctx *ctx,
                 new_affine_path_index(ctx, &load->node.loc, &block, index, c[k], d[k]));
     }
 
-    if (!(new_load = hlsl_new_load_index(ctx, &tmp_deref, NULL, &load->node.loc)))
-        goto done;
-    new_instr = &new_load->node;
-    hlsl_block_add_instr(&block, new_instr);
+    new_instr = hlsl_block_add_load_index(ctx, &block, &tmp_deref, NULL, &load->node.loc);
 
     if (new_instr->data_type->class == HLSL_CLASS_SCALAR || new_instr->data_type->class == HLSL_CLASS_VECTOR)
         new_instr = hlsl_block_add_swizzle(ctx, &block, ret_swizzle, instr_component_count, new_instr, &instr->loc);
