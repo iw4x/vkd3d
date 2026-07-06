@@ -810,6 +810,14 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
                 vsir->write_tess_geom_point_size = !!option->value;
                 break;
 
+            case VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ORDER:
+                if (option->value == VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ROW_MAJOR
+                        || option->value == VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_COLUMN_MAJOR)
+                    vsir->matrix_majority = option->value;
+                else
+                    WARN("Ignoring unrecognised value %#x for option %#x.\n", option->value, option->name);
+                break;
+
             default:
                 break;
         }

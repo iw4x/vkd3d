@@ -5146,7 +5146,10 @@ static bool hlsl_ctx_init(struct hlsl_ctx *ctx, struct vkd3d_shader_source_list 
         const struct vkd3d_shader_compile_info *compile_info, const struct hlsl_profile_info *profile,
         struct vkd3d_shader_message_context *message_context)
 {
+    struct vsir_compile_info vsir_compile_info;
     unsigned int i;
+
+    vsir_compile_info_init(&vsir_compile_info, compile_info);
 
     memset(ctx, 0, sizeof(*ctx));
 
@@ -5208,13 +5211,6 @@ static bool hlsl_ctx_init(struct hlsl_ctx *ctx, struct vkd3d_shader_source_list 
 
         switch (option->name)
         {
-            case VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ORDER:
-                if (option->value == VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ROW_MAJOR)
-                    ctx->matrix_majority = HLSL_MODIFIER_ROW_MAJOR;
-                else if (option->value == VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_COLUMN_MAJOR)
-                    ctx->matrix_majority = HLSL_MODIFIER_COLUMN_MAJOR;
-                break;
-
             case VKD3D_SHADER_COMPILE_OPTION_BACKWARD_COMPATIBILITY:
                 ctx->compatibility_flags = option->value;
                 break;
@@ -5235,6 +5231,11 @@ static bool hlsl_ctx_init(struct hlsl_ctx *ctx, struct vkd3d_shader_source_list 
                 break;
         }
     }
+
+    if (vsir_compile_info.matrix_majority == VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ROW_MAJOR)
+        ctx->matrix_majority = HLSL_MODIFIER_ROW_MAJOR;
+    else if (vsir_compile_info.matrix_majority == VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_COLUMN_MAJOR)
+        ctx->matrix_majority = HLSL_MODIFIER_COLUMN_MAJOR;
 
     if (!(ctx->error_instr = hlsl_new_error_expr(ctx)))
     {

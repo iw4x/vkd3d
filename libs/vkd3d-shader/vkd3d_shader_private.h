@@ -1691,6 +1691,7 @@ struct vsir_compile_info
 {
     enum vkd3d_shader_compile_option_formatting_flags formatting;
     enum vkd3d_shader_api_version api_version;
+    enum vkd3d_shader_compile_option_pack_matrix_order matrix_majority;
 
     uint32_t strip_debug : 1;
     uint32_t ssbo_uavs : 1;
