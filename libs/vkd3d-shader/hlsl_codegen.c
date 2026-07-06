@@ -2710,9 +2710,8 @@ struct copy_propagation_state
 static int copy_propagation_var_def_compare(const void *key, const struct rb_entry *entry)
 {
     struct copy_propagation_var_def *var_def = RB_ENTRY_VALUE(entry, struct copy_propagation_var_def, entry);
-    uintptr_t key_int = (uintptr_t)key, entry_int = (uintptr_t)var_def->var;
 
-    return (key_int > entry_int) - (key_int < entry_int);
+    return vkd3d_ptr_compare(key, var_def->var);
 }
 
 static void copy_propagation_var_def_destroy(struct rb_entry *entry, void *context)
