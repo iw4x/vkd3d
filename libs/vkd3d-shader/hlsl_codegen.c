@@ -4911,8 +4911,7 @@ static bool normalize_switch_cases(struct hlsl_ctx *ctx, struct hlsl_ir_node *in
 static struct hlsl_ir_node *lower_vector_derefs(struct hlsl_ctx *ctx,
         struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
-    struct hlsl_ir_load *vector_load;
-    struct hlsl_ir_node *idx;
+    struct hlsl_ir_node *idx, *vector_load;
     struct hlsl_deref *deref;
     struct hlsl_type *type;
     unsigned int i;
@@ -4935,9 +4934,7 @@ static struct hlsl_ir_node *lower_vector_derefs(struct hlsl_ctx *ctx,
 
     idx = deref->path[deref->path_len - 1].node;
 
-    if (!(vector_load = hlsl_new_load_parent(ctx, deref, &instr->loc)))
-        return NULL;
-    hlsl_block_add_instr(block, &vector_load->node);
+    vector_load = hlsl_block_add_load_parent(ctx, block, deref, &instr->loc);
 
     if (idx->type == HLSL_IR_CONSTANT)
     {
@@ -4947,7 +4944,7 @@ static struct hlsl_ir_node *lower_vector_derefs(struct hlsl_ctx *ctx,
             return NULL;
 
         hlsl_swizzle_set_component(&swizzle, 0, hlsl_ir_constant(idx)->value.u[0].u);
-        return hlsl_block_add_swizzle(ctx, block, swizzle, 1, &vector_load->node, &instr->loc);
+        return hlsl_block_add_swizzle(ctx, block, swizzle, 1, vector_load, &instr->loc);
     }
     else
     {
@@ -4976,7 +4973,7 @@ static struct hlsl_ir_node *lower_vector_derefs(struct hlsl_ctx *ctx,
 
         /* Note: We may be creating a DOT for bool vectors here, which we need to lower to
          * LOGIC_OR + LOGIC_AND. */
-        operands[0] = &vector_load->node;
+        operands[0] = vector_load;
         operands[1] = eq;
         return hlsl_block_add_expr(ctx, block, op, operands, instr->data_type, &instr->loc);
     }

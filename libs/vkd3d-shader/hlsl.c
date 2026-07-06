@@ -2147,8 +2147,8 @@ struct hlsl_ir_node *hlsl_block_add_load_index(struct hlsl_ctx *ctx, struct hlsl
     return append_new_instr(ctx, block, load ? &load->node : NULL);
 }
 
-struct hlsl_ir_load *hlsl_new_load_parent(struct hlsl_ctx *ctx, const struct hlsl_deref *deref,
-        const struct vkd3d_shader_location *loc)
+struct hlsl_ir_node *hlsl_block_add_load_parent(struct hlsl_ctx *ctx, struct hlsl_block *block,
+        const struct hlsl_deref *deref, const struct vkd3d_shader_location *loc)
 {
     /* This deref can only exists temporarily because it is not the real owner of its members. */
     struct hlsl_deref tmp_deref;
@@ -2157,7 +2157,7 @@ struct hlsl_ir_load *hlsl_new_load_parent(struct hlsl_ctx *ctx, const struct hls
 
     tmp_deref = *deref;
     tmp_deref.path_len = deref->path_len - 1;
-    return hlsl_new_load_index(ctx, &tmp_deref, NULL, loc);
+    return hlsl_block_add_load_index(ctx, block, &tmp_deref, NULL, loc);
 }
 
 struct hlsl_ir_load *hlsl_new_var_load(struct hlsl_ctx *ctx, struct hlsl_ir_var *var,
