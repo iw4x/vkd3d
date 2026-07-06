@@ -9546,15 +9546,9 @@ primary_expr:
         }
     | boolean
         {
-            struct hlsl_ir_node *c;
-
-            if (!(c = hlsl_new_bool_constant(ctx, $1, &@1)))
+            if (!($$ = make_empty_block(ctx)))
                 YYABORT;
-            if (!($$ = make_block(ctx, c)))
-            {
-                hlsl_free_instr(c);
-                YYABORT;
-            }
+            hlsl_block_add_bool_constant(ctx, $$, $1, &@1);
         }
     | STRING
         {

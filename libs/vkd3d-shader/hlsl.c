@@ -1808,7 +1808,8 @@ struct hlsl_ir_node *hlsl_block_add_constant(struct hlsl_ctx *ctx, struct hlsl_b
     return append_new_instr(ctx, block, hlsl_new_constant(ctx, type, value, loc));
 }
 
-struct hlsl_ir_node *hlsl_new_bool_constant(struct hlsl_ctx *ctx, bool b, const struct vkd3d_shader_location *loc)
+static struct hlsl_ir_node *hlsl_new_bool_constant(struct hlsl_ctx *ctx,
+        bool b, const struct vkd3d_shader_location *loc)
 {
     struct hlsl_constant_value value;
 
@@ -1823,6 +1824,12 @@ static struct hlsl_ir_node *hlsl_new_float_constant(struct hlsl_ctx *ctx, float 
 
     value.u[0].f = f;
     return hlsl_new_constant(ctx, hlsl_get_scalar_type(ctx, HLSL_TYPE_FLOAT), &value, loc);
+}
+
+struct hlsl_ir_node *hlsl_block_add_bool_constant(struct hlsl_ctx *ctx, struct hlsl_block *block,
+        bool b, const struct vkd3d_shader_location *loc)
+{
+    return append_new_instr(ctx, block, hlsl_new_bool_constant(ctx, b, loc));
 }
 
 struct hlsl_ir_node *hlsl_block_add_float_constant(struct hlsl_ctx *ctx, struct hlsl_block *block,

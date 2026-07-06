@@ -1247,13 +1247,8 @@ static bool lower_return(struct hlsl_ctx *ctx, struct hlsl_ir_function_decl *fun
                 struct hlsl_block store_block;
 
                 hlsl_block_init(&store_block);
-
-                if (!(constant = hlsl_new_bool_constant(ctx, true, &jump->node.loc)))
-                    return false;
-                hlsl_block_add_instr(&store_block, constant);
-
+                constant = hlsl_block_add_bool_constant(ctx, &store_block, true, &jump->node.loc);
                 hlsl_block_add_simple_store(ctx, &store_block, func->early_return_var, constant);
-
                 list_move_before(&jump->node.entry, &store_block.instrs);
 
                 has_early_return = true;
@@ -14996,17 +14991,13 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ou
     rdef_ctx_cleanup(&rdef);
 }
 
-static bool loop_unrolling_generate_const_bool_store(struct hlsl_ctx *ctx, struct hlsl_ir_var *var,
+static void loop_unrolling_generate_const_bool_store(struct hlsl_ctx *ctx, struct hlsl_ir_var *var,
         bool val, struct hlsl_block *block, struct vkd3d_shader_location *loc)
 {
     struct hlsl_ir_node *const_node;
 
-    if (!(const_node = hlsl_new_bool_constant(ctx, val, loc)))
-        return false;
-    hlsl_block_add_instr(block, const_node);
-
+    const_node = hlsl_block_add_bool_constant(ctx, block, val, loc);
     hlsl_block_add_simple_store(ctx, block, var, const_node);
-    return true;
 }
 
 static bool loop_unrolling_remove_jumps_recurse(struct hlsl_ctx *ctx, struct hlsl_block *block,
@@ -15043,8 +15034,7 @@ static bool loop_unrolling_remove_jumps_visit(struct hlsl_ctx *ctx, struct hlsl_
         else
             var = loop_broken;
 
-        if (!loop_unrolling_generate_const_bool_store(ctx, var, true, &draft, &jump->node.loc))
-            return false;
+        loop_unrolling_generate_const_bool_store(ctx, var, true, &draft, &jump->node.loc);
 
         list_move_before(&jump->node.entry, &draft.instrs);
         list_remove(&jump->node.entry);
@@ -15369,12 +15359,10 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
     state.stopped = false;
     index = loop->node.index;
 
-    if (!loop_unrolling_generate_const_bool_store(ctx, broken, false, &tmp_dst, &loop->node.loc))
-        goto fail;
+    loop_unrolling_generate_const_bool_store(ctx, broken, false, &tmp_dst, &loop->node.loc);
     hlsl_block_add_block(&draft, &tmp_dst);
 
-    if (!loop_unrolling_generate_const_bool_store(ctx, continued, false, &tmp_dst, &loop->node.loc))
-        goto fail;
+    loop_unrolling_generate_const_bool_store(ctx, continued, false, &tmp_dst, &loop->node.loc);
     hlsl_block_add_block(&draft, &tmp_dst);
 
     if (!(target_if = loop_unrolling_generate_var_check(ctx, &tmp_dst, broken, &loop->node.loc)))
@@ -15396,8 +15384,7 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
         if (!copy_propagation_push_scope(&state, ctx))
             goto fail;
 
-        if (!loop_unrolling_generate_const_bool_store(ctx, continued, false, &tmp_dst, &loop->node.loc))
-            goto fail;
+        loop_unrolling_generate_const_bool_store(ctx, continued, false, &tmp_dst, &loop->node.loc);
         hlsl_block_add_block(&target_if->then_block, &tmp_dst);
 
         if (!hlsl_clone_block(ctx, &tmp_dst, &loop_body))
