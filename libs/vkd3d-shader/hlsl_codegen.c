@@ -1127,21 +1127,18 @@ static bool find_recursive_calls(struct hlsl_ctx *ctx, struct hlsl_ir_node *inst
 static void insert_early_return_break(struct hlsl_ctx *ctx,
         struct hlsl_ir_function_decl *func, struct hlsl_ir_node *cf_instr)
 {
-    struct hlsl_block then_block;
-    struct hlsl_ir_load *load;
-    struct hlsl_ir_node *iff;
+    struct hlsl_block block, then_block;
+    struct hlsl_ir_node *load;
 
+    hlsl_block_init(&block);
     hlsl_block_init(&then_block);
 
-    if (!(load = hlsl_new_var_load(ctx, func->early_return_var, &cf_instr->loc)))
-        return;
-    list_add_after(&cf_instr->entry, &load->node.entry);
+    load = hlsl_block_add_simple_load(ctx, &block, func->early_return_var, &cf_instr->loc);
 
     hlsl_block_add_jump(ctx, &then_block, HLSL_IR_JUMP_BREAK, NULL, &cf_instr->loc);
+    hlsl_block_add_if(ctx, &block, load, &then_block, NULL, HLSL_IF_FLATTEN_DEFAULT, false, &cf_instr->loc);
 
-    if (!(iff = hlsl_new_if(ctx, &load->node, &then_block, NULL, HLSL_IF_FLATTEN_DEFAULT, false, &cf_instr->loc)))
-        return;
-    list_add_after(&load->node.entry, &iff->entry);
+    list_move_after(&cf_instr->entry, &block.instrs);
 }
 
 /* Remove HLSL_IR_JUMP_RETURN calls by altering subsequent control flow. */
@@ -1243,17 +1240,21 @@ static bool lower_return(struct hlsl_ctx *ctx, struct hlsl_ir_function_decl *fun
         else if (instr->type == HLSL_IR_JUMP)
         {
             struct hlsl_ir_jump *jump = hlsl_ir_jump(instr);
-            struct hlsl_ir_node *constant, *store;
+            struct hlsl_ir_node *constant;
 
             if (jump->type == HLSL_IR_JUMP_RETURN)
             {
+                struct hlsl_block store_block;
+
+                hlsl_block_init(&store_block);
+
                 if (!(constant = hlsl_new_bool_constant(ctx, true, &jump->node.loc)))
                     return false;
-                list_add_before(&jump->node.entry, &constant->entry);
+                hlsl_block_add_instr(&store_block, constant);
 
-                if (!(store = hlsl_new_simple_store(ctx, func->early_return_var, constant)))
-                    return false;
-                list_add_after(&constant->entry, &store->entry);
+                hlsl_block_add_simple_store(ctx, &store_block, func->early_return_var, constant);
+
+                list_move_before(&jump->node.entry, &store_block.instrs);
 
                 has_early_return = true;
                 if (in_loop)
