@@ -11423,7 +11423,7 @@ static void ctab_write_uniforms(struct ctab_ctx *ctab)
     {
         for (r = 0; r <= HLSL_REGSET_LAST; ++r)
         {
-            if (var->semantic.name || !var->regs[r].allocated || !var->last_read)
+            if (!var->is_uniform || !var->regs[r].allocated || !var->last_read)
                 continue;
 
             ++uniform_count;
@@ -11462,7 +11462,7 @@ static void ctab_write_uniforms(struct ctab_ctx *ctab)
     {
         for (r = 0; r <= HLSL_REGSET_LAST; ++r)
         {
-            if (var->semantic.name || !var->regs[r].allocated || !var->last_read)
+            if (!var->is_uniform || !var->regs[r].allocated || !var->last_read)
                 continue;
 
             put_u32(buffer, 0); /* name */
@@ -11492,7 +11492,7 @@ static void ctab_write_uniforms(struct ctab_ctx *ctab)
             enum hlsl_sampler_dim sampler_dim = HLSL_SAMPLER_DIM_GENERIC;
             size_t var_offset, name_offset;
 
-            if (var->semantic.name || !var->regs[r].allocated || !var->last_read)
+            if (!var->is_uniform || !var->regs[r].allocated || !var->last_read)
                 continue;
 
             /* Arrays can be used with multiple different dimensions.
