@@ -823,6 +823,15 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
                 compatibility_flags = option->value;
                 break;
 
+            case VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN:
+                if (option->value == VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN_UPPER_LEFT)
+                    vsir->fragment_origin_lower_left = false;
+                else if (option->value == VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN_LOWER_LEFT)
+                    vsir->fragment_origin_lower_left = true;
+                else
+                    WARN("Ignoring unrecognised value %#x for option %#x.\n", option->value, option->name);
+                break;
+
             default:
                 break;
         }

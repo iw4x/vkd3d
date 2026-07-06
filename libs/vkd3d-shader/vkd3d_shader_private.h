@@ -1701,6 +1701,7 @@ struct vsir_compile_info
     uint32_t double_as_float_alias : 1;
     uint32_t const_global_uniforms : 1;
     uint32_t allow_half_globals : 1;
+    uint32_t fragment_origin_lower_left : 1;
 };
 
 void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d);

@@ -3141,7 +3141,10 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
     vkd3d_spirv_builder_init(&compiler->spirv_builder,
             spirv_compiler_get_entry_point_name(compiler), compile_info->source_name);
 
-    compiler->fragment_coordinate_origin = SpvExecutionModeOriginUpperLeft;
+    if (compiler->compile_info.fragment_origin_lower_left)
+        compiler->fragment_coordinate_origin = SpvExecutionModeOriginLowerLeft;
+    else
+        compiler->fragment_coordinate_origin = SpvExecutionModeOriginUpperLeft;
 
     for (i = 0; i < compile_info->option_count; ++i)
     {
@@ -3149,15 +3152,6 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
 
         switch (option->name)
         {
-            case VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN:
-                if (option->value == VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN_UPPER_LEFT)
-                    compiler->fragment_coordinate_origin = SpvExecutionModeOriginUpperLeft;
-                else if (option->value == VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN_LOWER_LEFT)
-                    compiler->fragment_coordinate_origin = SpvExecutionModeOriginLowerLeft;
-                else
-                    WARN("Ignoring unrecognised value %#x for option %#x.\n", option->value, option->name);
-                break;
-
             case VKD3D_SHADER_COMPILE_OPTION_FEATURE:
                 compiler->features = option->value;
                 break;
@@ -3170,6 +3164,7 @@ static struct spirv_compiler *spirv_compiler_create(struct vsir_program *program
             case VKD3D_SHADER_COMPILE_OPTION_WRITE_TESS_GEOM_POINT_SIZE:
             case VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ORDER:
             case VKD3D_SHADER_COMPILE_OPTION_BACKWARD_COMPATIBILITY:
+            case VKD3D_SHADER_COMPILE_OPTION_FRAGMENT_COORDINATE_ORIGIN:
             case VKD3D_SHADER_COMPILE_OPTION_CHILD_EFFECT:
             case VKD3D_SHADER_COMPILE_OPTION_WARN_IMPLICIT_TRUNCATION:
             case VKD3D_SHADER_COMPILE_OPTION_INCLUDE_EMPTY_BUFFERS_IN_EFFECTS:
