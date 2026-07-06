@@ -1531,7 +1531,6 @@ static struct hlsl_ir_node *lower_index_load(struct hlsl_ctx *ctx, struct hlsl_i
     struct hlsl_ir_node *instr = &index->node, *ret;
     const struct hlsl_deref *deref;
     struct hlsl_deref var_deref;
-    struct hlsl_ir_load *load;
     struct hlsl_ir_node *val;
     struct hlsl_ir_var *var;
 
@@ -1706,19 +1705,15 @@ static struct hlsl_ir_node *lower_index_load(struct hlsl_ctx *ctx, struct hlsl_i
 
         for (i = 0; i < mat->data_type->e.numeric.dimx; ++i)
         {
-            struct hlsl_ir_node *c;
+            struct hlsl_ir_node *c, *load;
+            struct hlsl_deref child;
 
             c = hlsl_block_add_uint_constant(ctx, block, i, &instr->loc);
-
-            if (!(load = hlsl_new_load_index(ctx, deref, c, &instr->loc)))
+            if (!hlsl_deref_init_child(&child, deref, c, ctx))
                 return NULL;
-            hlsl_block_add_instr(block, &load->node);
-
-            if (!(load = hlsl_new_load_index(ctx, &load->src, index->idx.node, &instr->loc)))
-                return NULL;
-            hlsl_block_add_instr(block, &load->node);
-
-            hlsl_block_add_store_index(ctx, block, &row_deref, c, &load->node, 0, &instr->loc);
+            load = hlsl_block_add_load_index(ctx, block, &child, index->idx.node, &instr->loc);
+            hlsl_block_add_store_index(ctx, block, &row_deref, c, load, 0, &instr->loc);
+            hlsl_deref_cleanup(&child);
         }
 
         return hlsl_block_add_simple_load(ctx, block, var, &instr->loc);
