@@ -584,7 +584,6 @@ static void prepend_input_copy(struct hlsl_ctx *ctx, struct list *semantic_vars,
     {
         struct hlsl_ir_node *cast, *instr;
         struct hlsl_ir_var *input;
-        struct hlsl_ir_load *load;
 
         if (hlsl_type_is_primitive_array(var->data_type))
         {
@@ -604,11 +603,7 @@ static void prepend_input_copy(struct hlsl_ctx *ctx, struct list *semantic_vars,
             hlsl_deref_init_simple(&prim_deref, input);
 
             idx = hlsl_block_add_uint_constant(ctx, block, prim_index, &var->loc);
-
-            if (!(load = hlsl_new_load_index(ctx, &prim_deref, idx, loc)))
-                return;
-            hlsl_block_add_instr(block, &load->node);
-            instr = &load->node;
+            instr = hlsl_block_add_load_index(ctx, block, &prim_deref, idx, loc);
         }
         else if (ctx->profile->type == VKD3D_SHADER_TYPE_PIXEL && hlsl_version_ge(ctx, 4, 0)
                 && ctx->compile_info.map_semantic_names && !ascii_strcasecmp(semantic->name, "VFACE"))
@@ -619,7 +614,7 @@ static void prepend_input_copy(struct hlsl_ctx *ctx, struct list *semantic_vars,
              * Note that VPOS is not similarly affected,
              * despite also having different semantics between sm3 and sm4. */
 
-            struct hlsl_ir_node *one, *minusone;
+            struct hlsl_ir_node *load, *one, *minusone;
 
             if (!(input = add_semantic_var(ctx, semantic_vars, var,
                     hlsl_change_base_type(ctx, vector_type_src, HLSL_TYPE_BOOL),
@@ -627,13 +622,10 @@ static void prepend_input_copy(struct hlsl_ctx *ctx, struct list *semantic_vars,
                 return;
             ++semantic->index;
 
-            if (!(load = hlsl_new_var_load(ctx, input, &var->loc)))
-                return;
-            hlsl_block_add_instr(block, &load->node);
-
+            load = hlsl_block_add_simple_load(ctx, block, input, &var->loc);
             one = hlsl_block_add_float_constant(ctx, block, 1.0f, &var->loc);
             minusone = hlsl_block_add_float_constant(ctx, block, -1.0f, &var->loc);
-            instr = hlsl_add_conditional(ctx, block, &load->node, one, minusone);
+            instr = hlsl_add_conditional(ctx, block, load, one, minusone);
         }
         else
         {
@@ -642,10 +634,7 @@ static void prepend_input_copy(struct hlsl_ctx *ctx, struct list *semantic_vars,
                 return;
             ++semantic->index;
 
-            if (!(load = hlsl_new_var_load(ctx, input, &var->loc)))
-                return;
-            hlsl_block_add_instr(block, &load->node);
-            instr = &load->node;
+            instr = hlsl_block_add_simple_load(ctx, block, input, &var->loc);
         }
 
         cast = hlsl_block_add_cast(ctx, block, instr, vector_type_dst, &var->loc);
