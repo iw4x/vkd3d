@@ -558,6 +558,61 @@ static void shader_glsl_unhandled(struct vkd3d_glsl_generator *gen, const struct
             "Internal compiler error: Unhandled instruction \"%s\" (%#x).", name, ins->opcode);
 }
 
+static void shader_glsl_atomic(struct vkd3d_glsl_generator *gen,
+        const struct vkd3d_shader_instruction *ins, const char *op)
+{
+    unsigned int descriptor_id, resource_idx, resource_space, stride;
+    struct vkd3d_string_buffer *buffer = gen->buffer;
+    const struct vsir_descriptor *d;
+    enum vsir_data_type data_type;
+    enum vsir_register_type type;
+
+    if ((type = ins->dst[0].reg.type) != VSIR_REGISTER_UAV)
+    {
+        vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                "Internal compiler error: Unhandled register type \"%s\" (%#x).\n.",
+                vsir_register_type_get_name(type, "<unknown>"), type);
+        return;
+    }
+
+    if (ins->dst[0].reg.idx[0].rel_addr || ins->dst[0].reg.idx[1].rel_addr)
+        vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_UNSUPPORTED,
+                "Descriptor indexing is not supported.");
+
+    descriptor_id = ins->dst[0].reg.idx[0].offset;
+    resource_idx = ins->dst[0].reg.idx[1].offset;
+    if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors,
+            VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, descriptor_id)))
+    {
+        resource_space = d->register_space;
+        data_type = d->resource_data_type;
+        stride = d->structure_stride / 4;
+    }
+    else
+    {
+        vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                "Internal compiler error: Undeclared descriptor %u.", descriptor_id);
+        resource_space = 0;
+        data_type = VSIR_DATA_F32;
+        stride = 0;
+    }
+
+    shader_glsl_print_indent(buffer, gen->indent);
+    vkd3d_string_buffer_printf(buffer, "%s(", op);
+    shader_glsl_print_image_name(buffer, gen, resource_idx, resource_space);
+    vkd3d_string_buffer_printf(buffer, ", ");
+    if (stride)
+    {
+        shader_glsl_print_src(buffer, gen, &ins->src[0], VKD3DSP_WRITEMASK_0, VSIR_DATA_I32);
+        vkd3d_string_buffer_printf(buffer, " * %u + ", stride);
+    }
+    shader_glsl_print_src(buffer, gen, &ins->src[0], VKD3DSP_WRITEMASK_1, VSIR_DATA_I32);
+    vkd3d_string_buffer_printf(buffer, " / 4");
+    vkd3d_string_buffer_printf(buffer, ", ");
+    shader_glsl_print_src(buffer, gen, &ins->src[1], VKD3DSP_WRITEMASK_0, data_type);
+    vkd3d_string_buffer_printf(buffer, ");\n");
+}
+
 static void shader_glsl_binop(struct vkd3d_glsl_generator *gen,
         const struct vkd3d_shader_instruction *ins, const char *op)
 {
@@ -1684,6 +1739,9 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
             break;
         case VSIR_OP_AND:
             shader_glsl_binop(gen, ins, "&");
+            break;
+        case VSIR_OP_ATOMIC_IADD:
+            shader_glsl_atomic(gen, ins, "imageAtomicAdd");
             break;
         case VSIR_OP_BREAK:
             shader_glsl_break(gen);
