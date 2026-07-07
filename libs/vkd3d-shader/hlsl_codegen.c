@@ -322,11 +322,13 @@ static bool clean_constant_deref_offset_srcs(struct hlsl_ctx *ctx, struct hlsl_d
  * Also, promote the uniform to an extern var. */
 static void prepend_uniform_copy(struct hlsl_ctx *ctx, struct hlsl_block *block, struct hlsl_ir_var *uniform)
 {
-    struct hlsl_ir_node *store;
-    struct hlsl_ir_load *load;
+    struct hlsl_block copy_block;
+    struct hlsl_ir_node *load;
 
     uniform->is_uniform = 1;
     list_add_tail(&ctx->extern_vars, &uniform->extern_entry);
+
+    hlsl_block_init(&copy_block);
 
     if (!uniform->temp_copy)
     {
@@ -347,13 +349,9 @@ static void prepend_uniform_copy(struct hlsl_ctx *ctx, struct hlsl_block *block,
         uniform->temp_copy = temp;
     }
 
-    if (!(load = hlsl_new_var_load(ctx, uniform, &uniform->loc)))
-        return;
-    list_add_head(&block->instrs, &load->node.entry);
-
-    if (!(store = hlsl_new_simple_store(ctx, uniform->temp_copy, &load->node)))
-        return;
-    list_add_after(&load->node.entry, &store->entry);
+    load = hlsl_block_add_simple_load(ctx, &copy_block, uniform, &uniform->loc);
+    hlsl_block_add_simple_store(ctx, &copy_block, uniform->temp_copy, load);
+    list_move_head(&block->instrs, &copy_block.instrs);
 }
 
 /* If a uniform is written to at some point in the shader, all dereferences

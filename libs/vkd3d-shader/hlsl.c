@@ -1661,14 +1661,6 @@ static void init_node(struct hlsl_ir_node *node, enum hlsl_ir_node_type type,
     list_init(&node->uses);
 }
 
-struct hlsl_ir_node *hlsl_new_simple_store(struct hlsl_ctx *ctx, struct hlsl_ir_var *lhs, struct hlsl_ir_node *rhs)
-{
-    struct hlsl_deref lhs_deref;
-
-    hlsl_deref_init_simple(&lhs_deref, lhs);
-    return hlsl_new_store_index(ctx, &lhs_deref, NULL, rhs, 0, &rhs->loc);
-}
-
 struct hlsl_ir_node *hlsl_new_store_index(struct hlsl_ctx *ctx, const struct hlsl_deref *lhs,
         struct hlsl_ir_node *idx, struct hlsl_ir_node *rhs, unsigned int writemask, const struct vkd3d_shader_location *loc)
 {
