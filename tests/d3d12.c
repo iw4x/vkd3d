@@ -524,6 +524,17 @@ static bool is_ds_format_supported(ID3D12Device *device, DXGI_FORMAT format)
     return format_support.Support1 & D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL;
 }
 
+static bool is_shader_load_format_supported(ID3D12Device *device, DXGI_FORMAT format)
+{
+    D3D12_FEATURE_DATA_FORMAT_SUPPORT support = {.Format = format};
+    HRESULT hr;
+
+    hr = ID3D12Device_CheckFeatureSupport(device, D3D12_FEATURE_FORMAT_SUPPORT, &support, sizeof(support));
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+
+    return support.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_LOAD;
+}
+
 static bool are_unaligned_block_textures_supported(ID3D12Device *device)
 {
     D3D12_FEATURE_DATA_D3D12_OPTIONS8 options;
@@ -24381,8 +24392,10 @@ static void test_buffer_srv(void)
     unsigned int color, expected_color;
     struct d3d12_resource_readback rb;
     struct test_context_desc desc;
+    uint64_t texel_buffer_align;
     struct test_context context;
     ID3D12CommandQueue *queue;
+    bool single_texel_align;
     ID3D12Resource *buffer;
     ID3D12Device *device;
     unsigned int i, x, y;
@@ -24475,14 +24488,23 @@ static void test_buffer_srv(void)
         {1.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f},
         {0.0f, 0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f, 1.0f},
     };
+    static const struct vec3 rgba_float3[] =
+    {
+        {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f},
+    };
     static const struct buffer rgba16_buffer = {sizeof(rgba16), 0, &rgba16};
     static const struct buffer rgba16_offset_buffer = {256 + sizeof(rgba16), 256, &rgba16};
+    static const struct buffer rgba16_off252_buffer = {252 + sizeof(rgba16), 252, &rgba16};
     static const struct buffer rgba4_buffer  = {sizeof(rgba4), 0, &rgba4};
     static const struct buffer r4_buffer = {sizeof(r4), 0, &r4};
     static const struct buffer r4_offset_buffer = {256 + sizeof(r4), 256, &r4};
+    static const struct buffer r4_off255_buffer = {255 + sizeof(r4), 255, &r4};
+    static const struct buffer float3_buffer = {sizeof(rgba_float3), 0, &rgba_float3};
+    static const struct buffer float3_off252_buffer = {252 + sizeof(rgba_float3), 252, &rgba_float3};
     static const struct buffer float_buffer = {sizeof(rgba_float), 0, &rgba_float, sizeof(*rgba_float)};
-    static const struct buffer float_offset_buffer = {256 + sizeof(rgba_float), 256,
-            &rgba_float, sizeof(*rgba_float)};
+    static const struct buffer float_offset_buffer = {256 + sizeof(rgba_float), 256, &rgba_float, sizeof(*rgba_float)};
+    static const struct buffer float_off240_buffer = {240 + sizeof(rgba_float), 240, &rgba_float, sizeof(*rgba_float)};
     static const unsigned int rgba16_colors2x2[] =
     {
         0xff0000ff, 0xff0000ff, 0xff00ffff, 0xff00ffff,
@@ -24527,13 +24549,18 @@ static void test_buffer_srv(void)
     {
         {&ps_float4,     &rgba16_buffer,        DXGI_FORMAT_R8G8B8A8_UNORM,   0, 16, {4.0f, 4.0f}, rgba16},
         {&ps_float4,     &rgba16_offset_buffer, DXGI_FORMAT_R8G8B8A8_UNORM,  64, 16, {4.0f, 4.0f}, rgba16},
+        {&ps_float4,     &rgba16_off252_buffer, DXGI_FORMAT_R8G8B8A8_UNORM,  63, 16, {4.0f, 4.0f}, rgba16},
         {&ps_float4,     &rgba16_buffer,        DXGI_FORMAT_R8G8B8A8_UNORM,   0,  4, {2.0f, 2.0f}, rgba16_colors2x2},
         {&ps_float4,     &rgba16_buffer,        DXGI_FORMAT_R8G8B8A8_UNORM,   0,  1, {1.0f, 1.0f}, rgba16_colors1x1},
         {&ps_float4,     &rgba4_buffer,         DXGI_FORMAT_R8G8B8A8_UNORM,   0,  4, {2.0f, 2.0f}, rgba4_colors},
         {&ps_float4,     &r4_buffer,            DXGI_FORMAT_R8_UNORM,         0,  4, {2.0f, 2.0f}, r4_colors},
         {&ps_float4,     &r4_offset_buffer,     DXGI_FORMAT_R8_UNORM,       256,  4, {2.0f, 2.0f}, r4_colors},
+        {&ps_float4,     &r4_off255_buffer,     DXGI_FORMAT_R8_UNORM,       255,  4, {2.0f, 2.0f}, r4_colors},
+        {&ps_float4,     &float3_buffer,        DXGI_FORMAT_R32G32B32_FLOAT,  0,  4, {2.0f, 2.0f}, rgba4_colors},
+        {&ps_float4,     &float3_off252_buffer, DXGI_FORMAT_R32G32B32_FLOAT, 21,  4, {2.0f, 2.0f}, rgba4_colors},
         {&ps_structured, &float_buffer,         DXGI_FORMAT_UNKNOWN,          0,  4, {2.0f, 2.0f}, rgba4_colors},
         {&ps_structured, &float_offset_buffer,  DXGI_FORMAT_UNKNOWN,         16,  4, {2.0f, 2.0f}, rgba4_colors},
+        {&ps_structured, &float_off240_buffer,  DXGI_FORMAT_UNKNOWN,         15,  4, {2.0f, 2.0f}, rgba4_colors},
     };
 
     memset(&desc, 0, sizeof(desc));
@@ -24546,6 +24573,7 @@ static void test_buffer_srv(void)
     command_list = context.list;
     queue = context.queue;
 
+    get_texel_buffer_alignment(device, &texel_buffer_align, &single_texel_align, false);
     descriptor_ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     descriptor_ranges[0].NumDescriptors = 1;
     descriptor_ranges[0].BaseShaderRegister = 0;
@@ -24580,6 +24608,14 @@ static void test_buffer_srv(void)
         const struct test *test = &tests[i];
 
         vkd3d_test_push_context("Test %u", i);
+
+        if (test->srv_format != DXGI_FORMAT_UNKNOWN
+                && !is_shader_load_format_supported(context.device, test->srv_format))
+        {
+            skip("Format %#x not supported.\n", test->srv_format);
+            vkd3d_test_pop_context();
+            continue;
+        }
 
         if (current_shader != test->shader)
         {
@@ -24640,12 +24676,17 @@ static void test_buffer_srv(void)
         {
             for (x = 0; x < 4; ++x)
             {
+                bool equal;
                 color = get_readback_uint(&rb.rb, 80 + x * 160, 60 + y * 120, 0);
                 expected_color = test->expected_colors[y * 4 + x];
-                ok(compare_color(color, expected_color, 1),
-                        "Got 0x%08x, expected 0x%08x at (%u, %u).\n", color, expected_color, x, y);
+                equal = compare_color(color, expected_color, 1);
+                todo_if(!single_texel_align && (test->buffer->data_offset & (texel_buffer_align - 1)))
+                ok(equal, "Got 0x%08x, expected 0x%08x at (%u, %u).\n", color, expected_color, x, y);
+                if (!equal)
+                    goto check_complete;
             }
         }
+check_complete:
         release_resource_readback(&rb);
 
         reset_command_list(command_list, context.allocator);

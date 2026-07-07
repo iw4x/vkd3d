@@ -699,6 +699,15 @@ static inline bool is_geometry_shader_supported(ID3D12Device *device)
     return true;
 }
 
+static inline void get_texel_buffer_alignment(ID3D12Device *device,
+        uint64_t *value, bool *single_texel_align, bool storage)
+{
+    if (value)
+        *value = 16;
+    if (single_texel_align)
+        *single_texel_align = true;
+}
+
 #else
 
 #define VKD3D_AGILITY_SDK_EXPORTS
@@ -1100,6 +1109,68 @@ static inline bool is_geometry_shader_supported(ID3D12Device *device)
 
     return features.geometryShader;
 }
+
+static inline void get_texel_buffer_alignment(ID3D12Device *device,
+        uint64_t *out_value, bool *out_single_texel_align, bool storage)
+{
+    VkPhysicalDevice vk_physical_device = vkd3d_get_vk_physical_device(device);
+    VkPhysicalDeviceProperties2 properties2;
+    bool single_texel_align;
+    uint64_t align;
+
+    vkGetPhysicalDeviceProperties(vk_physical_device, &properties2.properties);
+
+    if (properties2.properties.apiVersion >= VK_API_VERSION_1_3
+            || check_device_extension(vk_physical_device, VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME))
+    {
+        VkInstance vk_instance = vkd3d_instance_get_vk_instance(vkd3d_instance_from_device(device));
+        PFN_vkGetPhysicalDeviceProperties2 pfn_vkGetPhysicalDeviceProperties2;
+        VkPhysicalDeviceTexelBufferAlignmentProperties alignment_properties
+                = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_PROPERTIES};
+
+        if (properties2.properties.apiVersion >= VK_API_VERSION_1_1)
+            pfn_vkGetPhysicalDeviceProperties2
+                    = (void *)vkGetInstanceProcAddr(vk_instance, "vkGetPhysicalDeviceProperties2");
+        else
+            pfn_vkGetPhysicalDeviceProperties2
+                    = (void *)vkGetInstanceProcAddr(vk_instance, "vkGetPhysicalDeviceProperties2KHR");
+        ok(pfn_vkGetPhysicalDeviceProperties2, "vkGetPhysicalDeviceProperties2 is NULL.\n");
+
+        properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        properties2.pNext = &alignment_properties;
+        pfn_vkGetPhysicalDeviceProperties2(vk_physical_device, &properties2);
+
+        if (storage)
+        {
+            align = alignment_properties.storageTexelBufferOffsetAlignmentBytes;
+            single_texel_align = alignment_properties.storageTexelBufferOffsetSingleTexelAlignment;
+        }
+        else
+        {
+            align = alignment_properties.uniformTexelBufferOffsetAlignmentBytes;
+            single_texel_align = alignment_properties.uniformTexelBufferOffsetSingleTexelAlignment;
+        }
+    }
+    else
+    {
+        align = properties2.properties.limits.minTexelBufferOffsetAlignment;
+        single_texel_align = properties2.properties.limits.minTexelBufferOffsetAlignment <= 1;
+    }
+
+    /* Apple's paravirtual Metal device is broken on macOS <= 14 and reports
+     * 0 alignment. Assume the worst case for alignment if `align == 0`. */
+    if (!align)
+    {
+        align = 16;
+        single_texel_align = false;
+    }
+
+    if (out_value)
+        *out_value = align;
+    if (out_single_texel_align)
+        *out_single_texel_align = single_texel_align;
+}
+
 #endif
 
 static void enable_d3d12_debug_layer(void)
