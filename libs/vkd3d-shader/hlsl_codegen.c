@@ -7778,6 +7778,9 @@ static struct vsir_signature_element *generate_signature_entry(struct hlsl_ctx *
             return NULL;
         }
 
+        if (type == VSIR_REGISTER_DEPTHOUT)
+            bitmap_set(program->io_dcls, VSIR_REGISTER_DEPTHOUT);
+
         if (builtin && interpolation_mode == VKD3DSIM_LINEAR_CENTROID
                 && (vkd3d_shader_ver_ge(&program->shader_version, 3, 0) || type != VSIR_REGISTER_TEXTURE))
         {
