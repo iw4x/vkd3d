@@ -5151,8 +5151,6 @@ static bool hlsl_ctx_init(struct hlsl_ctx *ctx, struct vkd3d_shader_source_list 
         const struct vkd3d_shader_compile_info *compile_info, const struct hlsl_profile_info *profile,
         struct vkd3d_shader_message_context *message_context)
 {
-    unsigned int i;
-
     memset(ctx, 0, sizeof(*ctx));
 
     vsir_compile_info_init(&ctx->compile_info, compile_info);
@@ -5205,21 +5203,6 @@ static bool hlsl_ctx_init(struct hlsl_ctx *ctx, struct vkd3d_shader_source_list 
         return false;
     }
     ctx->cur_buffer = ctx->globals_buffer;
-
-    for (i = 0; i < compile_info->option_count; ++i)
-    {
-        const struct vkd3d_shader_compile_option *option = &compile_info->options[i];
-
-        switch (option->name)
-        {
-            case VKD3D_SHADER_COMPILE_OPTION_INCLUDE_EMPTY_BUFFERS_IN_EFFECTS:
-                ctx->include_empty_buffers = option->value;
-                break;
-
-            default:
-                break;
-        }
-    }
 
     if (ctx->compile_info.matrix_majority == VKD3D_SHADER_COMPILE_OPTION_PACK_MATRIX_ROW_MAJOR)
         ctx->matrix_majority = HLSL_MODIFIER_ROW_MAJOR;

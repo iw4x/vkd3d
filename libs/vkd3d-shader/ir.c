@@ -847,6 +847,9 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
                 break;
 
             case VKD3D_SHADER_COMPILE_OPTION_INCLUDE_EMPTY_BUFFERS_IN_EFFECTS:
+                vsir->include_empty_buffers = !!option->value;
+                break;
+
             case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16:
             case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32:
             case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64:

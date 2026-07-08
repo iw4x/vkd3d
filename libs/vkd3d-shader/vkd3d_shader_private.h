@@ -1708,6 +1708,7 @@ struct vsir_compile_info
     uint32_t feature_zero_init_tgsm : 1;
     uint32_t child_effect : 1;
     uint32_t warn_implicit_truncation : 1;
+    uint32_t include_empty_buffers : 1;
 };
 
 void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d);

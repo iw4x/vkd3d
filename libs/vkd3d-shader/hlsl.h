@@ -1276,8 +1276,6 @@ struct hlsl_ctx
     uint32_t in_state_block : 1;
     /* Whether the numthreads() attribute has been provided in the entry-point function. */
     uint32_t found_numthreads : 1;
-
-    bool include_empty_buffers;
 };
 
 static inline bool hlsl_version_ge(const struct hlsl_ctx *ctx, unsigned int major, unsigned int minor)
