@@ -1692,6 +1692,9 @@ struct vsir_compile_info
     enum vkd3d_shader_compile_option_formatting_flags formatting;
     enum vkd3d_shader_api_version api_version;
     enum vkd3d_shader_compile_option_pack_matrix_order matrix_majority;
+    enum vkd3d_shader_denormal_mode denormal_mode_f16;
+    enum vkd3d_shader_denormal_mode denormal_mode_f32;
+    enum vkd3d_shader_denormal_mode denormal_mode_f64;
 
     uint32_t strip_debug : 1;
     uint32_t ssbo_uavs : 1;
@@ -1709,6 +1712,9 @@ struct vsir_compile_info
     uint32_t child_effect : 1;
     uint32_t warn_implicit_truncation : 1;
     uint32_t include_empty_buffers : 1;
+    uint32_t denormal_mode_override_f16 : 1;
+    uint32_t denormal_mode_override_f32 : 1;
+    uint32_t denormal_mode_override_f64 : 1;
 };
 
 void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d);

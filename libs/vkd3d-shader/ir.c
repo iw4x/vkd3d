@@ -851,8 +851,18 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
                 break;
 
             case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16:
+                vsir->denormal_mode_override_f16 = true;
+                vsir->denormal_mode_f16 = option->value;
+                break;
+
             case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32:
+                vsir->denormal_mode_override_f32 = true;
+                vsir->denormal_mode_f32 = option->value;
+                break;
+
             case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64:
+                vsir->denormal_mode_override_f64 = true;
+                vsir->denormal_mode_f64 = option->value;
                 break;
 
             default:
@@ -879,6 +889,25 @@ done:
         vsir->feature_wave_ops = true;
     if (features & VKD3D_SHADER_COMPILE_OPTION_FEATURE_ZERO_INITIALIZE_WORKGROUP_MEMORY)
         vsir->feature_zero_init_tgsm = true;
+
+    if (vsir->api_version <= VKD3D_SHADER_API_VERSION_1_19)
+    {
+        if (!vsir->denormal_mode_override_f16)
+        {
+            vsir->denormal_mode_override_f16 = true;
+            vsir->denormal_mode_f16 = VKD3D_SHADER_DENORMAL_MODE_ANY;
+        }
+        if (!vsir->denormal_mode_override_f32)
+        {
+            vsir->denormal_mode_override_f32 = true;
+            vsir->denormal_mode_f32 = VKD3D_SHADER_DENORMAL_MODE_ANY;
+        }
+        if (!vsir->denormal_mode_override_f64)
+        {
+            vsir->denormal_mode_override_f64 = true;
+            vsir->denormal_mode_f64 = VKD3D_SHADER_DENORMAL_MODE_ANY;
+        }
+    }
 }
 
 bool vsir_program_init(struct vsir_program *program, const struct vkd3d_shader_compile_info *compile_info,
