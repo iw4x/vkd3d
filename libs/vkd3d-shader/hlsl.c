@@ -5206,18 +5206,12 @@ static bool hlsl_ctx_init(struct hlsl_ctx *ctx, struct vkd3d_shader_source_list 
     }
     ctx->cur_buffer = ctx->globals_buffer;
 
-    ctx->warn_implicit_truncation = true;
-
     for (i = 0; i < compile_info->option_count; ++i)
     {
         const struct vkd3d_shader_compile_option *option = &compile_info->options[i];
 
         switch (option->name)
         {
-            case VKD3D_SHADER_COMPILE_OPTION_WARN_IMPLICIT_TRUNCATION:
-                ctx->warn_implicit_truncation = option->value;
-                break;
-
             case VKD3D_SHADER_COMPILE_OPTION_INCLUDE_EMPTY_BUFFERS_IN_EFFECTS:
                 ctx->include_empty_buffers = option->value;
                 break;

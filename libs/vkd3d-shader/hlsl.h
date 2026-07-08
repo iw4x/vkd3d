@@ -1278,7 +1278,6 @@ struct hlsl_ctx
     uint32_t found_numthreads : 1;
 
     bool include_empty_buffers;
-    bool warn_implicit_truncation;
 };
 
 static inline bool hlsl_version_ge(const struct hlsl_ctx *ctx, unsigned int major, unsigned int minor)

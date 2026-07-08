@@ -767,6 +767,7 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
                 | VKD3D_SHADER_COMPILE_OPTION_FORMATTING_HEADER,
         .api_version = VKD3D_SHADER_API_VERSION_1_2,
         .write_tess_geom_point_size = true,
+        .warn_implicit_truncation = true,
     };
 
     if (!vkd3d)
@@ -842,6 +843,9 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
                 break;
 
             case VKD3D_SHADER_COMPILE_OPTION_WARN_IMPLICIT_TRUNCATION:
+                vsir->warn_implicit_truncation = !!option->value;
+                break;
+
             case VKD3D_SHADER_COMPILE_OPTION_INCLUDE_EMPTY_BUFFERS_IN_EFFECTS:
             case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16:
             case VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32:
