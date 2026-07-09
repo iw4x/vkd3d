@@ -14282,10 +14282,10 @@ static void generate_vsir_descriptors(struct hlsl_ctx *ctx, struct vsir_program 
 
         LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
         {
-            const struct hlsl_reg *reg = &var->regs[HLSL_REGSET_NUMERIC];
+            unsigned int bind_count = var->bind_count[HLSL_REGSET_NUMERIC];
 
-            if (var->is_uniform && reg->allocation_size)
-                flat_constant_count = max(flat_constant_count, reg->id + reg->allocation_size);
+            if (var->is_uniform && bind_count)
+                flat_constant_count = max(flat_constant_count, var->regs[HLSL_REGSET_NUMERIC].id + bind_count);
 
             generate_vsir_descriptors_for_var(ctx, program, var,
                     HLSL_REGSET_SAMPLERS, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER);
