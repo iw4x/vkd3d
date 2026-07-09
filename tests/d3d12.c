@@ -27100,10 +27100,7 @@ static void test_copy_block_compressed_texture(void)
     src_location.PlacedFootprint.Footprint.Width = 32;
     src_location.PlacedFootprint.Footprint.Height = 32;
     src_location.PlacedFootprint.Footprint.Depth = 1;
-    src_location.PlacedFootprint.Footprint.RowPitch
-            = 32 / format_block_width(DXGI_FORMAT_BC2_UNORM) * format_size(DXGI_FORMAT_BC2_UNORM);
-    src_location.PlacedFootprint.Footprint.RowPitch
-            = align(src_location.PlacedFootprint.Footprint.RowPitch, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+    src_location.PlacedFootprint.Footprint.RowPitch = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT;
 
     set_box(&box, 4, 4, 0, 8, 8, 1);
     ID3D12GraphicsCommandList_CopyTextureRegion(command_list,
@@ -27139,10 +27136,7 @@ static void test_copy_block_compressed_texture(void)
     dst_location.PlacedFootprint.Footprint.Width = 8;
     dst_location.PlacedFootprint.Footprint.Height = 24;
     dst_location.PlacedFootprint.Footprint.Depth = 1;
-    dst_location.PlacedFootprint.Footprint.RowPitch
-            = 8 / format_block_width(DXGI_FORMAT_BC2_UNORM) * format_size(DXGI_FORMAT_BC2_UNORM);
-    dst_location.PlacedFootprint.Footprint.RowPitch
-            = align(dst_location.PlacedFootprint.Footprint.RowPitch, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+    dst_location.PlacedFootprint.Footprint.RowPitch = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT;
 
     src_location.pResource = texture;
     src_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -27155,6 +27149,28 @@ static void test_copy_block_compressed_texture(void)
     set_box(&box, 0, 0, 0, 8, 8, 1);
     ID3D12GraphicsCommandList_CopyTextureRegion(command_list,
             &dst_location, 0, 16, 0, &src_location, &box);
+
+    /* miplevels smaller than 4x4 */
+    dst_location.PlacedFootprint.Offset += dst_location.PlacedFootprint.Footprint.Height
+            / format_block_height(DXGI_FORMAT_BC2_UNORM) * dst_location.PlacedFootprint.Footprint.RowPitch;
+    dst_location.PlacedFootprint.Footprint.Width = 16;
+    dst_location.PlacedFootprint.Footprint.Height = 4;
+
+    src_location.SubresourceIndex = 2;
+
+    ID3D12GraphicsCommandList_CopyTextureRegion(command_list,
+            &dst_location, 0, 0, 0, &src_location, NULL);
+    set_box(&box, 0, 0, 0, 4, 4, 1);
+    ID3D12GraphicsCommandList_CopyTextureRegion(command_list,
+            &dst_location, 4, 0, 0, &src_location, &box);
+
+    src_location.SubresourceIndex = 3;
+
+    ID3D12GraphicsCommandList_CopyTextureRegion(command_list,
+            &dst_location, 8, 0, 0, &src_location, NULL);
+    set_box(&box, 0, 0, 0, 4, 4, 1);
+    ID3D12GraphicsCommandList_CopyTextureRegion(command_list,
+            &dst_location, 12, 0, 0, &src_location, &box);
 
     transition_resource_state(command_list, dst_buffer,
             D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_SOURCE);
@@ -27248,6 +27264,7 @@ static void test_copy_block_compressed_texture(void)
 
     reset_command_list(command_list, context.allocator);
     get_buffer_readback_with_command_list(dst_buffer, DXGI_FORMAT_R32_UINT, &rb, queue, command_list);
+
     for (y = 0; y < 24 / format_block_height(DXGI_FORMAT_BC2_UNORM); ++y)
     {
         unsigned int row_offset = dst_location.PlacedFootprint.Footprint.RowPitch / sizeof(got) * y;
@@ -27275,10 +27292,29 @@ static void test_copy_block_compressed_texture(void)
         if (!compare_uvec4(&got, &expected))
             break;
     }
-    release_resource_readback(&rb);
     ok(compare_uvec4(&got, &expected),
             "Got {0x%08x, 0x%08x, 0x%08x, 0x%08x} at (%u, %u), expected {0x%08x, 0x%08x, 0x%08x, 0x%08x}.\n",
             got.x, got.y, got.z, got.w, x, y, expected.x, expected.y, expected.z, expected.w);
+
+    for (x = 0; x < 4; ++x)
+    {
+        const unsigned int row_offset = dst_location.PlacedFootprint.Footprint.RowPitch / sizeof(got)
+                * (24 / format_block_height(DXGI_FORMAT_BC2_UNORM));
+
+        block_id = x < 2 ? 1 : 2;
+        expected.x = block_id << 8 | 0;
+        expected.y = block_id << 8 | 1;
+        expected.z = block_id << 8 | 2;
+        expected.w = block_id << 8 | 3;
+        got = *get_readback_uvec4(&rb.rb, x + row_offset, 0);
+        if (!compare_uvec4(&got, &expected))
+            break;
+    }
+    ok(compare_uvec4(&got, &expected),
+            "Got {0x%08x, 0x%08x, 0x%08x, 0x%08x} at (%u, %u), expected {0x%08x, 0x%08x, 0x%08x, 0x%08x}.\n",
+            got.x, got.y, got.z, got.w, x, y, expected.x, expected.y, expected.z, expected.w);
+
+    release_resource_readback(&rb);
 
     ID3D12Resource_Release(texture);
     ID3D12Resource_Release(texture2);
