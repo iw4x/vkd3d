@@ -398,9 +398,6 @@ void run_shader_tests(struct shader_runner *runner, const struct shader_runner_c
         const struct shader_runner_ops *ops, void *dxc_compiler);
 
 #ifdef _WIN32
-bool get_dll_version(const char *file_name, unsigned int *major, unsigned int *minor,
-        unsigned int *build, unsigned int *patch);
-
 void run_shader_tests_d3d9(void);
 void run_shader_tests_d3d11(void);
 #else

@@ -39264,4 +39264,14 @@ START_TEST(d3d12)
     run_test(test_shader_cache);
     run_test(test_multi_fence_event);
     run_test(test_enumerate_meta_commands);
+
+#if defined(VKD3D_CROSSTEST)
+    print_dll_version("d3dcompiler_47.dll");
+    print_dll_version("dxgi.dll");
+    print_dll_version("d3d12.dll");
+    print_dll_version("d3d12core.dll");
+    print_dll_version("d3d10warp.dll");
+    if (test_options.enable_debug_layer)
+        print_dll_version("d3d12sdklayers.dll");
+#endif
 }

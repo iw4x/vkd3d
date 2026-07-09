@@ -812,4 +812,70 @@ static inline bool find_version_string(const char *str, const char *tag,
     return 3 == sscanf(ptr, "%u.%u.%u", major, minor, patch);
 }
 
+#ifdef _WIN32
+static inline bool get_dll_version(const char *file_name, unsigned int *major, unsigned int *minor,
+        unsigned int *build, unsigned int *patch)
+{
+    BOOL (WINAPI *GetFileVersionInfoA)(const char *, DWORD, DWORD, void *);
+    BOOL (WINAPI *VerQueryValueA)(void *, char *, void **, UINT*);
+    DWORD (WINAPI *GetFileVersionInfoSizeA)(const char *, DWORD *);
+    HMODULE version_module;
+    DWORD size, handle;
+    bool done = false;
+
+    version_module = LoadLibraryA("version.dll");
+    if (!version_module)
+        return false;
+
+#define X(name) name = (void *)GetProcAddress(version_module, #name);
+    X(GetFileVersionInfoSizeA);
+    X(GetFileVersionInfoA);
+    X(VerQueryValueA);
+#undef X
+
+    if (!GetFileVersionInfoSizeA || !GetFileVersionInfoA || !VerQueryValueA)
+    {
+        FreeLibrary(version_module);
+        return false;
+    }
+
+    size = GetFileVersionInfoSizeA(file_name, &handle);
+    if (size)
+    {
+        char *data = malloc(size);
+
+        if (GetFileVersionInfoA(file_name, handle, size, data))
+        {
+            VS_FIXEDFILEINFO *info;
+            UINT len;
+
+            if (VerQueryValueA(data, "\\", (void **)&info, &len))
+            {
+                *major = info->dwFileVersionMS >> 16;
+                *minor = info->dwFileVersionMS & 0xffff;
+                *build = info->dwFileVersionLS >> 16;
+                if (patch)
+                    *patch = info->dwFileVersionLS & 0xffff;
+                done = true;
+            }
+        }
+        free(data);
+    }
+
+    FreeLibrary(version_module);
+
+    return done;
+}
+
+static inline void print_dll_version(const char *file_name)
+{
+    unsigned int major, minor, build, patch;
+
+    if (get_dll_version(file_name, &major, &minor, &build, &patch))
+        trace("%s version: %u.%u.%u.%u\n", file_name, major, minor, build, patch);
+    else
+        trace("%s version: unknown\n", file_name);
+}
+#endif
+
 #endif
