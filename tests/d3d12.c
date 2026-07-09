@@ -27252,7 +27252,7 @@ static void test_copy_block_compressed_texture(void)
     {
         unsigned int row_offset = dst_location.PlacedFootprint.Footprint.RowPitch / sizeof(got) * y;
 
-        for (x = 0; x < 4 / format_block_width(DXGI_FORMAT_BC2_UNORM); ++x)
+        for (x = 0; x < 8 / format_block_width(DXGI_FORMAT_BC2_UNORM); ++x)
         {
             if (x == 0 && y % 2 == 0)
                 block_id = 33;
