@@ -3181,13 +3181,15 @@ static bool copy_propagation_process_if(struct hlsl_ctx *ctx, struct hlsl_ir_if 
 {
     bool progress = false;
 
-    copy_propagation_push_scope(state, ctx);
+    if (!copy_propagation_push_scope(state, ctx))
+        return false;
     progress |= copy_propagation_transform_block(ctx, &iff->then_block, state);
     if (state->stopped)
         return progress;
     copy_propagation_pop_scope(state);
 
-    copy_propagation_push_scope(state, ctx);
+    if (!copy_propagation_push_scope(state, ctx))
+        return false;
     progress |= copy_propagation_transform_block(ctx, &iff->else_block, state);
     if (state->stopped)
         return progress;
@@ -3222,14 +3224,16 @@ static bool copy_propagation_process_loop(struct hlsl_ctx *ctx, struct hlsl_ir_l
     copy_propagation_invalidate_from_block(ctx, state, &loop->body, loop->node.index);
     copy_propagation_invalidate_from_block(ctx, state, &loop->iter, loop->node.index);
 
-    copy_propagation_push_scope(state, ctx);
+    if (!copy_propagation_push_scope(state, ctx))
+        return false;
     progress |= copy_propagation_transform_block(ctx, &loop->body, state);
     if (state->stopped)
         return progress;
     copy_propagation_pop_scope(state);
 
     /* The existence of 'continue' means this can't be in the same scope. */
-    copy_propagation_push_scope(state, ctx);
+    if (!copy_propagation_push_scope(state, ctx))
+        return false;
     progress |= copy_propagation_transform_block(ctx, &loop->iter, state);
     if (state->stopped)
         return progress;
@@ -3246,7 +3250,8 @@ static bool copy_propagation_process_switch(struct hlsl_ctx *ctx, struct hlsl_ir
 
     LIST_FOR_EACH_ENTRY(c, &s->cases, struct hlsl_ir_switch_case, entry)
     {
-        copy_propagation_push_scope(state, ctx);
+        if (!copy_propagation_push_scope(state, ctx))
+            return false;
         progress |= copy_propagation_transform_block(ctx, &c->body, state);
         if (state->stopped)
             return progress;
@@ -3334,7 +3339,8 @@ bool hlsl_copy_propagation_execute(struct hlsl_ctx *ctx, struct hlsl_block *bloc
 
     index_instructions(block, 1);
 
-    copy_propagation_state_init(&state, ctx);
+    if (!copy_propagation_state_init(&state, ctx))
+        return false;
 
     progress = copy_propagation_transform_block(ctx, block, &state);
 
@@ -15147,7 +15153,8 @@ static void loop_unrolling_simplify(struct hlsl_ctx *ctx, struct hlsl_block *blo
         state->stopped = false;
         for (size_t i = state->scope_count; scopes_depth < i; --i)
             copy_propagation_pop_scope(state);
-        copy_propagation_push_scope(state, ctx);
+        if (!copy_propagation_push_scope(state, ctx))
+            return;
 
         progress = simplify_exprs(ctx, block);
 
@@ -15363,7 +15370,8 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
         goto fail;
 
     max_iterations = loop_unrolling_get_max_iterations(ctx, loop, unroll_limit);
-    copy_propagation_state_init(&state, ctx);
+    if (!copy_propagation_state_init(&state, ctx))
+        goto fail;
 
     state.stop = &loop->node;
     index_instructions(block, 2);
@@ -15384,7 +15392,8 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
     state.stop = LIST_ENTRY(list_head(&tmp_dst.instrs), struct hlsl_ir_node, entry);
     hlsl_block_add_block(&draft, &tmp_dst);
 
-    copy_propagation_push_scope(&state, ctx);
+    if (!copy_propagation_push_scope(&state, ctx))
+        goto fail;
     loop_unrolling_simplify(ctx, &draft, &state, &index);
 
     /* As an optimization, we only remove jumps from the loop's body once. */
@@ -15394,7 +15403,8 @@ static bool loop_unrolling_unroll_loop(struct hlsl_ctx *ctx, struct hlsl_block *
 
     for (i = 0; i < max_iterations; ++i)
     {
-        copy_propagation_push_scope(&state, ctx);
+        if (!copy_propagation_push_scope(&state, ctx))
+            goto fail;
 
         if (!loop_unrolling_generate_const_bool_store(ctx, continued, false, &tmp_dst, &loop->node.loc))
             goto fail;
