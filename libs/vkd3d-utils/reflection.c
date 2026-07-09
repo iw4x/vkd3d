@@ -454,6 +454,19 @@ static void d3d12_reflection_free_buffers(struct d3d12_reflection *reflection)
     vkd3d_free(reflection->buffers);
 }
 
+static void d3d12_reflection_cleanup(struct d3d12_reflection *reflection)
+{
+    d3d12_reflection_free_bindings(reflection);
+    d3d12_reflection_free_buffers(reflection);
+    vkd3d_shader_free_scan_signature_info(&reflection->signature_info);
+}
+
+static void d3d12_reflection_destroy(struct d3d12_reflection *reflection)
+{
+    d3d12_reflection_cleanup(reflection);
+    vkd3d_free(reflection);
+}
+
 static ULONG STDMETHODCALLTYPE d3d12_reflection_Release(ID3D12ShaderReflection *iface)
 {
     struct d3d12_reflection *reflection = impl_from_ID3D12ShaderReflection(iface);
@@ -462,12 +475,7 @@ static ULONG STDMETHODCALLTYPE d3d12_reflection_Release(ID3D12ShaderReflection *
     TRACE("%p decreasing refcount to %u.\n", reflection, refcount);
 
     if (!refcount)
-    {
-        d3d12_reflection_free_bindings(reflection);
-        d3d12_reflection_free_buffers(reflection);
-        vkd3d_shader_free_scan_signature_info(&reflection->signature_info);
-        free(reflection);
-    }
+        d3d12_reflection_destroy(reflection);
 
     return refcount;
 }
@@ -1619,8 +1627,7 @@ static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection,
     return S_OK;
 
 fail:
-    d3d12_reflection_free_buffers(reflection);
-    vkd3d_shader_free_scan_signature_info(&reflection->signature_info);
+    d3d12_reflection_cleanup(reflection);
     vkd3d_shader_free_dxbc(&dxbc_desc);
     return hr;
 }
