@@ -1619,6 +1619,7 @@ static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection,
     return S_OK;
 
 fail:
+    d3d12_reflection_free_buffers(reflection);
     vkd3d_shader_free_scan_signature_info(&reflection->signature_info);
     vkd3d_shader_free_dxbc(&dxbc_desc);
     return hr;
