@@ -27049,13 +27049,13 @@ static void test_copy_block_compressed_texture(void)
     D3D12_TEXTURE_COPY_LOCATION src_location, dst_location;
     ID3D12Resource *dst_buffer, *src_buffer;
     ID3D12GraphicsCommandList *command_list;
+    ID3D12Resource *texture, *texture2;
     struct d3d12_resource_readback rb;
     struct test_context_desc desc;
     unsigned int x, y, block_id;
     struct test_context context;
     struct uvec4 got, expected;
     ID3D12CommandQueue *queue;
-    ID3D12Resource *texture;
     ID3D12Device *device;
     unsigned int *ptr;
     D3D12_BOX box;
@@ -27084,6 +27084,8 @@ static void test_copy_block_compressed_texture(void)
     ID3D12Resource_Unmap(src_buffer, 0, NULL);
 
     texture = create_default_texture2d(device, 8, 8, 1, 4, DXGI_FORMAT_BC2_UNORM,
+            D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
+    texture2 = create_default_texture2d(device, 1, 3, 1, 1, DXGI_FORMAT_BC2_UNORM,
             D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
 
     /* copy from buffer to texture */
@@ -27157,6 +27159,23 @@ static void test_copy_block_compressed_texture(void)
     transition_resource_state(command_list, dst_buffer,
             D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_SOURCE);
 
+    /* Copy from texture to texture; the source mip is 2x2 and the
+     * destination mip is 1x3; the copy is expected to succeed because they
+     * both correspond to a 4x4 physical block. */
+    dst_location.pResource = texture2;
+    dst_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    dst_location.SubresourceIndex = 0;
+
+    src_location.pResource = texture;
+    src_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    src_location.SubresourceIndex = 2;
+
+    ID3D12GraphicsCommandList_CopyTextureRegion(command_list,
+            &dst_location, 0, 0, 0, &src_location, NULL);
+
+    transition_resource_state(command_list, texture2,
+            D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_SOURCE);
+
     get_resource_readback_with_command_list(texture, 0, &rb, queue, command_list);
     for (y = 0; y < 8 / format_block_height(DXGI_FORMAT_BC2_UNORM); ++y)
     {
@@ -27215,6 +27234,19 @@ static void test_copy_block_compressed_texture(void)
             got.x, got.y, got.z, got.w, expected.x, expected.y, expected.z, expected.w);
 
     reset_command_list(command_list, context.allocator);
+    get_resource_readback_with_command_list(texture2, 0, &rb, queue, command_list);
+    block_id = 1;
+    expected.x = block_id << 8 | 0;
+    expected.y = block_id << 8 | 1;
+    expected.z = block_id << 8 | 2;
+    expected.w = block_id << 8 | 3;
+    got = *get_readback_uvec4(&rb.rb, 0, 0);
+    release_resource_readback(&rb);
+    ok(compare_uvec4(&got, &expected),
+            "Got {0x%08x, 0x%08x, 0x%08x, 0x%08x}, expected {0x%08x, 0x%08x, 0x%08x, 0x%08x}.\n",
+            got.x, got.y, got.z, got.w, expected.x, expected.y, expected.z, expected.w);
+
+    reset_command_list(command_list, context.allocator);
     get_buffer_readback_with_command_list(dst_buffer, DXGI_FORMAT_R32_UINT, &rb, queue, command_list);
     for (y = 0; y < 24 / format_block_height(DXGI_FORMAT_BC2_UNORM); ++y)
     {
@@ -27249,6 +27281,7 @@ static void test_copy_block_compressed_texture(void)
             got.x, got.y, got.z, got.w, x, y, expected.x, expected.y, expected.z, expected.w);
 
     ID3D12Resource_Release(texture);
+    ID3D12Resource_Release(texture2);
     ID3D12Resource_Release(src_buffer);
     ID3D12Resource_Release(dst_buffer);
     destroy_test_context(&context);
