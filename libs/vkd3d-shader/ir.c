@@ -4673,7 +4673,7 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
     struct vkd3d_shader_instruction *ins;
     struct vsir_program_iterator it;
     enum vkd3d_result ret;
-    unsigned int i, j;
+    unsigned int i;
 
     VKD3D_ASSERT(program->normalisation_level == VSIR_NORMALISED_SM4);
 
@@ -4699,9 +4699,9 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
             default:
                 if (vsir_instruction_is_dcl(ins))
                     break;
-                for (j = 0; j < ins->dst_count; ++j)
+                for (i = 0; i < ins->dst_count; ++i)
                 {
-                    if (!vsir_dst_operand_normalise_outpointid(&ins->dst[j], &normaliser))
+                    if (!vsir_dst_operand_normalise_outpointid(&ins->dst[i], &normaliser))
                         return VKD3D_ERROR_OUT_OF_MEMORY;
                 }
                 break;
@@ -4710,7 +4710,7 @@ static enum vkd3d_result instruction_array_normalise_hull_shader_control_point_i
 
     normaliser.phase = VSIR_OP_INVALID;
 
-    for (ins = vsir_program_iterator_head(&it), i = 0; ins; ins = vsir_program_iterator_next(&it), ++i)
+    for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
         switch (ins->opcode)
         {
