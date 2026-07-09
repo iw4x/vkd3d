@@ -432,6 +432,17 @@ static void d3d12_buffer_cleanup(struct d3d12_buffer *buffer)
     vkd3d_free((void *)buffer->desc.Name);
 }
 
+static void d3d12_reflection_free_buffers(struct d3d12_reflection *reflection)
+{
+    unsigned int i;
+
+    for (i = 0; i < reflection->desc.ConstantBuffers; ++i)
+    {
+        d3d12_buffer_cleanup(&reflection->buffers[i]);
+    }
+    vkd3d_free(reflection->buffers);
+}
+
 static ULONG STDMETHODCALLTYPE d3d12_reflection_Release(ID3D12ShaderReflection *iface)
 {
     struct d3d12_reflection *reflection = impl_from_ID3D12ShaderReflection(iface);
@@ -441,16 +452,11 @@ static ULONG STDMETHODCALLTYPE d3d12_reflection_Release(ID3D12ShaderReflection *
 
     if (!refcount)
     {
-        for (UINT i = 0; i < reflection->desc.ConstantBuffers; ++i)
-        {
-            d3d12_buffer_cleanup(&reflection->buffers[i]);
-        }
-        vkd3d_free(reflection->buffers);
-
         for (UINT i = 0; i < reflection->desc.BoundResources; ++i)
             vkd3d_free((void *)reflection->bindings[i].Name);
         vkd3d_free(reflection->bindings);
 
+        d3d12_reflection_free_buffers(reflection);
         vkd3d_shader_free_scan_signature_info(&reflection->signature_info);
         free(reflection);
     }
@@ -1382,7 +1388,11 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
         {
             if (FAILED(hr = d3d12_buffer_init(&reflection->buffers[i], reflection,
                     &rdef_buffers[i], section, variable_size, type_size)))
+            {
+                reflection->desc.ConstantBuffers = i;
+                d3d12_reflection_free_buffers(reflection);
                 return hr;
+            }
         }
     }
 
@@ -1391,7 +1401,10 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
     if (header->binding_count)
     {
         if (!(reflection->bindings = vkd3d_calloc(header->binding_count, sizeof(*reflection->bindings))))
+        {
+            d3d12_reflection_free_buffers(reflection);
             return E_OUTOFMEMORY;
+        }
 
         for (uint32_t i = 0; i < header->binding_count; ++i)
         {
@@ -1400,10 +1413,16 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
             char *name;
 
             if (!(rdef_binding = get_data_ptr(section, header->bindings_offset + (i * binding_size), 1, binding_size)))
+            {
+                d3d12_reflection_free_buffers(reflection);
                 return E_INVALIDARG;
+            }
 
             if (FAILED(hr = get_string(section, rdef_binding->name_offset, &name)))
+            {
+                d3d12_reflection_free_buffers(reflection);
                 return hr;
+            }
 
             binding = &reflection->bindings[i];
 
