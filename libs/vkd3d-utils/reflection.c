@@ -413,6 +413,25 @@ static void d3d12_type_cleanup(struct d3d12_type *type)
     vkd3d_free((void *)type->desc.Name);
 }
 
+static void d3d12_variable_cleanup(struct d3d12_variable *variable)
+{
+    d3d12_type_cleanup(&variable->type);
+    vkd3d_free(variable->desc.DefaultValue);
+    vkd3d_free((void *)variable->desc.Name);
+}
+
+static void d3d12_buffer_cleanup(struct d3d12_buffer *buffer)
+{
+    unsigned int i;
+
+    for (i = 0; i < buffer->desc.Variables; ++i)
+    {
+        d3d12_variable_cleanup(&buffer->variables[i]);
+    }
+    vkd3d_free(buffer->variables);
+    vkd3d_free((void *)buffer->desc.Name);
+}
+
 static ULONG STDMETHODCALLTYPE d3d12_reflection_Release(ID3D12ShaderReflection *iface)
 {
     struct d3d12_reflection *reflection = impl_from_ID3D12ShaderReflection(iface);
@@ -424,18 +443,7 @@ static ULONG STDMETHODCALLTYPE d3d12_reflection_Release(ID3D12ShaderReflection *
     {
         for (UINT i = 0; i < reflection->desc.ConstantBuffers; ++i)
         {
-            struct d3d12_buffer *buffer = &reflection->buffers[i];
-
-            for (UINT j = 0; j < buffer->desc.Variables; ++j)
-            {
-                struct d3d12_variable *variable = &buffer->variables[j];
-
-                d3d12_type_cleanup(&variable->type);
-                vkd3d_free((void *)variable->desc.DefaultValue);
-                vkd3d_free((void *)variable->desc.Name);
-            }
-            vkd3d_free(buffer->variables);
-            vkd3d_free((void *)buffer->desc.Name);
+            d3d12_buffer_cleanup(&reflection->buffers[i]);
         }
         vkd3d_free(reflection->buffers);
 
@@ -1255,7 +1263,8 @@ static HRESULT d3d12_buffer_init(struct d3d12_buffer *buffer,
 
         if (!(rdef_variable = get_data_ptr(section, rdef_buffer->vars_offset + (i * variable_size), 1, variable_size)))
         {
-            vkd3d_free(name);
+            buffer->desc.Variables = i;
+            d3d12_buffer_cleanup(buffer);
             return E_INVALIDARG;
         }
 
@@ -1266,7 +1275,8 @@ static HRESULT d3d12_buffer_init(struct d3d12_buffer *buffer,
         if (FAILED(hr = d3d12_variable_init(&buffer->variables[i],
                 reflection, &normalized_variable, section, type_size)))
         {
-            vkd3d_free(name);
+            buffer->desc.Variables = i;
+            d3d12_buffer_cleanup(buffer);
             return hr;
         }
     }
