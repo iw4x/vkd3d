@@ -517,13 +517,11 @@ static void dump_line(const struct colours *colours, const char *prefix,
 static void dump_data(const struct colours *colours, const char *prefix, const struct vkd3d_shader_code *data)
 {
     size_t line_count, remainder, i;
-    const uint8_t *ptr;
 
-    ptr = data->code;
     line_count = data->size / 16;
     remainder = data->size % 16;
 
-    for (i = 0; i < line_count; ++i, ptr += 16)
+    for (i = 0; i < line_count; ++i)
     {
         dump_line(colours, prefix, data->code, i * 16, 16);
     }
