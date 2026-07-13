@@ -6851,46 +6851,40 @@ static void spirv_compiler_emit_resource_declaration(struct spirv_compiler *comp
     spirv_compiler_put_symbol(compiler, &resource_symbol);
 }
 
-static void spirv_compiler_emit_workgroup_memory(struct spirv_compiler *compiler, const struct vsir_operand *reg,
-        unsigned int alignment, unsigned int size, unsigned int structure_stride, bool zero_init)
+static void spirv_compiler_emit_workgroup_memory(struct spirv_compiler *compiler, const struct vsir_tgsm *t)
 {
     uint32_t type_id, array_type_id, length_id, pointer_type_id, var_id, init_id;
     struct vkd3d_spirv_builder *builder = &compiler->spirv_builder;
     const SpvStorageClass storage_class = SpvStorageClassWorkgroup;
     struct vkd3d_symbol reg_symbol;
+    struct vsir_operand reg;
 
-    if (zero_init && !compiler->compile_info.feature_zero_init_tgsm)
+    if (t->zero_init && !compiler->compile_info.feature_zero_init_tgsm)
         spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_UNSUPPORTED_FEATURE,
                 "The target environment does not support zero-initialized workgroup memory.");
 
     /* Alignment is supported only in the Kernel execution model. */
-    if (alignment)
-        TRACE("Ignoring alignment %u.\n", alignment);
+    if (t->alignment)
+        TRACE("Ignoring alignment %zu.\n", t->alignment);
 
     type_id = spirv_get_type_id(compiler, VSIR_DATA_U32, 1);
-    length_id = spirv_compiler_get_constant_uint(compiler, size);
+    length_id = spirv_compiler_get_constant_uint(compiler, t->byte_count / 4);
     array_type_id = vkd3d_spirv_get_op_type_array(builder, type_id, length_id);
 
     pointer_type_id = vkd3d_spirv_get_op_type_pointer(builder, storage_class, array_type_id);
-    init_id = zero_init ? vkd3d_spirv_get_op_constant_null(builder, array_type_id) : 0;
+    init_id = t->zero_init ? vkd3d_spirv_get_op_constant_null(builder, array_type_id) : 0;
     var_id = vkd3d_spirv_build_op_variable(builder, &builder->global_stream,
             pointer_type_id, storage_class, init_id);
 
-    spirv_compiler_emit_register_debug_name(builder, var_id, reg);
+    vsir_operand_init(&reg, VSIR_REGISTER_GROUPSHAREDMEM, VSIR_DATA_U32, 1);
+    reg.idx[0].offset = t->id;
 
-    vkd3d_symbol_make_register(&reg_symbol, reg);
+    spirv_compiler_emit_register_debug_name(builder, var_id, &reg);
+
+    vkd3d_symbol_make_register(&reg_symbol, &reg);
     vkd3d_symbol_set_register_info(&reg_symbol, var_id, storage_class, VSIR_DATA_U32, VKD3DSP_WRITEMASK_0);
-    reg_symbol.info.reg.structure_stride = structure_stride;
+    reg_symbol.info.reg.structure_stride = t->structure_stride / 4;
     spirv_compiler_put_symbol(compiler, &reg_symbol);
-}
-
-static void spirv_compiler_emit_dcl_tgsm_structured(struct spirv_compiler *compiler,
-        const struct vkd3d_shader_instruction *instruction)
-{
-    const struct vkd3d_shader_tgsm_structured *tgsm_structured = &instruction->declaration.tgsm_structured;
-    unsigned int stride = tgsm_structured->byte_stride / 4;
-    spirv_compiler_emit_workgroup_memory(compiler, &tgsm_structured->reg.reg, tgsm_structured->alignment,
-            tgsm_structured->structure_count * stride, stride, tgsm_structured->zero_init);
 }
 
 static void spirv_compiler_emit_dcl_stream(struct spirv_compiler *compiler,
@@ -10193,9 +10187,6 @@ static void spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
         case VSIR_OP_DCL_INDEXABLE_TEMP:
             spirv_compiler_emit_dcl_indexable_temp(compiler, instruction);
             break;
-        case VSIR_OP_DCL_TGSM_STRUCTURED:
-            spirv_compiler_emit_dcl_tgsm_structured(compiler, instruction);
-            break;
         case VSIR_OP_DCL_STREAM:
             spirv_compiler_emit_dcl_stream(compiler, instruction);
             break;
@@ -10646,17 +10637,11 @@ static void spirv_compiler_emit_immediate_constant_buffers(struct spirv_compiler
 static void spirv_compiler_emit_tgsm_declarations(struct spirv_compiler *compiler)
 {
     struct vsir_program *program = compiler->program;
-    struct vsir_operand reg;
-    struct vsir_tgsm *t;
     size_t i;
 
     for (i = 0; i < program->tgsm_count; ++i)
     {
-        t = &program->tgsms[i];
-
-        vsir_operand_init(&reg, VSIR_REGISTER_GROUPSHAREDMEM, VSIR_DATA_U32, 1);
-        reg.idx[0].offset = t->id;
-        spirv_compiler_emit_workgroup_memory(compiler, &reg, t->alignment, t->byte_count / 4, 0, t->zero_init);
+        spirv_compiler_emit_workgroup_memory(compiler, &program->tgsms[i]);
     }
 }
 

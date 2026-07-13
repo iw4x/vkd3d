@@ -1067,7 +1067,8 @@ struct vsir_descriptor *vsir_program_add_descriptor(struct vsir_program *program
     return d;
 }
 
-struct vsir_tgsm *vsir_program_add_tgsm(struct vsir_program *program, unsigned int register_id, size_t byte_count)
+struct vsir_tgsm *vsir_program_add_tgsm(struct vsir_program *program,
+        unsigned int register_id, size_t byte_count, size_t stride)
 {
     struct vsir_tgsm *t;
 
@@ -1083,6 +1084,7 @@ struct vsir_tgsm *vsir_program_add_tgsm(struct vsir_program *program, unsigned i
     {
         .id = register_id,
         .byte_count = byte_count,
+        .structure_stride = stride,
     };
 
     return t;
@@ -3811,6 +3813,7 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
             case VSIR_OP_DCL_TESSELLATOR_OUTPUT_PRIMITIVE:
             case VSIR_OP_DCL_TESSELLATOR_PARTITIONING:
             case VSIR_OP_DCL_TGSM_RAW:
+            case VSIR_OP_DCL_TGSM_STRUCTURED:
             case VSIR_OP_DCL_THREAD_GROUP:
             case VSIR_OP_DCL_UAV_RAW:
             case VSIR_OP_DCL_UAV_STRUCTURED:

@@ -1322,7 +1322,7 @@ static void shader_sm5_read_dcl_tgsm_raw(struct vkd3d_shader_instruction *ins, u
         FIXME("Byte count %u is not multiple of 4.\n", tgsm->byte_count);
     tgsm->zero_init = false;
 
-    if (!vsir_program_add_tgsm(tpf->program, tgsm->reg.reg.idx[0].offset, tgsm->byte_count))
+    if (!vsir_program_add_tgsm(tpf->program, tgsm->reg.reg.idx[0].offset, tgsm->byte_count, 0))
         vkd3d_shader_parser_error(&tpf->p, VKD3D_SHADER_ERROR_TPF_OUT_OF_MEMORY,
                 "Failed to add TGSM descriptor.\n");
 }
@@ -1330,12 +1330,19 @@ static void shader_sm5_read_dcl_tgsm_raw(struct vkd3d_shader_instruction *ins, u
 static void shader_sm5_read_dcl_tgsm_structured(struct vkd3d_shader_instruction *ins, uint32_t opcode,
         uint32_t opcode_token, const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *tpf)
 {
-    tpf_read_dst_operand(tpf, &tokens, &tokens[token_count], VSIR_DATA_F32, &ins->declaration.tgsm_structured.reg);
-    ins->declaration.tgsm_structured.byte_stride = *tokens++;
-    ins->declaration.tgsm_structured.structure_count = *tokens;
-    if (ins->declaration.tgsm_structured.byte_stride % 4)
-        FIXME("Byte stride %u is not multiple of 4.\n", ins->declaration.tgsm_structured.byte_stride);
-    ins->declaration.tgsm_structured.zero_init = false;
+    struct vkd3d_shader_tgsm_structured *tgsm = &ins->declaration.tgsm_structured;
+
+    tpf_read_dst_operand(tpf, &tokens, &tokens[token_count], VSIR_DATA_F32, &tgsm->reg);
+    tgsm->byte_stride = *tokens++;
+    tgsm->structure_count = *tokens;
+    if (tgsm->byte_stride % 4)
+        FIXME("Byte stride %u is not multiple of 4.\n", tgsm->byte_stride);
+    tgsm->zero_init = false;
+
+    if (!vsir_program_add_tgsm(tpf->program, tgsm->reg.reg.idx[0].offset,
+            tgsm->structure_count * tgsm->byte_stride, tgsm->byte_stride))
+        vkd3d_shader_parser_error(&tpf->p, VKD3D_SHADER_ERROR_TPF_OUT_OF_MEMORY,
+                "Failed to add TGSM descriptor.\n");
 }
 
 static void shader_sm5_read_dcl_resource_structured(struct vkd3d_shader_instruction *ins, uint32_t opcode,

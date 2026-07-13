@@ -14055,6 +14055,7 @@ static void sm4_generate_vsir_add_dcl_tgsm(struct hlsl_ctx *ctx,
         struct vsir_program *program, const struct hlsl_ir_var *var)
 {
     bool raw = var->data_type->class != HLSL_CLASS_ARRAY;
+    struct vkd3d_shader_tgsm_structured *tgsm_structured;
     struct vkd3d_shader_tgsm_raw *tgsm_raw;
     struct vkd3d_shader_instruction *ins;
     enum vkd3d_shader_opcode opcode;
@@ -14074,16 +14075,20 @@ static void sm4_generate_vsir_add_dcl_tgsm(struct hlsl_ctx *ctx,
 
         tgsm_raw->byte_count = hlsl_type_get_packed_size(var->data_type);
         tgsm_raw->zero_init = false;
-        if (!vsir_program_add_tgsm(program, var->regs[HLSL_REGSET_NUMERIC].id, tgsm_raw->byte_count))
+        if (!vsir_program_add_tgsm(program, var->regs[HLSL_REGSET_NUMERIC].id, tgsm_raw->byte_count, 0))
             ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
     }
     else
     {
-        dst = &ins->declaration.tgsm_structured.reg;
+        tgsm_structured = &ins->declaration.tgsm_structured;
+        dst = &tgsm_structured->reg;
 
-        ins->declaration.tgsm_structured.byte_stride = hlsl_type_get_packed_size(var->data_type->e.array.type);
-        ins->declaration.tgsm_structured.structure_count = var->data_type->e.array.elements_count;
-        ins->declaration.tgsm_structured.zero_init = false;
+        tgsm_structured->byte_stride = hlsl_type_get_packed_size(var->data_type->e.array.type);
+        tgsm_structured->structure_count = var->data_type->e.array.elements_count;
+        tgsm_structured->zero_init = false;
+        if (!vsir_program_add_tgsm(program, var->regs[HLSL_REGSET_NUMERIC].id,
+                tgsm_structured->structure_count * tgsm_structured->byte_stride, tgsm_structured->byte_stride))
+            ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
     }
 
     vsir_dst_operand_init(dst, VSIR_REGISTER_GROUPSHAREDMEM, VSIR_DATA_F32, 1);

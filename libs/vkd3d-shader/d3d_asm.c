@@ -2059,6 +2059,8 @@ static void shader_print_descriptors(struct vkd3d_d3d_asm_compiler *compiler, co
         if (t->alignment)
             shader_print_hex_literal(compiler, ", alignment=", t->alignment, "");
         shader_print_hex_literal(compiler, ", size=", t->byte_count, "");
+        if (t->structure_stride)
+            shader_print_hex_literal(compiler, ", stride=", t->structure_stride, "");
         if (t->zero_init)
             vkd3d_string_buffer_printf(buffer, ", %szero-init%s",
                     compiler->colours.enumerant, compiler->colours.reset);
