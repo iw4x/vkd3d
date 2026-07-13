@@ -1314,11 +1314,17 @@ static void shader_sm5_read_dcl_uav_structured(struct vkd3d_shader_instruction *
 static void shader_sm5_read_dcl_tgsm_raw(struct vkd3d_shader_instruction *ins, uint32_t opcode,
         uint32_t opcode_token, const uint32_t *tokens, unsigned int token_count, struct vkd3d_shader_sm4_parser *tpf)
 {
-    tpf_read_dst_operand(tpf, &tokens, &tokens[token_count], VSIR_DATA_F32, &ins->declaration.tgsm_raw.reg);
-    ins->declaration.tgsm_raw.byte_count = *tokens;
-    if (ins->declaration.tgsm_raw.byte_count % 4)
-        FIXME("Byte count %u is not multiple of 4.\n", ins->declaration.tgsm_raw.byte_count);
-    ins->declaration.tgsm_raw.zero_init = false;
+    struct vkd3d_shader_tgsm_raw *tgsm = &ins->declaration.tgsm_raw;
+
+    tpf_read_dst_operand(tpf, &tokens, &tokens[token_count], VSIR_DATA_F32, &tgsm->reg);
+    tgsm->byte_count = *tokens;
+    if (tgsm->byte_count % 4)
+        FIXME("Byte count %u is not multiple of 4.\n", tgsm->byte_count);
+    tgsm->zero_init = false;
+
+    if (!vsir_program_add_tgsm(tpf->program, tgsm->reg.reg.idx[0].offset, tgsm->byte_count))
+        vkd3d_shader_parser_error(&tpf->p, VKD3D_SHADER_ERROR_TPF_OUT_OF_MEMORY,
+                "Failed to add TGSM descriptor.\n");
 }
 
 static void shader_sm5_read_dcl_tgsm_structured(struct vkd3d_shader_instruction *ins, uint32_t opcode,

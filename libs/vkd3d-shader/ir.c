@@ -1067,6 +1067,40 @@ struct vsir_descriptor *vsir_program_add_descriptor(struct vsir_program *program
     return d;
 }
 
+struct vsir_tgsm *vsir_program_add_tgsm(struct vsir_program *program, unsigned int register_id, size_t byte_count)
+{
+    struct vsir_tgsm *t;
+
+    if (!vkd3d_array_reserve((void **)&program->tgsms, &program->tgsm_capacity,
+            program->tgsm_count + 1, sizeof(*program->tgsms)))
+    {
+        ERR("Failed to allocate tgsm info.\n");
+        return NULL;
+    }
+
+    t = &program->tgsms[program->tgsm_count++];
+    *t = (struct vsir_tgsm)
+    {
+        .id = register_id,
+        .byte_count = byte_count,
+    };
+
+    return t;
+}
+
+struct vsir_tgsm *vsir_program_find_tgsm(struct vsir_program *program, unsigned int register_id)
+{
+    size_t i;
+
+    for (i = 0; i < program->tgsm_count; ++i)
+    {
+        if (program->tgsms[i].id == register_id)
+            return &program->tgsms[i];
+    }
+
+    return NULL;
+}
+
 const char *debug_vsir_writemask(unsigned int writemask)
 {
     static const char components[] = {'x', 'y', 'z', 'w'};
@@ -3776,6 +3810,7 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
             case VSIR_OP_DCL_TESSELLATOR_DOMAIN:
             case VSIR_OP_DCL_TESSELLATOR_OUTPUT_PRIMITIVE:
             case VSIR_OP_DCL_TESSELLATOR_PARTITIONING:
+            case VSIR_OP_DCL_TGSM_RAW:
             case VSIR_OP_DCL_THREAD_GROUP:
             case VSIR_OP_DCL_UAV_RAW:
             case VSIR_OP_DCL_UAV_STRUCTURED:

@@ -6884,14 +6884,6 @@ static void spirv_compiler_emit_workgroup_memory(struct spirv_compiler *compiler
     spirv_compiler_put_symbol(compiler, &reg_symbol);
 }
 
-static void spirv_compiler_emit_dcl_tgsm_raw(struct spirv_compiler *compiler,
-        const struct vkd3d_shader_instruction *instruction)
-{
-    const struct vkd3d_shader_tgsm_raw *tgsm_raw = &instruction->declaration.tgsm_raw;
-    spirv_compiler_emit_workgroup_memory(compiler, &tgsm_raw->reg.reg, tgsm_raw->alignment,
-            tgsm_raw->byte_count / 4, 0, tgsm_raw->zero_init);
-}
-
 static void spirv_compiler_emit_dcl_tgsm_structured(struct spirv_compiler *compiler,
         const struct vkd3d_shader_instruction *instruction)
 {
@@ -10201,9 +10193,6 @@ static void spirv_compiler_handle_instruction(struct spirv_compiler *compiler,
         case VSIR_OP_DCL_INDEXABLE_TEMP:
             spirv_compiler_emit_dcl_indexable_temp(compiler, instruction);
             break;
-        case VSIR_OP_DCL_TGSM_RAW:
-            spirv_compiler_emit_dcl_tgsm_raw(compiler, instruction);
-            break;
         case VSIR_OP_DCL_TGSM_STRUCTURED:
             spirv_compiler_emit_dcl_tgsm_structured(compiler, instruction);
             break;
@@ -10654,6 +10643,23 @@ static void spirv_compiler_emit_immediate_constant_buffers(struct spirv_compiler
     }
 }
 
+static void spirv_compiler_emit_tgsm_declarations(struct spirv_compiler *compiler)
+{
+    struct vsir_program *program = compiler->program;
+    struct vsir_operand reg;
+    struct vsir_tgsm *t;
+    size_t i;
+
+    for (i = 0; i < program->tgsm_count; ++i)
+    {
+        t = &program->tgsms[i];
+
+        vsir_operand_init(&reg, VSIR_REGISTER_GROUPSHAREDMEM, VSIR_DATA_U32, 1);
+        reg.idx[0].offset = t->id;
+        spirv_compiler_emit_workgroup_memory(compiler, &reg, t->alignment, t->byte_count / 4, 0, t->zero_init);
+    }
+}
+
 static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
         const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_code *spirv)
 {
@@ -10698,6 +10704,7 @@ static int spirv_compiler_generate_spirv(struct spirv_compiler *compiler,
 
     spirv_compiler_emit_descriptor_declarations(compiler);
     spirv_compiler_emit_immediate_constant_buffers(compiler);
+    spirv_compiler_emit_tgsm_declarations(compiler);
 
     compiler->spirv_parameter_info = vkd3d_calloc(program->parameter_count, sizeof(*compiler->spirv_parameter_info));
     for (i = 0; i < program->parameter_count; ++i)

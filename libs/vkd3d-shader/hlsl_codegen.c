@@ -14055,6 +14055,7 @@ static void sm4_generate_vsir_add_dcl_tgsm(struct hlsl_ctx *ctx,
         struct vsir_program *program, const struct hlsl_ir_var *var)
 {
     bool raw = var->data_type->class != HLSL_CLASS_ARRAY;
+    struct vkd3d_shader_tgsm_raw *tgsm_raw;
     struct vkd3d_shader_instruction *ins;
     enum vkd3d_shader_opcode opcode;
     struct vsir_dst_operand *dst;
@@ -14068,10 +14069,13 @@ static void sm4_generate_vsir_add_dcl_tgsm(struct hlsl_ctx *ctx,
 
     if (raw)
     {
-        dst = &ins->declaration.tgsm_raw.reg;
+        tgsm_raw = &ins->declaration.tgsm_raw;
+        dst = &tgsm_raw->reg;
 
-        ins->declaration.tgsm_raw.byte_count = hlsl_type_get_packed_size(var->data_type);
-        ins->declaration.tgsm_raw.zero_init = false;
+        tgsm_raw->byte_count = hlsl_type_get_packed_size(var->data_type);
+        tgsm_raw->zero_init = false;
+        if (!vsir_program_add_tgsm(program, var->regs[HLSL_REGSET_NUMERIC].id, tgsm_raw->byte_count))
+            ctx->result = VKD3D_ERROR_OUT_OF_MEMORY;
     }
     else
     {

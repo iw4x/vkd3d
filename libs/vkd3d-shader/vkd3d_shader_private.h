@@ -1359,12 +1359,6 @@ struct vkd3d_shader_raw_resource
     struct vkd3d_shader_resource resource;
 };
 
-struct vkd3d_shader_tgsm
-{
-    unsigned int size;
-    unsigned int stride;
-};
-
 struct vkd3d_shader_tgsm_raw
 {
     struct vsir_dst_operand reg;
@@ -1719,6 +1713,14 @@ struct vsir_compile_info
 
 void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d);
 
+struct vsir_tgsm
+{
+    unsigned int id;
+    size_t alignment;
+    size_t byte_count;
+    bool zero_init;
+};
+
 struct vsir_program
 {
     struct vkd3d_shader_version shader_version;
@@ -1729,6 +1731,9 @@ struct vsir_program
     struct vsir_signature patch_constant_signature;
 
     struct vsir_descriptor_info descriptors;
+
+    struct vsir_tgsm *tgsms;
+    size_t tgsm_capacity, tgsm_count;
 
     unsigned int parameter_count;
     const struct vkd3d_shader_parameter1 *parameters;
@@ -1779,9 +1784,11 @@ struct vsir_descriptor *vsir_program_add_descriptor(struct vsir_program *program
         enum vkd3d_shader_descriptor_type type, unsigned int register_id, const struct vsir_register_range *range,
         enum vkd3d_shader_resource_type resource_type, enum vsir_data_type resource_data_type);
 bool vsir_program_add_icb(struct vsir_program *program, struct vkd3d_shader_immediate_constant_buffer *icb);
+struct vsir_tgsm *vsir_program_add_tgsm(struct vsir_program *program, unsigned int register_id, size_t byte_count);
 enum vkd3d_result vsir_program_allocate_temp_registers(struct vsir_program *program, uint64_t config_flags,
         const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_message_context *message_context);
 void vsir_program_cleanup(struct vsir_program *program);
+struct vsir_tgsm *vsir_program_find_tgsm(struct vsir_program *program, unsigned int register_id);
 const struct vkd3d_shader_parameter1 *vsir_program_get_parameter(
         const struct vsir_program *program, enum vkd3d_shader_parameter_name name);
 bool vsir_program_init(struct vsir_program *program, const struct vkd3d_shader_compile_info *compile_info,

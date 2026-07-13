@@ -4080,30 +4080,37 @@ static void sm6_parser_declare_indexable_temp(struct sm6_parser *sm6, const stru
     dst->u.idxtemp.id = ins->declaration.indexable_temp.register_idx;
 }
 
-static void sm6_parser_declare_tgsm_raw(struct sm6_parser *sm6, const struct sm6_type *elem_type,
+static void sm6_parser_declare_tgsm_raw(struct sm6_parser *dxil, const struct sm6_type *elem_type,
         unsigned int alignment, unsigned int init, struct sm6_value *dst)
 {
     struct vkd3d_shader_instruction *ins;
     unsigned int byte_count;
+    struct vsir_tgsm *t;
 
-    if (!(ins = sm6_parser_add_instruction(sm6, VSIR_OP_DCL_TGSM_RAW)))
+    if (!(ins = sm6_parser_add_instruction(dxil, VSIR_OP_DCL_TGSM_RAW)))
         return;
     dst_param_init(&ins->declaration.tgsm_raw.reg);
     dst->value_type = VALUE_TYPE_GROUPSHAREDMEM;
-    dst->u.groupsharedmem.id = sm6->tgsm_count++;
+    dst->u.groupsharedmem.id = dxil->tgsm_count++;
     dst->structure_stride = 0;
-    vsir_operand_from_dxil_value(&ins->declaration.tgsm_raw.reg.reg, dst, 0, sm6);
+    vsir_operand_from_dxil_value(&ins->declaration.tgsm_raw.reg.reg, dst, 0, dxil);
     ins->declaration.tgsm_raw.alignment = alignment;
     byte_count = elem_type->u.width / CHAR_BIT;
     /* Convert minimum precision types to their 32-bit equivalent. */
     if (byte_count == 2)
         byte_count = 4;
     if (byte_count != 4)
-        vkd3d_shader_parser_error(&sm6->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_NOT_IMPLEMENTED,
                 "Raw TGSM byte count %u is not supported.", byte_count);
     ins->declaration.tgsm_raw.byte_count = byte_count;
     /* The initialiser value index will be resolved later when forward references can be handled. */
     ins->flags = init;
+
+    if ((t = vsir_program_add_tgsm(dxil->program, dst->u.groupsharedmem.id, byte_count)))
+        t->alignment = alignment;
+    else
+        vkd3d_shader_parser_error(&dxil->p, VKD3D_SHADER_ERROR_DXIL_OUT_OF_MEMORY,
+                "Failed to add TGSM descriptor.\n");
 }
 
 static void sm6_parser_declare_tgsm_structured(struct sm6_parser *sm6, const struct sm6_type *elem_type,
@@ -4438,6 +4445,7 @@ static enum vkd3d_result sm6_parser_globals_init(struct sm6_parser *sm6)
     struct vkd3d_shader_instruction *ins;
     const struct dxil_record *record;
     enum vkd3d_result ret;
+    struct vsir_tgsm *t;
     uint64_t version;
 
     sm6->p.location.line = block->id;
@@ -4503,7 +4511,11 @@ static enum vkd3d_result sm6_parser_globals_init(struct sm6_parser *sm6)
         }
         else if (ins->opcode == VSIR_OP_DCL_TGSM_RAW)
         {
-            ins->declaration.tgsm_raw.zero_init = resolve_forward_zero_initialiser(ins->flags, sm6);
+            if ((ins->declaration.tgsm_raw.zero_init = resolve_forward_zero_initialiser(ins->flags, sm6)))
+            {
+                t = vsir_program_find_tgsm(sm6->program, ins->declaration.tgsm_raw.reg.reg.idx[0].offset);
+                t->zero_init = true;
+            }
             ins->flags = 0;
         }
         else if (ins->opcode == VSIR_OP_DCL_TGSM_STRUCTURED)
