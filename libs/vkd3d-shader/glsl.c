@@ -171,6 +171,12 @@ static void shader_glsl_print_image_name(struct vkd3d_string_buffer *buffer,
         vkd3d_string_buffer_printf(buffer, "_%u", space);
 }
 
+static void shader_glsl_print_tgsm_name(struct vkd3d_string_buffer *buffer,
+        struct vkd3d_glsl_generator *gen, unsigned int idx)
+{
+    vkd3d_string_buffer_printf(buffer, "%s_tgsm_%u", gen->prefix, idx);
+}
+
 static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
         struct vkd3d_glsl_generator *gen, const struct vsir_operand *reg)
 {
@@ -1130,34 +1136,53 @@ static void shader_glsl_load_raw_structured(struct vkd3d_glsl_generator *gen,
     uint32_t dst_mask, mask, swizzle;
     const struct vsir_descriptor *d;
     enum vsir_register_type type;
+    bool is_tgsm = false;
+    struct vsir_tgsm *t;
     struct glsl_dst dst;
-
-    if ((type = resource_src->reg.type) != VSIR_REGISTER_RESOURCE)
-    {
-        vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                "Internal compiler error: Unhandled register type \"%s\" (%#x).\n.",
-                vsir_register_type_get_name(type, "<unknown>"), type);
-        return;
-    }
 
     if (resource_src->reg.idx[0].rel_addr || resource_src->reg.idx[1].rel_addr)
         vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_UNSUPPORTED,
                 "Descriptor indexing is not supported.");
 
     descriptor_id = resource_src->reg.idx[0].offset;
-    resource_idx = resource_src->reg.idx[1].offset;
-    if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors,
-            VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, descriptor_id)))
+    if ((type = resource_src->reg.type) == VSIR_REGISTER_GROUPSHAREDMEM)
     {
-        resource_space = d->register_space;
-        stride = d->structure_stride / 4;
+        if ((t = vsir_program_find_tgsm(gen->program, descriptor_id)))
+        {
+            stride = t->structure_stride / 4;
+        }
+        else
+        {
+            vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                    "Internal compiler error: Undeclared TGSM descriptor %u.", descriptor_id);
+            stride = 0;
+        }
+        is_tgsm = true;
     }
     else
     {
-        vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                "Internal compiler error: Undeclared UAV descriptor %u.", descriptor_id);
-        resource_space = 0;
-        stride = 0;
+        if (type != VSIR_REGISTER_RESOURCE)
+        {
+            vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                    "Internal compiler error: Unhandled register type \"%s\" (%#x).\n.",
+                    vsir_register_type_get_name(type, "<unknown>"), type);
+            return;
+        }
+
+        resource_idx = resource_src->reg.idx[1].offset;
+        if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors,
+                VKD3D_SHADER_DESCRIPTOR_TYPE_SRV, descriptor_id)))
+        {
+            resource_space = d->register_space;
+            stride = d->structure_stride / 4;
+        }
+        else
+        {
+            vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                    "Internal compiler error: Undeclared UAV descriptor %u.", descriptor_id);
+            resource_space = 0;
+            stride = 0;
+        }
     }
 
     glsl_dst_init(&dst, gen, ins, &ins->dst[0]);
@@ -1181,13 +1206,22 @@ static void shader_glsl_load_raw_structured(struct vkd3d_glsl_generator *gen,
 
         if (count > 1)
             shader_glsl_print_indent(load, gen->indent + 2);
-        vkd3d_string_buffer_printf(load, "texelFetch(");
-        shader_glsl_print_combined_sampler_name(load, gen, resource_idx,
-                resource_space, VKD3D_SHADER_DUMMY_SAMPLER_INDEX, 0);
-        vkd3d_string_buffer_printf(load, ", %s", coord->buffer);
+        if (is_tgsm)
+        {
+            shader_glsl_print_tgsm_name(load, gen, descriptor_id);
+            vkd3d_string_buffer_printf(load, "[%s", coord->buffer);
+        }
+        else
+        {
+            vkd3d_string_buffer_printf(load, "texelFetch(");
+            shader_glsl_print_combined_sampler_name(load, gen, resource_idx,
+                    resource_space, VKD3D_SHADER_DUMMY_SAMPLER_INDEX, 0);
+            vkd3d_string_buffer_printf(load, ", %s", coord->buffer);
+        }
         if ((swizzle = vsir_swizzle_get_component(resource_src->swizzle, i)))
             vkd3d_string_buffer_printf(load, " + %u", swizzle);
-        vkd3d_string_buffer_printf(load, ").x%s", dst_mask & ~(mask | (mask - 1)) ? ",\n" : "");
+        vkd3d_string_buffer_printf(load, "%s%s", is_tgsm ? "]" : ").x",
+                dst_mask & ~(mask | (mask - 1)) ? ",\n" : "");
     }
 
     if (count > 1)
@@ -1268,33 +1302,53 @@ static void shader_glsl_store_raw_structured(struct vkd3d_glsl_generator *gen,
     struct vkd3d_string_buffer *coord;
     const struct vsir_descriptor *d;
     enum vsir_register_type type;
+    bool is_tgsm = false;
+    struct vsir_tgsm *t;
     uint32_t mask;
-
-    if ((type = ins->dst[0].reg.type) != VSIR_REGISTER_UAV)
-    {
-        vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                "Internal compiler error: Unhandled register type \"%s\" (%#x).\n.",
-                vsir_register_type_get_name(type, "<unknown>"), type);
-        return;
-    }
 
     if (ins->dst[0].reg.idx[0].rel_addr || ins->dst[0].reg.idx[1].rel_addr)
         vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_UNSUPPORTED,
                 "Descriptor indexing is not supported.");
 
     descriptor_id = ins->dst[0].reg.idx[0].offset;
-    resource_idx = ins->dst[0].reg.idx[1].offset;
-    if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, descriptor_id)))
+    if ((type = ins->dst[0].reg.type) == VSIR_REGISTER_GROUPSHAREDMEM)
     {
-        resource_space = d->register_space;
-        stride = d->structure_stride / 4;
+        if ((t = vsir_program_find_tgsm(gen->program, descriptor_id)))
+        {
+            stride = t->structure_stride / 4;
+        }
+        else
+        {
+            vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                    "Internal compiler error: Undeclared TGSM descriptor %u.", descriptor_id);
+            stride = 0;
+        }
+        is_tgsm = true;
     }
     else
     {
-        vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                "Internal compiler error: Undeclared descriptor %u.", descriptor_id);
-        resource_space = 0;
-        stride = 0;
+        if (type != VSIR_REGISTER_UAV)
+        {
+            vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                    "Internal compiler error: Unhandled register type \"%s\" (%#x).\n.",
+                    vsir_register_type_get_name(type, "<unknown>"), type);
+            return;
+        }
+
+        resource_idx = ins->dst[0].reg.idx[1].offset;
+        if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors,
+                VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, descriptor_id)))
+        {
+            resource_space = d->register_space;
+            stride = d->structure_stride / 4;
+        }
+        else
+        {
+            vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                    "Internal compiler error: Undeclared descriptor %u.", descriptor_id);
+            resource_space = 0;
+            stride = 0;
+        }
     }
 
     coord = vkd3d_string_buffer_get(&gen->string_buffers);
@@ -1313,14 +1367,27 @@ static void shader_glsl_store_raw_structured(struct vkd3d_glsl_generator *gen,
             continue;
 
         shader_glsl_print_indent(buffer, gen->indent);
-        vkd3d_string_buffer_printf(buffer, "imageStore(");
-        shader_glsl_print_image_name(buffer, gen, resource_idx, resource_space);
-        vkd3d_string_buffer_printf(buffer, ", %s", coord->buffer);
-        if (i)
-            vkd3d_string_buffer_printf(buffer, " + %u", i);
-        vkd3d_string_buffer_printf(buffer, ", uvec4(");
-        shader_glsl_print_src(buffer, gen, &ins->src[src_idx], mask, VSIR_DATA_U32);
-        vkd3d_string_buffer_printf(buffer, ", 0, 0, 0));\n");
+        if (is_tgsm)
+        {
+            shader_glsl_print_tgsm_name(buffer, gen, descriptor_id);
+            vkd3d_string_buffer_printf(buffer, "[%s", coord->buffer);
+            if (i)
+                vkd3d_string_buffer_printf(buffer, " + %u", i);
+            vkd3d_string_buffer_printf(buffer, "] = ");
+            shader_glsl_print_src(buffer, gen, &ins->src[src_idx], mask, VSIR_DATA_U32);
+            vkd3d_string_buffer_printf(buffer, ";\n");
+        }
+        else
+        {
+            vkd3d_string_buffer_printf(buffer, "imageStore(");
+            shader_glsl_print_image_name(buffer, gen, resource_idx, resource_space);
+            vkd3d_string_buffer_printf(buffer, ", %s", coord->buffer);
+            if (i)
+                vkd3d_string_buffer_printf(buffer, " + %u", i);
+            vkd3d_string_buffer_printf(buffer, ", uvec4(");
+            shader_glsl_print_src(buffer, gen, &ins->src[src_idx], mask, VSIR_DATA_U32);
+            vkd3d_string_buffer_printf(buffer, ", 0, 0, 0));\n");
+        }
     }
 
     vkd3d_string_buffer_release(&gen->string_buffers, coord);
@@ -2362,10 +2429,20 @@ static void shader_glsl_generate_sampler_declaration(struct vkd3d_glsl_generator
     vkd3d_string_buffer_printf(buffer, ";\n");
 }
 
+static void shader_glsl_generate_tgsm_declaration(struct vkd3d_glsl_generator *gen, struct vsir_tgsm *t)
+{
+    struct vkd3d_string_buffer *buffer = gen->buffer;
+
+    vkd3d_string_buffer_printf(buffer, "shared uint ");
+    shader_glsl_print_tgsm_name(buffer, gen, t->id);
+    vkd3d_string_buffer_printf(buffer, "[%zu];\n", t->byte_count / 4);
+}
+
 static void shader_glsl_generate_descriptor_declarations(struct vkd3d_glsl_generator *gen)
 {
     const struct vkd3d_shader_scan_combined_resource_sampler_info *sampler_info = gen->combined_sampler_info;
     const struct vsir_descriptor_info *descriptors = &gen->program->descriptors;
+    const struct vsir_program *program = gen->program;
     const struct vsir_descriptor *descriptor;
     unsigned int i;
 
@@ -2399,7 +2476,11 @@ static void shader_glsl_generate_descriptor_declarations(struct vkd3d_glsl_gener
     {
         shader_glsl_generate_sampler_declaration(gen, &sampler_info->combined_samplers[i]);
     }
-    if (descriptors->count)
+    for (i = 0; i < program->tgsm_count; ++i)
+    {
+        shader_glsl_generate_tgsm_declaration(gen, &program->tgsms[i]);
+    }
+    if (descriptors->count || program->tgsm_count)
         vkd3d_string_buffer_printf(gen->buffer, "\n");
 }
 

@@ -122,7 +122,7 @@ void main(uint local_idx : SV_GroupIndex)
 }
 
 [test]
-todo(glsl | msl) dispatch 1 1 1
+todo(msl) dispatch 1 1 1
 probe uav-0 (0) u32(0xcafef00d)
 probe uav-0 (1) u32(0xcafef00d)
 probe uav-0 (2) u32(0xcafef00d)
@@ -144,7 +144,7 @@ void main(uint local_idx : SV_GroupIndex)
 }
 
 [test]
-todo(glsl | msl) dispatch 1 1 1
+todo(msl) dispatch 1 1 1
 probe uav-0 (0) u32(0xcafef00d)
 probe uav-0 (1) u32(0xcafef00d)
 probe uav-0 (2) u32(0xcafef00d)
@@ -476,7 +476,7 @@ void main(uint local_idx : SV_GroupIndex, uint group_id : SV_GroupID)
 }
 
 [test]
-todo(glsl | msl) dispatch 2 1 1
+todo(msl) dispatch 2 1 1
 winbug(amd & d3d11) probe uav-0 (0) u32(0x18)
 winbug(amd & d3d11) probe uav-0 (1) u32(0x18)
 winbug(amd & d3d11) probe uav-0 (2) u32(0x38)
@@ -508,7 +508,7 @@ void main(uint local_idx : SV_GroupIndex, uint group_id : SV_GroupID)
 }
 
 [test]
-todo(glsl | msl) dispatch 2 1 1
+todo(msl) dispatch 2 1 1
 probe uav-0 (0) u32(0x18)
 probe uav-0 (1) u32(0x18)
 probe uav-0 (2) u32(0x38)
@@ -550,7 +550,7 @@ void main(uint local_idx : SV_GroupIndex, uint group_id : SV_GroupID)
 }
 
 [test]
-todo(glsl | msl) dispatch 2 1 1
+todo(msl) dispatch 2 1 1
 winbug(amd & d3d11) probe uav-0 (0) u32(0x14321)
 winbug(amd & d3d11) probe uav-0 (1) u32(0x14321)
 winbug(amd & d3d11) probe uav-0 (2) u32(0x14321)
