@@ -27,6 +27,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#if HAVE_NCURSES && !VKD3D_CROSSTEST
+#include <term.h>
+#endif
 
 extern const char *vkd3d_test_name;
 extern const char *vkd3d_test_platform;
@@ -125,6 +129,18 @@ struct vkd3d_test_state
     const char *test_name_filter;
     char context[8][128];
     unsigned int context_count;
+
+    struct
+    {
+        const char *reset;
+        const char *xpass;
+        const char *pass;
+        const char *skipped;
+        const char *xfail;
+        const char *fail;
+        const char *bug;
+        const char *xbug;
+    } colours;
 };
 extern struct vkd3d_test_state vkd3d_test_state;
 
@@ -138,6 +154,28 @@ static inline bool
 broken(bool condition)
 {
     return condition && vkd3d_test_platform_is_windows();
+}
+
+static inline bool vkd3d_test_has_colour(void)
+{
+#if HAVE_NCURSES && !VKD3D_CROSSTEST
+    bool supported;
+    int ret;
+
+    if (getenv("NO_COLOUR") || getenv("NO_COLOR"))
+        return false;
+    if (!isatty(STDOUT_FILENO))
+        return false;
+    setupterm(NULL, STDOUT_FILENO, &ret);
+    if (ret != 1)
+        return false;
+    supported = !!tigetstr((char *)"setaf");
+    del_curterm(cur_term);
+
+    return supported;
+#else
+    return false;
+#endif
 }
 
 /* basename() is not reentrant, basename_r() is not standard and this simple
@@ -171,13 +209,18 @@ vkd3d_test_check_assert_that(const char *file, unsigned int line, bool result, c
     {
         vkd3d_atomic_increment_u32(&vkd3d_test_state.success_count);
         if (vkd3d_test_state.debug_level > 1)
-            vkd3d_test_printf(file, line, "Test succeeded.\n");
+        {
+            vkd3d_test_printf(file, line, vkd3d_test_state.colours.pass);
+            printf("Test succeeded.%s\n", vkd3d_test_state.colours.reset);
+        }
     }
     else
     {
         vkd3d_atomic_increment_u32(&vkd3d_test_state.failure_count);
-        vkd3d_test_printf(file, line, "Test failed: ");
+        vkd3d_test_printf(file, line, vkd3d_test_state.colours.fail);
+        printf("Test failed: ");
         vprintf(fmt, args);
+        printf("%s", vkd3d_test_state.colours.reset);
     }
 }
 
@@ -203,24 +246,34 @@ vkd3d_test_check_ok(const char *file, unsigned int line, bool result, const char
         if (is_todo)
             result = !result;
         if (result)
-            vkd3d_test_printf(file, line, "Fixed bug: ");
+        {
+            vkd3d_test_printf(file, line, vkd3d_test_state.colours.xbug);
+            printf("Fixed bug: ");
+        }
         else
-            vkd3d_test_printf(file, line, "Bug: ");
+        {
+            vkd3d_test_printf(file, line, vkd3d_test_state.colours.bug);
+            printf("Bug: ");
+        }
         vprintf(fmt, args);
+        printf("%s", vkd3d_test_state.colours.reset);
     }
     else if (is_todo)
     {
         if (result)
         {
             vkd3d_atomic_increment_u32(&vkd3d_test_state.todo_success_count);
-            vkd3d_test_printf(file, line, "Todo succeeded: ");
+            vkd3d_test_printf(file, line, vkd3d_test_state.colours.xpass);
+            printf("Todo succeeded: ");
         }
         else
         {
             vkd3d_atomic_increment_u32(&vkd3d_test_state.todo_count);
-            vkd3d_test_printf(file, line, "Todo: ");
+            vkd3d_test_printf(file, line, vkd3d_test_state.colours.xfail);
+            printf("Todo: ");
         }
         vprintf(fmt, args);
+        printf("%s", vkd3d_test_state.colours.reset);
     }
     else
     {
@@ -243,8 +296,10 @@ vkd3d_test_skip(const char *file, unsigned int line, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    vkd3d_test_printf(file, line, "Test skipped: ");
+    vkd3d_test_printf(file, line, vkd3d_test_state.colours.skipped);
+    printf("Test skipped: ");
     vprintf(fmt, args);
+    printf("%s", vkd3d_test_state.colours.reset);
     va_end(args);
     vkd3d_atomic_increment_u32(&vkd3d_test_state.skip_count);
 }
@@ -301,6 +356,29 @@ int main(int argc, char **argv)
     vkd3d_test_state.debug_level = debug_level ? atoi(debug_level) : 0;
     vkd3d_test_state.bug_enabled = bug ? atoi(bug) : true;
     vkd3d_test_state.test_name_filter = test_filter;
+
+    if (vkd3d_test_has_colour())
+    {
+        vkd3d_test_state.colours.reset = "\x1b[m";
+        vkd3d_test_state.colours.xpass = "\x1b[31m";
+        vkd3d_test_state.colours.pass = "\x1b[32m";
+        vkd3d_test_state.colours.skipped = "\x1b[34m";
+        vkd3d_test_state.colours.xfail = "\x1b[33m";
+        vkd3d_test_state.colours.fail = "\x1b[91;1m";
+        vkd3d_test_state.colours.bug = "\x1b[35m";
+        vkd3d_test_state.colours.xbug = "\x1b[36m";
+    }
+    else
+    {
+        vkd3d_test_state.colours.reset = "";
+        vkd3d_test_state.colours.xpass = "";
+        vkd3d_test_state.colours.pass = "";
+        vkd3d_test_state.colours.skipped = "";
+        vkd3d_test_state.colours.xfail = "";
+        vkd3d_test_state.colours.fail = "";
+        vkd3d_test_state.colours.bug = "";
+        vkd3d_test_state.colours.xbug = "";
+    }
 
     if (test_platform)
     {

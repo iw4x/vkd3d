@@ -544,22 +544,27 @@ LDADD = libvkd3d.la libvkd3d-shader.la libvkd3d-utils.la
 AM_DEFAULT_SOURCE_EXT = .c
 
 TEST_EXTENSIONS = .shader_test
-TEST_CPPFLAGS = -I$(builddir)/tests
+TEST_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/tests
+TEST_CFLAGS = $(AM_CFLAGS) @NCURSES_CFLAGS@
+TEST_LDADD = $(LDADD) @NCURSES_LIBS@
 
 if BUILD_TESTS
 check_PROGRAMS = $(vkd3d_tests) $(vkd3d_cross_tests) tests/shader_runner
 dist_check_SCRIPTS = tests/test-driver.sh
 LOG_DRIVER = $(srcdir)/tests/test-driver.sh
 TESTS = $(vkd3d_tests) $(vkd3d_cross_tests) $(vkd3d_shader_tests)
-tests_d3d12_CPPFLAGS = $(AM_CPPFLAGS) $(TEST_CPPFLAGS)
-tests_d3d12_LDADD = $(LDADD) @PTHREAD_LIBS@ @DL_LIBS@
-tests_d3d12_invalid_usage_CPPFLAGS = $(AM_CPPFLAGS) $(TEST_CPPFLAGS)
-tests_d3d12_invalid_usage_LDADD = $(LDADD) @DL_LIBS@
-tests_hlsl_d3d12_CPPFLAGS = $(AM_CPPFLAGS) $(TEST_CPPFLAGS)
-tests_hlsl_d3d12_LDADD = $(LDADD) @DL_LIBS@
-tests_shader_runner_CPPFLAGS = $(AM_CPPFLAGS) $(TEST_CPPFLAGS)
-tests_shader_runner_CFLAGS = $(AM_CFLAGS) @OPENGL_CFLAGS@
-tests_shader_runner_LDADD = $(LDADD) @OPENGL_LIBS@ @DL_LIBS@
+tests_d3d12_CPPFLAGS = $(TEST_CPPFLAGS)
+tests_d3d12_CFLAGS = $(TEST_CFLAGS)
+tests_d3d12_LDADD = $(TEST_LDADD) @PTHREAD_LIBS@ @DL_LIBS@
+tests_d3d12_invalid_usage_CPPFLAGS = $(TEST_CPPFLAGS)
+tests_d3d12_invalid_usage_CFLAGS = $(TEST_CFLAGS)
+tests_d3d12_invalid_usage_LDADD = $(TEST_LDADD) @DL_LIBS@
+tests_hlsl_d3d12_CPPFLAGS = $(TEST_CPPFLAGS)
+tests_hlsl_d3d12_CFLAGS = $(TEST_CFLAGS)
+tests_hlsl_d3d12_LDADD = $(TEST_LDADD) @DL_LIBS@
+tests_shader_runner_CPPFLAGS = $(TEST_CPPFLAGS)
+tests_shader_runner_CFLAGS = $(TEST_CFLAGS) @OPENGL_CFLAGS@
+tests_shader_runner_LDADD = $(TEST_LDADD) @OPENGL_LIBS@ @DL_LIBS@
 tests_shader_runner_SOURCES = \
 	tests/shader_runner.c \
 	tests/shader_runner_d3d9.c \
@@ -574,11 +579,15 @@ tests_shader_runner_LINK = $(OBJCLINK) -framework Foundation -framework Metal
 else
 tests_shader_runner_LINK = $(LINK)
 endif
-tests_vkd3d_api_CPPFLAGS = $(AM_CPPFLAGS) $(TEST_CPPFLAGS)
-tests_vkd3d_api_LDADD = libvkd3d.la @DL_LIBS@
-tests_vkd3d_shader_api_CPPFLAGS = $(AM_CPPFLAGS) $(TEST_CPPFLAGS)
-tests_vkd3d_shader_api_CFLAGS = $(AM_CFLAGS) @OPENGL_CFLAGS@
-tests_vkd3d_shader_api_LDADD = libvkd3d-shader.la @OPENGL_LIBS@ @DL_LIBS@
+tests_vkd3d_api_CPPFLAGS = $(TEST_CPPFLAGS)
+tests_vkd3d_api_CFLAGS = $(TEST_CFLAGS)
+tests_vkd3d_api_LDADD = $(TEST_LDADD) libvkd3d.la @DL_LIBS@
+tests_vkd3d_common_CPPFLAGS = $(TEST_CPPFLAGS)
+tests_vkd3d_common_CFLAGS = $(TEST_CFLAGS)
+tests_vkd3d_common_LDADD = $(TEST_LDADD)
+tests_vkd3d_shader_api_CPPFLAGS = $(TEST_CPPFLAGS)
+tests_vkd3d_shader_api_CFLAGS = $(TEST_CFLAGS) @OPENGL_CFLAGS@
+tests_vkd3d_shader_api_LDADD = $(TEST_LDADD) libvkd3d-shader.la @OPENGL_LIBS@ @DL_LIBS@
 SHADER_TEST_LOG_COMPILER = tests/shader_runner$(EXEEXT)
 SHADER_TEST_LOG_DRIVER = $(srcdir)/tests/test-driver.sh
 endif
