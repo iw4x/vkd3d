@@ -1936,6 +1936,43 @@ fail:
     return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
+static enum vkd3d_result vsir_program_lower_sub(struct vsir_program *program, struct vsir_program_iterator *sub)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(sub);
+    const struct vkd3d_shader_location location = ins->location;
+    const struct vsir_src_operand *src = ins->src;
+    const struct vsir_dst_operand *dst = ins->dst;
+    struct vsir_program_iterator it;
+    unsigned int neg_id;
+
+    /* sub DST, SRC0, SRC1
+     *      ->
+     * neg srNEG, SRC1
+     * add DST, SRC0, srNEG */
+
+    if (!(ins = vsir_program_iterator_insert_before(sub, &it, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_NEG, 1, 1))
+        goto fail;
+    neg_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], neg_id, src[1].reg.data_type, src[1].reg.dimension);
+    ins->src[0] = src[1];
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_ADD, 1, 2))
+        goto fail;
+    ins->dst[0] = dst[0];
+    ins->src[0] = src[0];
+    vsir_src_operand_init_ssa(&ins->src[1], neg_id, src[1].reg.data_type, src[1].reg.dimension);
+
+    return VKD3D_OK;
+
+fail:
+    vsir_program_iterator_nop_range(&it, sub, &location);
+
+    return VKD3D_ERROR_OUT_OF_MEMORY;
+}
+
 static enum vkd3d_result vsir_program_lower_texkill(struct vsir_program *program,
         struct vsir_program_iterator *it, unsigned int *tmp_idx)
 {
@@ -3394,6 +3431,10 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
 
             case VSIR_OP_SINCOS:
                 ret = vsir_program_lower_sm1_sincos(program, &it);
+                break;
+
+            case VSIR_OP_SUB:
+                ret = vsir_program_lower_sub(program, &it);
                 break;
 
             case VSIR_OP_TEXBEM:
