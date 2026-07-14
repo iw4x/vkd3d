@@ -213,6 +213,36 @@ if(sm>=4) write cbv-0 (8) f32(1.0, 0.0, 0.0, 0.0)
 if(sm>=4) draw quad
 if(sm>=4) probe (0, 0) f32(3.2, 3.4, 0.3, 0.4) 1
 
+[pixel-shader]
+float4x4 mat; /* Allocates c0-c2. */
+float4 v;     /* Allocates c3. */
+float3 p;     /* Doesn't allocate. */
+
+float4 main() : sv_target
+{
+    p = mul(v, mat).xyz;
+
+    return float4(p, length(p));
+}
+
+[test]
+if(sm<4) write cbv-0 (0) f32(0, 1, 0, 0)
+if(sm<4) write cbv-0 (4) f32(1, 0, 0, 0)
+if(sm<4) write cbv-0 (8) f32(0, 0, 1, 0)
+if(sm<4) write cbv-0 (12) f32(2, 10, 11, 777)
+if(sm<4) write cbv-0 (16) f32(0, 0, 0, 0)
+if(sm<4) write cbv-0 (20) f32(0, 0, 0, 0)
+if(sm<4) draw quad
+if(sm<4) todo probe (0, 0) f32(10, 2, 11, 15) 1
+if(sm>=4) write cbv-0 (0) f32(0, 1, 0, 0)
+if(sm>=4) write cbv-0 (4) f32(1, 0, 0, 0)
+if(sm>=4) write cbv-0 (8) f32(0, 0, 1, 0)
+if(sm>=4) write cbv-0 (12) f32(0, 0, 0, 1)
+if(sm>=4) write cbv-0 (16) f32(2, 10, 11, 777)
+if(sm>=4) write cbv-0 (20) f32(0, 0, 0, 0)
+if(sm>=4) draw quad
+if(sm>=4) probe (0, 0) f32(10, 2, 11, 15) 1
+
 [vertex-shader]
 float4 arr[8];  /* Allocates c0-c6. */
 int i;          /* Allocates c7. */
