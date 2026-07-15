@@ -3374,8 +3374,39 @@ static enum vkd3d_result vsir_program_lower_d3dbc_modifiers(struct vsir_program 
 {
     struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(it);
     struct vkd3d_shader_instruction *new_ins;
-    unsigned int tmp_dst_id, i;
+    unsigned int tmp_dst_id, tmp_src_id, i;
+    struct vsir_program_iterator new_it;
     float scale;
+
+    for (i = 0; i < ins->src_count; ++i)
+    {
+        struct vsir_src_operand *src = &ins->src[i];
+
+        switch (src->modifiers)
+        {
+            case VKD3DSPSM_BIAS:
+                if (!(new_ins = vsir_program_iterator_insert_before(it, &new_it, 1)))
+                    return VKD3D_ERROR_OUT_OF_MEMORY;
+                ins = vsir_program_iterator_current(it);
+
+                if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_ADD, 1, 2))
+                {
+                    vsir_instruction_init(new_ins, &ins->location, VSIR_OP_NOP);
+                    return VKD3D_ERROR_OUT_OF_MEMORY;
+                }
+                new_ins->src[0] = *src;
+                new_ins->src[0].modifiers = VKD3DSPSM_NONE;
+                vsir_src_operand_init_const_f32(&new_ins->src[1], -0.5f);
+                tmp_src_id = program->ssa_count++;
+                vsir_dst_operand_init_ssa(&new_ins->dst[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
+
+                vsir_src_operand_init_ssa(src, tmp_src_id, src->reg.data_type, src->reg.dimension);
+                continue;
+
+            default:
+                continue;
+        }
+    }
 
     for (i = 0; i < ins->dst_count; ++i)
     {
