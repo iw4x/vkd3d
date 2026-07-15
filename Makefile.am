@@ -64,6 +64,7 @@ vkd3d_shader_tests = \
 	tests/d3dbc/loop.shader_test \
 	tests/d3dbc/lrp.shader_test \
 	tests/d3dbc/mnxn.shader_test \
+	tests/d3dbc/modifiers.shader_test \
 	tests/d3dbc/nrm.shader_test \
 	tests/d3dbc/partial-io.shader_test \
 	tests/d3dbc/pow.shader_test \
