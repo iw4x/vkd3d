@@ -9364,11 +9364,6 @@ static SpvOp spirv_compiler_map_atomic_instruction(const struct vkd3d_shader_ins
     return SpvOpMax;
 }
 
-static bool is_imm_atomic_instruction(enum vkd3d_shader_opcode opcode)
-{
-    return VSIR_OP_IMM_ATOMIC_ALLOC <= opcode && opcode <= VSIR_OP_IMM_ATOMIC_XOR;
-}
-
 static void spirv_compiler_emit_atomic_instruction(struct spirv_compiler *compiler,
         const struct vkd3d_shader_instruction *instruction)
 {
@@ -9390,7 +9385,7 @@ static void spirv_compiler_emit_atomic_instruction(struct spirv_compiler *compil
     bool raw;
     SpvOp op;
 
-    resource = is_imm_atomic_instruction(instruction->opcode) ? &dst[1] : &dst[0];
+    resource = vsir_opcode_is_imm_atomic(instruction->opcode) ? &dst[1] : &dst[0];
 
     op = spirv_compiler_map_atomic_instruction(instruction);
     if (op == SpvOpMax)
@@ -9493,7 +9488,7 @@ static void spirv_compiler_emit_atomic_instruction(struct spirv_compiler *compil
     result_id = vkd3d_spirv_build_op_trv(builder, &builder->function_stream,
             op, type_id, operands, i);
 
-    if (is_imm_atomic_instruction(instruction->opcode))
+    if (vsir_opcode_is_imm_atomic(instruction->opcode))
         spirv_compiler_emit_store_dst(compiler, dst, result_id);
 }
 

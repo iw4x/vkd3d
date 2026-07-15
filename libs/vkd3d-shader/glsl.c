@@ -568,20 +568,24 @@ static void shader_glsl_atomic(struct vkd3d_glsl_generator *gen,
         const struct vkd3d_shader_instruction *ins, const char *tgsm_op, const char *image_op)
 {
     unsigned int descriptor_id, resource_idx, resource_space, stride;
+    bool is_imm = vsir_opcode_is_imm_atomic(ins->opcode);
     struct vkd3d_string_buffer *buffer = gen->buffer;
+    const struct vsir_dst_operand *resource_dst;
     const struct vsir_descriptor *d;
     enum vsir_data_type data_type;
     enum vsir_register_type type;
     bool is_tgsm = false;
     struct vsir_tgsm *t;
+    struct glsl_dst dst;
     const char *op;
 
-    if (ins->dst[0].reg.idx[0].rel_addr || ins->dst[0].reg.idx[1].rel_addr)
+    resource_dst = &ins->dst[is_imm];
+    if (resource_dst->reg.idx[0].rel_addr || resource_dst->reg.idx[1].rel_addr)
         vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_UNSUPPORTED,
                 "Descriptor indexing is not supported.");
 
-    descriptor_id = ins->dst[0].reg.idx[0].offset;
-    if ((type = ins->dst[0].reg.type) == VSIR_REGISTER_GROUPSHAREDMEM)
+    descriptor_id = resource_dst->reg.idx[0].offset;
+    if ((type = resource_dst->reg.type) == VSIR_REGISTER_GROUPSHAREDMEM)
     {
         data_type = VSIR_DATA_U32;
         if ((t = vsir_program_find_tgsm(gen->program, descriptor_id)))
@@ -607,7 +611,7 @@ static void shader_glsl_atomic(struct vkd3d_glsl_generator *gen,
             return;
         }
 
-        resource_idx = ins->dst[0].reg.idx[1].offset;
+        resource_idx = resource_dst->reg.idx[1].offset;
         if ((d = vkd3d_shader_find_descriptor(&gen->program->descriptors,
                 VKD3D_SHADER_DESCRIPTOR_TYPE_UAV, descriptor_id)))
         {
@@ -626,7 +630,11 @@ static void shader_glsl_atomic(struct vkd3d_glsl_generator *gen,
         op = image_op;
     }
 
-    shader_glsl_print_indent(buffer, gen->indent);
+    if (is_imm)
+        buffer = vkd3d_string_buffer_get(&gen->string_buffers);
+    else
+        shader_glsl_print_indent(buffer, gen->indent);
+
     vkd3d_string_buffer_printf(buffer, "%s(", op);
     if (is_tgsm)
     {
@@ -646,7 +654,26 @@ static void shader_glsl_atomic(struct vkd3d_glsl_generator *gen,
     shader_glsl_print_src(buffer, gen, &ins->src[0], VKD3DSP_WRITEMASK_1, VSIR_DATA_I32);
     vkd3d_string_buffer_printf(buffer, " / 4%s, ", is_tgsm ? "]" : "");
     shader_glsl_print_src(buffer, gen, &ins->src[1], VKD3DSP_WRITEMASK_0, data_type);
-    vkd3d_string_buffer_printf(buffer, ");\n");
+    if (ins->src_count >= 3)
+    {
+        vkd3d_string_buffer_printf(buffer, ", ");
+        shader_glsl_print_src(buffer, gen, &ins->src[2], VKD3DSP_WRITEMASK_0, data_type);
+    }
+    vkd3d_string_buffer_printf(buffer, ")");
+
+    if (is_imm)
+    {
+        glsl_dst_init(&dst, gen, ins, &ins->dst[0]);
+        shader_glsl_print_assignment_ext(gen, &dst, data_type, "%s", buffer->buffer);
+        glsl_dst_cleanup(&dst, &gen->string_buffers);
+    }
+    else
+    {
+        vkd3d_string_buffer_printf(buffer, ";\n");
+    }
+
+    if (buffer != gen->buffer)
+        vkd3d_string_buffer_release(&gen->string_buffers, buffer);
 }
 
 static void shader_glsl_binop(struct vkd3d_glsl_generator *gen,
@@ -1919,6 +1946,9 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
             break;
         case VSIR_OP_IF:
             shader_glsl_if(gen, ins);
+            break;
+        case VSIR_OP_IMM_ATOMIC_CMP_EXCH:
+            shader_glsl_atomic(gen, ins, "atomicCompSwap", "imageAtomicCompSwap");
             break;
         case VSIR_OP_MAD:
             shader_glsl_intrinsic(gen, ins, "fma");

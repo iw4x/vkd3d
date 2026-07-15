@@ -670,6 +670,11 @@ static inline bool vsir_opcode_is_control_point_phase(enum vkd3d_shader_opcode o
     return op == VSIR_OP_HS_CONTROL_POINT_PHASE;
 }
 
+static inline bool vsir_opcode_is_imm_atomic(enum vkd3d_shader_opcode op)
+{
+    return VSIR_OP_IMM_ATOMIC_ALLOC <= op && op <= VSIR_OP_IMM_ATOMIC_XOR;
+}
+
 enum vsir_register_type
 {
     VSIR_REGISTER_TEMP,
