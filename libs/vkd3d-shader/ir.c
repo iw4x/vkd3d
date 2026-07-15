@@ -3380,8 +3380,8 @@ static enum vkd3d_result vsir_program_lower_d3dbc_modifiers(struct vsir_program 
 
     for (i = 0; i < ins->src_count; ++i)
     {
+        bool bias = false, negate = false, x2 = false;
         struct vsir_src_operand *src = &ins->src[i];
-        bool bias = false, negate = false;
 
         switch (src->modifiers)
         {
@@ -3394,11 +3394,16 @@ static enum vkd3d_result vsir_program_lower_d3dbc_modifiers(struct vsir_program 
                 bias = true;
                 break;
 
+            case VKD3DSPSM_SIGN:
+                bias = true;
+                x2 = true;
+                break;
+
             default:
                 continue;
         }
 
-        if (!(new_ins = vsir_program_iterator_insert_before(it, &new_it, 1 + bias + negate)))
+        if (!(new_ins = vsir_program_iterator_insert_before(it, &new_it, 1 + bias + x2 + negate)))
             return VKD3D_ERROR_OUT_OF_MEMORY;
         ins = vsir_program_iterator_current(it);
 
@@ -3416,6 +3421,17 @@ static enum vkd3d_result vsir_program_lower_d3dbc_modifiers(struct vsir_program 
                 goto fail;
             vsir_src_operand_init_ssa(&new_ins->src[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
             vsir_src_operand_init_const_f32(&new_ins->src[1], -0.5f);
+            tmp_src_id = program->ssa_count++;
+            vsir_dst_operand_init_ssa(&new_ins->dst[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
+        }
+
+        if (x2)
+        {
+            new_ins = vsir_program_iterator_next(&new_it);
+            if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_MUL, 1, 2))
+                goto fail;
+            vsir_src_operand_init_ssa(&new_ins->src[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
+            vsir_src_operand_init_const_f32(&new_ins->src[1], 2.0f);
             tmp_src_id = program->ssa_count++;
             vsir_dst_operand_init_ssa(&new_ins->dst[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
         }
