@@ -501,13 +501,56 @@ static void shader_glsl_print_raw_structured_address(struct vkd3d_string_buffer 
         struct vkd3d_glsl_generator *gen, size_t stride, const struct vsir_src_operand *index,
         uint32_t index_mask, const struct vsir_src_operand *offset, uint32_t offset_mask)
 {
-    if (stride)
+    bool const_index = false, const_offset = false;
+    int v_index, v_offset;
+    unsigned int swizzle;
+
+    if (!stride)
+    {
+        const_index = true;
+        v_index = 0;
+    }
+    else if (index->reg.type == VSIR_REGISTER_IMMCONST)
+    {
+        const_index = true;
+        swizzle = vsir_swizzle_get_component(index->swizzle, vkd3d_ctz(index_mask));
+        v_index = index->reg.u.immconst_u32[swizzle] * stride;
+    }
+
+    if (offset->reg.type == VSIR_REGISTER_IMMCONST)
+    {
+        const_offset = true;
+        swizzle = vsir_swizzle_get_component(offset->swizzle, vkd3d_ctz(offset_mask));
+        v_offset = offset->reg.u.immconst_u32[swizzle] / 4;
+    }
+
+    if (const_index && const_offset)
+    {
+        vkd3d_string_buffer_printf(buffer, "%d", v_index + v_offset);
+        return;
+    }
+
+    if (!const_index)
     {
         shader_glsl_print_src(buffer, gen, index, index_mask, VSIR_DATA_I32);
-        vkd3d_string_buffer_printf(buffer, " * %zu + ", stride);
+        vkd3d_string_buffer_printf(buffer, " * %zu", stride);
+        if (!const_offset || v_offset)
+            vkd3d_string_buffer_printf(buffer, " + ");
     }
-    shader_glsl_print_src(buffer, gen, offset, offset_mask, VSIR_DATA_I32);
-    vkd3d_string_buffer_printf(buffer, " / 4");
+    else if (v_index)
+    {
+        vkd3d_string_buffer_printf(buffer, "%d + ", v_index);
+    }
+
+    if (!const_offset)
+    {
+        shader_glsl_print_src(buffer, gen, offset, offset_mask, VSIR_DATA_I32);
+        vkd3d_string_buffer_printf(buffer, " / 4");
+    }
+    else if (v_offset)
+    {
+        vkd3d_string_buffer_printf(buffer, "%d", v_offset);
+    }
 }
 
 static void VKD3D_PRINTF_FUNC(4, 0) shader_glsl_vprint_assignment(struct vkd3d_glsl_generator *gen,
