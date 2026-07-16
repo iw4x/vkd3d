@@ -497,6 +497,19 @@ static void shader_glsl_print_subscript(struct vkd3d_string_buffer *buffer,
     glsl_src_cleanup(&r, &gen->string_buffers);
 }
 
+static void shader_glsl_print_raw_structured_address(struct vkd3d_string_buffer *buffer,
+        struct vkd3d_glsl_generator *gen, size_t stride, const struct vsir_src_operand *index,
+        uint32_t index_mask, const struct vsir_src_operand *offset, uint32_t offset_mask)
+{
+    if (stride)
+    {
+        shader_glsl_print_src(buffer, gen, index, index_mask, VSIR_DATA_I32);
+        vkd3d_string_buffer_printf(buffer, " * %zu + ", stride);
+    }
+    shader_glsl_print_src(buffer, gen, offset, offset_mask, VSIR_DATA_I32);
+    vkd3d_string_buffer_printf(buffer, " / 4");
+}
+
 static void VKD3D_PRINTF_FUNC(4, 0) shader_glsl_vprint_assignment(struct vkd3d_glsl_generator *gen,
         struct glsl_dst *dst, enum vsir_data_type data_type, const char *format, va_list args)
 {
@@ -649,13 +662,9 @@ static void shader_glsl_atomic(struct vkd3d_glsl_generator *gen,
         shader_glsl_print_image_name(buffer, gen, resource_idx, resource_space);
         vkd3d_string_buffer_printf(buffer, ", ");
     }
-    if (stride)
-    {
-        shader_glsl_print_src(buffer, gen, &ins->src[0], VKD3DSP_WRITEMASK_0, VSIR_DATA_I32);
-        vkd3d_string_buffer_printf(buffer, " * %u + ", stride);
-    }
-    shader_glsl_print_src(buffer, gen, &ins->src[0], VKD3DSP_WRITEMASK_1, VSIR_DATA_I32);
-    vkd3d_string_buffer_printf(buffer, " / 4%s, ", is_tgsm ? "]" : "");
+    shader_glsl_print_raw_structured_address(buffer, gen, stride, &ins->src[0],
+            VKD3DSP_WRITEMASK_0, &ins->src[0], VKD3DSP_WRITEMASK_1);
+    vkd3d_string_buffer_printf(buffer, "%s, ", is_tgsm ? "]" : "");
     shader_glsl_print_src(buffer, gen, &ins->src[1], VKD3DSP_WRITEMASK_0, data_type);
     if (ins->src_count >= 3)
     {
@@ -1190,8 +1199,8 @@ static void shader_glsl_sample(struct vkd3d_glsl_generator *gen, const struct vk
 static void shader_glsl_load_raw_structured(struct vkd3d_glsl_generator *gen,
         const struct vkd3d_shader_instruction *ins)
 {
-    unsigned int count, descriptor_id, resource_idx, resource_space, i, stride, src_idx = 0;
     const struct vsir_src_operand *resource_src = &ins->src[ins->src_count - 1];
+    unsigned int count, descriptor_id, resource_idx, resource_space, i, stride;
     struct vkd3d_string_buffer *coord, *load;
     uint32_t dst_mask, mask, swizzle;
     const struct vsir_descriptor *d;
@@ -1250,12 +1259,10 @@ static void shader_glsl_load_raw_structured(struct vkd3d_glsl_generator *gen,
     load = vkd3d_string_buffer_get(&gen->string_buffers);
 
     if (ins->opcode == VSIR_OP_LD_STRUCTURED)
-    {
-        shader_glsl_print_src(coord, gen, &ins->src[src_idx++], VKD3DSP_WRITEMASK_0, VSIR_DATA_I32);
-        vkd3d_string_buffer_printf(coord, " * %u + ", stride);
-    }
-    shader_glsl_print_src(coord, gen, &ins->src[src_idx++], VKD3DSP_WRITEMASK_0, VSIR_DATA_I32);
-    vkd3d_string_buffer_printf(coord, " / 4");
+        shader_glsl_print_raw_structured_address(coord, gen, stride, &ins->src[0],
+                VKD3DSP_WRITEMASK_0, &ins->src[1], VKD3DSP_WRITEMASK_0);
+    else
+        shader_glsl_print_raw_structured_address(coord, gen, 0, NULL, 0, &ins->src[0], VKD3DSP_WRITEMASK_0);
 
     dst_mask = ins->dst[0].write_mask;
     count = vsir_write_mask_component_count(dst_mask);
@@ -1357,7 +1364,7 @@ static void shader_glsl_load_uav_typed(struct vkd3d_glsl_generator *gen, const s
 static void shader_glsl_store_raw_structured(struct vkd3d_glsl_generator *gen,
         const struct vkd3d_shader_instruction *ins)
 {
-    unsigned int descriptor_id, resource_idx, resource_space, i, stride, src_idx = 0;
+    unsigned int descriptor_id, resource_idx, resource_space, i, stride, src_idx;
     struct vkd3d_string_buffer *buffer = gen->buffer;
     struct vkd3d_string_buffer *coord;
     const struct vsir_descriptor *d;
@@ -1415,11 +1422,15 @@ static void shader_glsl_store_raw_structured(struct vkd3d_glsl_generator *gen,
 
     if (ins->opcode == VSIR_OP_STORE_STRUCTURED)
     {
-        shader_glsl_print_src(coord, gen, &ins->src[src_idx++], VKD3DSP_WRITEMASK_0, VSIR_DATA_I32);
-        vkd3d_string_buffer_printf(coord, " * %u + ", stride);
+        shader_glsl_print_raw_structured_address(coord, gen, stride, &ins->src[0],
+                VKD3DSP_WRITEMASK_0, &ins->src[1], VKD3DSP_WRITEMASK_0);
+        src_idx = 2;
     }
-    shader_glsl_print_src(coord, gen, &ins->src[src_idx++], VKD3DSP_WRITEMASK_0, VSIR_DATA_I32);
-    vkd3d_string_buffer_printf(coord, " / 4");
+    else
+    {
+        shader_glsl_print_raw_structured_address(coord, gen, 0, NULL, 0, &ins->src[0], VKD3DSP_WRITEMASK_0);
+        src_idx = 1;
+    }
 
     for (i = 0; i < VKD3D_VEC4_SIZE; ++i)
     {
