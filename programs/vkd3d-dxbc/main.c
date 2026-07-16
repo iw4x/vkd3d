@@ -28,7 +28,7 @@
 #include "vkd3d_common.h"
 #include "vkd3d_shader.h"
 #include "vkd3d_shader_utils.h"
-#ifdef HAVE_NCURSES
+#if HAVE_NCURSES && !_WIN32
 #include <term.h>
 #endif
 
@@ -145,9 +145,29 @@ static struct action *action_push(struct options *options, enum action_type type
     return action;
 }
 
+static void init_tty(void)
+{
+#ifdef _WIN32
+    HANDLE h;
+
+    if (!(h = GetStdHandle(STD_OUTPUT_HANDLE)))
+        return;
+    SetConsoleMode(h, ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+#endif
+}
+
 static bool has_colour(void)
 {
-#ifdef HAVE_NCURSES
+#ifdef _WIN32
+    DWORD mode;
+    HANDLE h;
+
+    if (!(h = GetStdHandle(STD_OUTPUT_HANDLE)))
+        return false;
+    if (!GetConsoleMode(h, &mode))
+        return false;
+    return mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+#elif HAVE_NCURSES
     bool supported;
     int ret;
 
@@ -723,6 +743,8 @@ int main(int argc, char **argv)
     int fail = 1;
     size_t i;
     int ret;
+
+    init_tty();
 
     if (!parse_command_line(argc, argv, &options))
     {
