@@ -51,7 +51,7 @@
 #else
 #define DEMO_ASM_PUSHSECTION ".pushsection .rodata\n\t"
 #define DEMO_ASM_POPSECTION ".popsection\n\t"
-#define DEMO_ASM_OBJECT_TYPE(name) ".type "name", @object\n\t"
+#define DEMO_ASM_OBJECT_TYPE(name) ".type "name", STT_OBJECT\n\t"
 #endif
 
 #if (defined(__WIN32__) && defined(__i386__)) || defined(__APPLE__)
