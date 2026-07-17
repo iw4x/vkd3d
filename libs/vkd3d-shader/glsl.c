@@ -204,16 +204,9 @@ static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
 
             vkd3d_string_buffer_printf(buffer, "%s_in_%u", gen->prefix, element_idx);
             if (is_array)
-            {
-                vkd3d_string_buffer_printf(buffer, "[%u]", reg->idx[0].offset);
-                if (reg->idx[0].rel_addr)
-                    vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                            "Internal compiler error: Unhandled input register indirect addressing.");
-            }
+                shader_glsl_print_subscript(buffer, gen, reg->idx[0].rel_addr, reg->idx[0].offset);
             else
-            {
-                vkd3d_string_buffer_printf(buffer, "[0]");
-            }
+                shader_glsl_print_subscript(buffer, gen, NULL, 0);
             break;
 
         case VSIR_REGISTER_OUTPUT:
