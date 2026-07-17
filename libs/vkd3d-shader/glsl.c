@@ -180,6 +180,9 @@ static void shader_glsl_print_tgsm_name(struct vkd3d_string_buffer *buffer,
 static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
         struct vkd3d_glsl_generator *gen, const struct vsir_operand *reg)
 {
+    unsigned int element_idx;
+    bool is_array;
+
     switch (reg->type)
     {
         case VSIR_REGISTER_TEMP:
@@ -187,7 +190,10 @@ static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
             break;
 
         case VSIR_REGISTER_INPUT:
-            if (reg->idx_count != 1)
+            element_idx = reg->idx[reg->idx_count - 1].offset;
+            is_array = vsir_signature_element_is_array(&gen->program->input_signature.elements[element_idx],
+                    &gen->program->normalisation_flags);
+            if (reg->idx_count != 1 + is_array)
             {
                 vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
                         "Internal compiler error: Unhandled input register index count %u.", reg->idx_count);
@@ -195,15 +201,19 @@ static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
                         vsir_register_type_get_name(reg->type, "<unknown>"), reg->type);
                 break;
             }
-            if (reg->idx[0].rel_addr)
+
+            vkd3d_string_buffer_printf(buffer, "%s_in_%u", gen->prefix, element_idx);
+            if (is_array)
             {
-                vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                        "Internal compiler error: Unhandled input register indirect addressing.");
-                vkd3d_string_buffer_printf(buffer, "<unhandled register \"%s\" (%#x)>",
-                        vsir_register_type_get_name(reg->type, "<unknown>"), reg->type);
-                break;
+                vkd3d_string_buffer_printf(buffer, "[%u]", reg->idx[0].offset);
+                if (reg->idx[0].rel_addr)
+                    vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                            "Internal compiler error: Unhandled input register indirect addressing.");
             }
-            vkd3d_string_buffer_printf(buffer, "%s_in_%u", gen->prefix, reg->idx[0].offset);
+            else
+            {
+                vkd3d_string_buffer_printf(buffer, "[0]");
+            }
             break;
 
         case VSIR_REGISTER_OUTPUT:
@@ -1677,47 +1687,50 @@ static void shader_glsl_shader_prologue(struct vkd3d_glsl_generator *gen)
         if (e->target_location == SIGNATURE_TARGET_LOCATION_UNUSED)
             continue;
 
-        shader_glsl_print_indent(buffer, gen->indent);
-        vkd3d_string_buffer_printf(buffer, "%s_in_%u", gen->prefix, i);
-        shader_glsl_print_write_mask(buffer, e->mask);
-        if (e->sysval_semantic == VKD3D_SHADER_SV_NONE)
+        for (unsigned int j = 0; j < e->register_count; ++j)
         {
-            if (gen->interstage_input)
+            shader_glsl_print_indent(buffer, gen->indent);
+            vkd3d_string_buffer_printf(buffer, "%s_in_%u[%u]", gen->prefix, i, j);
+            shader_glsl_print_write_mask(buffer, e->mask);
+            if (e->sysval_semantic == VKD3D_SHADER_SV_NONE)
             {
-                vkd3d_string_buffer_printf(buffer, " = shader_in.reg_%u", e->target_location);
-                if (e->target_location >= gen->limits.input_count)
-                    vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                            "Internal compiler error: Input element %u specifies target location %u, "
-                            "but only %u inputs are supported.",
-                            i, e->target_location, gen->limits.input_count);
+                if (gen->interstage_input)
+                {
+                    vkd3d_string_buffer_printf(buffer, " = shader_in.reg_%u", e->target_location + j);
+                    if (!vkd3d_bound_range(e->target_location, e->register_count, gen->limits.input_count))
+                        vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                                "Internal compiler error: Input element %u specifies %u inputs "
+                                "starting at target location %u, but only %u inputs are supported.",
+                                i, e->register_count, e->target_location, gen->limits.input_count);
+                }
+                else
+                {
+                    switch (e->component_type)
+                    {
+                        case VKD3D_SHADER_COMPONENT_UINT:
+                            vkd3d_string_buffer_printf(buffer, " = uintBitsToFloat(shader_in_%u[%u])", i, j);
+                            break;
+                        case VKD3D_SHADER_COMPONENT_INT:
+                            vkd3d_string_buffer_printf(buffer, " = intBitsToFloat(shader_in_%u[%u])", i, j);
+                            break;
+                        default:
+                            vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
+                                    "Internal compiler error: Unhandled input component type %#x.", e->component_type);
+                            /* fall through */
+                        case VKD3D_SHADER_COMPONENT_FLOAT:
+                            vkd3d_string_buffer_printf(buffer, " = shader_in_%u[%u]", i, j);
+                            break;
+                    }
+                }
             }
             else
             {
-                switch (e->component_type)
-                {
-                    case VKD3D_SHADER_COMPONENT_UINT:
-                        vkd3d_string_buffer_printf(buffer, " = uintBitsToFloat(shader_in_%u)", i);
-                        break;
-                    case VKD3D_SHADER_COMPONENT_INT:
-                        vkd3d_string_buffer_printf(buffer, " = intBitsToFloat(shader_in_%u)", i);
-                        break;
-                    default:
-                        vkd3d_glsl_compiler_error(gen, VKD3D_SHADER_ERROR_GLSL_INTERNAL,
-                                "Internal compiler error: Unhandled input component type %#x.", e->component_type);
-                        /* fall through */
-                    case VKD3D_SHADER_COMPONENT_FLOAT:
-                        vkd3d_string_buffer_printf(buffer, " = shader_in_%u", i);
-                        break;
-                }
+                vkd3d_string_buffer_printf(buffer, " = ");
+                shader_glsl_print_sysval_name(buffer, gen, e->sysval_semantic, e->semantic_index);
             }
+            shader_glsl_print_write_mask(buffer, e->mask);
+            vkd3d_string_buffer_printf(buffer, ";\n");
         }
-        else
-        {
-            vkd3d_string_buffer_printf(buffer, " = ");
-            shader_glsl_print_sysval_name(buffer, gen, e->sysval_semantic, e->semantic_index);
-        }
-        shader_glsl_print_write_mask(buffer, e->mask);
-        vkd3d_string_buffer_printf(buffer, ";\n");
     }
 }
 
@@ -2652,7 +2665,7 @@ static void shader_glsl_generate_input_declarations(struct vkd3d_glsl_generator 
                             "Internal compiler error: Unhandled input component type %#x.", e->component_type);
                     break;
             }
-            vkd3d_string_buffer_printf(buffer, " shader_in_%u;\n", i);
+            vkd3d_string_buffer_printf(buffer, " shader_in_%u[%u];\n", i, e->register_count);
             ++count;
         }
         if (count)
@@ -2787,7 +2800,8 @@ static void shader_glsl_generate_declarations(struct vkd3d_glsl_generator *gen)
 
     for (unsigned int i = 0; i < program->input_signature.element_count; ++i)
     {
-        vkd3d_string_buffer_printf(buffer, "vec4 %s_in_%u;\n", gen->prefix, i);
+        vkd3d_string_buffer_printf(buffer, "vec4 %s_in_%u[%u];\n", gen->prefix, i,
+                program->input_signature.elements[i].register_count);
     }
     if (gen->limits.output_count)
         vkd3d_string_buffer_printf(buffer, "vec4 %s_out[%u];\n", gen->prefix, gen->limits.output_count);
