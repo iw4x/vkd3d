@@ -10576,6 +10576,7 @@ static void test_shader_instructions(void)
             struct ivec4 i;
         } output;
         bool is_mesa_bug;
+        bool llvmpipe_ppc64el_bug;
     }
     tests[] =
     {
@@ -10679,12 +10680,15 @@ static void test_shader_instructions(void)
 
         {&ps_sat, {{ 0.0f,  1.0f,     2.0f,      3.0f}}, {{0.0f, 1.0f, 1.0f, 1.0f}}},
         {&ps_sat, {{-0.0f, -1.0f,    -2.0f,     -3.0f}}, {{0.0f, 0.0f, 0.0f, 0.0f}}},
-        {&ps_sat, {{  NAN,  -NAN, INFINITY, -INFINITY}}, {{0.0f, 0.0f, 1.0f, 0.0f}}},
+        {&ps_sat, {{  NAN,  -NAN, INFINITY, -INFINITY}}, {{0.0f, 0.0f, 1.0f, 0.0f}}, .llvmpipe_ppc64el_bug = true},
 
         {&ps_min_max, {{0.0f}, {     1.0f}}, {{     0.0f,     1.0f}}},
         {&ps_min_max, {{0.0f}, {    -1.0f}}, {{    -1.0f,     0.0f}}},
-        {&ps_min_max, {{ NAN}, {     1.0f}}, {{     1.0f,     1.0f}}},
-        {&ps_min_max, {{0.0f}, {      NAN}}, {{     0.0f,     0.0f}}},
+        /* llvmpipe on ppc64el appears to mishandle NaNs in GLSLstd450NMax
+         * (and GLSLstd450NClamp by extension). See also
+         * https://bugs.winehq.org/show_bug.cgi?id=60024 */
+        {&ps_min_max, {{ NAN}, {     1.0f}}, {{     1.0f,     1.0f}}, .llvmpipe_ppc64el_bug = true},
+        {&ps_min_max, {{0.0f}, {      NAN}}, {{     0.0f,     0.0f}}, .llvmpipe_ppc64el_bug = true},
         {&ps_min_max, {{0.0f}, { INFINITY}}, {{     0.0f, INFINITY}}},
         {&ps_min_max, {{1.0f}, { INFINITY}}, {{     1.0f, INFINITY}}},
         {&ps_min_max, {{0.0f}, {-INFINITY}}, {{-INFINITY,     0.0f}}},
@@ -11406,7 +11410,8 @@ static void test_shader_instructions(void)
 
         transition_resource_state(command_list, context.render_target,
                 D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
-        bug_if(tests[i].is_mesa_bug && is_mesa_device(context.device))
+        bug_if((tests[i].is_mesa_bug && is_mesa_device(context.device))
+                || (tests[i].llvmpipe_ppc64el_bug && is_llvmpipe_ppc64el_device(context.device)))
         check_sub_resource_vec4(context.render_target, 0, queue, command_list, &tests[i].output.f, 2);
 
         reset_command_list(command_list, context.allocator);

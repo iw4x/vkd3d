@@ -633,6 +633,11 @@ static inline bool is_llvmpipe_device(ID3D12Device *device)
     return false;
 }
 
+static inline bool is_llvmpipe_ppc64el_device(ID3D12Device *device)
+{
+    return false;
+}
+
 static inline bool is_intel_device(ID3D12Device *device)
 {
     return false;
@@ -967,6 +972,15 @@ static inline bool is_llvmpipe_device(ID3D12Device *device)
 
     get_driver_properties(device, NULL, &properties);
     return properties.driverID == VK_DRIVER_ID_MESA_LLVMPIPE;
+}
+
+static inline bool is_llvmpipe_ppc64el_device(ID3D12Device *device)
+{
+#ifdef __powerpc64__
+    return is_llvmpipe_device(device);
+#else
+    return false;
+#endif
 }
 
 static inline bool is_intel_device(ID3D12Device *device)
