@@ -203,7 +203,7 @@ static void shader_glsl_print_operand_name(struct vkd3d_string_buffer *buffer,
                         vsir_register_type_get_name(reg->type, "<unknown>"), reg->type);
                 break;
             }
-            vkd3d_string_buffer_printf(buffer, "%s_in[%u]", gen->prefix, reg->idx[0].offset);
+            vkd3d_string_buffer_printf(buffer, "%s_in_%u", gen->prefix, reg->idx[0].offset);
             break;
 
         case VSIR_REGISTER_OUTPUT:
@@ -1678,7 +1678,7 @@ static void shader_glsl_shader_prologue(struct vkd3d_glsl_generator *gen)
             continue;
 
         shader_glsl_print_indent(buffer, gen->indent);
-        vkd3d_string_buffer_printf(buffer, "%s_in[%u]", gen->prefix, i);
+        vkd3d_string_buffer_printf(buffer, "%s_in_%u", gen->prefix, i);
         shader_glsl_print_write_mask(buffer, e->mask);
         if (e->sysval_semantic == VKD3D_SHADER_SV_NONE)
         {
@@ -2785,8 +2785,10 @@ static void shader_glsl_generate_declarations(struct vkd3d_glsl_generator *gen)
     shader_glsl_generate_input_declarations(gen);
     shader_glsl_generate_output_declarations(gen);
 
-    if (gen->limits.input_count)
-        vkd3d_string_buffer_printf(buffer, "vec4 %s_in[%u];\n", gen->prefix, gen->limits.input_count);
+    for (unsigned int i = 0; i < program->input_signature.element_count; ++i)
+    {
+        vkd3d_string_buffer_printf(buffer, "vec4 %s_in_%u;\n", gen->prefix, i);
+    }
     if (gen->limits.output_count)
         vkd3d_string_buffer_printf(buffer, "vec4 %s_out[%u];\n", gen->prefix, gen->limits.output_count);
     if (bitmap_is_set(gen->program->io_dcls, VSIR_REGISTER_SAMPLEMASK))
