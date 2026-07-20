@@ -217,7 +217,7 @@ ffff0104                                                % ps_1_4
 0000ffff                                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (18, 18) f32(1.00, 0.00, 0.0, 1.0)
 probe (22, 22) f32(0.75, 0.00, 0.0, 1.0)
 probe (26, 26) f32(0.50, 0.00, 0.0, 1.0)
