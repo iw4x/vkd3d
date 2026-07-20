@@ -3399,6 +3399,12 @@ static enum vkd3d_result vsir_program_lower_d3dbc_modifiers(struct vsir_program 
                 x2 = true;
                 break;
 
+            case VKD3DSPSM_SIGNNEG:
+                bias = true;
+                x2 = true;
+                negate = true;
+                break;
+
             default:
                 continue;
         }
