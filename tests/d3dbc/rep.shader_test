@@ -57,14 +57,14 @@ ffff0300                                                % ps_3_0
 
 [test]
 write cbv-i32(0) i32(0)
-todo draw quad
+draw quad
 probe (320, 240) f32(0, 0, 0, 0)
 write cbv-i32(0) i32(5)
-todo draw quad
+draw quad
 probe (320, 240) f32(50, 50, 50, 50)
 write cbv-i32(0) i32(18)
-todo draw quad
+draw quad
 probe (320, 240) f32(180, 180, 180, 180)
 write cbv-i32(0) i32(23)
-todo draw quad
+draw quad
 probe (320, 240) f32(200, 200, 200, 200)

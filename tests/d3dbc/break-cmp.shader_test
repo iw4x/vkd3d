@@ -29,7 +29,7 @@ ffff0300                                                % ps_3_0
 0000ffff                                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (30,  2) f32(1, 0, 0, 1)
 probe (22, 18) f32(1, 0, 0, 1)
 probe (46, 18) f32(1, 0, 0, 1)
@@ -57,7 +57,7 @@ ffff0300                                                % ps_3_0
 0000ffff                                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (30,  2) f32(1, 0, 0, 1)
 probe (22, 18) f32(1, 0, 0, 1)
 probe (46, 18) f32(0, 1, 0, 1)
@@ -85,7 +85,7 @@ ffff0300                                                % ps_3_0
 0000ffff                                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (30,  2) f32(1, 0, 0, 1)
 probe (22, 18) f32(1, 0, 0, 1)
 probe (46, 18) f32(0, 1, 0, 1)
@@ -113,7 +113,7 @@ ffff0300                                                % ps_3_0
 0000ffff                                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (30,  2) f32(0, 1, 0, 1)
 probe (22, 18) f32(0, 1, 0, 1)
 probe (46, 18) f32(1, 0, 0, 1)
@@ -141,7 +141,7 @@ ffff0300                                                % ps_3_0
 0000ffff                                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (30,  2) f32(0, 1, 0, 1)
 probe (22, 18) f32(0, 1, 0, 1)
 probe (46, 18) f32(1, 0, 0, 1)
@@ -169,7 +169,7 @@ ffff0300                                                % ps_3_0
 0000ffff                                                % end
 
 [test]
-todo draw quad
+draw quad
 probe (30,  2) f32(0, 1, 0, 1)
 probe (22, 18) f32(0, 1, 0, 1)
 probe (46, 18) f32(0, 1, 0, 1)

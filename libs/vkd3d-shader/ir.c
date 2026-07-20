@@ -1585,6 +1585,53 @@ static enum vkd3d_result vsir_program_normalize_addr(struct vsir_program *progra
     return VKD3D_OK;
 }
 
+static enum vkd3d_result vsir_program_lower_breakc(struct vsir_program *program,
+        struct vsir_program_iterator *brk, struct vkd3d_shader_message_context *message_context)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(brk);
+    const struct vkd3d_shader_location location = ins->location;
+    const struct vsir_src_operand *src = ins->src;
+    struct vsir_program_iterator it;
+    enum vkd3d_shader_opcode opcode;
+    unsigned int cmp_id;
+    bool swap;
+
+    /* break_cmp SRC0, SRC1
+     *      ->
+     * <CMP> srCMP, SRC0, SRC1
+     * breakp_nz srCMP */
+
+    if (!(get_opcode_from_rel_op(ins->flags, src[0].reg.data_type, &opcode, &swap)))
+    {
+        vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
+                "Unhandled comparison operation %#x for data type \"%s\" (%#x).", ins->flags,
+                vsir_data_type_get_name(src[0].reg.data_type, "<unknown>"), src[0].reg.data_type);
+        return VKD3D_ERROR_NOT_IMPLEMENTED;
+    }
+
+    if (!(ins = vsir_program_iterator_insert_before(brk, &it, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    if (!vsir_instruction_init_with_params(program, ins, &location, opcode, 1, 2))
+        goto fail;
+    cmp_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], cmp_id, VSIR_DATA_U32, VSIR_DIMENSION_SCALAR);
+    ins->src[0] = src[swap];
+    ins->src[1] = src[!swap];
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_BREAKP, 0, 1))
+        goto fail;
+    ins->flags = VKD3D_SHADER_CONDITIONAL_OP_NZ;
+    vsir_src_operand_init_ssa(&ins->src[0], cmp_id, VSIR_DATA_U32, VSIR_DIMENSION_SCALAR);
+
+    return VKD3D_OK;
+
+fail:
+    vsir_program_iterator_nop_range(&it, brk, &location);
+
+    return VKD3D_ERROR_OUT_OF_MEMORY;
+}
+
 static enum vkd3d_result vsir_program_lower_dp2add(struct vsir_program *program, struct vsir_program_iterator *dp2add)
 {
     struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(dp2add);
@@ -3567,6 +3614,10 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
         {
             case VSIR_OP_BEM:
                 ret = vsir_program_lower_bem(program, &it);
+                break;
+
+            case VSIR_OP_BREAKC:
+                ret = vsir_program_lower_breakc(program, &it, message_context);
                 break;
 
             case VSIR_OP_DP2ADD:
