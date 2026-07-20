@@ -3414,6 +3414,29 @@ static enum vkd3d_result vsir_program_lower_d3dbc_modifiers(struct vsir_program 
                 negate = true;
                 break;
 
+            case VKD3DSPSM_COMP:
+                if (!(new_ins = vsir_program_iterator_insert_before(it, &new_it, 2)))
+                    return VKD3D_ERROR_OUT_OF_MEMORY;
+                ins = vsir_program_iterator_current(it);
+
+                if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_NEG, 1, 1))
+                    goto fail;
+                new_ins->src[0] = *src;
+                new_ins->src[0].modifiers = VKD3DSPSM_NONE;
+                tmp_src_id = program->ssa_count++;
+                vsir_dst_operand_init_ssa(&new_ins->dst[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
+
+                new_ins = vsir_program_iterator_next(&new_it);
+                if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_ADD, 1, 2))
+                    goto fail;
+                vsir_src_operand_init_const_f32(&new_ins->src[0], 1.0f);
+                vsir_src_operand_init_ssa(&new_ins->src[1], tmp_src_id, src->reg.data_type, src->reg.dimension);
+                tmp_src_id = program->ssa_count++;
+                vsir_dst_operand_init_ssa(&new_ins->dst[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
+
+                vsir_src_operand_init_ssa(src, tmp_src_id, src->reg.data_type, src->reg.dimension);
+                continue;
+
             default:
                 continue;
         }
