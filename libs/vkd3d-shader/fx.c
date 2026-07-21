@@ -3792,7 +3792,7 @@ static void write_fx_4_buffer(struct hlsl_buffer *b, struct fx_write_context *fx
 
     count = 0;
     size = 0;
-    LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
+    LIST_FOR_EACH_ENTRY(var, &ctx->globals->vars, struct hlsl_ir_var, scope_entry)
     {
         uint32_t unpacked_size;
 
