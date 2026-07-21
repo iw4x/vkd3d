@@ -1394,7 +1394,15 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
             &runner->caps.tags[SHADER_RUNNER_TAG_LLVM].patch);
 
     if (test_options.use_warp_device)
+    {
         runner->caps.tags[SHADER_RUNNER_TAG_WARP].present = true;
+#ifdef _WIN32
+        if (!get_dll_version("d3d10warp.dll", &runner->caps.tags[SHADER_RUNNER_TAG_WARP].major,
+                &runner->caps.tags[SHADER_RUNNER_TAG_WARP].minor,
+                &runner->caps.tags[SHADER_RUNNER_TAG_WARP].patch, NULL))
+            fatal_error("Failed to query d3d10warp.dll version.\n");
+#endif
+    }
 
     if (is_amd_windows_device(device) || is_radv_device(device))
         runner->caps.tags[SHADER_RUNNER_TAG_AMD].present = true;

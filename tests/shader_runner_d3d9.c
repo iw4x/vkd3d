@@ -151,6 +151,10 @@ static bool init_test_context(struct d3d9_shader_runner *runner)
     {
         trace("Using WARP device.\n");
         runner->caps.tags[SHADER_RUNNER_TAG_WARP].present = true;
+        if (!get_dll_version("d3d10warp.dll", &runner->caps.tags[SHADER_RUNNER_TAG_WARP].major,
+                &runner->caps.tags[SHADER_RUNNER_TAG_WARP].minor,
+                &runner->caps.tags[SHADER_RUNNER_TAG_WARP].patch, NULL))
+            fatal_error("Failed to query d3d10warp.dll version.\n");
     }
     else if (identifier.VendorId == 0x10de)
     {
