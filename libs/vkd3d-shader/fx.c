@@ -3883,7 +3883,7 @@ static void write_objects(struct fx_write_context *fx, bool shared)
     if (shared && !fx->child_effect)
         return;
 
-    LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
+    LIST_FOR_EACH_ENTRY(var, &ctx->globals->vars, struct hlsl_ir_var, scope_entry)
     {
         if (!is_supported_object_variable(ctx, var))
             continue;
