@@ -15231,6 +15231,7 @@ static void vsir_validate_ftoi(struct validation_context *ctx, const struct vkd3
     {
         [VSIR_DATA_I32] = true,
         [VSIR_DATA_U32] = true,
+        [VSIR_DATA_I64] = true,
     };
 
     vsir_validate_cast_operation(ctx, instruction, src_types, dst_types);

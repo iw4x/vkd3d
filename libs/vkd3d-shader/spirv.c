@@ -7774,7 +7774,17 @@ static void spirv_compiler_emit_ftoi(struct spirv_compiler *compiler,
 
     /* VSIR allows the destination of a signed conversion to be unsigned. */
 
-    int_max_id = spirv_compiler_get_constant_vector(compiler, dst->reg.data_type, component_count, INT_MAX);
+    if (data_type_is_64_bit(dst->reg.data_type))
+    {
+        int_max_id = spirv_compiler_get_constant64(compiler, dst->reg.data_type,
+                component_count, (uint64_t[]){INT64_MAX, INT64_MAX});
+        zero_id = spirv_compiler_get_constant64(compiler, dst->reg.data_type, component_count, (uint64_t[]){0, 0});
+    }
+    else
+    {
+        int_max_id = spirv_compiler_get_constant_vector(compiler, dst->reg.data_type, component_count, INT_MAX);
+        zero_id = spirv_compiler_get_constant_vector(compiler, dst->reg.data_type, component_count, 0);
+    }
     condition_type_id = spirv_get_type_id(compiler, VSIR_DATA_BOOL, component_count);
     condition_id = vkd3d_spirv_build_op_tr2(builder, &builder->function_stream,
             SpvOpFOrdGreaterThanEqual, condition_type_id, val_id, float_max_id);
@@ -7782,7 +7792,6 @@ static void spirv_compiler_emit_ftoi(struct spirv_compiler *compiler,
     val_id = vkd3d_spirv_build_op_tr1(builder, &builder->function_stream, SpvOpConvertFToS, dst_type_id, val_id);
     val_id = vkd3d_spirv_build_op_select(builder, dst_type_id, condition_id, int_max_id, val_id);
 
-    zero_id = spirv_compiler_get_constant_vector(compiler, dst->reg.data_type, component_count, 0);
     condition_id = vkd3d_spirv_build_op_tr1(builder, &builder->function_stream, SpvOpIsNan, condition_type_id, src_id);
     val_id = vkd3d_spirv_build_op_select(builder, dst_type_id, condition_id, zero_id, val_id);
 

@@ -122,7 +122,7 @@ uint4 main(float4 p : sv_position) : sv_target
 }
 
 [test]
-todo draw quad
+draw quad
 probe ( 2,  6) u64(0xfffffffc00000000, 0xfffffffc80000000)
 probe (10, 14) u64(0xfffffffd00000000, 0xfffffffd80000000)
 probe (18, 22) u64(0xfffffffe00000000, 0xfffffffe80000000)
