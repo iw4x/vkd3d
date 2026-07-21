@@ -29,7 +29,7 @@
 #include "vkd3d_common.h"
 #include "vkd3d_shader.h"
 #include "vkd3d_shader_utils.h"
-#ifdef HAVE_NCURSES
+#if HAVE_NCURSES && !_WIN32
 #include <term.h>
 #endif
 
@@ -722,7 +722,19 @@ static FILE *open_output(const char *filename, bool *close)
 
 static bool has_colour(FILE *f)
 {
-#ifdef HAVE_NCURSES
+#ifdef _WIN32
+    DWORD mode;
+    HANDLE h;
+    int fd;
+
+    if ((fd = fileno(f)) < 0)
+        return false;
+    if (!(h = (HANDLE)_get_osfhandle(fd)))
+        return false;
+    if (!GetConsoleMode(h, &mode))
+        return false;
+    return mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+#elif HAVE_NCURSES
     bool supported;
     int ret;
 
@@ -737,6 +749,20 @@ static bool has_colour(FILE *f)
     return supported;
 #else
     return false;
+#endif
+}
+
+static void init_tty(FILE *f)
+{
+#ifdef _WIN32
+    HANDLE h;
+    int fd;
+
+    if ((fd = fileno(f)) < 0)
+        return;
+    if (!(h = (HANDLE)_get_osfhandle(fd)))
+        return;
+    SetConsoleMode(h, ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
 #endif
 }
 
@@ -885,6 +911,7 @@ int main(int argc, char **argv)
         }
     }
 
+    init_tty(output);
     if (!options.explicit_colour && !getenv("NO_COLOUR") && !getenv("NO_COLOR") && has_colour(output))
         options.formatting |= VKD3D_SHADER_COMPILE_OPTION_FORMATTING_COLOUR;
     add_compile_option(&options, VKD3D_SHADER_COMPILE_OPTION_FORMATTING, options.formatting);
