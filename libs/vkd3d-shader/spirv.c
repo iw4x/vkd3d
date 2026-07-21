@@ -7827,7 +7827,11 @@ static void spirv_compiler_emit_ftou(struct spirv_compiler *compiler,
     src_id = spirv_compiler_emit_load_src(compiler, src, write_mask);
     val_id = vkd3d_spirv_build_op_glsl_std450_max(builder, src_type_id, src_id, zero_id);
 
-    uint_max_id = spirv_compiler_get_constant_uint_vector(compiler, UINT_MAX, component_count);
+    if (data_type_is_64_bit(dst->reg.data_type))
+        uint_max_id = spirv_compiler_get_constant_uint64_vector(compiler, UINT64_MAX, component_count);
+    else
+        uint_max_id = spirv_compiler_get_constant_uint_vector(compiler, UINT_MAX, component_count);
+
     condition_type_id = spirv_get_type_id(compiler, VSIR_DATA_BOOL, component_count);
     condition_id = vkd3d_spirv_build_op_tr2(builder, &builder->function_stream,
             SpvOpFOrdGreaterThanEqual, condition_type_id, val_id, float_max_id);

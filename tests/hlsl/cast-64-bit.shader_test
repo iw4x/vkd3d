@@ -144,7 +144,7 @@ uint4 main(float4 p : sv_position) : sv_target
 }
 
 [test]
-todo draw quad
+draw quad
 winbug(warp=1.0.16) probe ( 2,  6) u64(0x0000000000000000, 0x0000000000000000)
 winbug(warp=1.0.16) probe (10, 14) u64(0x0000000000000000, 0x0000000000000000)
 winbug(warp=1.0.16) probe (18, 22) u64(0x0000000000000000, 0x0000000000000000)

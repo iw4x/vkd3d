@@ -15247,6 +15247,7 @@ static void vsir_validate_ftou(struct validation_context *ctx, const struct vkd3
     static const bool dst_types[VSIR_DATA_TYPE_COUNT] =
     {
         [VSIR_DATA_U32] = true,
+        [VSIR_DATA_U64] = true,
     };
 
     vsir_validate_cast_operation(ctx, instruction, src_types, dst_types);
