@@ -28,7 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#if HAVE_NCURSES && !VKD3D_CROSSTEST
+#if HAVE_NCURSES && !_WIN32
 #include <term.h>
 #endif
 
@@ -158,12 +158,19 @@ broken(bool condition)
 
 static inline bool vkd3d_test_has_colour(void)
 {
-#if HAVE_NCURSES && !VKD3D_CROSSTEST
+#ifdef _WIN32
+    DWORD mode;
+    HANDLE h;
+
+    if (!(h = GetStdHandle(STD_OUTPUT_HANDLE)))
+        return false;
+    if (!GetConsoleMode(h, &mode))
+        return false;
+    return mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+#elif HAVE_NCURSES
     bool supported;
     int ret;
 
-    if (getenv("NO_COLOUR") || getenv("NO_COLOR"))
-        return false;
     if (!isatty(STDOUT_FILENO))
         return false;
     setupterm(NULL, STDOUT_FILENO, &ret);
@@ -175,6 +182,17 @@ static inline bool vkd3d_test_has_colour(void)
     return supported;
 #else
     return false;
+#endif
+}
+
+static inline void vkd3d_test_init_tty(void)
+{
+#ifdef _WIN32
+    HANDLE h;
+
+    if (!(h = GetStdHandle(STD_OUTPUT_HANDLE)))
+        return;
+    SetConsoleMode(h, ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
 #endif
 }
 
@@ -357,7 +375,8 @@ int main(int argc, char **argv)
     vkd3d_test_state.bug_enabled = bug ? atoi(bug) : true;
     vkd3d_test_state.test_name_filter = test_filter;
 
-    if (vkd3d_test_has_colour())
+    vkd3d_test_init_tty();
+    if (!getenv("NO_COLOUR") && !getenv("NO_COLOR") && vkd3d_test_has_colour())
     {
         vkd3d_test_state.colours.reset = "\x1b[m";
         vkd3d_test_state.colours.xpass = "\x1b[31m";
