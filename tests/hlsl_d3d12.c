@@ -2077,7 +2077,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
                 memset(&var_desc, 0xba, sizeof(var_desc));
                 var = ID3D12ShaderReflectionConstantBuffer_GetVariableByIndex(cbuffer, j);
                 var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, expect->var_desc.Name);
-                todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+                ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
 
                 hr = ID3D12ShaderReflectionVariable_GetDesc(var, &var_desc);
                 ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
@@ -2136,9 +2136,9 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
             hr = ID3D12ShaderReflectionVariable_GetDesc(var, &var_desc);
             ok(hr == E_FAIL, "Got hr %#x.\n", hr);
             var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, "invalid");
-            todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+            ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
             var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, NULL);
-            todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+            ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
 
             type = ID3D12ShaderReflectionVariable_GetType(var);
             hr = ID3D12ShaderReflectionType_GetDesc(type, &type_desc);
@@ -2162,9 +2162,9 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         hr = ID3D12ShaderReflectionVariable_GetDesc(var, &var_desc);
         ok(hr == E_FAIL, "Got hr %#x.\n", hr);
         var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, "invalid");
-        todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+        ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
         var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, NULL);
-        todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+        ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
 
         for (unsigned int i = 0; i < shader_desc.BoundResources; ++i)
         {

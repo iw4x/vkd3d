@@ -336,9 +336,31 @@ static ID3D12ShaderReflectionVariable * STDMETHODCALLTYPE d3d12_buffer_GetVariab
 static ID3D12ShaderReflectionVariable * STDMETHODCALLTYPE d3d12_buffer_GetVariableByName(
         ID3D12ShaderReflectionConstantBuffer *iface, const char *name)
 {
-    FIXME("iface %p, name %s, stub!\n", iface, debugstr_a(name));
+    struct d3d12_buffer *buffer = impl_from_ID3D12ShaderReflectionConstantBuffer(iface);
+    unsigned int i;
 
-    return NULL;
+    TRACE("iface %p, name %s.\n", iface, debugstr_a(name));
+
+    if (!name)
+    {
+        WARN("NULL name specified.\n");
+        return &null_variable.ID3D12ShaderReflectionVariable_iface;
+    }
+
+    for (i = 0; i < buffer->desc.Variables; ++i)
+    {
+        struct d3d12_variable *variable = &buffer->variables[i];
+
+        if (!strcmp(variable->desc.Name, name))
+        {
+            TRACE("Returning variable %p at index %u.\n", variable, i);
+            return &variable->ID3D12ShaderReflectionVariable_iface;
+        }
+    }
+
+    WARN("Variable %s not found.\n", debugstr_a(name));
+
+    return &null_variable.ID3D12ShaderReflectionVariable_iface;
 }
 
 static const struct ID3D12ShaderReflectionConstantBufferVtbl d3d12_buffer_vtbl =
