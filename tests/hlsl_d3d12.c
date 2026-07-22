@@ -2206,12 +2206,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
                             expect->Name, (D3D10_SHADER_INPUT_BIND_DESC *)&binding_desc);
                 else
                     hr = ID3D12ShaderReflection_GetResourceBindingDescByName(reflection, expect->Name, &binding_desc);
-                todo ok(hr == S_OK, "Got hr %#x.\n", hr);
-                if (FAILED(hr))
-                {
-                    vkd3d_test_pop_context();
-                    continue;
-                }
+                ok(hr == S_OK, "Got hr %#x.\n", hr);
 
                 ok(!strcmp(binding_desc.Name, expect->Name), "Got name \"%s\".\n", binding_desc.Name);
                 ok(binding_desc.Type == expect->Type, "Got type %#x.\n", binding_desc.Type);
@@ -2242,25 +2237,25 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
             {
                 hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r,
                         NULL, (D3D10_SHADER_INPUT_BIND_DESC *)&binding_desc);
-                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
                 hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r, tests[t].bindings[0].Name, NULL);
-                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
                 hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r, "invalid", NULL);
-                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
                 hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r,
                         "invalid", (D3D10_SHADER_INPUT_BIND_DESC *)&binding_desc);
-                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
             }
             else
             {
                 hr = ID3D12ShaderReflection_GetResourceBindingDescByName(reflection, NULL, &binding_desc);
-                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
                 hr = ID3D12ShaderReflection_GetResourceBindingDescByName(reflection, tests[t].bindings[0].Name, NULL);
-                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
                 hr = ID3D12ShaderReflection_GetResourceBindingDescByName(reflection, "invalid", NULL);
-                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
                 hr = ID3D12ShaderReflection_GetResourceBindingDescByName(reflection, "invalid", &binding_desc);
-                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
             }
         }
 

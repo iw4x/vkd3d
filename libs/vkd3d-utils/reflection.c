@@ -608,9 +608,38 @@ static struct ID3D12ShaderReflectionVariable * STDMETHODCALLTYPE d3d12_reflectio
 static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetResourceBindingDescByName(
         ID3D12ShaderReflection *iface, const char *name, D3D12_SHADER_INPUT_BIND_DESC *desc)
 {
-    FIXME("iface %p, name %s, desc %p stub!\n", iface, debugstr_a(name), desc);
+    struct d3d12_reflection *reflection = impl_from_ID3D12ShaderReflection(iface);
+    unsigned int i;
 
-    return E_NOTIMPL;
+    TRACE("iface %p, name %s, desc %p.\n", iface, debugstr_a(name), desc);
+
+    if (!desc)
+    {
+        WARN("NULL desc specified.\n");
+        return E_INVALIDARG;
+    }
+
+    if (!name)
+    {
+        WARN("NULL name specified.\n");
+        return E_INVALIDARG;
+    }
+
+    for (i = 0; i < reflection->desc.BoundResources; ++i)
+    {
+        D3D12_SHADER_INPUT_BIND_DESC *binding = &reflection->bindings[i];
+
+        if (!strcmp(binding->Name, name))
+        {
+            TRACE("Returning binding %p at index %u.\n", binding, i);
+            memcpy(desc, binding, reflection->bind_desc_size);
+            return S_OK;
+        }
+    }
+
+    WARN("Binding %s not found.\n", debugstr_a(name));
+
+    return E_INVALIDARG;
 }
 
 static UINT STDMETHODCALLTYPE d3d12_reflection_GetMovInstructionCount(ID3D12ShaderReflection *iface)
