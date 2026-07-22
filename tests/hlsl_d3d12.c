@@ -2057,7 +2057,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
 
             cbuffer = ID3D12ShaderReflection_GetConstantBufferByIndex(reflection, i);
             cbuffer2 = ID3D12ShaderReflection_GetConstantBufferByName(reflection, expect_buffer->desc.Name);
-            todo ok(cbuffer == cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
+            ok(cbuffer == cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
 
             hr = ID3D12ShaderReflectionConstantBuffer_GetDesc(cbuffer, &buffer_desc);
             structured = buffer_desc.Type == D3D_CT_RESOURCE_BIND_INFO;
@@ -2147,9 +2147,9 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         hr = ID3D12ShaderReflectionConstantBuffer_GetDesc(cbuffer, &buffer_desc);
         ok(hr == E_FAIL, "Got hr %#x.\n", hr);
         cbuffer2 = ID3D12ShaderReflection_GetConstantBufferByName(reflection, "invalid");
-        todo ok(cbuffer == cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
+        ok(cbuffer == cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
         cbuffer2 = ID3D12ShaderReflection_GetConstantBufferByName(reflection, NULL);
-        todo ok(cbuffer == cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
+        ok(cbuffer == cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
 
         for (unsigned int i = 0; i < shader_desc.BoundResources; ++i)
         {

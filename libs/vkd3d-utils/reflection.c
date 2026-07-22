@@ -512,9 +512,31 @@ static struct ID3D12ShaderReflectionConstantBuffer * STDMETHODCALLTYPE d3d12_ref
 static struct ID3D12ShaderReflectionConstantBuffer * STDMETHODCALLTYPE d3d12_reflection_GetConstantBufferByName(
         ID3D12ShaderReflection *iface, const char *name)
 {
-    FIXME("iface %p, name %s stub!\n", iface, debugstr_a(name));
+    struct d3d12_reflection *reflection = impl_from_ID3D12ShaderReflection(iface);
+    unsigned int i;
 
-    return NULL;
+    TRACE("iface %p, name %s.\n", iface, debugstr_a(name));
+
+    if (!name)
+    {
+        WARN("NULL name specified.\n");
+        return &null_buffer.ID3D12ShaderReflectionConstantBuffer_iface;
+    }
+
+    for (i = 0; i < reflection->desc.ConstantBuffers; ++i)
+    {
+        struct d3d12_buffer *buffer = &reflection->buffers[i];
+
+        if (!strcmp(buffer->desc.Name, name))
+        {
+            TRACE("Returning buffer %p at index %u.\n", buffer, i);
+            return &buffer->ID3D12ShaderReflectionConstantBuffer_iface;
+        }
+    }
+
+    WARN("Constant buffer %s not found.\n", debugstr_a(name));
+
+    return &null_buffer.ID3D12ShaderReflectionConstantBuffer_iface;
 }
 
 static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetResourceBindingDesc(
