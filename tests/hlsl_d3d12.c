@@ -2016,10 +2016,10 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
     {
         ID3D12ShaderReflectionConstantBuffer *cbuffer, *cbuffer2;
         D3D12_SHADER_TYPE_DESC type_desc, field_desc;
+        ID3D12ShaderReflectionVariable *var, *var2;
         D3D12_SHADER_INPUT_BIND_DESC binding_desc;
         ID3D12ShaderReflectionType *type, *field;
         D3D12_SHADER_BUFFER_DESC buffer_desc;
-        ID3D12ShaderReflectionVariable *var;
         D3D12_SHADER_VARIABLE_DESC var_desc;
         ID3D12ShaderReflection *reflection;
         D3D12_SHADER_DESC shader_desc;
@@ -2076,6 +2076,9 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
 
                 memset(&var_desc, 0xba, sizeof(var_desc));
                 var = ID3D12ShaderReflectionConstantBuffer_GetVariableByIndex(cbuffer, j);
+                var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, expect->var_desc.Name);
+                todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+
                 hr = ID3D12ShaderReflectionVariable_GetDesc(var, &var_desc);
                 ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
                 ok(!strcmp(var_desc.Name, expect->var_desc.Name), "Got name \"%s\".\n", var_desc.Name);
@@ -2132,6 +2135,10 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
             var = ID3D12ShaderReflectionConstantBuffer_GetVariableByIndex(cbuffer, buffer_desc.Variables);
             hr = ID3D12ShaderReflectionVariable_GetDesc(var, &var_desc);
             ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+            var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, "invalid");
+            todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+            var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, NULL);
+            todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
 
             type = ID3D12ShaderReflectionVariable_GetType(var);
             hr = ID3D12ShaderReflectionType_GetDesc(type, &type_desc);
@@ -2150,6 +2157,14 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         ok(cbuffer == cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
         cbuffer2 = ID3D12ShaderReflection_GetConstantBufferByName(reflection, NULL);
         ok(cbuffer == cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
+
+        var = ID3D12ShaderReflectionConstantBuffer_GetVariableByIndex(cbuffer, 0);
+        hr = ID3D12ShaderReflectionVariable_GetDesc(var, &var_desc);
+        ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+        var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, "invalid");
+        todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+        var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, NULL);
+        todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
 
         for (unsigned int i = 0; i < shader_desc.BoundResources; ++i)
         {
