@@ -2181,6 +2181,89 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         hr = ID3D12ShaderReflection_GetResourceBindingDesc(reflection, shader_desc.BoundResources, &binding_desc);
         ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
 
+        if (!IsEqualGUID(iid, &IID_ID3D10ShaderReflection))
+        {
+            ID3D10ShaderReflection1 *r = (ID3D10ShaderReflection1 *)reflection;
+            unsigned int j;
+
+            for (unsigned int i = 0; i < shader_desc.BoundResources; ++i)
+            {
+                const D3D12_SHADER_INPUT_BIND_DESC *expect = &tests[t].bindings[i];
+
+                for (j = 0; j < i; ++j)
+                {
+                    if (!strcmp(expect->Name, tests[t].bindings[j].Name))
+                        break;
+                }
+                if (i != j)
+                    continue;
+
+                vkd3d_test_push_context("Binding %u", i);
+
+                memset(&binding_desc, 0xba, sizeof(binding_desc));
+                if (IsEqualGUID(iid, &IID_ID3D10ShaderReflection1))
+                    hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r,
+                            expect->Name, (D3D10_SHADER_INPUT_BIND_DESC *)&binding_desc);
+                else
+                    hr = ID3D12ShaderReflection_GetResourceBindingDescByName(reflection, expect->Name, &binding_desc);
+                todo ok(hr == S_OK, "Got hr %#x.\n", hr);
+                if (FAILED(hr))
+                {
+                    vkd3d_test_pop_context();
+                    continue;
+                }
+
+                ok(!strcmp(binding_desc.Name, expect->Name), "Got name \"%s\".\n", binding_desc.Name);
+                ok(binding_desc.Type == expect->Type, "Got type %#x.\n", binding_desc.Type);
+                ok(binding_desc.BindPoint == expect->BindPoint, "Got bind point %u.\n", binding_desc.BindPoint);
+                ok(binding_desc.BindCount == expect->BindCount, "Got bind count %u.\n", binding_desc.BindCount);
+                ok(binding_desc.uFlags == expect->uFlags, "Got flags %#x.\n", binding_desc.uFlags);
+                ok(binding_desc.ReturnType == expect->ReturnType, "Got return type %#x.\n", binding_desc.ReturnType);
+                ok(binding_desc.Dimension == expect->Dimension, "Got dimension %#x.\n", binding_desc.Dimension);
+                ok(binding_desc.NumSamples == expect->NumSamples, "Got multisample count %u.\n",
+                        binding_desc.NumSamples);
+                if (!IsEqualGUID(iid, &IID_ID3D12ShaderReflection))
+                {
+                    if (sizeof(void *) == sizeof(uint32_t))
+                        ok(binding_desc.Space == 0xbabababa, "Got space %u.\n", binding_desc.Space);
+                    ok(binding_desc.uID == 0xbabababa, "Got ID %#x.\n", binding_desc.uID);
+                }
+                else
+                {
+                    ok(binding_desc.Space == expect->Space, "Got space %u.\n", binding_desc.Space);
+                    todo_if (binding_desc.uID != expect->uID)
+                        ok(binding_desc.uID == expect->uID, "Got ID %u.\n", binding_desc.uID);
+                }
+
+                vkd3d_test_pop_context();
+            }
+
+            if (IsEqualGUID(iid, &IID_ID3D10ShaderReflection1))
+            {
+                hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r,
+                        NULL, (D3D10_SHADER_INPUT_BIND_DESC *)&binding_desc);
+                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r, tests[t].bindings[0].Name, NULL);
+                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r, "invalid", NULL);
+                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r,
+                        "invalid", (D3D10_SHADER_INPUT_BIND_DESC *)&binding_desc);
+                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+            }
+            else
+            {
+                hr = ID3D12ShaderReflection_GetResourceBindingDescByName(reflection, NULL, &binding_desc);
+                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                hr = ID3D12ShaderReflection_GetResourceBindingDescByName(reflection, tests[t].bindings[0].Name, NULL);
+                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                hr = ID3D12ShaderReflection_GetResourceBindingDescByName(reflection, "invalid", NULL);
+                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+                hr = ID3D12ShaderReflection_GetResourceBindingDescByName(reflection, "invalid", &binding_desc);
+                todo ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
+            }
+        }
+
         ID3D10Blob_Release(code);
         refcount = ID3D12ShaderReflection_Release(reflection);
         ok(!refcount, "Got unexpected refcount %u.\n", refcount);
