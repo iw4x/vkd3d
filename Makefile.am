@@ -232,6 +232,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/minimum-precision.shader_test \
 	tests/hlsl/modf.shader_test \
 	tests/hlsl/mul.shader_test \
+	tests/hlsl/mult-by-zero.shader_test \
 	tests/hlsl/multiple-rt.shader_test \
 	tests/hlsl/nested-arrays.shader_test \
 	tests/hlsl/nointerpolation.shader_test \

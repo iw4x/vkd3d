@@ -1,0 +1,66 @@
+% Test whether multiplications by zero at compile time are simplified or not.
+
+[pixel shader]
+float4 aa;
+float4 bb;
+float cc;
+
+float4 main() : sv_target
+{
+    float4 zero = aa;
+    float4 res = aa;
+
+    zero *= 0;
+    res.xy += (bb * zero).zw; // 'bb' is not allocated in SM1-3, it is multiplied by zero.
+    res.w = cc;
+
+    return res;
+}
+// Registers:
+//
+//   Name         Reg   Size
+//   ------------ ----- ----
+//   aa           c0       1
+//   cc           c1       1
+
+[test]
+write cbv-0 (0) f32(10, 20, 30, 40)
+write cbv-0 (4) f32(50, -1, -1, -1)
+write cbv-0 (8) f32(-2, -2, -2, -2)
+draw quad
+if(sm<4) todo probe (0, 0) f32(10, 20, 30, 50)
+if(sm>=4) probe (0, 0) f32(10, 20, 30, -2)
+
+[require]
+options: ieee-strictness
+
+[pixel shader]
+float4 aa;
+float4 bb;
+float cc;
+
+float4 main() : sv_target
+{
+    float4 zero = aa;
+    float4 res = aa;
+
+    zero *= 0;
+    res.xy += (bb * zero).zw; // With -Gis, 'bb' is always allocated.
+    res.w = cc;
+
+    return res;
+}
+// Registers:
+//
+//   Name         Reg   Size
+//   ------------ ----- ----
+//   aa           c0       1
+//   bb           c1       1
+//   cc           c2       1
+
+[test]
+write cbv-0 (0) f32(10, 20, 30, 40)
+write cbv-0 (4) f32(50, -1, -1, -1)
+write cbv-0 (8) f32(-2, -2, -2, -2)
+todo(msl & sm>=6) draw quad
+probe (0, 0) f32(10, 20, 30, -2)
