@@ -478,6 +478,7 @@ static void d3d12_reflection_free_buffers(struct d3d12_reflection *reflection)
 
 static void d3d12_reflection_cleanup(struct d3d12_reflection *reflection)
 {
+    vkd3d_free((void *)reflection->desc.Creator);
     d3d12_reflection_free_bindings(reflection);
     d3d12_reflection_free_buffers(reflection);
     vkd3d_shader_free_scan_signature_info(&reflection->signature_info);
@@ -1391,6 +1392,7 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
     uint32_t type_size = offsetof(struct rdef_type, unknown);
     const struct rdef_header *header;
     const struct rdef_rd11 *rd11;
+    char *creator;
     HRESULT hr;
 
     if (!(header = get_data_ptr(section, 0, 1, sizeof(*header))))
@@ -1504,17 +1506,14 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
             if (!(rdef_binding = get_data_ptr(section, header->bindings_offset + (i * binding_size), 1, binding_size)))
             {
                 reflection->desc.BoundResources = i;
-                d3d12_reflection_free_bindings(reflection);
-                d3d12_reflection_free_buffers(reflection);
-                return E_INVALIDARG;
+                hr = E_INVALIDARG;
+                goto fail;
             }
 
             if (FAILED(hr = get_string(section, rdef_binding->name_offset, &name)))
             {
                 reflection->desc.BoundResources = i;
-                d3d12_reflection_free_bindings(reflection);
-                d3d12_reflection_free_buffers(reflection);
-                return hr;
+                goto fail;
             }
 
             binding = &reflection->bindings[i];
@@ -1540,7 +1539,17 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
         }
     }
 
+    if (FAILED(hr = get_string(section, header->creator_offset, &creator)))
+        goto fail;
+    reflection->desc.Creator = creator;
+
     return S_OK;
+
+fail:
+    d3d12_reflection_free_bindings(reflection);
+    d3d12_reflection_free_buffers(reflection);
+
+    return hr;
 }
 
 static HRESULT parse_stat(struct d3d12_reflection *r, const struct vkd3d_shader_code *section)

@@ -4049,9 +4049,7 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
     ok(hr == S_OK, "Got hr %#x.\n", hr);
 
     ok(desc.Version == 0x00000040, "Got version 0x%08x.\n", desc.Version);
-    todo ok(desc.Creator, "Got Creator %p.\n", desc.Creator);
-    if (desc.Creator)
-        ok(!strcmp(desc.Creator, "vkd3d-shader 2.0 (git 1128125fb)"), "Got Creator \"%s\".\n", desc.Creator);
+    ok(!strcmp(desc.Creator, "vkd3d-shader 2.0 (git 1128125fb)"), "Got Creator \"%s\".\n", desc.Creator);
     ok(!desc.Flags, "Got Flags %#x.\n", desc.Flags);
     ok(!desc.ConstantBuffers, "Got ConstantBuffers %u.\n", desc.ConstantBuffers);
     ok(!desc.BoundResources, "Got BoundResources %u.\n", desc.BoundResources);
