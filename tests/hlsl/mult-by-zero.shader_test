@@ -28,7 +28,7 @@ write cbv-0 (0) f32(10, 20, 30, 40)
 write cbv-0 (4) f32(50, -1, -1, -1)
 write cbv-0 (8) f32(-2, -2, -2, -2)
 draw quad
-if(sm<4) todo probe (0, 0) f32(10, 20, 30, 50)
+if(sm<4) probe (0, 0) f32(10, 20, 30, 50)
 if(sm>=4) probe (0, 0) f32(10, 20, 30, -2)
 
 [require]
