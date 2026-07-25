@@ -2197,7 +2197,8 @@ static struct hlsl_ir_store *dse_stores_array_find(struct dse_stores_array *arra
 
 static void dse_stores_array_sort(struct dse_stores_array *array)
 {
-    qsort(array->elements, array->count, sizeof(*array->elements), vkd3d_ptrptr_compare);
+    if (array->elements)
+        qsort(array->elements, array->count, sizeof(*array->elements), vkd3d_ptrptr_compare);
 }
 
 struct dse_var_def
