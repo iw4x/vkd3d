@@ -135,9 +135,31 @@ static ID3D12ShaderReflectionType * STDMETHODCALLTYPE d3d12_type_GetMemberTypeBy
 static ID3D12ShaderReflectionType * STDMETHODCALLTYPE d3d12_type_GetMemberTypeByName(
         ID3D12ShaderReflectionType *iface, const char *name)
 {
-    FIXME("iface %p, name %s, stub!\n", iface, debugstr_a(name));
+    struct d3d12_type *type = impl_from_ID3D12ShaderReflectionType(iface);
+    unsigned int i;
 
-    return NULL;
+    TRACE("iface %p, name %s.\n", iface, debugstr_a(name));
+
+    if (!name)
+    {
+        WARN("NULL name specified.\n");
+        return &null_type.ID3D12ShaderReflectionType_iface;
+    }
+
+    for (i = 0; i < type->desc.Members; ++i)
+    {
+        struct d3d12_field *field = &type->fields[i];
+
+        if (!strcmp(field->name, name))
+        {
+            TRACE("Returning member type %p at index %u.\n", &field->type, i);
+            return &field->type.ID3D12ShaderReflectionType_iface;
+        }
+    }
+
+    WARN("Member type %s not found.\n", debugstr_a(name));
+
+    return &null_type.ID3D12ShaderReflectionType_iface;
 }
 
 static const char * STDMETHODCALLTYPE d3d12_type_GetMemberTypeName(
