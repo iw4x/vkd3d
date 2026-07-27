@@ -8202,6 +8202,9 @@ static struct vsir_signature_element *generate_signature_entry(struct hlsl_ctx *
                         || (type == VSIR_REGISTER_INPUT && ctx->profile->type == VKD3D_SHADER_TYPE_PIXEL))
                     reg += SM1_COLOR_REGISTER_OFFSET;
             }
+
+            if (type == VSIR_REGISTER_DEPTHOUT)
+                bitmap_set(program->io_dcls, VSIR_REGISTER_DEPTHOUT);
         }
         else if (sm1_usage_from_semantic_name(&version, var->semantic.name,
                 var->semantic.index, output, &usage, &usage_idx))
@@ -8223,9 +8226,6 @@ static struct vsir_signature_element *generate_signature_entry(struct hlsl_ctx *
                     "Invalid semantic '%s'.", var->semantic.name);
             return NULL;
         }
-
-        if (type == VSIR_REGISTER_DEPTHOUT)
-            bitmap_set(program->io_dcls, VSIR_REGISTER_DEPTHOUT);
 
         if (builtin && interpolation_mode == VKD3DSIM_LINEAR_CENTROID
                 && (vkd3d_shader_ver_ge(&program->shader_version, 3, 0) || type != VSIR_REGISTER_TEXTURE))
