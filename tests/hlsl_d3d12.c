@@ -2159,9 +2159,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
                     ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
                     check_type_desc(&field_desc, &expect->fields[k].type, compiler_version);
                     name = ID3D12ShaderReflectionType_GetMemberTypeName(type, k);
-                    todo ok(!!name, "Got name %p.\n", name);
-                    if (name)
-                        ok(!strcmp(name, expect->fields[k].name), "Got name \"%s\"\n", name);
+                    ok(!strcmp(name, expect->fields[k].name), "Got name \"%s\"\n", name);
 
                     vkd3d_test_pop_context();
                 }
@@ -2190,9 +2188,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
             hr = ID3D12ShaderReflectionType_GetDesc(field, &type_desc);
             ok(hr == E_FAIL, "Got unexpected hr %#x.\n", hr);
             name = ID3D12ShaderReflectionType_GetMemberTypeName(type, 0);
-            todo ok(!!name, "Got name %p.\n", name);
-            if (name)
-                ok(!strcmp(name, "$Invalid"), "Got name \"%s\"\n", name);
+            ok(!strcmp(name, "$Invalid"), "Got name \"%s\"\n", name);
 
             vkd3d_test_pop_context();
         }

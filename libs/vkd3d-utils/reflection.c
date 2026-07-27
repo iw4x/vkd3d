@@ -37,6 +37,7 @@ struct d3d12_type
 
 struct d3d12_field
 {
+    char *name;
     struct d3d12_type type;
 };
 
@@ -142,9 +143,23 @@ static ID3D12ShaderReflectionType * STDMETHODCALLTYPE d3d12_type_GetMemberTypeBy
 static const char * STDMETHODCALLTYPE d3d12_type_GetMemberTypeName(
         ID3D12ShaderReflectionType *iface, UINT index)
 {
-    FIXME("iface %p, index %u, stub!\n", iface, index);
+    struct d3d12_type *type = impl_from_ID3D12ShaderReflectionType(iface);
 
-    return NULL;
+    TRACE("iface %p, index %u.\n", iface, index);
+
+    if (type == &null_type)
+    {
+        WARN("Null type, returning \"$Invalid\".\n");
+        return "$Invalid";
+    }
+
+    if (index >= type->desc.Members)
+    {
+        WARN("Invalid index %u.\n", index);
+        return NULL;
+    }
+
+    return type->fields[index].name;
 }
 
 static HRESULT STDMETHODCALLTYPE d3d12_type_IsEqual(
@@ -440,8 +455,13 @@ static void d3d12_reflection_free_bindings(struct d3d12_reflection *reflection)
 
 static void d3d12_type_cleanup(struct d3d12_type *type)
 {
-    for (UINT i = 0; i < type->desc.Members; ++i)
+    unsigned int i;
+
+    for (i = 0; i < type->desc.Members; ++i)
+    {
         d3d12_type_cleanup(&type->fields[i].type);
+        vkd3d_free(type->fields[i].name);
+    }
     vkd3d_free(type->fields);
     vkd3d_free((void *)type->desc.Name);
 }
@@ -1240,6 +1260,28 @@ struct stat
 };
 
 static HRESULT d3d12_type_init(struct d3d12_type *type, struct d3d12_reflection *reflection,
+        uint32_t type_offset, uint32_t type_size, const struct vkd3d_shader_code *section, uint32_t field_offset);
+
+static HRESULT d3d12_field_init(struct d3d12_field *field, struct d3d12_reflection *reflection,
+        uint32_t type_size, const struct vkd3d_shader_code *section, const struct rdef_field *rdef_field)
+{
+    HRESULT hr;
+
+    if (FAILED(hr = get_string(section, rdef_field->name_offset, &field->name)))
+        return hr;
+
+    if (FAILED(hr = d3d12_type_init(&field->type, reflection,
+            rdef_field->type_offset, type_size, section, rdef_field->offset)))
+    {
+        WARN("Failed to parse field type.\n");
+        vkd3d_free(field->name);
+        return hr;
+    }
+
+    return S_OK;
+}
+
+static HRESULT d3d12_type_init(struct d3d12_type *type, struct d3d12_reflection *reflection,
         uint32_t type_offset, uint32_t type_size, const struct vkd3d_shader_code *section, uint32_t field_offset)
 {
     struct rdef_type normalized_type = {0};
@@ -1289,10 +1331,7 @@ static HRESULT d3d12_type_init(struct d3d12_type *type, struct d3d12_reflection 
 
         for (uint32_t i = 0; i < normalized_type.field_count; ++i)
         {
-            const struct rdef_field *rdef_field = &rdef_fields[i];
-
-            if (FAILED(hr = d3d12_type_init(&type->fields[i].type, reflection,
-                    rdef_field->type_offset, type_size, section, rdef_field->offset)))
+            if (FAILED(hr = d3d12_field_init(&type->fields[i], reflection, type_size, section, &rdef_fields[i])))
             {
                 type->desc.Members = i;
                 d3d12_type_cleanup(type);
