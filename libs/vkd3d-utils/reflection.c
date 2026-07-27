@@ -645,9 +645,36 @@ static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetPatchConstantParameterDesc(
 static struct ID3D12ShaderReflectionVariable * STDMETHODCALLTYPE d3d12_reflection_GetVariableByName(
         ID3D12ShaderReflection *iface, const char *name)
 {
-    FIXME("iface %p, name %s stub!\n", iface, debugstr_a(name));
+    struct d3d12_reflection *reflection = impl_from_ID3D12ShaderReflection(iface);
+    unsigned int i, j;
 
-    return NULL;
+    TRACE("iface %p, name %s.\n", iface, debugstr_a(name));
+
+    if (!name)
+    {
+        WARN("NULL name specified.\n");
+        return &null_variable.ID3D12ShaderReflectionVariable_iface;
+    }
+
+    for (i = 0; i < reflection->desc.ConstantBuffers; ++i)
+    {
+        struct d3d12_buffer *buffer = &reflection->buffers[i];
+
+        for (j = 0; j < buffer->desc.Variables; ++j)
+        {
+            struct d3d12_variable *variable = &buffer->variables[j];
+
+            if (!strcmp(variable->desc.Name, name))
+            {
+                TRACE("Returning variable %p at index %u of buffer %u.\n", variable, j, i);
+                return &variable->ID3D12ShaderReflectionVariable_iface;
+            }
+        }
+    }
+
+    WARN("Variable %s not found.\n", debugstr_a(name));
+
+    return &null_variable.ID3D12ShaderReflectionVariable_iface;
 }
 
 static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetResourceBindingDescByName(

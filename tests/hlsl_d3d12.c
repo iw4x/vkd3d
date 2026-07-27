@@ -2100,13 +2100,12 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
                     ID3D10ShaderReflectionVariable *var3;
 
                     var3 = ID3D10ShaderReflection1_GetVariableByName(reflection10_1, expect->var_desc.Name);
-                    todo ok((var == (ID3D12ShaderReflectionVariable *)var3) == (i == k),
+                    ok((var == (ID3D12ShaderReflectionVariable *)var3) == (i == k),
                             "Got var %p, var3 %p, i %u, k %u.\n", var, var3, i, k);
                 }
                 else if (!IsEqualGUID(iid, &IID_ID3D10ShaderReflection))
                 {
                     var2 = ID3D12ShaderReflection_GetVariableByName(reflection, expect->var_desc.Name);
-                    todo_if(i == k)
                     ok((var == var2) == (i == k), "Got var %p, var2 %p, i %u, k %u.\n", var, var2, i, k);
                 }
 
@@ -2202,16 +2201,16 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
             ID3D10ShaderReflectionVariable *var3;
 
             var3 = ID3D10ShaderReflection1_GetVariableByName(reflection10_1, "invalid");
-            todo ok(var == (ID3D12ShaderReflectionVariable *)var3, "Got var %p, var3 %p.\n", var, var3);
+            ok(var == (ID3D12ShaderReflectionVariable *)var3, "Got var %p, var3 %p.\n", var, var3);
             var3 = ID3D10ShaderReflection1_GetVariableByName(reflection10_1, NULL);
-            todo ok(var == (ID3D12ShaderReflectionVariable *)var3, "Got var %p, var3 %p.\n", var, var3);
+            ok(var == (ID3D12ShaderReflectionVariable *)var3, "Got var %p, var3 %p.\n", var, var3);
         }
         else if (!IsEqualGUID(iid, &IID_ID3D10ShaderReflection))
         {
             var2 = ID3D12ShaderReflection_GetVariableByName(reflection, "invalid");
-            todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+            ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
             var2 = ID3D12ShaderReflection_GetVariableByName(reflection, NULL);
-            todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+            ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
         }
 
         for (unsigned int i = 0; i < shader_desc.BoundResources; ++i)
