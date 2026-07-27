@@ -1640,11 +1640,17 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         "    return o._31 + m + n + u;\n"
         "}";
 
+    struct shader_field
+    {
+        const char *name;
+        D3D12_SHADER_TYPE_DESC type;
+    };
+
     struct shader_variable
     {
         D3D12_SHADER_VARIABLE_DESC var_desc;
         D3D12_SHADER_TYPE_DESC type_desc;
-        const D3D12_SHADER_TYPE_DESC *field_types;
+        const struct shader_field *fields;
     };
 
     struct shader_buffer
@@ -1653,22 +1659,22 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         const struct shader_variable *vars;
     };
 
-    static const D3D12_SHADER_TYPE_DESC s_field_types[] =
+    static const struct shader_field s_fields[] =
     {
-        {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"},
-        {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 16, "float"},
-        {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 20, "float"},
+        {"a", {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"}},
+        {"b", {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 16, "float"}},
+        {"c", {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 20, "float"}},
     };
 
-    static const D3D12_SHADER_TYPE_DESC r_field_types[] =
+    static const struct shader_field r_fields[] =
     {
-        {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 0, "float"},
-        {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 4, 0, 0, 16, "float4"},
+        {"a", {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 0, "float"}},
+        {"b", {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 4, 0, 0, 16, "float4"}},
     };
 
-    static const D3D12_SHADER_TYPE_DESC v_field_types[] =
+    static const struct shader_field v_fields[] =
     {
-        {D3D_SVC_VECTOR, D3D_SVT_MIN16UINT, 1, 2, 0, 0, 0, "min16uint2"},
+        {"a", {D3D_SVC_VECTOR, D3D_SVT_MIN16UINT, 1, 2, 0, 0, 0, "min16uint2"}},
     };
 
     static const struct shader_variable globals_vars =
@@ -1681,7 +1687,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         {{"b",   4,  8,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_VECTOR,         D3D_SVT_FLOAT, 1, 2, 0, 0, 0, "float2"}},
         {{"c",  16, 16,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_VECTOR,         D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"}},
         {{"d",  32,  4,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_SCALAR,         D3D_SVT_FLOAT, 1, 1, 0, 0, 0, "float"}},
-        {{"s",  48, 24,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_STRUCT,         D3D_SVT_VOID,  1, 6, 0, ARRAY_SIZE(s_field_types), 0, "<unnamed>"}, s_field_types},
+        {{"s",  48, 24,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_STRUCT,         D3D_SVT_VOID,  1, 6, 0, ARRAY_SIZE(s_fields), 0, "<unnamed>"}, s_fields},
         {{"g",  72,  4,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_SCALAR,         D3D_SVT_BOOL,  1, 1, 0, 0, 0, "bool"}},
         {{"h",  80, 20,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_SCALAR,         D3D_SVT_FLOAT, 1, 1, 2, 0, 0, "float"}},
         {{"i", 100,  4,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_SCALAR,         D3D_SVT_INT,   1, 1, 0, 0, 0, "int"}},
@@ -1691,9 +1697,9 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         {{"o", 176, 36, D3D_SVF_USED, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_MATRIX_ROWS,    D3D_SVT_FLOAT, 3, 1, 0, 0, 0, "float3x1"}},
         {{"p", 224, 16,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_VECTOR,         D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"}},
         {{"q", 240,  4,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_SCALAR,         D3D_SVT_FLOAT, 1, 1, 0, 0, 0, "float"}},
-        {{"r", 256, 32,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_STRUCT,         D3D_SVT_VOID,  1, 5, 0, ARRAY_SIZE(r_field_types), 0, "r_name"}, r_field_types},
+        {{"r", 256, 32,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_STRUCT,         D3D_SVT_VOID,  1, 5, 0, ARRAY_SIZE(r_fields), 0, "r_name"}, r_fields},
         {{"t", 288, 12,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_MATRIX_COLUMNS, D3D_SVT_FLOAT, 3, 1, 0, 0, 0, "float3x1"}},
-        {{"v", 304,  8,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_STRUCT,         D3D_SVT_VOID,  1, 2, 0, ARRAY_SIZE(v_field_types), 0, "<unnamed>"}, v_field_types},
+        {{"v", 304,  8,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_STRUCT,         D3D_SVT_VOID,  1, 2, 0, ARRAY_SIZE(v_fields), 0, "<unnamed>"}, v_fields},
     };
     static const struct shader_variable b5_vars =
         {{"u",   0, 16, D3D_SVF_USED, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_VECTOR,         D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"}};
@@ -1831,21 +1837,21 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         {"buf", D3D_SIT_CBUFFER, 3, 1, D3D_SIF_USERPACKED, .uID = 3},
     };
 
-    static const D3D12_SHADER_TYPE_DESC ps_h_field_types[] =
+    static const struct shader_field ps_h_fields[] =
     {
-        {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 0, "float"},
-        {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 4, "float"},
+        {"a", {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 0, "float"}},
+        {"c", {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 4, "float"}},
     };
 
-    static const D3D12_SHADER_TYPE_DESC ps_i_field_types[] =
+    static const struct shader_field ps_i_fields[] =
     {
-        {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 0, "float"},
+        {"a", {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 0, "float"}},
     };
 
     static const struct shader_variable ps_globals_vars[] =
     {
-        {{"h",  0, 8, D3D_SVF_USED, NULL,   7, 1, ~0u, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 4, 0, ARRAY_SIZE(ps_h_field_types), 0, "<unnamed>"}, ps_h_field_types},
-        {{"i", 16, 4,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 3, 0, ARRAY_SIZE(ps_i_field_types), 0, "<unnamed>"}, ps_i_field_types},
+        {{"h",  0, 8, D3D_SVF_USED, NULL,   7, 1, ~0u, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 4, 0, ARRAY_SIZE(ps_h_fields), 0, "<unnamed>"}, ps_h_fields},
+        {{"i", 16, 4,            0, NULL, ~0u, 0, ~0u, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 3, 0, ARRAY_SIZE(ps_i_fields), 0, "<unnamed>"}, ps_i_fields},
     };
 
     static const struct shader_variable ps_buf_vars[] =
@@ -1864,39 +1870,39 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         {{"$Element", 0, 16, D3D_SVF_USED, NULL, ~0, 0, ~0, 0}, {D3D_SVC_VECTOR,        D3D_SVT_FLOAT, 1, 4, 0, 0, 0, "float4"}},
     };
 
-    static const D3D12_SHADER_TYPE_DESC ps_sbuf_container_field_types[] =
+    static const struct shader_field ps_sbuf_container_fields[] =
     {
-        {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 3, 0, 0, 0, "float3"},
-        {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 2, 0, 0, 12, "float2"},
+        {"v",      {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 3, 0, 0, 0, "float3"}},
+        {"unused", {D3D_SVC_VECTOR, D3D_SVT_FLOAT, 1, 2, 0, 0, 12, "float2"}},
     };
 
-    static const D3D12_SHADER_TYPE_DESC ps_dbuf_container_field_types[] =
+    static const struct shader_field ps_dbuf_container_fields[] =
     {
-        {D3D_SVC_SCALAR, D3D_SVT_FLOAT,  1, 1, 0, 0,  0, "half"},
-        {D3D_SVC_SCALAR, D3D_SVT_FLOAT,  1, 1, 0, 0,  4, "half"},
-        {D3D_SVC_SCALAR, D3D_SVT_FLOAT,  1, 1, 0, 0,  8, "float"},
-        {D3D_SVC_SCALAR, D3D_SVT_DOUBLE, 1, 1, 0, 0, 16, "double"}
+        {"a", {D3D_SVC_SCALAR, D3D_SVT_FLOAT,  1, 1, 0, 0,  0, "half"}},
+        {"b", {D3D_SVC_SCALAR, D3D_SVT_FLOAT,  1, 1, 0, 0,  4, "half"}},
+        {"c", {D3D_SVC_SCALAR, D3D_SVT_FLOAT,  1, 1, 0, 0,  8, "float"}},
+        {"d", {D3D_SVC_SCALAR, D3D_SVT_DOUBLE, 1, 1, 0, 0, 16, "double"}},
     };
 
-    static const D3D12_SHADER_TYPE_DESC ps_dpad2_container_field_types[] =
+    static const struct shader_field ps_dpad2_container_fields[] =
     {
-        {D3D_SVC_SCALAR, D3D_SVT_DOUBLE, 1, 1, 0, 0, 0, "double"},
-        {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 8, "float"}
+        {"a", {D3D_SVC_SCALAR, D3D_SVT_DOUBLE, 1, 1, 0, 0, 0, "double"}},
+        {"b", {D3D_SVC_SCALAR, D3D_SVT_FLOAT, 1, 1, 0, 0, 8, "float"}},
     };
 
     static const struct shader_variable sbuf_container_vars[] =
     {
-        {{"$Element", 0, 20, D3D_SVF_USED, NULL, ~0, 0, ~0, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 5, 0, ARRAY_SIZE(ps_sbuf_container_field_types), 0, "container"}, ps_sbuf_container_field_types},
+        {{"$Element", 0, 20, D3D_SVF_USED, NULL, ~0, 0, ~0, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 5, 0, ARRAY_SIZE(ps_sbuf_container_fields), 0, "container"}, ps_sbuf_container_fields},
     };
 
     static const struct shader_variable dpad_container_vars[] =
     {
-        {{"$Element", 0, 24, D3D_SVF_USED, NULL, ~0, 0, ~0, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 4, 0, ARRAY_SIZE(ps_dbuf_container_field_types), 0, "double_padding"}, ps_dbuf_container_field_types}
+        {{"$Element", 0, 24, D3D_SVF_USED, NULL, ~0, 0, ~0, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 4, 0, ARRAY_SIZE(ps_dbuf_container_fields), 0, "double_padding"}, ps_dbuf_container_fields}
     };
 
     static const struct shader_variable dpad2_container_vars[] =
     {
-        {{"$Element", 0, 16, D3D_SVF_USED, NULL, ~0, 0, ~0, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 2, 0, ARRAY_SIZE(ps_dpad2_container_field_types), 0, "double_padding2"}, ps_dpad2_container_field_types}
+        {{"$Element", 0, 16, D3D_SVF_USED, NULL, ~0, 0, ~0, 0}, {D3D_SVC_STRUCT, D3D_SVT_VOID, 1, 2, 0, ARRAY_SIZE(ps_dpad2_container_fields), 0, "double_padding2"}, ps_dpad2_container_fields}
     };
 
     static const struct shader_buffer ps_buffers[] =
@@ -2025,6 +2031,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         ID3D12ShaderReflection *reflection;
         D3D12_SHADER_DESC shader_desc;
         ID3D10Blob *code;
+        const char *name;
 
         vkd3d_test_push_context("Test %u", t);
 
@@ -2150,7 +2157,11 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
                     field = ID3D12ShaderReflectionType_GetMemberTypeByIndex(type, k);
                     hr = ID3D12ShaderReflectionType_GetDesc(field, &field_desc);
                     ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
-                    check_type_desc(&field_desc, &expect->field_types[k], compiler_version);
+                    check_type_desc(&field_desc, &expect->fields[k].type, compiler_version);
+                    name = ID3D12ShaderReflectionType_GetMemberTypeName(type, k);
+                    todo ok(!!name, "Got name %p.\n", name);
+                    if (name)
+                        ok(!strcmp(name, expect->fields[k].name), "Got name \"%s\"\n", name);
 
                     vkd3d_test_pop_context();
                 }
@@ -2158,6 +2169,8 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
                 field = ID3D12ShaderReflectionType_GetMemberTypeByIndex(type, type_desc.Members);
                 hr = ID3D12ShaderReflectionType_GetDesc(field, &field_desc);
                 ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+                name = ID3D12ShaderReflectionType_GetMemberTypeName(type, type_desc.Members);
+                ok(!name, "Got name %p.\n", name);
 
                 vkd3d_test_pop_context();
             }
@@ -2176,6 +2189,10 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
             field = ID3D12ShaderReflectionType_GetMemberTypeByIndex(type, 0);
             hr = ID3D12ShaderReflectionType_GetDesc(field, &type_desc);
             ok(hr == E_FAIL, "Got unexpected hr %#x.\n", hr);
+            name = ID3D12ShaderReflectionType_GetMemberTypeName(type, 0);
+            todo ok(!!name, "Got name %p.\n", name);
+            if (name)
+                ok(!strcmp(name, "$Invalid"), "Got name \"%s\"\n", name);
 
             vkd3d_test_pop_context();
         }
