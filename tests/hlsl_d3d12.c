@@ -2019,6 +2019,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         ID3D12ShaderReflectionVariable *var, *var2;
         D3D12_SHADER_INPUT_BIND_DESC binding_desc;
         ID3D12ShaderReflectionType *type, *field;
+        ID3D10ShaderReflection1 *reflection10_1;
         D3D12_SHADER_BUFFER_DESC buffer_desc;
         D3D12_SHADER_VARIABLE_DESC var_desc;
         ID3D12ShaderReflection *reflection;
@@ -2040,6 +2041,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
             vkd3d_test_pop_context();
             continue;
         }
+        reflection10_1 = (ID3D10ShaderReflection1 *)reflection;
 
         memset(&shader_desc, 0xba, sizeof(shader_desc));
         hr = ID3D12ShaderReflection_GetDesc(reflection, &shader_desc);
@@ -2071,6 +2073,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
             for (unsigned int j = 0; j < buffer_desc.Variables; ++j)
             {
                 const struct shader_variable *expect = &expect_buffer->vars[j];
+                unsigned int k, l;
 
                 vkd3d_test_push_context("Variable %u", j);
 
@@ -2078,6 +2081,34 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
                 var = ID3D12ShaderReflectionConstantBuffer_GetVariableByIndex(cbuffer, j);
                 var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, expect->var_desc.Name);
                 ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+
+                for (k = 0; k < i; ++k)
+                {
+                    const struct shader_buffer *b = &tests[t].buffers[k];
+
+                    for (l = 0; l < b->desc.Variables; ++l)
+                    {
+                        if (!strcmp(b->vars[l].var_desc.Name, expect->var_desc.Name))
+                            break;
+                    }
+                    if (l != b->desc.Variables)
+                        break;
+                }
+
+                if (IsEqualGUID(iid, &IID_ID3D10ShaderReflection1))
+                {
+                    ID3D10ShaderReflectionVariable *var3;
+
+                    var3 = ID3D10ShaderReflection1_GetVariableByName(reflection10_1, expect->var_desc.Name);
+                    todo ok((var == (ID3D12ShaderReflectionVariable *)var3) == (i == k),
+                            "Got var %p, var3 %p, i %u, k %u.\n", var, var3, i, k);
+                }
+                else if (!IsEqualGUID(iid, &IID_ID3D10ShaderReflection))
+                {
+                    var2 = ID3D12ShaderReflection_GetVariableByName(reflection, expect->var_desc.Name);
+                    todo_if(i == k)
+                    ok((var == var2) == (i == k), "Got var %p, var2 %p, i %u, k %u.\n", var, var2, i, k);
+                }
 
                 hr = ID3D12ShaderReflectionVariable_GetDesc(var, &var_desc);
                 ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
@@ -2112,7 +2143,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
                 ok(hr == S_OK, "Got unexpected hr %#x.\n", hr);
                 check_type_desc(&type_desc, &expect->type_desc, compiler_version);
 
-                for (unsigned int k = 0; k < type_desc.Members; ++k)
+                for (k = 0; k < type_desc.Members; ++k)
                 {
                     vkd3d_test_push_context("Field %u", k);
 
@@ -2166,6 +2197,23 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, NULL);
         ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
 
+        if (IsEqualGUID(iid, &IID_ID3D10ShaderReflection1))
+        {
+            ID3D10ShaderReflectionVariable *var3;
+
+            var3 = ID3D10ShaderReflection1_GetVariableByName(reflection10_1, "invalid");
+            todo ok(var == (ID3D12ShaderReflectionVariable *)var3, "Got var %p, var3 %p.\n", var, var3);
+            var3 = ID3D10ShaderReflection1_GetVariableByName(reflection10_1, NULL);
+            todo ok(var == (ID3D12ShaderReflectionVariable *)var3, "Got var %p, var3 %p.\n", var, var3);
+        }
+        else if (!IsEqualGUID(iid, &IID_ID3D10ShaderReflection))
+        {
+            var2 = ID3D12ShaderReflection_GetVariableByName(reflection, "invalid");
+            todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+            var2 = ID3D12ShaderReflection_GetVariableByName(reflection, NULL);
+            todo ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+        }
+
         for (unsigned int i = 0; i < shader_desc.BoundResources; ++i)
         {
             const D3D12_SHADER_INPUT_BIND_DESC *expect = &tests[t].bindings[i];
@@ -2205,7 +2253,6 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
 
         if (!IsEqualGUID(iid, &IID_ID3D10ShaderReflection))
         {
-            ID3D10ShaderReflection1 *r = (ID3D10ShaderReflection1 *)reflection;
             unsigned int j;
 
             for (unsigned int i = 0; i < shader_desc.BoundResources; ++i)
@@ -2224,7 +2271,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
 
                 memset(&binding_desc, 0xba, sizeof(binding_desc));
                 if (IsEqualGUID(iid, &IID_ID3D10ShaderReflection1))
-                    hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r,
+                    hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(reflection10_1,
                             expect->Name, (D3D10_SHADER_INPUT_BIND_DESC *)&binding_desc);
                 else
                     hr = ID3D12ShaderReflection_GetResourceBindingDescByName(reflection, expect->Name, &binding_desc);
@@ -2257,14 +2304,15 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
 
             if (IsEqualGUID(iid, &IID_ID3D10ShaderReflection1))
             {
-                hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r,
+                hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(reflection10_1,
                         NULL, (D3D10_SHADER_INPUT_BIND_DESC *)&binding_desc);
                 ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
-                hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r, tests[t].bindings[0].Name, NULL);
+                hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(reflection10_1,
+                        tests[t].bindings[0].Name, NULL);
                 ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
-                hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r, "invalid", NULL);
+                hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(reflection10_1, "invalid", NULL);
                 ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
-                hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(r,
+                hr = ID3D10ShaderReflection1_GetResourceBindingDescByName(reflection10_1,
                         "invalid", (D3D10_SHADER_INPUT_BIND_DESC *)&binding_desc);
                 ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
             }
