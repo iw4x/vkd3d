@@ -2021,10 +2021,10 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
     for (unsigned int t = 0; t < ARRAY_SIZE(tests); ++t)
     {
         ID3D12ShaderReflectionConstantBuffer *cbuffer, *cbuffer2;
+        ID3D12ShaderReflectionType *type, *field, *field2;
         D3D12_SHADER_TYPE_DESC type_desc, field_desc;
         ID3D12ShaderReflectionVariable *var, *var2;
         D3D12_SHADER_INPUT_BIND_DESC binding_desc;
-        ID3D12ShaderReflectionType *type, *field;
         ID3D10ShaderReflection1 *reflection10_1;
         D3D12_SHADER_BUFFER_DESC buffer_desc;
         D3D12_SHADER_VARIABLE_DESC var_desc;
@@ -2160,6 +2160,8 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
                     check_type_desc(&field_desc, &expect->fields[k].type, compiler_version);
                     name = ID3D12ShaderReflectionType_GetMemberTypeName(type, k);
                     ok(!strcmp(name, expect->fields[k].name), "Got name \"%s\"\n", name);
+                    field2 = ID3D12ShaderReflectionType_GetMemberTypeByName(type, name);
+                    todo ok(field == field2, "Got field %p, field2 %p.\n", field, field2);
 
                     vkd3d_test_pop_context();
                 }
@@ -2169,6 +2171,10 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
                 ok(hr == E_FAIL, "Got hr %#x.\n", hr);
                 name = ID3D12ShaderReflectionType_GetMemberTypeName(type, type_desc.Members);
                 ok(!name, "Got name %p.\n", name);
+                field2 = ID3D12ShaderReflectionType_GetMemberTypeByName(type, "invalid");
+                todo ok(field == field2, "Got field %p, field2 %p.\n", field, field2);
+                field2 = ID3D12ShaderReflectionType_GetMemberTypeByName(type, NULL);
+                todo ok(field == field2, "Got field %p, field2 %p.\n", field, field2);
 
                 vkd3d_test_pop_context();
             }
@@ -2189,6 +2195,10 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
             ok(hr == E_FAIL, "Got unexpected hr %#x.\n", hr);
             name = ID3D12ShaderReflectionType_GetMemberTypeName(type, 0);
             ok(!strcmp(name, "$Invalid"), "Got name \"%s\"\n", name);
+            field2 = ID3D12ShaderReflectionType_GetMemberTypeByName(type, "invalid");
+            todo ok(field == field2, "Got field %p, field2 %p.\n", field, field2);
+            field2 = ID3D12ShaderReflectionType_GetMemberTypeByName(type, NULL);
+            todo ok(field == field2, "Got field %p, field2 %p.\n", field, field2);
 
             vkd3d_test_pop_context();
         }
