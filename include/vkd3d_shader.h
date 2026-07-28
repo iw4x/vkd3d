@@ -139,6 +139,11 @@ enum vkd3d_shader_structure_type
      * \since 2.0
      */
     VKD3D_SHADER_STRUCTURE_TYPE_SCAN_DENORMAL_MODE_INFO,
+    /**
+     * The structure is a vkd3d_shader_scan_global_flags_info structure.
+     * \since 2.2
+     */
+    VKD3D_SHADER_STRUCTURE_TYPE_SCAN_GLOBAL_FLAGS_INFO,
 
     VKD3D_FORCE_32_BIT_ENUM(VKD3D_SHADER_STRUCTURE_TYPE),
 };
@@ -2509,6 +2514,49 @@ struct vkd3d_shader_scan_denormal_mode_info
 };
 
 /**
+ * Flags describing the behaviour and/or requirements of a shader as a whole.
+ * Returned as part of struct vkd3d_shader_scan_global_flags_info.
+ *
+ * \since 2.2
+ */
+enum vkd3d_shader_global_flags0
+{
+    /**
+     * Instructions are allowed to be reordered or simplified by downstream
+     * compilers and/or drivers, even if doing so would violate IEEE 754
+     * floating-point rules. */
+    VKD3D_SHADER_GLOBAL_FLAGS0_REFACTORING_ALLOWED = 0x1,
+
+    VKD3D_FORCE_32_BIT_ENUM(VKD3D_SHADER_GLOBAL_FLAGS0),
+};
+
+/**
+ * A chained structure describing the behaviour and/or requirements of a
+ * shader as a whole.
+ *
+ * This structure extends vkd3d_shader_compile_info.
+ *
+ * \since 2.2
+ */
+struct vkd3d_shader_scan_global_flags_info
+{
+    /** Must be set to VKD3D_SHADER_STRUCTURE_TYPE_SCAN_GLOBAL_FLAGS_INFO. */
+    enum vkd3d_shader_structure_type type;
+    /** Optional pointer to a structure containing further parameters. */
+    const void *next;
+
+    /**
+     * A bitwise combination of zero or more members of
+     * \ref vkd3d_shader_global_flags0.
+     */
+    uint32_t flags0;
+    /**
+     * Reserved for future use. This field should be ignored.
+     */
+    uint32_t flags1;
+};
+
+/**
  * A chained structure containing legacy Direct3D bytecode compilation parameters.
  * This structure specifies some information about the source environment that
  * is not specified in the source shader format, but may be necessary for the
@@ -3065,6 +3113,7 @@ VKD3D_SHADER_API const enum vkd3d_shader_target_type *vkd3d_shader_get_supported
  * - vkd3d_shader_scan_combined_resource_sampler_info
  * - vkd3d_shader_scan_denormal_mode_info
  * - vkd3d_shader_scan_descriptor_info
+ * - vkd3d_shader_scan_global_flags_info
  * - vkd3d_shader_scan_hull_shader_tessellation_info
  * - vkd3d_shader_scan_signature_info
  * - vkd3d_shader_scan_thread_group_size_info
@@ -3265,6 +3314,7 @@ VKD3D_SHADER_API int vkd3d_shader_convert_root_signature(struct vkd3d_shader_ver
  * - vkd3d_shader_scan_combined_resource_sampler_info
  * - vkd3d_shader_scan_denormal_mode_info
  * - vkd3d_shader_scan_descriptor_info
+ * - vkd3d_shader_scan_global_flags_info
  * - vkd3d_shader_scan_hull_shader_tessellation_info
  * - vkd3d_shader_scan_signature_info
  * - vkd3d_shader_scan_thread_group_size_info

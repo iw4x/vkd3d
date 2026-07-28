@@ -872,6 +872,17 @@ static int vkd3d_shader_validate_compile_info(const struct vkd3d_shader_compile_
     return VKD3D_OK;
 }
 
+static void global_flags_from_vsir(struct vkd3d_shader_scan_global_flags_info *info, enum vsir_global_flags vsir_flags)
+{
+    uint32_t flags = 0u;
+
+    if (vsir_flags & VKD3DSGF_REFACTORING_ALLOWED)
+        flags |= VKD3D_SHADER_GLOBAL_FLAGS0_REFACTORING_ALLOWED;
+
+    info->flags0 = flags;
+    info->flags1 = 0u;
+};
+
 static enum vkd3d_result vsir_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t config_flags,
         const struct shader_dump_data *dump_data, struct vkd3d_shader_message_context *message_context,
         struct vsir_program *program, struct vkd3d_shader_code *reflection_data)
@@ -1712,6 +1723,7 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
     struct vkd3d_shader_scan_hull_shader_tessellation_info *tessellation_info;
     struct vkd3d_shader_scan_thread_group_size_info *thread_group_size_info;
     struct vkd3d_shader_scan_denormal_mode_info *denormal_mode_info;
+    struct vkd3d_shader_scan_global_flags_info *global_flags_info;
     struct vkd3d_shader_scan_descriptor_info *descriptor_info;
     struct vkd3d_shader_scan_signature_info *signature_info;
     struct vkd3d_shader_scan_context context;
@@ -1737,6 +1749,7 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
     tessellation_info = vkd3d_find_struct(compile_info->next, SCAN_HULL_SHADER_TESSELLATION_INFO);
     thread_group_size_info = vkd3d_find_struct(compile_info->next, SCAN_THREAD_GROUP_SIZE_INFO);
     denormal_mode_info = vkd3d_find_struct(compile_info->next, SCAN_DENORMAL_MODE_INFO);
+    global_flags_info = vkd3d_find_struct(compile_info->next, SCAN_GLOBAL_FLAGS_INFO);
 
     vkd3d_shader_scan_context_init(&context, &program->shader_version, compile_info,
             add_descriptor_info ? &program->descriptors : NULL, combined_sampler_info, message_context);
@@ -1786,6 +1799,9 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
         denormal_mode_info->f32_denormal_mode = program->f32_denormal_mode;
         denormal_mode_info->f64_denormal_mode = program->f64_denormal_mode;
     }
+
+    if (!ret && global_flags_info)
+        global_flags_from_vsir(global_flags_info, program->global_flags);
 
     if (ret < 0)
     {
