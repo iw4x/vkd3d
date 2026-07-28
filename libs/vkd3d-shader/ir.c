@@ -967,6 +967,7 @@ void vsir_program_cleanup(struct vsir_program *program)
     vsir_signature_cleanup(&program->input_signature);
     vsir_signature_cleanup(&program->output_signature);
     vsir_signature_cleanup(&program->patch_constant_signature);
+    vkd3d_free(program->tgsms);
     vsir_descriptor_info_cleanup(&program->descriptors);
     shader_param_allocator_destroy(&program->src_operands);
     shader_param_allocator_destroy(&program->dst_operands);
