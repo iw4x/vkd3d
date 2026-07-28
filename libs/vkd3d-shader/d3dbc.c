@@ -1741,6 +1741,8 @@ static enum vkd3d_result shader_sm1_init(struct vkd3d_shader_sm1_parser *sm1, st
             code_size != ~(size_t)0 ? token_count / 4u + 4 : 16, VSIR_CF_STRUCTURED, normalisation_level))
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
+    /* D3dbc shaders do not (strictly) adhere to IEEE 754. */
+    program->global_flags |= VKD3DSGF_REFACTORING_ALLOWED;
     program->f32_denormal_mode = VKD3D_SHADER_DENORMAL_MODE_FLUSH_TO_ZERO;
 
     vkd3d_shader_parser_init(&sm1->p, message_context, compile_info->source_name);

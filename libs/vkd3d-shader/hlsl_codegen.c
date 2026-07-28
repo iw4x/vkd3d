@@ -11743,6 +11743,9 @@ static void sm1_generate_vsir(struct hlsl_ctx *ctx, const struct vkd3d_shader_co
 
     sm1_generate_vsir_block(ctx, body, program);
 
+    /* Shader model 1-3 shaders do not (strictly) adhere to IEEE 754. */
+    program->global_flags |= VKD3DSGF_REFACTORING_ALLOWED;
+
     program->ssa_count = ctx->ssa_count;
     program->temp_count = ctx->temp_count;
 
