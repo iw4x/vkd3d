@@ -5525,8 +5525,10 @@ static void sm6_parser_emit_dx_void(struct sm6_parser *dxil, enum dx_intrinsic_o
         vkd3d_shader_instruction_make_nop(ins);
 }
 
-static enum vkd3d_shader_opcode map_dx_unary_op(enum dx_intrinsic_opcode op)
+static enum vkd3d_shader_opcode map_dx_unary_op(enum dx_intrinsic_opcode op, uint32_t *src_type_flags)
 {
+    *src_type_flags = 0;
+
     switch (op)
     {
         case DX_ISNAN:
@@ -5580,6 +5582,7 @@ static enum vkd3d_shader_opcode map_dx_unary_op(enum dx_intrinsic_opcode op)
         case DX_FIRST_BIT_HI:
             return VSIR_OP_FIRSTBIT_HI;
         case DX_FIRST_BIT_SHI:
+            *src_type_flags |= DXIL_TYPE_SIGNED;
             return VSIR_OP_FIRSTBIT_SHI;
         case DX_DERIV_COARSEX:
             return VSIR_OP_DSX_COARSE;
@@ -5615,17 +5618,18 @@ static void sm6_parser_emit_dx_unary(struct sm6_parser *dxil, enum dx_intrinsic_
 {
     struct vkd3d_shader_instruction *ins;
     struct vsir_src_operand *src_param;
+    uint32_t src_type_flags;
 
     if (!(ins = sm6_parser_add_function_instruction(dxil, state)))
         return;
 
-    vsir_instruction_init(ins, &dxil->p.location, map_dx_unary_op(op));
+    vsir_instruction_init(ins, &dxil->p.location, map_dx_unary_op(op, &src_type_flags));
     if (!(src_param = instruction_src_params_alloc(ins, 1, dxil)))
     {
         vkd3d_shader_instruction_make_nop(ins);
         return;
     }
-    src_param_init_from_value(src_param, operands[0], 0, dxil);
+    src_param_init_from_value(src_param, operands[0], src_type_flags, dxil);
 
     if (!instruction_dst_param_init_ssa_scalar(ins, 0, dxil))
         vkd3d_shader_instruction_make_nop(ins);
