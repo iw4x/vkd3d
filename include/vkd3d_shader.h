@@ -1766,7 +1766,27 @@ enum vkd3d_shader_spirv_extension
     VKD3D_SHADER_SPIRV_EXTENSION_EXT_VIEWPORT_INDEX_LAYER,
     /** \since 1.12 */
     VKD3D_SHADER_SPIRV_EXTENSION_EXT_FRAGMENT_SHADER_INTERLOCK,
-    /** \since 2.0 */
+    /**
+     * Advertises support for the SPV_KHR_float_controls SPIR-V extension, as
+     * well as the following related VkPhysicalDeviceFloatControlsProperties:
+     *
+     *   - shaderDenormPreserveFloat16
+     *   - shaderDenormPreserveFloat32
+     *   - shaderDenormPreserveFloat64
+     *   - shaderDenormFlushToZeroFloat16
+     *   - shaderDenormFlushToZeroFloat32
+     *   - shaderDenormFlushToZeroFloat64
+     *   - denormBehaviorIndependence = VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL
+     *
+     * Starting with VKD3D_SHADER_API_VERSION_2_2, this also implies support
+     * for the following properties:
+     *
+     *   - shaderSignedZeroInfNanPreserveFloat16
+     *   - shaderSignedZeroInfNanPreserveFloat32
+     *   - shaderSignedZeroInfNanPreserveFloat64
+     *
+     * \since 2.0
+     */
     VKD3D_SHADER_SPIRV_EXTENSION_KHR_FLOAT_CONTROLS,
 
     VKD3D_FORCE_32_BIT_ENUM(VKD3D_SHADER_SPIRV_EXTENSION),

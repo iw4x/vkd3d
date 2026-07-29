@@ -2592,7 +2592,8 @@ static bool vkd3d_spirv_compile_module(struct vkd3d_spirv_builder *builder,
     if (vkd3d_spirv_capability_is_enabled(builder, SpvCapabilityShaderViewportIndexLayerEXT))
         vkd3d_spirv_build_op_extension(&stream, "SPV_EXT_shader_viewport_index_layer");
     if (vkd3d_spirv_capability_is_enabled(builder, SpvCapabilityDenormPreserve)
-            || vkd3d_spirv_capability_is_enabled(builder, SpvCapabilityDenormFlushToZero))
+            || vkd3d_spirv_capability_is_enabled(builder, SpvCapabilityDenormFlushToZero)
+            || vkd3d_spirv_capability_is_enabled(builder, SpvCapabilitySignedZeroInfNanPreserve))
         vkd3d_spirv_build_op_extension(&stream, "SPV_KHR_float_controls");
 
     if (builder->ext_instr_set_glsl_450)
@@ -6128,10 +6129,23 @@ static void spirv_compiler_emit_denormal_mode(struct spirv_compiler *compiler,
     }
 }
 
+static void spirv_compiler_emit_disallow_refactoring(struct spirv_compiler *compiler, unsigned int bit_width)
+{
+    if (!spirv_compiler_is_target_extension_supported(compiler,
+            VKD3D_SHADER_SPIRV_EXTENSION_KHR_FLOAT_CONTROLS))
+    {
+        spirv_compiler_error(compiler, VKD3D_SHADER_ERROR_SPV_UNSUPPORTED_FEATURE,
+                "Cannot disallow refactoring. "
+                "The target environment does not support float controls.");
+        return;
+    }
+    vkd3d_spirv_enable_capability(&compiler->spirv_builder, SpvCapabilitySignedZeroInfNanPreserve);
+    spirv_compiler_emit_execution_mode(compiler, SpvExecutionModeSignedZeroInfNanPreserve, &bit_width, 1);
+}
+
 static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, enum vsir_global_flags flags)
 {
-    static const uint64_t ignored_flags = VKD3DSGF_REFACTORING_ALLOWED
-            | VKD3DSGF_ENABLE_RAW_AND_STRUCTURED_BUFFERS
+    static const uint64_t ignored_flags = VKD3DSGF_ENABLE_RAW_AND_STRUCTURED_BUFFERS
             | VKD3DSGF_SKIP_OPTIMIZATION
             | VKD3DSGF_BIND_FOR_DURATION
             | VKD3DSGF_ENABLE_VP_AND_RT_ARRAY_INDEX
@@ -6157,12 +6171,17 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
 
     spirv_compiler_emit_denormal_mode(compiler, 32, compiler->program->f32_denormal_mode);
 
+    if (!(flags & VKD3DSGF_REFACTORING_ALLOWED))
+        spirv_compiler_emit_disallow_refactoring(compiler, 32);
+
     if (flags & (VKD3DSGF_ENABLE_DOUBLE_PRECISION_FLOAT_OPS | VKD3DSGF_ENABLE_11_1_DOUBLE_EXTENSIONS))
     {
         if (compiler->compile_info.feature_float64)
         {
             vkd3d_spirv_enable_capability(&compiler->spirv_builder, SpvCapabilityFloat64);
             spirv_compiler_emit_denormal_mode(compiler, 64, compiler->program->f64_denormal_mode);
+            if (!(flags & VKD3DSGF_REFACTORING_ALLOWED))
+                spirv_compiler_emit_disallow_refactoring(compiler, 64);
         }
         else
         {
@@ -6200,6 +6219,8 @@ static void spirv_compiler_emit_global_flags(struct spirv_compiler *compiler, en
                     "The target environment uses wave ops but does not support SPIR-V 1.3 or greater.");
         flags &= ~VKD3DSGF_ENABLE_WAVE_INTRINSICS;
     }
+
+    flags &= ~VKD3DSGF_REFACTORING_ALLOWED;
 
     if (flags & ignored_flags)
     {
