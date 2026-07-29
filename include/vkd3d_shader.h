@@ -438,6 +438,27 @@ enum vkd3d_shader_compile_option_name
      * \since 2.0
      */
     VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64 = 0x00000010,
+    /**
+     * A mask of global flags to override. The new values of these flags are
+     * specified by the
+     * VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_VALUE option.
+     *
+     * \a value is a mask of values from enum vkd3d_shader_global_flags0.
+     *
+     * \since 2.2
+     */
+    VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_MASK = 0x00000011,
+    /**
+     * Global flags to use instead of those specified by the source shader.
+     * Flags not included in the mask specified by the
+     * VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_MASK option are
+     * ignored.
+     *
+     * \a value is a mask of values from enum vkd3d_shader_global_flags0.
+     *
+     * \since 2.2
+     */
+    VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_VALUE = 0x00000012,
 
     VKD3D_FORCE_32_BIT_ENUM(VKD3D_SHADER_COMPILE_OPTION_NAME),
 };

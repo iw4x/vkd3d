@@ -1697,6 +1697,8 @@ struct vsir_compile_info
     enum vkd3d_shader_denormal_mode denormal_mode_f16;
     enum vkd3d_shader_denormal_mode denormal_mode_f32;
     enum vkd3d_shader_denormal_mode denormal_mode_f64;
+    enum vsir_global_flags global_flags_override_mask;
+    enum vsir_global_flags global_flags_override_value;
 
     uint32_t strip_debug : 1;
     uint32_t ssbo_uavs : 1;

@@ -764,6 +764,16 @@ static int convert_parameter_info(const struct vkd3d_shader_compile_info *compil
     return VKD3D_OK;
 }
 
+static enum vsir_global_flags vsir_global_flags_from_vkd3d(enum vkd3d_shader_global_flags0 flags0)
+{
+    enum vsir_global_flags vsir_flags = 0;
+
+    if (flags0 & VKD3D_SHADER_GLOBAL_FLAGS0_REFACTORING_ALLOWED)
+        vsir_flags |= VKD3DSGF_REFACTORING_ALLOWED;
+
+    return vsir_flags;
+};
+
 void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_shader_compile_info *vkd3d)
 {
     enum vkd3d_shader_compile_option_backward_compatibility compatibility_flags = 0;
@@ -875,6 +885,14 @@ void vsir_compile_info_init(struct vsir_compile_info *vsir, const struct vkd3d_s
                 vsir->denormal_mode_f64 = option->value;
                 break;
 
+            case VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_MASK:
+                vsir->global_flags_override_mask = vsir_global_flags_from_vkd3d(option->value);
+                break;
+
+            case VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_VALUE:
+                vsir->global_flags_override_value = vsir_global_flags_from_vkd3d(option->value);
+                break;
+
             default:
                 WARN("Ignoring unrecognised option %#x with value %#x.\n", option->name, option->value);
                 break;
@@ -917,6 +935,12 @@ done:
             vsir->denormal_mode_override_f64 = true;
             vsir->denormal_mode_f64 = VKD3D_SHADER_DENORMAL_MODE_ANY;
         }
+    }
+
+    if (vsir->api_version <= VKD3D_SHADER_API_VERSION_2_1)
+    {
+        vsir->global_flags_override_mask |= VKD3DSGF_REFACTORING_ALLOWED;
+        vsir->global_flags_override_value |= VKD3DSGF_REFACTORING_ALLOWED;
     }
 }
 

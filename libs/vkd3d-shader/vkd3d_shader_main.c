@@ -940,6 +940,9 @@ static enum vkd3d_result vsir_parse(const struct vkd3d_shader_compile_info *comp
     if (vsir_compile_info.denormal_mode_override_f64)
         program->f64_denormal_mode = vsir_compile_info.denormal_mode_f64;
 
+    program->global_flags &= ~vsir_compile_info.global_flags_override_mask;
+    program->global_flags |= vsir_compile_info.global_flags_override_value;
+
     if ((ret = vsir_program_validate(program, config_flags, compile_info->source_name, message_context)) < 0)
     {
         WARN("Failed to validate shader after parsing, ret %d.\n", ret);
