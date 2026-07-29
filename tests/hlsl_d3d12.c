@@ -2088,6 +2088,11 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
                 var = ID3D12ShaderReflectionConstantBuffer_GetVariableByIndex(cbuffer, j);
                 var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, expect->var_desc.Name);
                 ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
+                if (compiler_version >= 41)
+                {
+                    cbuffer2 = ID3D12ShaderReflectionVariable_GetBuffer(var);
+                    todo ok(cbuffer == cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
+                }
 
                 for (k = 0; k < i; ++k)
                 {
@@ -2182,6 +2187,11 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
             var = ID3D12ShaderReflectionConstantBuffer_GetVariableByIndex(cbuffer, buffer_desc.Variables);
             hr = ID3D12ShaderReflectionVariable_GetDesc(var, &var_desc);
             ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+            if (compiler_version >= 41)
+            {
+                cbuffer2 = ID3D12ShaderReflectionVariable_GetBuffer(var);
+                ok(cbuffer != cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
+            }
             var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, "invalid");
             ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
             var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, NULL);
@@ -2214,6 +2224,11 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
         var = ID3D12ShaderReflectionConstantBuffer_GetVariableByIndex(cbuffer, 0);
         hr = ID3D12ShaderReflectionVariable_GetDesc(var, &var_desc);
         ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+        if (compiler_version >= 41)
+        {
+            cbuffer2 = ID3D12ShaderReflectionVariable_GetBuffer(var);
+            todo ok(cbuffer == cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
+        }
         var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, "invalid");
         ok(var == var2, "Got var %p, var2 %p.\n", var, var2);
         var2 = ID3D12ShaderReflectionConstantBuffer_GetVariableByName(cbuffer, NULL);
