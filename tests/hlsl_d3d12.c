@@ -2091,7 +2091,7 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
                 if (compiler_version >= 41)
                 {
                     cbuffer2 = ID3D12ShaderReflectionVariable_GetBuffer(var);
-                    todo ok(cbuffer == cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
+                    ok(cbuffer == cbuffer2, "Got cbuffer %p, cbuffer2 %p.\n", cbuffer, cbuffer2);
                 }
 
                 for (k = 0; k < i; ++k)

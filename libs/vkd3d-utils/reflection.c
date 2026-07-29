@@ -1366,7 +1366,8 @@ static HRESULT d3d12_type_init(struct d3d12_type *type, struct d3d12_reflection 
 }
 
 static HRESULT d3d12_variable_init(struct d3d12_variable *variable, struct d3d12_reflection *reflection,
-        const struct rdef_variable *rdef_variable, const struct vkd3d_shader_code *section, uint32_t type_size)
+        struct d3d12_buffer *buffer, const struct rdef_variable *rdef_variable,
+        const struct vkd3d_shader_code *section, uint32_t type_size)
 {
     HRESULT hr;
     char *name;
@@ -1406,6 +1407,7 @@ static HRESULT d3d12_variable_init(struct d3d12_variable *variable, struct d3d12
         variable->desc_size = sizeof(D3D12_SHADER_VARIABLE_DESC);
     else
         variable->desc_size = sizeof(D3D10_SHADER_VARIABLE_DESC);
+    variable->buffer = buffer;
 
     if (FAILED(hr = d3d12_type_init(&variable->type, reflection, rdef_variable->type_offset, type_size, section, 0)))
     {
@@ -1456,8 +1458,8 @@ static HRESULT d3d12_buffer_init(struct d3d12_buffer *buffer,
         normalized_variable.sampler_binding = ~0u;
         memcpy(&normalized_variable, rdef_variable, variable_size);
 
-        if (FAILED(hr = d3d12_variable_init(&buffer->variables[i],
-                reflection, &normalized_variable, section, type_size)))
+        if (FAILED(hr = d3d12_variable_init(&buffer->variables[i], reflection,
+                buffer, &normalized_variable, section, type_size)))
         {
             buffer->desc.Variables = i;
             d3d12_buffer_cleanup(buffer);
