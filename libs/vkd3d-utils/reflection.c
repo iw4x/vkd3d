@@ -305,6 +305,9 @@ static ID3D12ShaderReflectionConstantBuffer * STDMETHODCALLTYPE d3d12_variable_G
 
     TRACE("iface %p.\n", iface);
 
+    if (variable == &null_variable)
+        return &null_buffer.ID3D12ShaderReflectionConstantBuffer_iface;
+
     return &variable->buffer->ID3D12ShaderReflectionConstantBuffer_iface;
 }
 
