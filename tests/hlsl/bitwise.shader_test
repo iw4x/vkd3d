@@ -1,4 +1,7 @@
-[pixel shader todo(sm<4)]
+[header]
+test-shader-models (2.0 3.0 4.0 5.0 6.0)
+
+[pixel-shader todo(sm<4)]
 uint4 u;
 
 float4 main() : sv_target
@@ -7,8 +10,8 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 uint4 0 0xffffffff 0xcccccccc 0x31415926
-todo(sm<4) draw quad
+write cbv-0 (0) u32(0, 0xffffffff, 0xcccccccc, 0x31415926)
+todo(sm<4 | glsl & sm=5) draw quad
 if(sm>=4) probe (0, 0) f32(0, 32, 16, 12)
 if(sm<4)  probe (0, 0) f32(0, 0, 0, 0)
 
@@ -263,11 +266,11 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint4 0 0xffffffff 0x00001000 0x00760400
-draw quad
+write cbv-0 (0) u32(0, 0xffffffff, 0x00001000, 0x00760400)
+todo(glsl & sm=5) draw quad
 probe (0, 0) u32(0xffffffff, 0, 12, 10)
 
-[pixel shader]
+[pixel-shader]
 uint4 main(float4 pos : sv_position) : sv_target
 {
     uint4x4 umat =
@@ -297,11 +300,11 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint4 0 0xffffffff 0x00001000 0x00760400
-draw quad
+write cbv-0 (0) u32(0, 0xffffffff, 0x00001000, 0x00760400)
+todo(glsl & sm=5) draw quad
 probe (0, 0) u32(0xffffffff, 31, 12, 22)
 
-[pixel shader]
+[pixel-shader]
 int4 i;
 
 uint4 main() : sv_target
@@ -310,14 +313,14 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint4 0 0xffffffff 0x00001db4 0xff900000
-todo(msl & sm>=6) draw quad
+write cbv-0 (0) u32(0, 0xffffffff, 0x00001db4, 0xff900000)
+todo(glsl & sm=5 | msl & sm>=5) draw quad
 probe (0, 0) i32(-1, -1, 12, 22)
-uniform 0 int4 -500 -400 -300 -7604
-todo(msl & sm>=6) draw quad
+write cbv-0 (0) i32(-500, -400, -300, -7604)
+todo(glsl & sm=5 | msl & sm>=5) draw quad
 probe (0, 0) i32(8, 8, 8, 12)
 
-[pixel shader]
+[pixel-shader]
 uint4 main(float4 pos : sv_position) : sv_target
 {
     uint4x4 umat =
