@@ -1,0 +1,58 @@
+[pixel-shader]
+uniform float4 color;
+
+float4 main() : SV_target
+{
+    float4 ret = color;
+    ret.zw += float2(0.5, 0.3);
+    ret.yx -= float2(0.1, 0.5);
+    return ret;
+}
+
+[test]
+write cbv-0 (0) f32(0.0303, 0.08, 0.07, 0.0202)
+draw quad
+probe (0, 0) f32(-0.4697, -0.02, 0.57, 0.3202) 2
+
+[pixel-shader]
+uniform float4 color;
+
+float4 main() : SV_target
+{
+    float4 ret = color;
+    ret.zwx.yzx.xz += float2(0.4, 0.2);
+    ret.xzyw.wzx.xz.y.x -= 0.6;
+    ret.yxwz.yxwz *= -1;
+    return ret;
+}
+
+[test]
+write cbv-0 (0) f32(0.0303, 0.08, 0.07, 0.0202)
+draw quad
+probe (0, 0) f32(0.5697, -0.08, -0.27, -0.4202)
+
+[pixel-shader]
+float4 main() : SV_target
+{
+    float4 ret = float4(2, 2, 2, 2);
+    ret.yxz.yx += float2(0.1, 0.2);
+    ret.w.x -= 0.3;
+    ret.wzyx.zyx.yx.x *= 0.4;
+    return ret;
+}
+
+[test]
+draw quad
+probe (0, 0) f32(2.1, 2.2, 0.8, 1.7)
+
+[pixel-shader]
+float4 main() : SV_target
+{
+    float4 ret = float4(2, 2, 2, 2);
+    ret.xyzw.xyzw -= float4(0.1, 0.2, 0.3, 0.4);
+    return ret;
+}
+
+[test]
+draw quad
+probe (0, 0) f32(1.9, 1.8, 1.7, 1.6)

@@ -350,10 +350,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/wave-ops-int.shader_test \
 	tests/hlsl/wave-ops-uint.shader_test \
 	tests/hlsl/wave-reconvergence.shader_test \
-	tests/hlsl/writemask-assignop-0.shader_test \
-	tests/hlsl/writemask-assignop-1.shader_test \
-	tests/hlsl/writemask-assignop-2.shader_test \
-	tests/hlsl/writemask-assignop-3.shader_test \
+	tests/hlsl/writemask-assignop.shader_test \
 	tests/preproc-if-expr.shader_test \
 	tests/preproc-if.shader_test \
 	tests/preproc-ifdef.shader_test \
