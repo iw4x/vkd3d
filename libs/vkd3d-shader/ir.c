@@ -29,6 +29,7 @@ struct vsir_transformation_context
     const struct vkd3d_shader_compile_info *compile_info;
     struct vkd3d_shader_message_context *message_context;
     struct vkd3d_shader_location null_location;
+    uint32_t target_has_clz : 1;
     bool progress;
 };
 
@@ -45,6 +46,16 @@ static void vsir_transformation_context_init(struct vsir_transformation_context 
         .message_context = message_context,
         .null_location = {.source_name = compile_info->source_name},
     };
+
+    switch (compile_info->target_type)
+    {
+        case VKD3D_SHADER_TARGET_MSL:
+            ctx->target_has_clz = true;
+            break;
+
+        default:
+            break;
+    }
 };
 
 const char *vsir_data_type_get_name(enum vsir_data_type t, const char *error)
@@ -336,6 +347,7 @@ const char *vsir_opcode_get_name(enum vkd3d_shader_opcode op, const char *error)
         [VSIR_OP_IF                              ] = "if",
         [VSIR_OP_IFC                             ] = "if",
         [VSIR_OP_IGE                             ] = "ige",
+        [VSIR_OP_ILOG2                           ] = "ilog2",
         [VSIR_OP_ILT                             ] = "ilt",
         [VSIR_OP_IMAD                            ] = "imad",
         [VSIR_OP_IMAX                            ] = "imax",
@@ -481,6 +493,7 @@ const char *vsir_opcode_get_name(enum vkd3d_shader_opcode op, const char *error)
         [VSIR_OP_UDIV                            ] = "udiv",
         [VSIR_OP_UDIV_SIMPLE                     ] = "udiv_simple",
         [VSIR_OP_UGE                             ] = "uge",
+        [VSIR_OP_ULOG2                           ] = "ulog2",
         [VSIR_OP_ULT                             ] = "ult",
         [VSIR_OP_UMAX                            ] = "umax",
         [VSIR_OP_UMIN                            ] = "umin",
@@ -2140,6 +2153,69 @@ static enum vkd3d_result vsir_program_lower_precise_mad(struct vsir_program *pro
     add_ins->src[1] = mul_ins->src[2];
 
     return VKD3D_OK;
+}
+
+static enum vkd3d_result vsir_program_lower_clz(struct vsir_program *program,
+        struct vsir_program_iterator *clz, struct vsir_transformation_context *ctx)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(clz);
+    const struct vkd3d_shader_location location = ins->location;
+    const struct vsir_src_operand *src = ins->src;
+    const struct vsir_dst_operand *dst = ins->dst;
+    unsigned int ieq_id, log2_id, xor_id;
+    enum vkd3d_shader_opcode log2_op;
+    struct vsir_program_iterator it;
+
+    /* firstbit_(s)hi DST, SRC
+     *      ->
+     * {i,u}log2 srLOG2, SRC
+     * xor srXOR, srLOG2, l(0x1f)
+     * ieq srIEQ, srLOG2, l(~0u)
+     * movc DST, srIEQ, l(~0u), srXOR */
+
+    log2_op = ins->opcode == VSIR_OP_FIRSTBIT_HI ? VSIR_OP_ULOG2 : VSIR_OP_ILOG2;
+
+    if (!(ins = vsir_program_iterator_insert_before(clz, &it, 3)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    if (!vsir_instruction_init_with_params(program, ins, &location, log2_op, 1, 1))
+        goto fail;
+    log2_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], log2_id, dst[0].reg.data_type, dst[0].reg.dimension);
+    ins->src[0] = src[0];
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_XOR, 1, 2))
+        goto fail;
+    xor_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], xor_id, dst[0].reg.data_type, dst[0].reg.dimension);
+    vsir_src_operand_init_ssa(&ins->src[0], log2_id, dst[0].reg.data_type, dst[0].reg.dimension);
+    vsir_src_operand_init(&ins->src[1], VSIR_REGISTER_IMMCONST, dst[0].reg.data_type, 0);
+    ins->src[1].reg.u.immconst_u32[0] = 0x1fu;
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_IEQ, 1, 2))
+        goto fail;
+    ieq_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], ieq_id, VSIR_DATA_U32, dst[0].reg.dimension);
+    vsir_src_operand_init_ssa(&ins->src[0], log2_id, dst[0].reg.data_type, dst[0].reg.dimension);
+    vsir_src_operand_init(&ins->src[1], VSIR_REGISTER_IMMCONST, dst[0].reg.data_type, 0);
+    ins->src[1].reg.u.immconst_u32[0] = ~0u;
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MOVC, 1, 3))
+        goto fail;
+    ins->dst[0] = dst[0];
+    vsir_src_operand_init_ssa(&ins->src[0], ieq_id, VSIR_DATA_U32, dst[0].reg.dimension);
+    vsir_src_operand_init(&ins->src[1], VSIR_REGISTER_IMMCONST, dst[0].reg.data_type, 0);
+    ins->src[1].reg.u.immconst_u32[0] = ~0u;
+    vsir_src_operand_init_ssa(&ins->src[2], xor_id, dst[0].reg.data_type, dst[0].reg.dimension);
+
+    return VKD3D_OK;
+
+fail:
+    vsir_program_iterator_nop_range(&it, clz, &location);
+
+    return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
 static enum vkd3d_result vsir_program_lower_imul(struct vsir_program *program,
@@ -4102,6 +4178,12 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
             case VSIR_OP_DCL_OUTPUT_SGV:
             case VSIR_OP_DCL_OUTPUT_SIV:
                 vkd3d_shader_instruction_make_nop(ins);
+                break;
+
+            case VSIR_OP_FIRSTBIT_HI:
+            case VSIR_OP_FIRSTBIT_SHI:
+                if (!ctx->target_has_clz && (ret = vsir_program_lower_clz(program, &it, ctx)) < 0)
+                    return ret;
                 break;
 
             case VSIR_OP_IMUL:
@@ -11440,6 +11522,7 @@ static bool vsir_src_is_masked(enum vkd3d_shader_opcode opcode, unsigned int src
         case VSIR_OP_IDIV:
         case VSIR_OP_IEQ:
         case VSIR_OP_IGE:
+        case VSIR_OP_ILOG2:
         case VSIR_OP_ILT:
         case VSIR_OP_IMAD:
         case VSIR_OP_IMAX:
@@ -11502,6 +11585,7 @@ static bool vsir_src_is_masked(enum vkd3d_shader_opcode opcode, unsigned int src
         case VSIR_OP_UDIV:
         case VSIR_OP_UDIV_SIMPLE:
         case VSIR_OP_UGE:
+        case VSIR_OP_ULOG2:
         case VSIR_OP_ULT:
         case VSIR_OP_UMAX:
         case VSIR_OP_UMIN:
@@ -16121,6 +16205,7 @@ static bool vsir_instruction_has_side_effects(const struct vkd3d_shader_instruct
         case VSIR_OP_IDIV:
         case VSIR_OP_IEQ:
         case VSIR_OP_IGE:
+        case VSIR_OP_ILOG2:
         case VSIR_OP_ILT:
         case VSIR_OP_IMAD:
         case VSIR_OP_IMAX:
@@ -16241,6 +16326,7 @@ static bool vsir_instruction_has_side_effects(const struct vkd3d_shader_instruct
         case VSIR_OP_UDIV:
         case VSIR_OP_UDIV_SIMPLE:
         case VSIR_OP_UGE:
+        case VSIR_OP_ULOG2:
         case VSIR_OP_ULT:
         case VSIR_OP_UMAX:
         case VSIR_OP_UMIN:
