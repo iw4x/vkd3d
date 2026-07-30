@@ -1960,6 +1960,9 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
         case VSIR_OP_EXP:
             shader_glsl_intrinsic(gen, ins, "exp2");
             break;
+        case VSIR_OP_FIRSTBIT_LO:
+            shader_glsl_intrinsic(gen, ins, "findLSB");
+            break;
         case VSIR_OP_FRC:
             shader_glsl_intrinsic(gen, ins, "fract");
             break;
