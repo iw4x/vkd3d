@@ -1990,6 +1990,9 @@ static void vkd3d_glsl_handle_instruction(struct vkd3d_glsl_generator *gen,
         case VSIR_OP_IF:
             shader_glsl_if(gen, ins);
             break;
+        case VSIR_OP_ILOG2:
+            shader_glsl_intrinsic(gen, ins, "findMSB");
+            break;
         case VSIR_OP_IMM_ATOMIC_CMP_EXCH:
             shader_glsl_atomic(gen, ins, "atomicCompSwap", "imageAtomicCompSwap");
             break;
