@@ -678,9 +678,9 @@ struct vkd3d_mutex
 };
 
 #ifdef _WIN32
-#define VKD3D_MUTEX_INITIALIZER {{NULL, -1, 0, 0, 0, 0}}
+#define VKD3D_MUTEX_INITIALIZER {.lock = {NULL, -1, 0, 0, 0, 0}}
 #else
-#define VKD3D_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
+#define VKD3D_MUTEX_INITIALIZER {.lock = PTHREAD_MUTEX_INITIALIZER}
 #endif
 
 static inline void vkd3d_mutex_init(struct vkd3d_mutex *lock)
