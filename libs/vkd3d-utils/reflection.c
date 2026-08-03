@@ -556,6 +556,12 @@ static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetDesc(ID3D12ShaderReflection
 
     TRACE("iface %p, desc %p.\n", iface, desc);
 
+    if (!desc)
+    {
+        WARN("NULL desc specified.\n");
+        return E_FAIL;
+    }
+
     memcpy(desc, &reflection->desc, reflection->desc_size);
 
     return S_OK;

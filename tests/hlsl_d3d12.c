@@ -4129,6 +4129,8 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
     if (FAILED(hr))
         return;
 
+    hr = ID3D12ShaderReflection_GetDesc(reflection, NULL);
+    ok(hr == E_FAIL, "Got hr %#x.\n", hr);
     memset(&desc, 0xba, sizeof(desc));
     hr = ID3D12ShaderReflection_GetDesc(reflection, &desc);
     ok(hr == S_OK, "Got hr %#x.\n", hr);
