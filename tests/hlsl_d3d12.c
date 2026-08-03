@@ -2285,6 +2285,8 @@ static void test_reflection_version(const IID *iid, unsigned int compiler_versio
             vkd3d_test_pop_context();
         }
 
+        hr = ID3D12ShaderReflection_GetResourceBindingDesc(reflection, 0, NULL);
+        ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
         hr = ID3D12ShaderReflection_GetResourceBindingDesc(reflection, shader_desc.BoundResources, &binding_desc);
         ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
 

@@ -620,6 +620,12 @@ static HRESULT STDMETHODCALLTYPE d3d12_reflection_GetResourceBindingDesc(
 
     TRACE("iface %p, index %u, desc %p.\n", iface, index, desc);
 
+    if (!desc)
+    {
+        WARN("NULL desc specified.\n");
+        return E_INVALIDARG;
+    }
+
     if (index >= reflection->desc.BoundResources)
     {
         WARN("Invalid index %u.\n", index);
