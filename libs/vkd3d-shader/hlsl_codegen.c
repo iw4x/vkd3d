@@ -10033,8 +10033,9 @@ static struct hlsl_ir_node *fold_unary_identities(struct hlsl_ctx *ctx,
 
         case HLSL_OP1_CEIL:
         case HLSL_OP1_FLOOR:
-            /* f(g(x)) -> g(x), where f(), g() are floor() or ceil() functions. */
-            if (x->op == HLSL_OP1_CEIL || x->op == HLSL_OP1_FLOOR)
+        case HLSL_OP1_TRUNC:
+            /* f(g(x)) -> g(x), where f(), g() are floor(), ceil(), or trunc() functions. */
+            if (x->op == HLSL_OP1_CEIL || x->op == HLSL_OP1_FLOOR || x->op == HLSL_OP1_TRUNC)
                 return &x->node;
             break;
 
@@ -16887,7 +16888,9 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct vsir_program *pr
         replace_ir(ctx, lower_casts_to_bool, body);
 
         replace_ir(ctx, lower_casts_to_int, body);
+        replace_ir(ctx, fold_unary_identities, body);
         replace_ir(ctx, lower_trunc, body);
+
         replace_ir(ctx, lower_sqrt, body);
         replace_ir(ctx, lower_dot, body);
         replace_ir(ctx, lower_round, body);
