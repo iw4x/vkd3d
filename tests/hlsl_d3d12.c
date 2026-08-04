@@ -4132,16 +4132,16 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
         expect_hr = D3DERR_INVALIDCALL;
     /* NULL blobs. */
     hr = D3DReflectVKD3D(NULL, 0, iid, (void **)&reflection, compiler_version);
-    todo_if (compiler_version >= 43) ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
     /* Incomplete DXBC header. */
     hr = D3DReflectVKD3D(dxbc, 1, iid, (void **)&reflection, compiler_version);
-    todo_if (compiler_version >= 43) ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
     hr = D3DReflectVKD3D(dxbc, 4, iid, (void **)&reflection, compiler_version);
-    todo_if (compiler_version >= 43) ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
     hr = D3DReflectVKD3D(dxbc, 20, iid, (void **)&reflection, compiler_version);
-    todo_if (compiler_version >= 43) ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
     hr = D3DReflectVKD3D(dxbc, 28, iid, (void **)&reflection, compiler_version);
-    todo_if (compiler_version >= 43) ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
 
     if (compiler_version < 43)
         expect_hr = E_INVALIDARG;
@@ -4152,14 +4152,14 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
     /* Complete DXBC header, data size smaller than "total size" from the
      * header, invalid checksum. */
     hr = D3DReflectVKD3D(dxbc, 32, iid, (void **)&reflection, compiler_version);
-    todo_if (compiler_version >= 43) ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
     tmp = malloc(sizeof(dxbc) * 2);
     memcpy(tmp, dxbc, sizeof(dxbc));
     memset(&tmp[sizeof(dxbc)], 0, sizeof(dxbc));
     /* This would otherwise be valid, but because we padded the blob, its
      * checksum no longer matches. */
     hr = D3DReflectVKD3D(tmp, sizeof(dxbc) * 2, iid, (void **)&reflection, compiler_version);
-    todo_if (compiler_version >= 43) ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
     free(tmp);
 
     expect_hr = reflect_hr(iid, compiler_version, 0);

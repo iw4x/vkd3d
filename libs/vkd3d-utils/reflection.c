@@ -1745,8 +1745,20 @@ static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection,
 
     reflection->thread_group_size_info.type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_THREAD_GROUP_SIZE_INFO;
 
-    if (FAILED(hr = hresult_from_vkd3d_result(vkd3d_shader_scan(&compile_info, NULL))))
-        return hr;
+    if ((ret = vkd3d_shader_parse_dxbc(&compile_info.source, 0, &dxbc_desc, NULL)) < 0)
+    {
+        if (version < 43)
+            return E_INVALIDARG;
+        if (version < 44 && data_size >= 8 * sizeof(uint32_t))
+            return E_FAIL;
+        return D3DERR_INVALIDCALL;
+    }
+
+    if ((ret = vkd3d_shader_scan(&compile_info, NULL)) < 0)
+    {
+        vkd3d_shader_free_dxbc(&dxbc_desc);
+        return hresult_from_vkd3d_result(ret);
+    }
 
     if (reflection->version >= 40)
         reflection->desc_size = sizeof(D3D12_SHADER_DESC);
@@ -1757,12 +1769,6 @@ static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection,
         reflection->bind_desc_size = sizeof(D3D12_SHADER_INPUT_BIND_DESC);
     else
         reflection->bind_desc_size = sizeof(D3D10_SHADER_INPUT_BIND_DESC);
-
-    if ((ret = vkd3d_shader_parse_dxbc(&compile_info.source, 0, &dxbc_desc, NULL)))
-    {
-        vkd3d_shader_free_scan_signature_info(&reflection->signature_info);
-        return hresult_from_vkd3d_result(ret);
-    }
 
     for (unsigned int i = 0; i < dxbc_desc.section_count; ++i)
     {
