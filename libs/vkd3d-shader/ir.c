@@ -1205,6 +1205,12 @@ static void vsir_src_operand_init_const_f32(struct vsir_src_operand *src, float 
     src->reg.u.immconst_f32[0] = value;
 }
 
+static void vsir_src_operand_init_const_i32(struct vsir_src_operand *src, int32_t value)
+{
+    vsir_src_operand_init(src, VSIR_REGISTER_IMMCONST, VSIR_DATA_I32, 0);
+    src->reg.u.immconst_u32[0] = value;
+}
+
 static void vsir_src_operand_init_const_u32(struct vsir_src_operand *src, uint32_t value)
 {
     vsir_src_operand_init(src, VSIR_REGISTER_IMMCONST, VSIR_DATA_U32, 0);
@@ -2153,6 +2159,68 @@ static enum vkd3d_result vsir_program_lower_precise_mad(struct vsir_program *pro
     add_ins->src[1] = mul_ins->src[2];
 
     return VKD3D_OK;
+}
+
+/* MSL has a clz() function, but it returns 0 for negative integers. (I.e., it
+ * handles signed integers like unsigned integers with the same bit pattern.) */
+static enum vkd3d_result vsir_program_lower_signed_clz(struct vsir_program *program,
+        struct vsir_program_iterator *clz, struct vsir_transformation_context *ctx)
+{
+    struct vkd3d_shader_instruction *ins = vsir_program_iterator_current(clz);
+    const struct vkd3d_shader_location location = ins->location;
+    const struct vsir_src_operand *src = ins->src;
+    const struct vsir_dst_operand *dst = ins->dst;
+    unsigned int not_id, ilt_id, movc_id;
+    struct vsir_program_iterator it;
+
+    /* firstbit_shi DST, SRC
+     *      ->
+     * not srNOT, SRC
+     * ilt srILT, SRC, l(0)
+     * movc srMOVC, srILT, srNOT, SRC
+     * firstbit_hi DST, srMOVC */
+
+    if (!(ins = vsir_program_iterator_insert_before(clz, &it, 3)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_NOT, 1, 1))
+        goto fail;
+    not_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], not_id, src[0].reg.data_type, src[0].reg.dimension);
+    ins->src[0] = src[0];
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_ILT, 1, 2))
+        goto fail;
+    ilt_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], ilt_id, VSIR_DATA_U32, src[0].reg.dimension);
+    ins->src[0] = src[0];
+    if (!vsir_operand_clone_indirect_indices(&ins->src[0].reg, program))
+        goto fail;
+    vsir_src_operand_init_const_i32(&ins->src[1], 0);
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_MOVC, 1, 3))
+        goto fail;
+    movc_id = program->ssa_count++;
+    vsir_dst_operand_init_ssa(&ins->dst[0], movc_id, src[0].reg.data_type, src[0].reg.dimension);
+    vsir_src_operand_init_ssa(&ins->src[0], ilt_id, VSIR_DATA_U32, src[0].reg.dimension);
+    vsir_src_operand_init_ssa(&ins->src[1], not_id, src[0].reg.data_type, src[0].reg.dimension);
+    ins->src[2] = src[0];
+    if (!vsir_operand_clone_indirect_indices(&ins->src[2].reg, program))
+        goto fail;
+
+    ins = vsir_program_iterator_next(&it);
+    if (!vsir_instruction_init_with_params(program, ins, &location, VSIR_OP_FIRSTBIT_HI, 1, 1))
+        goto fail;
+    ins->dst[0] = dst[0];
+    vsir_src_operand_init_ssa(&ins->src[0], movc_id, src[0].reg.data_type, src[0].reg.dimension);
+
+    return VKD3D_OK;
+
+fail:
+    vsir_program_iterator_nop_range(&it, clz, &location);
+
+    return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
 static enum vkd3d_result vsir_program_lower_clz(struct vsir_program *program,
@@ -4182,8 +4250,16 @@ static enum vkd3d_result vsir_program_lower_instructions(struct vsir_program *pr
 
             case VSIR_OP_FIRSTBIT_HI:
             case VSIR_OP_FIRSTBIT_SHI:
-                if (!ctx->target_has_clz && (ret = vsir_program_lower_clz(program, &it, ctx)) < 0)
-                    return ret;
+                if (!ctx->target_has_clz)
+                {
+                    if ((ret = vsir_program_lower_clz(program, &it, ctx)) < 0)
+                        return ret;
+                }
+                else if (ins->opcode == VSIR_OP_FIRSTBIT_SHI)
+                {
+                    if ((ret = vsir_program_lower_signed_clz(program, &it, ctx)) < 0)
+                        return ret;
+                }
                 break;
 
             case VSIR_OP_IMUL:
