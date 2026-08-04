@@ -4256,6 +4256,52 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
     ok(!refcount, "Got refcount %u.\n", refcount);
 }
 
+static void test_compile_flags_reflection_version(const IID *iid, unsigned int compiler_version)
+{
+    ID3D12ShaderReflection *reflection;
+    D3D12_SHADER_DESC desc;
+    unsigned int refcount;
+    HRESULT expect_hr, hr;
+    UINT expected_flags;
+
+    static const uint32_t dxbc[] =
+    {
+#if 0
+        /* fxc /Ges /Gis /O3 /WX /Tps_4_0 */
+        float4 main() : sv_target { return float(0).xxxx; }
+#endif
+        0x43425844, 0x698fc33d, 0xb70f7e3d, 0xee1ca895, 0x3b1d4e29, 0x00000001, 0x00000180, 0x00000005,
+        0x00000034, 0x00000080, 0x00000090, 0x000000c4, 0x00000104, 0x46454452, 0x00000044, 0x00000000,
+        0x00000000, 0x00000000, 0x0000001c, 0xffff0400, 0x0004a900, 0x0000001c, 0x7263694d, 0x666f736f,
+        0x52282074, 0x4c482029, 0x53204c53, 0x65646168, 0x6f432072, 0x6c69706d, 0x31207265, 0x00312e30,
+        0x4e475349, 0x00000008, 0x00000000, 0x00000008, 0x4e47534f, 0x0000002c, 0x00000001, 0x00000008,
+        0x00000020, 0x00000000, 0x00000000, 0x00000003, 0x00000000, 0x0000000f, 0x745f7673, 0x65677261,
+        0xabab0074, 0x52444853, 0x00000038, 0x00000040, 0x0000000e, 0x03000065, 0x001020f2, 0x00000000,
+        0x08000036, 0x001020f2, 0x00000000, 0x00004002, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+        0x0100003e, 0x54415453, 0x00000074, 0x00000002, 0x00000000, 0x00000000, 0x00000001, 0x00000000,
+        0x00000000, 0x00000000, 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+        0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000001, 0x00000000,
+        0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    };
+
+    expect_hr = reflect_hr(iid, compiler_version, 0);
+    hr = D3DReflectVKD3D(dxbc, sizeof(dxbc), iid, (void **)&reflection, compiler_version);
+    ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    if (FAILED(hr))
+        return;
+
+    memset(&desc, 0xba, sizeof(desc));
+    hr = ID3D12ShaderReflection_GetDesc(reflection, &desc);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+
+    expected_flags = D3DCOMPILE_NO_PRESHADER | D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_IEEE_STRICTNESS
+            | D3DCOMPILE_OPTIMIZATION_LEVEL3 | D3DCOMPILE_WARNINGS_ARE_ERRORS;
+    todo ok(desc.Flags == expected_flags, "Got Flags %#x, expected %#x.\n", desc.Flags, expected_flags);
+
+    refcount = ID3D12ShaderReflection_Release(reflection);
+    ok(!refcount, "Got refcount %u.\n", refcount);
+}
+
 static void test_reflection(void)
 {
     unsigned int version, i, j;
@@ -4309,6 +4355,7 @@ static void test_reflection(void)
             test_signature_reflection_version(iid, version);
             test_thread_group_size_reflection_version(iid, version);
             test_stat_reflection_version(iid, version);
+            test_compile_flags_reflection_version(iid, version);
             vkd3d_test_pop_context();
         }
 
