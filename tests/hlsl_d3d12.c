@@ -4944,6 +4944,15 @@ static void test_default_include_path(void)
 
     blob = NULL;
     errors = NULL;
+    hr = D3DPreprocess(ps_code, strlen(ps_code), NULL, NULL,
+            D3D_COMPILE_STANDARD_FILE_INCLUDE, &blob, &errors);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+    ok(!!blob, "Got blob %p.\n", blob);
+    ok(!errors, "Got errors %p.\n", errors);
+    ID3D10Blob_Release(blob);
+
+    blob = NULL;
+    errors = NULL;
     hr = D3DPreprocess(ps_code, strlen(ps_code), "source.ps", NULL,
             D3D_COMPILE_STANDARD_FILE_INCLUDE, &blob, &errors);
     ok(hr == S_OK, "Got hr %#x.\n", hr);
