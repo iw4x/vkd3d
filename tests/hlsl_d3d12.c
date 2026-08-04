@@ -4863,6 +4863,7 @@ static void delete_file(const char *name)
 static void test_default_include_path(void)
 {
     ID3D10Blob *blob, *errors;
+    char file_path[PATH_MAX];
     char cwd[PATH_MAX];
     const char *code;
     SIZE_T size;
@@ -4881,8 +4882,17 @@ static void test_default_include_path(void)
             "#define LIGHT wrong\n";
 
     create_directory("sources", NULL);
-    create_file("sources/source.ps", ps_code, strlen(ps_code), NULL);
+    create_file("sources/source.ps", ps_code, strlen(ps_code), file_path);
     create_file("sources/include1.h", include1, strlen(include1), NULL);
+
+    blob = NULL;
+    errors = NULL;
+    hr = D3DPreprocess(ps_code, strlen(ps_code), file_path,
+            NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, &blob, &errors);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+    ok(!!blob, "Got blob %p.\n", blob);
+    ok(!errors, "Got errors %p.\n", errors);
+    ID3D10Blob_Release(blob);
 
     getcwd(cwd, PATH_MAX);
     chdir(temp_dir);
