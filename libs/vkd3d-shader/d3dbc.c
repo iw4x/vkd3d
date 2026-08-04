@@ -1531,12 +1531,27 @@ static void vsir_dst_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, 
     vsir->shift = d3dbc->shift;
 }
 
+static struct vsir_instruction *d3dbc_append_instruction(struct vkd3d_shader_sm1_parser *parser,
+        enum vsir_opcode opcode, unsigned int dst_count, unsigned int src_count)
+{
+    struct vsir_instruction *ins;
+
+    if (!(ins = vsir_program_append(parser->program)))
+        return NULL;
+    if (!vsir_instruction_init_with_params(parser->program, ins, &parser->p.location, opcode, dst_count, src_count))
+    {
+        vsir_instruction_init(ins, &parser->p.location, VSIR_OP_NOP);
+        return NULL;
+    }
+    return ins;
+}
+
 static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_parser *parser,
-        const struct d3dbc_instruction *d3dbc_ins,
-        const struct vkd3d_sm1_opcode_info *opcode_info, struct vsir_instruction *ins)
+        const struct d3dbc_instruction *d3dbc_ins, const struct vkd3d_sm1_opcode_info *opcode_info)
 {
     struct vsir_program *program = parser->program;
     struct vkd3d_shader_semantic *semantic;
+    struct vsir_instruction *ins;
     unsigned int resource_idx, i;
 
     if (program->shader_version.major == 1)
@@ -1554,14 +1569,15 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
         for (i = 0; i < d3dbc_ins->src_count; ++i)
         {
             d3dbc_scan_operand(parser, &d3dbc_ins->src[i].o, mask_from_swizzle(d3dbc_ins->src[i].swizzle),
-                    false, d3dbc_get_src_register_count(ins->opcode, i));
+                    false, d3dbc_get_src_register_count(opcode_info->vsir_opcode, i));
         }
     }
 
     switch (d3dbc_ins->opcode)
     {
         case VKD3D_SM1_OP_DCL:
-            vsir_instruction_init(ins, &parser->p.location, VSIR_OP_DCL);
+            if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_DCL, 0, 0)))
+                return VKD3D_ERROR_OUT_OF_MEMORY;
 
             semantic = &ins->declaration.semantic;
             semantic->usage = d3dbc_ins->semantic.usage;
@@ -1600,8 +1616,7 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
         case VKD3D_SM1_OP_DEF:
         case VKD3D_SM1_OP_DEFB:
         case VKD3D_SM1_OP_DEFI:
-            if (!vsir_instruction_init_with_params(program, ins,
-                    &parser->p.location, opcode_info->vsir_opcode, 1, 1))
+            if (!(ins = d3dbc_append_instruction(parser, opcode_info->vsir_opcode, 1, 1)))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
             vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
 
@@ -1631,8 +1646,7 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
          * is semantically a source. Since we have multiple passes which
          * operate generically on sources or destinations, normalise that. */
         case VKD3D_SM1_OP_TEXKILL:
-            if (!vsir_instruction_init_with_params(program, ins, &parser->p.location,
-                    opcode_info->vsir_opcode, 0, 1))
+            if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_TEXKILL, 0, 1)))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
 
             vsir_operand_from_d3dbc(parser, &ins->src[0].reg, &d3dbc_ins->dst[0].o, &d3dbc_ins->dst_rel_addr[0]);
@@ -1640,8 +1654,8 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
             break;
 
         default:
-            if (!vsir_instruction_init_with_params(program, ins, &parser->p.location,
-                    opcode_info->vsir_opcode, d3dbc_ins->dst_count, d3dbc_ins->src_count))
+            if (!(ins = d3dbc_append_instruction(parser, opcode_info->vsir_opcode,
+                    d3dbc_ins->dst_count, d3dbc_ins->src_count)))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
 
             if (d3dbc_ins->dst_count)
@@ -1771,7 +1785,6 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
         struct vkd3d_shader_message_context *message_context, struct vsir_program *program)
 {
     struct vkd3d_shader_sm1_parser sm1 = {0};
-    struct vsir_instruction *ins;
     struct vsir_descriptor *d;
     unsigned int i;
     int ret;
@@ -1796,14 +1809,7 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
 
         shader_sm1_validate_instruction(&sm1, &d3dbc_ins);
 
-        if (!(ins = vsir_program_append(program)))
-        {
-            vkd3d_shader_parser_error(&sm1.p, VKD3D_SHADER_ERROR_D3DBC_OUT_OF_MEMORY, "Out of memory.");
-            vsir_program_cleanup(program);
-            return VKD3D_ERROR_OUT_OF_MEMORY;
-        }
-
-        if ((ret = shader_sm1_read_instruction(&sm1, &d3dbc_ins, opcode_info, ins)))
+        if ((ret = shader_sm1_read_instruction(&sm1, &d3dbc_ins, opcode_info)))
         {
             vsir_program_cleanup(program);
             return ret;
