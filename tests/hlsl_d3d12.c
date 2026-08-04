@@ -4296,7 +4296,7 @@ static void test_compile_flags_reflection_version(const IID *iid, unsigned int c
 
     expected_flags = D3DCOMPILE_NO_PRESHADER | D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_IEEE_STRICTNESS
             | D3DCOMPILE_OPTIMIZATION_LEVEL3 | D3DCOMPILE_WARNINGS_ARE_ERRORS;
-    todo ok(desc.Flags == expected_flags, "Got Flags %#x, expected %#x.\n", desc.Flags, expected_flags);
+    ok(desc.Flags == expected_flags, "Got Flags %#x, expected %#x.\n", desc.Flags, expected_flags);
 
     refcount = ID3D12ShaderReflection_Release(reflection);
     ok(!refcount, "Got refcount %u.\n", refcount);

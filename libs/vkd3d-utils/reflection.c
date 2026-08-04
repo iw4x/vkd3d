@@ -1650,6 +1650,7 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
         }
     }
 
+    reflection->desc.Flags = header->compile_flags;
     if (FAILED(hr = get_string(section, header->creator_offset, &creator)))
         goto fail;
     reflection->desc.Creator = creator;
