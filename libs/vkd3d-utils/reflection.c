@@ -1745,11 +1745,11 @@ static HRESULT d3d12_reflection_init(struct d3d12_reflection *reflection,
 
     reflection->thread_group_size_info.type = VKD3D_SHADER_STRUCTURE_TYPE_SCAN_THREAD_GROUP_SIZE_INFO;
 
-    if ((ret = vkd3d_shader_parse_dxbc(&compile_info.source, 0, &dxbc_desc, NULL)) < 0)
+    if (!data || (ret = vkd3d_shader_parse_dxbc(&compile_info.source, 0, &dxbc_desc, NULL)) < 0)
     {
         if (version < 43)
             return E_INVALIDARG;
-        if (version < 44 && data_size >= 8 * sizeof(uint32_t))
+        if (version < 44 && data && data_size >= 8 * sizeof(uint32_t))
             return E_FAIL;
         return D3DERR_INVALIDCALL;
     }

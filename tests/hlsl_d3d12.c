@@ -4133,6 +4133,8 @@ static void test_stat_reflection_version(const IID *iid, unsigned int compiler_v
     /* NULL blobs. */
     hr = D3DReflectVKD3D(NULL, 0, iid, (void **)&reflection, compiler_version);
     ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    hr = D3DReflectVKD3D(NULL, sizeof(dxbc), iid, (void **)&reflection, compiler_version);
+    ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
     /* Incomplete DXBC header. */
     hr = D3DReflectVKD3D(dxbc, 1, iid, (void **)&reflection, compiler_version);
     ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
