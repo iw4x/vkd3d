@@ -4392,18 +4392,18 @@ static void test_type_is_equal_reflection_version(const IID *iid, unsigned int c
     var = ID3D12ShaderReflection_GetVariableByName(reflection, NULL);
     type2 = ID3D12ShaderReflectionVariable_GetType(var);
     hr = ID3D12ShaderReflectionType_IsEqual(type2, type2);
-    todo ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+    ok(hr == E_FAIL, "Got hr %#x.\n", hr);
     hr = ID3D12ShaderReflectionType_IsEqual(type2, NULL);
-    todo ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+    ok(hr == E_FAIL, "Got hr %#x.\n", hr);
 
     /* typeof(a) != typeof(NULL) */
     var = ID3D12ShaderReflection_GetVariableByName(reflection, "a");
     type1 = ID3D12ShaderReflectionVariable_GetType(var);
     ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
     hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
     hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
-    todo ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+    ok(hr == E_FAIL, "Got hr %#x.\n", hr);
 
     /* typeof(a) == typeof(b) */
     var = ID3D12ShaderReflection_GetVariableByName(reflection, "b");
@@ -4419,45 +4419,45 @@ static void test_type_is_equal_reflection_version(const IID *iid, unsigned int c
     type1 = ID3D12ShaderReflectionVariable_GetType(var);
     ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
     hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
     hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
 
     /* typeof(c) != typeof(d) */
     var = ID3D12ShaderReflection_GetVariableByName(reflection, "d");
     type2 = ID3D12ShaderReflectionVariable_GetType(var);
     ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
     hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
     hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
 
     /* typeof(d) != typeof(e) */
     var = ID3D12ShaderReflection_GetVariableByName(reflection, "e");
     type1 = ID3D12ShaderReflectionVariable_GetType(var);
     ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
     hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
     hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
 
     /* typeof(e) != typeof(f) */
     var = ID3D12ShaderReflection_GetVariableByName(reflection, "f");
     type2 = ID3D12ShaderReflectionVariable_GetType(var);
     ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
     hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
     hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
 
     /* typeof(f) != typeof(g) */
     var = ID3D12ShaderReflection_GetVariableByName(reflection, "g");
     type1 = ID3D12ShaderReflectionVariable_GetType(var);
     ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
     hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
     hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
 
     /* typeof(c) != typeof(s.h)*/
     var = ID3D12ShaderReflection_GetVariableByName(reflection, "c");
@@ -4467,9 +4467,9 @@ static void test_type_is_equal_reflection_version(const IID *iid, unsigned int c
     type2 = ID3D12ShaderReflectionType_GetMemberTypeByName(type3, "h");
     ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
     hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
     hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
 
     /* typeof(s.h) == typeof(s.i)*/
     type1 = ID3D12ShaderReflectionType_GetMemberTypeByName(type3, "i");
@@ -4483,18 +4483,18 @@ static void test_type_is_equal_reflection_version(const IID *iid, unsigned int c
     type2 = ID3D12ShaderReflectionType_GetMemberTypeByName(type3, "j");
     ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
     hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
     hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
 
     /* typeof(s.j) != typeof(k)*/
     var = ID3D12ShaderReflection_GetVariableByName(reflection, "k");
     type1 = ID3D12ShaderReflectionVariable_GetType(var);
     ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
     hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
     hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
 
     /* typeof(s) == typeof(t) */
     var = ID3D12ShaderReflection_GetVariableByName(reflection, "t");
@@ -4512,9 +4512,9 @@ static void test_type_is_equal_reflection_version(const IID *iid, unsigned int c
     type2 = ID3D12ShaderReflectionVariable_GetType(var);
     ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
     hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
     hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
-    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    ok(hr == S_FALSE, "Got hr %#x.\n", hr);
 
     refcount = ID3D12ShaderReflection_Release(reflection);
     ok(!refcount, "Got refcount %u.\n", refcount);

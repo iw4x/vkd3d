@@ -29,6 +29,7 @@
 struct d3d12_type
 {
     ID3D12ShaderReflectionType ID3D12ShaderReflectionType_iface;
+    uint32_t id;
     D3D12_SHADER_TYPE_DESC desc;
     size_t desc_size;
 
@@ -187,8 +188,18 @@ static const char * STDMETHODCALLTYPE d3d12_type_GetMemberTypeName(
 static HRESULT STDMETHODCALLTYPE d3d12_type_IsEqual(
         ID3D12ShaderReflectionType *iface, ID3D12ShaderReflectionType *other)
 {
-    FIXME("iface %p, other %p, stub!\n", iface, other);
-    return E_NOTIMPL;
+    struct d3d12_type *type1 = impl_from_ID3D12ShaderReflectionType(iface);
+    struct d3d12_type *type2 = impl_from_ID3D12ShaderReflectionType(other);
+
+    TRACE("iface %p, other %p.\n", iface, other);
+
+    if (type1 == &null_type)
+    {
+        WARN("Null type, returning E_FAIL.\n");
+        return E_FAIL;
+    }
+
+    return type1->id == type2->id ? S_OK : S_FALSE;
 }
 
 static ID3D12ShaderReflectionType * STDMETHODCALLTYPE d3d12_type_GetSubType(
@@ -1334,6 +1345,7 @@ static HRESULT d3d12_type_init(struct d3d12_type *type, struct d3d12_reflection 
         return hr;
 
     type->ID3D12ShaderReflectionType_iface.lpVtbl = &d3d12_type_vtbl;
+    type->id = type_offset;
 
     type->desc.Class = normalized_type.class;
     type->desc.Type = normalized_type.base_type;
