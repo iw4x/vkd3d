@@ -4341,6 +4341,186 @@ static void test_compile_flags_reflection_version(const IID *iid, unsigned int c
     ok(!refcount, "Got refcount %u.\n", refcount);
 }
 
+static void test_type_is_equal_reflection_version(const IID *iid, unsigned int compiler_version)
+{
+    ID3D12ShaderReflectionType *type1, *type2, *type3;
+    ID3D12ShaderReflectionVariable *var;
+    ID3D12ShaderReflection *reflection;
+    unsigned int refcount;
+    HRESULT expect_hr, hr;
+    ID3D10Blob *code;
+
+    static const char hlsl[] =
+        "typedef float4 f32v4;\n"
+        "float2 a;\n"
+        "float2 b;\n"
+        "float4 c;\n"
+        "float d[4];\n"
+        "float e;\n"
+        "int f;\n"
+        "uint g;\n"
+        "struct\n"
+        "{\n"
+        "    float4 h;\n"
+        "    float4 i;\n"
+        "    f32v4 j;\n"
+        "} s, t;\n"
+        "float4 k;\n"
+        "float l[4];\n"
+        "\n"
+        "float4 main() : sv_position\n"
+        "{\n"
+        "    return l[3];\n"
+        "}\n";
+
+    /* ID3D11ShaderReflectionType is the first version to have IsEqual(). */
+    if (IsEqualGUID(iid, &IID_ID3D10ShaderReflection) || IsEqualGUID(iid, &IID_ID3D10ShaderReflection1))
+        return;
+
+    code = compile_shader(hlsl, "vs_4_0");
+    expect_hr = reflect_hr(iid, compiler_version, 0);
+    hr = D3DReflectVKD3D(ID3D10Blob_GetBufferPointer(code),
+            ID3D10Blob_GetBufferSize(code), iid, (void **)&reflection, compiler_version);
+    ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    if (FAILED(hr))
+    {
+        ID3D10Blob_Release(code);
+        return;
+    }
+
+    /* NULL type. */
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, NULL);
+    type2 = ID3D12ShaderReflectionVariable_GetType(var);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type2);
+    todo ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, NULL);
+    todo ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+
+    /* typeof(a) != typeof(NULL) */
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "a");
+    type1 = ID3D12ShaderReflectionVariable_GetType(var);
+    ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
+    todo ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+
+    /* typeof(a) == typeof(b) */
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "b");
+    type2 = ID3D12ShaderReflectionVariable_GetType(var);
+    ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
+    todo ok(hr == S_OK, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
+    todo ok(hr == S_OK, "Got hr %#x.\n", hr);
+
+    /* typeof(b) != typeof(c) */
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "c");
+    type1 = ID3D12ShaderReflectionVariable_GetType(var);
+    ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+
+    /* typeof(c) != typeof(d) */
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "d");
+    type2 = ID3D12ShaderReflectionVariable_GetType(var);
+    ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+
+    /* typeof(d) != typeof(e) */
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "e");
+    type1 = ID3D12ShaderReflectionVariable_GetType(var);
+    ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+
+    /* typeof(e) != typeof(f) */
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "f");
+    type2 = ID3D12ShaderReflectionVariable_GetType(var);
+    ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+
+    /* typeof(f) != typeof(g) */
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "g");
+    type1 = ID3D12ShaderReflectionVariable_GetType(var);
+    ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+
+    /* typeof(c) != typeof(s.h)*/
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "c");
+    type1 = ID3D12ShaderReflectionVariable_GetType(var);
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "s");
+    type3 = ID3D12ShaderReflectionVariable_GetType(var);
+    type2 = ID3D12ShaderReflectionType_GetMemberTypeByName(type3, "h");
+    ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+
+    /* typeof(s.h) == typeof(s.i)*/
+    type1 = ID3D12ShaderReflectionType_GetMemberTypeByName(type3, "i");
+    ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
+    todo ok(hr == S_OK, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
+    todo ok(hr == S_OK, "Got hr %#x.\n", hr);
+
+    /* typeof(s.i) != typeof(s.j)*/
+    type2 = ID3D12ShaderReflectionType_GetMemberTypeByName(type3, "j");
+    ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+
+    /* typeof(s.j) != typeof(k)*/
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "k");
+    type1 = ID3D12ShaderReflectionVariable_GetType(var);
+    ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+
+    /* typeof(s) == typeof(t) */
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "t");
+    type2 = ID3D12ShaderReflectionVariable_GetType(var);
+    ok(type3 != type2, "Got type3 %p, type2 %p.\n", type3, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type3);
+    todo ok(hr == S_OK, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type3);
+    todo ok(hr == S_OK, "Got hr %#x.\n", hr);
+
+    /* typeof(d) != typeof(l) */
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "d");
+    type1 = ID3D12ShaderReflectionVariable_GetType(var);
+    var = ID3D12ShaderReflection_GetVariableByName(reflection, "l");
+    type2 = ID3D12ShaderReflectionVariable_GetType(var);
+    ok(type1 != type2, "Got type1 %p, type2 %p.\n", type1, type2);
+    hr = ID3D12ShaderReflectionType_IsEqual(type1, type2);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+    hr = ID3D12ShaderReflectionType_IsEqual(type2, type1);
+    todo ok(hr == S_FALSE, "Got hr %#x.\n", hr);
+
+    refcount = ID3D12ShaderReflection_Release(reflection);
+    ok(!refcount, "Got refcount %u.\n", refcount);
+    ID3D10Blob_Release(code);
+}
+
 static void test_reflection(void)
 {
     unsigned int version, i, j;
@@ -4395,6 +4575,7 @@ static void test_reflection(void)
             test_thread_group_size_reflection_version(iid, version);
             test_stat_reflection_version(iid, version);
             test_compile_flags_reflection_version(iid, version);
+            test_type_is_equal_reflection_version(iid, version);
             vkd3d_test_pop_context();
         }
 
