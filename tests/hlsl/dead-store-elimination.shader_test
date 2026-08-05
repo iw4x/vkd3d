@@ -1,0 +1,97 @@
+% Test Dead Store Elimination, which is important so we get the right usage
+% for variables, which is important to get the same allocation of uniforms
+% fxc/d3dcompiler does.
+
+% These tests require that the dead store in question is not removed by
+% DCE, which might happen if the variable is unused, which is quite common
+% after copy-propagation.
+
+[pixel-shader]
+float i;  // In SM1-3, should get c0.
+float4 a; // In SM1-3, should not be allocated.
+float4 b; // In SM1-3, should get c1.
+
+float4 main() : sv_target
+{
+    float4 tmp[2];
+
+    tmp[0] = 0;
+    tmp[1] = a; // Dead store, must be deleted so `a` is not allocated.
+    tmp[1] = b;
+
+    return tmp[i]; // Indirect addressing preempts copy-prop.
+}
+
+[test]
+write cbv-0 (0) f32(1)
+write cbv-0 (4) f32(10, 20, 30, 40)
+write cbv-0 (8) f32(-10, -10, -10, -10)
+draw quad
+if(sm<4) probe (0, 0) f32(10, 20, 30, 40)
+if(sm>=4) probe (0, 0) f32(-10, -10, -10, -10)
+
+[pixel-shader]
+float4 a; // In SM1-3, should not be allocated.
+float4 b; // In SM1-3, should get c0.
+
+float4 main() : sv_target
+{
+    float4 tmp = b;
+
+    tmp.xy = a.zw; // Dead store, must be deleted so `a` is not allocated.
+    tmp.xy = float2(1, 2);
+    return tmp; // Loading from multiple nodes preempts copy-prop.
+}
+
+[test]
+write cbv-0 (0) f32(10, 20, 30, 40)
+write cbv-0 (4) f32(-10, -10, -10, -10)
+draw quad
+if(sm<4) probe (0, 0) f32(1, 2, 30, 40)
+if(sm>=4) probe (0, 0) f32(1, 2, -10, -10)
+
+[pixel-shader]
+float4 a; // In SM1-3, should not be allocated.
+float4 b; // In SM1-3, should get c0.
+
+float4 main() : sv_target
+{
+    float4 tmp;
+
+    tmp.w = 10 * b.w;
+    tmp.xy = a.xy; // Dead store, must be deleted so `a` is not allocated.
+    tmp.yz = b.yz;
+
+    return tmp.yyzw; // Loading from multiple nodes preempts copy-prop.
+}
+
+[test]
+write cbv-0 (0) f32(10, 20, 30, 40)
+write cbv-0 (4) f32(-10, -10, -10, -10)
+draw quad
+if(sm<4) todo probe (0, 0) f32(20, 20, 30, 400)
+if(sm>=4) probe (0, 0) f32(-10, -10, -10, -100)
+
+[pixel-shader]
+float i;  // In SM1-3, should get c0.
+float4 a; // In SM1-3, should not be allocated.
+float4 b; // In SM1-3, should get c1.
+
+float4 main() : sv_target
+{
+    float4 tmp[2];
+
+    tmp[0] = 0;
+    tmp[1] = b;
+    tmp[1].xy = a.xy; // Dead store, must be deleted so `a` is not allocated.
+
+    return float4(0, 1, tmp[i].zw); // Indirect addressing preempts copy-prop.
+}
+
+[test]
+write cbv-0 (0) f32(1)
+write cbv-0 (4) f32(10, 20, 30, 40)
+write cbv-0 (8) f32(-10, -10, -10, -10)
+draw quad
+if(sm<4) todo probe (0, 0) f32(0, 1, 30, 40)
+if(sm>=4) probe (0, 0) f32(0, 1, -10, -10)
