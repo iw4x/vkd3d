@@ -4755,10 +4755,11 @@ static void test_reflection(void)
 
 static void test_disassemble_shader(void)
 {
-    const char *code;
+    size_t size, normalized_size;
+    const char *code, *p;
+    char *normalized;
     ID3DBlob *blob;
-    size_t size;
-    int hr;
+    int hr, ret;
 
     /* A Direct3D 8 vertex shader without dcl_ instructions. */
     static const uint32_t vs_1_1[] =
@@ -4770,6 +4771,13 @@ static void test_disassemble_shader(void)
         0x00000004, 0xc00f0000, 0x90ff0000, 0xa0e40003, 0x80e40000, /* mad oPos, v0.w, c3, r0 */
         0x0000ffff,                                                 /* end                    */
     };
+
+    static const char vs_1_1_output[] =
+        "vs_1_1\n"
+        "mul r0, v0.x, c0\n"
+        "mad r0, v0.y, c1, r0\n"
+        "mad r0, v0.z, c2, r0\n"
+        "mad oPos, v0.w, c3, r0\n";
 
     static const uint32_t vs_2_0[] =
     {
@@ -4786,6 +4794,18 @@ static void test_disassemble_shader(void)
         0x0000ffff,                                                 /* end                    */
     };
 
+    static const char vs_2_0_output[] =
+        "vs_2_0\n"
+        "dcl_position v0\n"
+        "dcl_normal v1\n"
+        "dcl_color1 v2\n"
+        "dcl_texcoord v3\n"
+        "mov oPos, v0\n"
+        "mov oD1, v2\n"
+        "mov oT0.xyz, v3\n"
+        "mov oFog, v2.w\n"
+        "mov oPts, v1.w\n";
+
     /* A shader model 3 vertex shader without dcl_ instructions. */
     static const uint32_t vs_3_0[] =
     {
@@ -4794,6 +4814,10 @@ static void test_disassemble_shader(void)
         0x0000ffff,                                                 /* end                     */
     };
 
+    static const char vs_3_0_output[] =
+        "vs_3_0\n"
+        "mov o0, v0\n";
+
     /* A "shader model 4" d3dbc vertex shader. */
     static const uint32_t vs_4_0[] =
     {
@@ -4801,6 +4825,10 @@ static void test_disassemble_shader(void)
         0x02000001, 0xe00f0000, 0x90e40000,                         /* mov o0, v0              */
         0x0000ffff,                                                 /* end                     */
     };
+
+    static const char vs_4_0_output[] =
+        "vs_4_0\n"
+        "mov o0, v0\n";
 
     /* An actual shader model 4 dxbc-tpf vertex shader. */
     static const uint32_t vs_4_0_dxbc[] =
@@ -4820,39 +4848,135 @@ static void test_disassemble_shader(void)
         0x05000036, 0x001020f2, 0x00000000, 0x00101e46, 0x00000000, 0x0100003e,
     };
 
+    static const char vs_4_0_dxbc_output[] =
+        "vs_4_0\n"
+        "dcl_input v0.xyzw\n"
+        "dcl_output_siv o0.xyzw, position\n"
+        "mov o0.xyzw, v0.xyzw\n"
+        "ret \n";
+
+    /* A shader model "2.254" pixel shader with many invalid instructions. */
+    static const uint32_t ps_2_254[] =
+    {
+        0xffff02fe,
+        /* A couple maximalist instructions. */
+        0x44000042, 0xfd1d27ff, 0xb0390123, 0xf2ad0fff, 0xc5e40001,
+        0x4300001f, 0x80000004, 0xb32530e9, 0x90aa1000,
+        0x52000041, 0xa2ff0802, 0x90e51001,
+        /* Invalid values of RASTOUT and MISCTYPE. */
+        0x03010042, 0x900f0000, 0x90e41002, 0xc0e40003,
+        /* Invalid register types. */
+        0x03020042, 0xa00f0000, 0x80e41005, 0xc0e41006,
+        /* Out-of-range DCLs. */
+        0x0200001f, 0x8001000e, 0xc00f0000,
+        0x0200001f, 0xb0010001, 0xd00f0000,
+        /* Invalid flags. Usually these are just ignored. */
+        0x0207002d, 0xe0e4c000, 0xffe4c000,
+        0x010f0041, 0x8480c800,
+        0x0000ffff,
+    };
+
+    static const char ps_2_254_output[] =
+        "ps_2_254\n"
+        "+ texld_d8_sat i2047[t291.yzwx].xzw, aL_bias.ywzz, -oFog_bx2\n"
+        "+ dcl_psize_x8_pp p233[vPos.z].xz\n"
+        "+ (vFace.yyzw) texkill_x4_sat_pp_centroid s2\n"
+        "texldp v0, m2, oX3\n"
+        "texldb c0, x5, x6\n"
+        "dcl_unknown1 oPos\n"
+        "dcl_unknown oD0\n"
+        "break oT0, i0\n"
+        "texkill oC0.\n";
+
+    /* A shader with invalid instruction tokens. */
+    static const uint32_t ps_invalid[] =
+    {
+        0xffff03ff,
+        /* Invalid instructions. */
+        0x00000031,
+        0x4000003f,
+        0x00000064,
+        0x0000fffc,
+        0x0000ffff,
+    };
+
+    static const char ps_invalid_output[] =
+        "ps_3_sw\n"
+        "???\n"
+        "+ ???\n"
+        "???\n"
+        "???\n";
+
+    static const struct
+    {
+        const uint32_t *shader;
+        unsigned int size;
+        const char *output;
+    }
+    tests[] =
+    {
+        {vs_1_1, sizeof(vs_1_1), vs_1_1_output},
+        {vs_2_0, sizeof(vs_2_0), vs_2_0_output},
+        {vs_3_0, sizeof(vs_3_0), vs_3_0_output},
+        {vs_4_0, sizeof(vs_4_0), vs_4_0_output},
+        {vs_4_0_dxbc, sizeof(vs_4_0_dxbc), vs_4_0_dxbc_output},
+        {ps_2_254, sizeof(ps_2_254), ps_2_254_output},
+        {ps_invalid, sizeof(ps_invalid), ps_invalid_output},
+    };
+
     hr = D3DDisassemble(vs_1_1, 0, 0, NULL, &blob);
     ok(hr == E_INVALIDARG, "Got hr %#x.\n", hr);
 
-    hr = D3DDisassemble(vs_1_1, sizeof(vs_1_1), 0, NULL, &blob);
-    ok(hr == S_OK, "Got hr %#x.\n", hr);
-    ID3D10Blob_Release(blob);
+    for (unsigned int i = 0; i < ARRAY_SIZE(tests); ++i)
+    {
+        vkd3d_test_push_context("Test %u", i);
 
-    hr = D3DDisassemble(vs_2_0, sizeof(vs_2_0), 0, NULL, &blob);
-    ok(hr == S_OK, "Got hr %#x.\n", hr);
-    code = ID3D10Blob_GetBufferPointer(blob);
-    size = ID3D10Blob_GetBufferSize(blob);
-    ok(size == strlen(code) + 1, "Expected size %u, got %u.\n",
-            (unsigned int)strlen(code) + 1, (unsigned int)size);
-    ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
-    ID3D10Blob_Release(blob);
+        hr = D3DDisassemble(tests[i].shader, tests[i].size, 0, NULL, &blob);
+        todo_if (i == 3 || i == 5 || i == 6) ok(hr == S_OK, "Got hr %#x.\n", hr);
+        if (FAILED(hr))
+        {
+            vkd3d_test_pop_context();
+            continue;
+        }
 
-    hr = D3DDisassemble(vs_3_0, sizeof(vs_3_0), 0, NULL, &blob);
-    ok(hr == S_OK, "Got hr %#x.\n", hr);
-    ID3D10Blob_Release(blob);
+        code = ID3D10Blob_GetBufferPointer(blob);
+        size = ID3D10Blob_GetBufferSize(blob);
+        ok(size == strlen(code) + 1, "Expected size %u, got %u.\n",
+                (unsigned int)strlen(code) + 1, (unsigned int)size);
 
-    hr = D3DDisassemble(vs_4_0, sizeof(vs_4_0), 0, NULL, &blob);
-    todo ok(hr == S_OK, "Got hr %#x.\n", hr);
-    if (SUCCEEDED(hr))
+        /* Normalize a bit by removing comments and initial whitespace. */
+        normalized = malloc(size);
+        normalized_size = 0;
+        p = code;
+        while (*p)
+        {
+            unsigned int line_len = 0;
+
+            while (*p == ' ')
+                ++p;
+            while (p[line_len] && p[line_len] != '\n')
+                ++line_len;
+            if (p[line_len] == '\n')
+                ++line_len;
+            if (p[0] == '\n' || (p[0] == '/' && p[1] == '/'))
+            {
+                p += line_len;
+                continue;
+            }
+            memcpy(normalized + normalized_size, p, line_len);
+            normalized_size += line_len;
+            p += line_len;
+        }
+        normalized[normalized_size++] = 0;
+
+        ret = strcmp(normalized, tests[i].output);
+        todo ok(!ret, "Output didn't match.\n");
+        if (ret)
+            trace("Got output:\n%s", normalized);
+        free(normalized);
         ID3D10Blob_Release(blob);
-
-    hr = D3DDisassemble(vs_4_0_dxbc, sizeof(vs_4_0_dxbc), 0, NULL, &blob);
-    ok(hr == S_OK, "Got hr %#x.\n", hr);
-    code = ID3D10Blob_GetBufferPointer(blob);
-    size = ID3D10Blob_GetBufferSize(blob);
-    ok(size == strlen(code) + 1, "Expected size %u, got %u.\n",
-            (unsigned int)strlen(code) + 1, (unsigned int)size);
-    ok(code[size - 1] == 0, "Expected null termination, got %#x.\n", code[size - 1]);
-    ID3D10Blob_Release(blob);
+        vkd3d_test_pop_context();
+    }
 }
 
 static void test_compile_null_terminator(void)
