@@ -2239,7 +2239,7 @@ static enum vkd3d_result vsir_program_lower_clz(struct vsir_program *program,
      * {i,u}log2 srLOG2, SRC
      * xor srXOR, srLOG2, l(0x1f)
      * ieq srIEQ, srLOG2, l(~0u)
-     * movc DST, srIEQ, l(~0u), srXOR */
+     * movc DST, srIEQ, srLOG2, srXOR */
 
     log2_op = ins->opcode == VSIR_OP_FIRSTBIT_HI ? VSIR_OP_ULOG2 : VSIR_OP_ILOG2;
 
@@ -2274,8 +2274,7 @@ static enum vkd3d_result vsir_program_lower_clz(struct vsir_program *program,
         goto fail;
     ins->dst[0] = dst[0];
     vsir_src_operand_init_ssa(&ins->src[0], ieq_id, VSIR_DATA_U32, dst[0].reg.dimension);
-    vsir_src_operand_init(&ins->src[1], VSIR_REGISTER_IMMCONST, dst[0].reg.data_type, 0);
-    ins->src[1].reg.u.immconst_u32[0] = ~0u;
+    vsir_src_operand_init_ssa(&ins->src[1], log2_id, dst[0].reg.data_type, dst[0].reg.dimension);
     vsir_src_operand_init_ssa(&ins->src[2], xor_id, dst[0].reg.data_type, dst[0].reg.dimension);
 
     return VKD3D_OK;
