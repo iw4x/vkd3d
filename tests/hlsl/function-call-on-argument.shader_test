@@ -1,0 +1,46 @@
+[pixel-shader]
+struct apple
+{
+    float f;
+};
+
+apple fun(float i)
+{
+    struct apple ap;
+    ap.f = i;
+    return ap;
+}
+
+float addem(apple a, apple b, apple c)
+{
+    return 100 * a.f + 10 * b.f + c.f;
+}
+
+float4 main() : sv_target
+{
+    return addem(fun(1), fun(2), fun(3));
+}
+
+[test]
+draw quad
+todo(sm<6) probe (0, 0) f32(123, 123, 123, 123);
+
+[pixel-shader]
+float2x4 fun(float i)
+{
+    return float2x4(1000 * i, 100 * i, 10 * i, i, 0, 0, 0, 0);
+}
+
+float4 addem(float2x4 a, float2x4 b, float2x4 c)
+{
+    return a[0] + b[0] + c[0];
+}
+
+float4 main() : sv_target
+{
+    return addem(fun(1), fun(2), fun(3));
+}
+
+[test]
+draw quad
+todo(sm<6) probe (0, 0) f32(6000, 600, 60, 6)

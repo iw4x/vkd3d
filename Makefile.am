@@ -171,6 +171,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/for.shader_test \
 	tests/hlsl/frac.shader_test \
 	tests/hlsl/frexp.shader_test \
+	tests/hlsl/function-call-on-argument.shader_test \
 	tests/hlsl/function-cast.shader_test \
 	tests/hlsl/function-modifiers.shader_test \
 	tests/hlsl/function-overload.shader_test \
