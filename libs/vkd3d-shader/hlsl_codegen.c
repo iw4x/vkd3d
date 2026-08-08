@@ -4656,13 +4656,14 @@ static void split_copy(struct hlsl_ctx *ctx, struct hlsl_ir_store *store,
     struct hlsl_ir_node *c, *split_load;
     struct hlsl_block block;
 
+    /* It is possible that the variable was modified between the rhs load and the
+     * store instruction, so we insert the split load next to the load itself. */
     hlsl_block_init(&block);
-
     c = hlsl_block_add_uint_constant(ctx, &block, idx, &store->node.loc);
     split_load = hlsl_block_add_load_index(ctx, &block, &load->src, c, &store->node.loc);
+    list_move_before(&load->node.entry, &block.instrs);
 
     hlsl_block_add_store_index(ctx, &block, &store->lhs, c, split_load, 0, &store->node.loc);
-
     list_move_before(&store->node.entry, &block.instrs);
 }
 
