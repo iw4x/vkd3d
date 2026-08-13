@@ -4684,7 +4684,7 @@ static void test_interface_reflection_version(const IID *iid, unsigned int compi
         return;
 
     ret = ID3D12ShaderReflection_GetNumInterfaceSlots(reflection);
-    todo ok(ret == 9, "Got ret %u.\n", ret);
+    ok(ret == 9, "Got ret %u.\n", ret);
 
     refcount = ID3D12ShaderReflection_Release(reflection);
     ok(!refcount, "Got refcount %u.\n", refcount);
