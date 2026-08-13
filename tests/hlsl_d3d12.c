@@ -4679,12 +4679,12 @@ static void test_interface_reflection_version(const IID *iid, unsigned int compi
 
     expect_hr = reflect_hr(iid, compiler_version, 40);
     hr = D3DReflectVKD3D(dxbc, sizeof(dxbc), iid, (void **)&reflection, compiler_version);
-    todo_if(expect_hr != E_INVALIDARG) ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
     if (FAILED(hr))
         return;
 
     ret = ID3D12ShaderReflection_GetNumInterfaceSlots(reflection);
-    ok(ret == 9, "Got ret %u.\n", ret);
+    todo ok(ret == 9, "Got ret %u.\n", ret);
 
     refcount = ID3D12ShaderReflection_Release(reflection);
     ok(!refcount, "Got refcount %u.\n", refcount);

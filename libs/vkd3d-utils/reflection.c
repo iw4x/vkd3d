@@ -1203,8 +1203,7 @@ struct rdef_rd11
     uint32_t variable_size;
     uint32_t type_size;
     uint32_t field_size;
-    /* Always zero. Possibly either padding or a null terminator? */
-    uint32_t zero;
+    uint32_t interface_slot_count;
 };
 
 struct rdef_buffer
@@ -1575,12 +1574,6 @@ static HRESULT parse_rdef(struct d3d12_reflection *reflection, const struct vkd3
         if (rd11->field_size != sizeof(struct rdef_field))
         {
             FIXME("Unexpected field size %#x.\n", rd11->field_size);
-            return E_INVALIDARG;
-        }
-
-        if (rd11->zero)
-        {
-            FIXME("Unexpected field %#x.\n", rd11->zero);
             return E_INVALIDARG;
         }
     }
