@@ -13286,10 +13286,6 @@ static void vsir_validate_descriptor_indices(struct validation_context *ctx,
 {
     const struct vsir_descriptor *descriptor;
 
-    if (reg->idx[0].rel_addr)
-        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_INDEX,
-                "Non-NULL indirect address for the ID of a register of type \"%s\".", name);
-
     if (!ctx->program->normalisation_flags.has_descriptor_info)
         return;
 
