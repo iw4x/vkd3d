@@ -653,9 +653,6 @@ bool vsir_program_add_icb(struct vsir_program *program, struct vkd3d_shader_imme
     return true;
 }
 
-static struct vsir_src_operand *vsir_program_clone_src_operands(
-        struct vsir_program *program, const struct vsir_src_operand *operands, size_t count);
-
 static bool vsir_operand_clone_indirect_indices(struct vsir_operand *reg, struct vsir_program *program)
 {
     size_t i;
@@ -691,7 +688,7 @@ static struct vsir_dst_operand *vsir_program_clone_dst_operands(
     return ret;
 }
 
-static struct vsir_src_operand *vsir_program_clone_src_operands(
+struct vsir_src_operand *vsir_program_clone_src_operands(
         struct vsir_program *program, const struct vsir_src_operand *operands, size_t count)
 {
     struct vsir_src_operand *ret;
