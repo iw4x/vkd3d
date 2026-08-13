@@ -15478,11 +15478,14 @@ static void vsir_validate_itoi(struct validation_context *ctx, const struct vkd3
 
 static void vsir_validate_label(struct validation_context *ctx, const struct vkd3d_shader_instruction *instruction)
 {
-    vsir_validate_cf_type(ctx, instruction, VSIR_CF_BLOCKS);
-    if (instruction->src_count >= 1 && !vsir_operand_is_label(&instruction->src[0].reg))
-        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
-                "Invalid register of type %#x in a LABEL instruction, expected LABEL.",
-                instruction->src[0].reg.type);
+    if (instruction->src_count >= 1 && instruction->src[0].reg.type != VSIR_REGISTER_FUNCTIONBODY)
+    {
+        vsir_validate_cf_type(ctx, instruction, VSIR_CF_BLOCKS);
+        if (!vsir_operand_is_label(&instruction->src[0].reg))
+            validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
+                    "Invalid register of type %#x in a LABEL instruction, expected LABEL.",
+                    instruction->src[0].reg.type);
+    }
 
     if (ctx->inside_block)
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_CONTROL_FLOW,

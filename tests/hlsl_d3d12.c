@@ -4679,7 +4679,7 @@ static void test_interface_reflection_version(const IID *iid, unsigned int compi
 
     expect_hr = reflect_hr(iid, compiler_version, 40);
     hr = D3DReflectVKD3D(dxbc, sizeof(dxbc), iid, (void **)&reflection, compiler_version);
-    todo ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
+    todo_if(expect_hr != E_INVALIDARG) ok(hr == expect_hr, "Got hr %#x, expected %#x.\n", hr, expect_hr);
     if (FAILED(hr))
         return;
 
