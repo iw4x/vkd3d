@@ -1,9 +1,9 @@
-The vkd3d team is proud to announce that release 2.0 of vkd3d, the 3D graphics
+The vkd3d team is proud to announce that release 2.1 of vkd3d, the 3D graphics
 porting library, is now available.
 
 The source is available from the following location:
 
-  <https://dl.winehq.org/vkd3d/source/vkd3d-2.0.tar.xz>
+  <https://dl.winehq.org/vkd3d/source/vkd3d-2.1.tar.xz>
 
 The current source can also be pulled directly from either of these git
 repositories:
@@ -14,427 +14,447 @@ repositories:
 Vkd3d is available thanks to the work of multiple people. See the file AUTHORS
 for the complete list.
 
-# What's new in vkd3d 2.0
-
-### libvkd3d
-
-  - Resources with a combined depth/stencil format like
-    DXGI_FORMAT_R32G8X24_TYPELESS can be created without the
-    D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL flag being set. It's somewhat rare
-    for applications to create such resources; typically resources with a
-    combined depth/stencil format are either used with both a depth/stencil view
-    and a shader resource view, or exclusively with a depth/stencil view.
-
-  - The syntax for the VKD3D_DEBUG environment variable has been extended to
-    allow more precise control over the debug output. See the ‘Environment
-    variables’ section of the README for a description of the extended syntax.
+# What's new in vkd3d 2.1
 
 ### libvkd3d-shader
 
   - New features and improvements for the HLSL source type:
-    - Store operations to structured thread group shared memory.
-    - Interlocked operations on structured and/or arrayed unordered access views
-      and thread group shared memory.
-    - A new common subexpression elimination optimisation pass.
-    - Initial support for loops in shader model 2-3 target profiles.
-    - More efficient usage of temporary registers, primarily due to improvements
-      to the register allocator and the introduction of an output write hoisting
-      pass. This is particularly relevant for shader model 1-3 target profiles,
-      where the number of temporary registers is relatively limited, and we may
-      otherwise not be able to compile some shaders.
-    - The tex3Dbias(), tex3Dlod(), and texCUBElod() intrinsic functions.
-    - The ‘SV_ClipDistance’ and ‘SV_CullDistance’ input/output semantics.
-    - The ‘SV_StencilRef’ pixel shader output semantic.
-    - Corrected handling of InterlockedMin() and InterlockedMax() operations on
-      inputs with differing signedness. When either of the inputs has an ‘uint’
-      type, the other is converted/promoted to ‘uint’ as well.
-    - The VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_MAP_SEMANTIC_NAMES flag now
-      additionally maps the shader model 3 ‘VFACE’ and ‘VPOS’ semantic names to
-      their shader model 4+ equivalents.
-    - Constant folding of floating-point modulo expressions. I.e., ‘x % y’ where
-      ‘x’ and ‘y’ are floating-point constants.
-    - The scope of variables declared in ‘for’ loop initialisation clauses has
-      been expanded to extend beyond the end of the loop. I.e.,  
-      ‘for (int i = 0; i < 10; ++i); return i;’ is valid HLSL. That's different
-      from e.g. C99, where the scope of ‘i’ would be limited to the loop.
-    - Floating-point literal parsing has been made independent of the current
-      locale. Previously, the HLSL parser would use the current locale's decimal
-      separator when parsing floating-point literals, instead of the HLSL
-      decimal separator, which is always the ‘.’ character. Note that this only
-      affects programs that set a locale other than the initial ‘C’ locale, for
-      example by calling the setlocale() function.
+    - A flaw has been fixed where nested function calls of the form
+      ‘g(f(1), f(2), f(3));’ would be compiled like ‘g(f(3), f(3), f(3));’.
+    - A new dead store elimination pass. Its primary purpose is to eliminate
+      unused uniforms in shader model 1-3 target profiles, allowing vkd3d-shader
+      to more closely match the constant table layout produced by
+      d3dcompiler/fxc.
+    - Arithmetic operations on ‘half’ types in shader model 4 and 5 target
+      profiles.
+    - Stricter validation of allowed and required semantics on shader inputs and
+      outputs. Notably:
+      - User-defined semantics on outputs are explicitly rejected in shader
+        model 4 and 5 pixel shader target profiles. These never worked, but
+        would previously either be rejected by the target, or produce invalid
+        output.
+      - Semantics on unused input and outputs are not validated in shader model
+        1-3 target profiles. This matches the behaviour of d3dcompiler/fxc.
+      - Shader model 1-3 vertex shader target profiles require ‘position’
+        outputs.
+      - Shader model 1-3 pixel shader target profiles require ‘color’ outputs.
 
-  - New features and improvements for the effects (FX) source type:
-    - Parsing of operand indices in eval() block was broken and has been fixed.
-    - The ‘umod’ FXLVM operation is recognised.
+  - The effects (FX) target can output numeric states and shader objects in
+    ‘fx_2_0’ profiles.
 
   - New features and improvements for the legacy Direct3D byte-code source type:
-    - The following instructions:
-      - m4x4, m3x4, m4x3, m3x3, and m3x2
-      - phase
-      - texdepth
-      - texreg2ar, texreg2gb, and texreg2rgb
-    - The ‘\_dz’, ‘\_db’, ‘\_dw’, and ‘\_da’ source modifiers. These are used
-      with the ‘texcrd’ and ‘texld’ instructions.
-    - The ‘vFace’ and ‘vPos’ pixel shader input registers.
-    - Shader model 3 vertex shader point size outputs. In shader model 1 and 2
-      point size output uses the ‘oPts’ output register; shader model 3 uses a
-      generic ‘o’ register with a ‘dcl_psize’ declaration.
-    - Shader model 1 and 2 vertex shader outputs are clamped to the 0 to 1
-      range.
+    - The ‘sub’ and ‘break_cmp’ instructions.
+    - The ‘\_x2’, ‘\_x4’, ‘\_x8’, ‘\_d2’, ‘\_d4’, and ‘\_d8’ instruction
+      modifiers.
+    - The ‘\_bias’, ‘\_x2’, ‘\_bx2’, ‘negate’ (‘-register’), and ‘invert’
+      (‘1 - register’) source operand modifiers.
 
-  - The DXIL source type supports forward-referencing pointers in load, store,
-    atomic read/modify/write, and compare/exchange operations.
+  - The SPIR-V target supports floating-point to 64-bit signed and unsigned
+    integer conversion operations. These typically originate from DXIL sources.
 
-  - The DXIL source type supports pixel shader specified stencil reference
-    values.
-
-  - The experimental Metal Shading Language (MSL) target supports pixel shader
-    specified stencil reference values.
-
-  - The Direct3D shader assembly target supports 16-bit immediate constants.
-    These are typically produced by DXIL sources.
-
-  - The Direct3D shader assembly target supports the following global flags:
-    - ‘64UAVs’
-    - ‘ROVs’
-    - ‘UAVLoadAdditionalFormats’
-    - ‘UAVsAtEveryStage’
-    - ‘allResourcesBound’
-    - ‘enable11_1ShaderExtensions’
-    - ‘int64Ops’
-    - ‘nativeLowPrecision’
-    - ‘stencilRef’
-    - ‘viewportAndRTArrayIndex’
-    - ‘waveOps’
+  - New features and improvements for the experimental OpenGL Shading Language
+    target type:
+    - Indirect addressing of shader input registers.
+    - Load and store operations on raw and structured unordered access views and
+      thread group shared memory.
+    - Atomic compare/exchange and integer addition operations.
+    - Bit scanning and counting operations.
+    - Barrier operations.
+    - ‘SV_GroupID’, ‘SV_GroupIndex’, and ‘SV_GroupThreadID’ inputs.
 
   - New interfaces:
-    - The vkd3d_shader_scan_denormal_mode_info structure extends the
-      vkd3d_shader_compile_info structure, and can be used to retrieve the
-      denormal mode used for floating-point numbers.
-    - The VKD3D_SHADER_SPIRV_EXTENSION_KHR_FLOAT_CONTROLS enumeration value
-      indicates support for the SPV_KHR_float_controls extension in the SPIR-V
-      target environment.
-    - The VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16 compile option specifies
-      the denormal mode to use for 16-bit floating-point numbers.
-    - The VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32 compile option specifies
-      the denormal mode to use for 32-bit floating-point numbers.
-    - The VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64 compile option specifies
-      the denormal mode to use for 64-bit floating-point numbers.
-    - The VKD3D_SHADER_COMPILE_OPTION_CONST_GLOBAL_UNIFORMS flag specifies that
-      all uniforms with global scope should be considered ‘const’ in HLSL
-      sources.
-    - When targeting VKD3D_SHADER_API_2_0, compilation will fail when a required
-      floating-point denormal mode can't be specified in the target shader. For
-      the SPIR-V target, this requires the SPV_KHR_float_controls extension, as
-      well as the corresponding capabilities in the target environment. The
-      earlier mentioned compile options allow overriding the denormal modes
-      specified by the source shader.
-
-  - The syntax for the VKD3D_SHADER_DEBUG environment variable has been extended
-    to allow more precise control over the debug output. See the ‘Environment
-    variables’ section of the README for a description of the extended syntax.
+    - The VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_ALLOW_HALF_GLOBALS flag
+      specifies that global variables with ‘half’ types in HLSL sources should
+      be compiled as if they had the corresponding ‘float’ types.
 
 ### libvkd3d-utils
 
-  - The D3DCompile(), D3DCompile2(), D3DCompile2VKD3D(), and D3DPreprocess()
-    functions support using D3D_COMPILE_STANDARD_FILE_INCLUDE as include
-    handler.
+  - New shader reflection features and improvements:
+    - The GetDesc() method of the ID3D12ShaderReflection interface now returns
+      all information contained in the D3D12_SHADER_DESC structure.
+    - The following methods of the ID3D12ShaderReflection interface are
+      implemented:
+      - GetBitwiseInstructionCount()
+      - GetConstantBufferByName()
+      - GetConversionInstructionCount()
+      - GetGSInputPrimitive()
+      - GetMovInstructionCount()
+      - GetMovcInstructionCount()
+      - GetResourceBindingDescByName()
+      - GetThreadGroupSize()
+      - GetVariableByName()
+      - IsSampleFrequencyShader()
+    - The GetVariableByName() method of the ID3D12ShaderReflectionConstantBuffer
+      interface is implemented.
+    - The following methods of the ID3D12ShaderReflectionType interface are
+      implemented:
+      - GetMemberTypeByName()
+      - GetMemberTypeName()
+      - IsEqual()
+    - The ID3D10ShaderReflection, ID3D10ShaderReflection1, and
+      ID3D11ShaderReflection interfaces are implemented. Where applicable,
+      everything above also applies to the version 10, 10.1, and 11 equivalents
+      of the methods mentioned above.
 
-  - Unless the D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY flags is specified,
-    D3DCompile2VKD3D() will consider all uniforms with global scope to be
-    ‘const’ for compiler versions 37 and up. This is also the case for
-    D3DCompile() and D3DCompile2(), which behave like compiler version 47.
+  - When the D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY flag is specified,
+    D3DCompile2VKD3D() will consider global variables with ‘half’ types to have
+    the corresponding ‘float’ types. Without this flag, global variables with
+    ‘half’ types are not allowed. This change also applies to D3DCompile() and
+    D3DCompile2(), which behave like D3DCompile2VKD3D() called with a
+    ‘compiler_version’ of 47.
 
-### Changes since vkd3d 1.19:
+  - New interfaces:
+    - D3DPreprocessVKD3D() is a variant of D3DPreprocess() that allows
+      targeting the behaviour of a specific d3dcompiler version.
+    - D3DReflectVKD3D() is a variant of D3DReflect() that allows
+      targeting the behaviour of a specific d3dcompiler version.
+    - D3D10ReflectShader() is equivalent to calling D3DReflectVKD3D() with an
+      ‘iid’ of ‘IID_ID3D10ShaderReflection’ and a ‘version’ of 0.
+
+### vkd3d-compiler
+
+  - The ‘--allow-half-globals’ option specifies that global variables with
+    ‘half’ types in HLSL sources should be compiled as if they had the
+    corresponding ‘float’ types.
+
+  - The Windows build of vkd3d-compiler will default to colour output when it's
+    able to determine that the output is a device capable of interpreting
+    virtual terminal sequences.
+
+### vkd3d-dxbc
+
+  - The ‘--input’ option specifies the input to use for subsequent ‘--update’
+    options.
+
+  - The ‘--update’ option specifies a section to update with the contents of the
+    current input. For example,
+    ‘vkd3d-dxbc -i priv.bin -u t:PRIV in.dxbc > out.dxbc’ would replace the
+    private data section of ‘in.dxbc’ with the contents of ‘priv.bin’, and write
+    the result to ‘out.dxbc’.
+
+  - The Windows build of vkd3d-dxbc will default to colour output when it's able
+    to determine that the output is a device capable of interpreting virtual
+    terminal sequences.
+
+### Changes since vkd3d 2.0:
 ```
-Alistair Leslie-Hughes (2):
-      include: Define S_ISREG in vkd3d_shader_utils.h if needed.
-      vkd3d-utils: Include "direct.h" for getcwd() when building with the Wine/msvcrt headers.
+Elizabeth Figura (55):
+      vkd3d-utils: Add a D3DPreprocessVKD3D() that allows configuring DLL version.
+      tests/hlsl_d3d12: Test zero sized includes.
+      vkd3d-utils: Factor out an init_preprocess_info() helper.
+      vkd3d-utils: Always supply a "pfn_close_include" callback in init_preprocess_info().
+      vkd3d-utils: Pass the include context structure for all includes in init_preprocess_info().
+      vkd3d-utils: Return E_INVALIDARG when opening an empty file in open_include().
+      vkd3d-shader/d3dbc: Rename d3dbc_compiler variables to "compiler".
+      vkd3d-shader/hlsl: Remove a redundant hlsl_types_are_equal().
+      tests: Decrement "refcount_empty3" in test_include_Close().
+      vkd3d-shader/hlsl: Remove some obsolete block parameters.
+      vkd3d-shader/hlsl: Don't call allocate_register_reservations() for semantics.
+      vkd3d-shader/hlsl: Remove an obsolete comment.
+      vkd3d-shader/d3dbc: Handle 1.x COLOR in sm1_register_from_semantic_name().
+      vkd3d-shader/hlsl: Remove an unnecessary check for 1.x PS output.
+      vkd3d-shader/ir: Introduce a separate register type for oPts.
+      tests/shader_runner: Account for tessellation in get_runner_test_mask().
+      vkd3d-shader/hlsl: Get rid of the "optimize" argument to allocate_semantic_register().
+      vkd3d-shader/hlsl: Use allocators corresponding to the signature in allocate_semantic_registers().
+      vkd3d-shader/hlsl: Call generate_vsir_signature_entry() from allocate_semantic_register().
+      vkd3d-shader/hlsl: Move some validation to allocate_semantic_register().
+      vkd3d-shader/hlsl: Move signature construction directly into allocate_semantic_register().
+      tests/hlsl: Test semantics required by vertex and pixel shaders.
+      vkd3d-shader/hlsl: Validate that position is output for d3dbc targets.
+      vkd3d-shader/hlsl: Validate that colour is output for d3dbc targets.
+      vkd3d-shader/hlsl: Simplify updating temp_count for 1.x in allocate_temp_registers().
+      vkd3d-shader/hlsl: Process the loop iterator in transformation passes.
+      vkd3d-shader/hlsl: Rename some deref functions to hlsl_deref_*().
+      vkd3d-shader/hlsl: Add a hlsl_deref_init_child() helper.
+      vkd3d-shader/hlsl: Construct a deref directly in prepend_input_var_copy().
+      vkd3d-shader/hlsl: Construct a deref directly in append_output_var_copy().
+      vkd3d-shader/hlsl: Use hlsl_block_add_*() helpers in prepend_input_copy().
+      vkd3d-shader/hlsl: Use hlsl_block_add_load_index() in lower_index_load().
+      vkd3d-shader/hlsl: Use hlsl_block_add_load_index() in copy_propagation_replace_with_deref().
+      vkd3d-shader/hlsl: Pass a block to hlsl_new_load_parent().
+      vkd3d-shader/hlsl: Use block helpers in lower_return().
+      vkd3d-shader/hlsl: Add a hlsl_block_add_bool_constant() helper.
+      vkd3d-shader/hlsl: Use block helpers in prepend_uniform_copy().
+      vkd3d-shader/hlsl: Make hlsl_new_store_index() static.
+      tests/hlsl: Add a v# indexing shader test.
+      vkd3d-shader/glsl: Copy outputs using their element index in shader_glsl_shader_epilogue().
+      vkd3d-shader/glsl: Declare separate variables for each input signature element.
+      vkd3d-shader/glsl: Handle arrayed inputs.
+      vkd3d-shader/glsl: Implement support for indirect input register addressing.
+      vkd3d-shader: Use the vsir signature in vsir_program_copy_d3dbc_input_to_indexable_temp().
+      vkd3d-shader/glsl: Do not skip UNUSED outputs with a system value.
+      vkd3d-shader/glsl: Do not guard RET behaviour for sm1.
+      vkd3d-shader/hlsl: Enable MINIMUM_PRECISION when generating the vsir signature.
+      vkd3d-shader/hlsl: Handle sm4 TARGET in generate_signature_entry().
+      vkd3d-shader/hlsl: Fix mask handling in sm1_generate_vsir_init_dst_operand_from_deref().
+      vkd3d-shader/d3dbc: Introduce struct d3dbc_instruction.
+      vkd3d-shader/d3dbc: Introduce struct d3dbc_semantic.
+      vkd3d-shader/d3dbc: Move TEXKILL normalisation to shader_sm1_read_instruction().
+      vkd3d-shader/d3dbc: Introduce a separate field in d3dbc_instruction for DEF* constants.
+      vkd3d-shader/d3dbc: Introduce struct d3dbc_operand.
+      vkd3d-shader/d3dbc: Introduce enum d3dbc_register_type.
 
-Anna (navi) Figueiredo Gomes (8):
-      vkd3d-shader/tpf: Recognize the SV_ClipDistance and SV_CullDistance semantics.
-      tests/hlsl_d3d12: Add a Clip/Cull reflection test.
-      vkd3d-shader/hlsl: Group clip/cull registers together exclusively.
-      vkd3d-shader/tpf: Check the semantic index for clip/cull semantics.
-      vkd3d-shader/fx: Parse all indexes for eval() registers.
-      vkd3d-shader/fx: Add the "umod" fxlc opcode name.
-      vkd3d-shader/fx: Print "expr" registers without index.
-      vkd3d-shader/fx: Avoid ssize_t in fx_print_fxlc_argument().
+Evan Tang (1):
+      tests/d3d12: Test buffer SRVs with single-texel offsets.
 
-Elizabeth Figura (48):
-      tests: Test unterminated #if.
-      vkd3d-shader/preproc: Print a warning when a macro in a directive is unterminated.
-      vkd3d-shader/preproc: Clean up directive_func at the end of parsing too.
-      vkd3d-shader/preproc: Constify a few macro pointers.
-      vkd3d-shader/preproc: Reset and cleanup the function state in more places.
-      vkd3d-shader/hlsl: Pass the resource load type to intrinsic_tex().
-      vkd3d-shader/hlsl: Implement tex3Dbias().
-      vkd3d-shader/hlsl: Implement tex3Dlod().
-      vkd3d-shader/hlsl: Implement texCUBElod().
-      tests/hlsl: Test specifying const on a cbuffer uniform.
-      vkd3d-shader/hlsl: Allow uninitialized const variables inside cbuffers.
-      vkd3d-shader/hlsl: Store the compatibility flags directly.
-      vkd3d-shader/hlsl: Introduce a compile option to make global uniform variables const.
-      vkd3d-utils: Enable VKD3D_SHADER_COMPILE_OPTION_CONST_GLOBAL_UNIFORMS where appropriate.
-      vkd3d-shader/hlsl: Convert constant vector indices to swizzles.
-      tests/hlsl: Avoid [require] in rt-get-sample-info.
-      tests/hlsl: Test swizzling done by sampleinfo.
-      vkd3d-shader/ir: Do not extend SSA liveness in loops more than necessary.
-      vkd3d-shader/d3dbc: Validate temporary register limits.
-      vkd3d-shader/d3dbc: Convert PHASE to NOP.
-      vkd3d-shader/ir: Lower _dw and _dz modifiers.
-      tests/shader_runner: Take hlsl_hrs into account when adding sm1/sm4/sm6 versions to the test mask.
-      vkd3d-shader/hlsl: Map VPOS to SV_Position for sm4.
-      vkd3d-shader/d3dbc: Lower vPos.
-      tests/hlsl: Test VPOS.
-      tests/shader_runner_d3d9: Implement support for depth resources.
-      vkd3d-shader/d3dbc: Add DEPTHOUT to io_dcls.
-      vkd3d-shader/d3dbc: Implement TEXDEPTH.
-      vkd3d-shader/ir: Add validation rules for TEXDEPTH.
-      vkd3d-shader/ir: Introduce vsir_register_type_get_name().
-      vkd3d-shader/ir: Introduce an output write hoisting pass.
-      vkd3d-shader/ir: Add traces to vsir copy propagation.
-      vkd3d-shader/hlsl: Handle HLSL_OP3_TERNARY in sm1_generate_vsir().
-      vkd3d-shader/hlsl: Handle HLSL_OP1_FLOOR in sm1_generate_vsir().
-      vkd3d-shader/hlsl: Handle HLSL_OP1_CEIL in sm1_generate_vsir().
-      tests/hlsl: Test VFACE.
-      vkd3d-shader/hlsl: Validate SV_IsFrontFace width.
-      vkd3d-shader/d3dbc: Lower vFace.
-      vkd3d-shader/hlsl: Rename convert_numeric_type() to hlsl_change_base_type() and use it in more places.
-      vkd3d-shader/hlsl: Map VFACE to SV_IsFrontFace for sm4.
-      vkd3d-shader/d3dbc: Move oPts/oFog scanning to d3dbc_scan_register().
-      vkd3d-shader/d3dbc: Fix a check for VKD3DSPR_COMBINED_SAMPLER in d3dbc_parse_operand().
-      vkd3d-shader: Fix TEXDEPTH write mask validation.
-      tests: Add d3dbc/texdepth to the tests list.
-      tests: Move bump.shader_test to d3dbc/.
-      tests/hlsl: Remove some unreachable todos from pixel-position.shader_test.
-      vkd3d-shader/hlsl: Use hlsl_clone_semantic() in hlsl_type_clone().
-      vkd3d-utils: Do not call ID3DInclude_Close() for NULL code.
-
-Francisco Casas (46):
-      vkd3d-shader/hlsl: Identify user-provided int loop limiter uniforms.
-      vkd3d-shader/hlsl: Allocate a 255 int for SM3 loops without limiter.
-      vkd3d-shader/hlsl: Implement SM3 loops without user-provided int uniform limiters.
-      vkd3d-shader/hlsl: Generate SM1 break vsir instructions.
-      vkd3d-shader/d3dbc: Write REP, ENDREP, and BREAK instructions.
-      vkd3d-shader/d3dbc: Write DEFI instructions.
-      vkd3d-shader/ir: Allocate independent outpointid operands.
-      vkd3d-shader/dxil: Allocate independent outpointid operands.
-      vkd3d-shader/dxil: Allocate new indirect indices when copying template operands.
-      vkd3d-shader/ir: Validate that source operands are referenced only once.
-      tests/hlsl: Test out-of-bounds vector indexing.
-      tests/hlsl: Add scope tests for 'for' loop initializers.
-      vkd3d-shader/hlsl: Declare vars on loop initialization as outside the loop.
-      vkd3d-shader/ir: Clone rel_addrs for second use of SRC0 in vsir_program_lower_lrp().
-      vkd3d-shader/ir: Clone rel_addrs for second use of SRC1 in vsir_program_lower_pow().
-      vkd3d-shader/ir: Clone rel_addrs for multiple uses of SRC in vsir_program_lower_texbem().
-      vkd3d-common: Track the debug level per translation unit.
-      vkd3d-common: Introduce debug classes.
-      vkd3d-common: Introduce debug channels.
-      vkd3d-shader/hlsl: Use a separate debug channel for copy propagation traces.
-      tests/hlsl: Test COLOR semantic clamping on shader model 2.0.
-      tests/hlsl: Test COLOR semantic clamping on shader model 1.0.
-      vkd3d-shader/ir: Clamp COLOR outputs on vs_2_0 and lower.
-      tests/d3dbc: Add tests for m4x4, m3x4, m4x3, m3x3, and m3x2.
-      vkd3d-shader/d3dbc: Record multiple registers for mNxN instructions.
-      vkd3d-shader/ir: Lower mNxN instructions.
-      vkd3d-shader/ir: Support indirect addressing on mNxM instructions.
-      tests/shader-runner: Support the r8g8b8a8-unorm format.
-      tests/d3dbc: Test the texreg2ar, texreg2gb, and texreg2rgb instructions.
-      vd3d-shader/ir: Support texreg2ar, texreg2gb, and texreg2rgb.
-      tests/hlsl: Test side-effects on for loop conditionals.
-      tests/hlsl: Test loops with limiters and a maximum number of iterations.
-      tests/hlsl: Test "i < limit" expressions inside loops.
-      tests/hlsl: Test d3dbc loops with a float iterator.
-      vkd3d-shader/hlsl: Detect limiters with a capped number of iterations.
-      vkd3d-shader/hlsl: Introduce a helper to identify "k < n" expressions.
-      vkd3d-shader/hlsl: Detect "i < n" limiter expressions with float iterators.
-      vkd3d-shader/hlsl: Avoid trying to create invalid dimension combined samplers.
-      vkd3d-shader/ir: Only extend liveness of temps that are accessed inside loops.
-      vkd3d-shader/ir: Extend the liveness of SSAs at all loop depth levels.
-      tests/shader_runner: Add support for d3dbc bool constants.
-      tests/d3dbc: Add some basic 'defb' instruction tests.
-      vkd3d-shader/d3dbc: Set .x swizzles on scalar immediate constants.
-      vkd3d-shader/ir: Record implicit writes for uninitialized temps in liveness tracking.
-      tests/hlsl: Add an additional const variable test.
-      vkd3d-shader/hlsl: Don't allow non-static initializations in is_static_expression().
+Francisco Casas (23):
+      vkd3d-shader: Go through d3dbc/tpf bytecode when targeting d3d-asm from HLSL.
+      vkd3d-shader/ir: Turn vsir register allocation into a proper vsir_transform() pass.
+      tests/hlsl: Add additional half declaration tests.
+      vkd3d-shader/hlsl: Introduce a compatibility flag to handle half globals as float.
+      tests/hlsl: Add tests with half arithmetic expressions.
+      vkd3d-shader/hlsl: Support half arithmetic operations in shader model 4 and 5.
+      vkd3d-shader/ir: Introduce struct vsir_compile_info.
+      vkd3d-shader/spirv: Trace the available SPIR-V extensions.
+      vd3d-shader/hlsl: Check "is_uniform" instead of "!semantic->name" in ctab_write_uniforms().
+      vkd3d-shader/hlsl: Handle allocation failures on copy_propagation_push_scope().
+      vkd3d-shader/ir: Remove an unused iterator variable in instruction_array_normalise_hull_shader_control_point_io().
+      vkd3d-dxbc: Remove the unused "ptr" variable from dump_data().
+      tests/hlsl: Test temp copies of uniforms with backcompat.
+      tests/hlsl: Test conditional per-component writes to temp copies of uniforms with backcompat.
+      vkd3d-shader/hlsl: Introduce a Dead Store Elimination pass.
+      vkd3d-shader/hlsl: Use vkd3d_ptr_compare() in copy_propagation_var_def_compare().
+      tests/hlsl: Merge the writemask-assignop tests into a single file.
+      vkd3d-shader/hlsl: Check that dse_stores_array is not empty before sorting (ubsan).
+      tests/hlsl: Add a test for per-component DSE.
+      tests/hlsl: Add specific DSE and per-component DSE tests.
+      vkd3d-shader/hlsl: Only mark used components on swizzled loads in DSE.
+      tests/hlsl: Test multiple calls to the same function as arguments of another.
+      vkd3d-shader/hlsl: Place the split load next to the load itself on split_copy().
 
 Giovanni Mascellani (46):
-      vkd3d-shader/dxil: Emit loads in a fixup pass.
-      vkd3d-shader/dxil: Emit stores in a fixup pass.
-      vkd3d-shader/dxil: Emit atomic RMW operations in a fixup pass.
-      vkd3d-shader/dxil: Emit compare-exchange operations in a fixup pass.
-      vkd3d-shader/ir: Validate SV_VertexID system values.
-      vkd3d-shader/ir: Validate SV_RenderTargetArrayIndex system values.
-      vkd3d-shader/ir: Validate SV_ViewportArrayIndex system values.
-      vkd3d-shader/ir: Validate SV_Target system values.
-      tests/shader_runner_vulkan: Honor VKD3D_DISABLE_EXTENSIONS.
-      tests/vkd3d_shader_api: Initialize the OpenGL test context.
-      vkd3d-shader: Allow querying for the shader denormal mode while scanning.
-      vkd3d-shader: Allow overriding the denormal modes for a shader.
-      vkd3d-shader/spirv: Emit the denormal mode.
-      tests/hlsl: Test SV_VertexID and SV_InstanceID when they start from a non-zero value.
-      tests/hlsl: Test a DXIL shader with non-contiguous semantic indices.
-      tests/hlsl: Test LOD clamping.
-      tests/hlsl: Test using a load offset which is not an immediate constant.
-      tests/hlsl: Test sampling with invalid immediate offsets.
-      tests/hlsl: Test loading at coordinates that become out-of-bound after offsetting.
-      vkd3d-shader: Never try to emit denormal modes for API version <= 1.19.
-      vkd3d-shader/glsl: Error out when unable to handle the denormal mode.
-      vkd3d-shader/msl: Error out when unable to handle the denormal mode.
-      tests/vkd3d_shader_api: Test querying the denormal mode.
-      tests/hlsl: Avoid using "uint4" uniforms to set a single u32 cbv value.
-      tests/hlsl: Add a missing variable declaration in sampler-offset.shader_test.
-      tests/hlsl: Choose the matching RTV format for some tests in cbuffer.shader_test.
-      tests/hlsl: Choose the matching RTV format for some tests in uav-rwbuffer.shader_test.
-      tests/hlsl: Choose the matching RTV format for a test in bitwise.shader_test.
-      tests/shader_runner_metal: Enable atomic operations for formats that support them.
-      tests/shader_runner_metal: End messages with a newline if there isn't one already.
-      tests/shader_runner_metal: Support multiple viewports.
-      tests/shader_runner_metal: Enable viewport and render target array indices.
-      tests/hlsl: Run the render target sample position test for all shader models.
-      tests/hlsl: Work around a test failure on AMD in rt-get-sample-info.shader_test.
-      tests/hlsl: Test GetRenderTargetSampleCount() on a non-multisampled render target.
-      tests/hlsl: Run descriptor tests for both shader models 6.0 and 6.6.
-      tests/hlsl: Check WaveActiveAllEqual()'s behavior with floating-point comparisons.
-      tests/hlsl: Test a combined sampler with an invalid sampler dimension.
-      tests/hlsl: Test sampling a texture array with a fractional array index.
-      tests/hlsl: Add a simple test for SV_Barycentrics.
-      tests/shader_runner: Create buffers of the size specified in their description.
-      tests/hlsl: Test rasterizer ordered views on typed and raw buffers too.
-      tests/hlsl: Test the value returned by UAV counter update instructions.
-      tests/hlsl: Fix the render target format for cast-to-int.shader_test.
-      tests/hlsl: Fix the render target format for cast-to-uint.shader_test.
-      tests/hlsl: Fix the render target format for srv-buffers.shader_test.
+      tests/d3d12_invalid_usage: Drop some tests for which native behaviour has changed.
+      ci: Run the Windows tests with the latest Agility SDK.
+      vkd3d: Parse amplification and mesh shader pipeline subobjects.
+      tests/hlsl: Test a few simple mesh pipelines.
+      tests/hlsl: Test normalized pixel formats in more configurations.
+      tests/hlsl: Test loading from UNORM and UINT textures.
+      tests/d3d12: Skip test_hull_shader_relative_addressing() on Windows AMD.
+      tests/hlsl: Tweak a f16 test in arithmetic-float-uniform.shader_test.
+      tests/hlsl: Skip a test in float-comparison.shader_test on Windows AMD.
+      tests/hlsl: Account for a bug in switch.shader_test on Windows AMD.
+      tests/d3d12: Do not skip the "continue" test any more.
+      tests/d3d12: Skip the "dadd" and "dmovc" on all Windows drivers.
+      tests/d3d12: Tweak the shader cache tests so that they pass in other environments.
+      tests/hlsl: Account for a bug on Windows NVIDIA d3d11 in minimum-precision.shader_test.
+      tests/hlsl: Account for a bug on Windows AMD in cast-64-bit.shader_test.
+      tests/hlsl: Make a test in non-const-indexing.shader_test more robust.
+      tests/hlsl: Account for a bug on Windows AMD in non-const-indexing.shader_test.
+      tests/hlsl: Test RestartStrip() and maxvertexcount() in geometry shaders.
+      tests/hlsl: Account for some bugs on Windows AMD d3d11 in tgsm.shader_test.
+      tests/hlsl: Account for a bug on Windows AMD d3d12 in shader-interstage-interface.shader_test.
+      tests/hlsl: Account for a bug on Windows AMD in mesh.shader_test.
+      tests/hlsl: Add more mesh and amplification shader tests.
+      tests/hlsl: Account for a bug on Windows AMD d3d9 in uninitialized-varyings.shader_test.
+      tests/shader_runner_d3d12: Create X32G8X24 SRVs as views of D32S8X24 textures.
+      tests/hlsl: Account for a bug on Windows AMD d3d9 in shader-point-size.shader_test.
+      tests/hlsl: Account for a bug on Windows AMD in mesh.shader_test.
+      tests/hlsl: Account for a bug on Windows AMD in clip-planes.shader_test.
+      tests/d3dbc: Use b8g8r8a8-unorm textures for d3d9 tests.
+      tests/hlsl: Test loading from a swizzled texture.
+      tests/hlsl: Test GatherCmp{Green,Blue,Alpha}() with a SRV swizzle.
+      tests/d3dbc: Account for a bug on Windows AMD d3d9 in bump.shader_test.
+      tests/d3dbc: Avoid testing a negative loop counter in rep.shader_test.
+      tests/hlsl: Remove outdated comment in wave-reconvergence.shader_test.
+      tests/hlsl: Account for the Windows NVIDIA behaviour in wave-reconvergence.shader_test.
+      tests/hlsl: Account for a bug on recent Windows d3d9 in fog.shader_test.
+      tests/hlsl: Test type sizes and alignments in the amplification shader payload.
+      tests/hlsl: Test field alignment when composing structures and arrays.
+      tests/hlsl: Test calling DispatchMesh() either never or more than once.
+      vkd3d-shader/spirv: Actually use the "mode" parameter in spirv_compiler_emit_denormal_mode().
+      vkd3d: Enable the VK_KHR_shader_float_controls extension.
+      tests/d3d12: Print DLL versions when running tests on Windows.
+      tests/d3d12: Test copying between compressed textures of different sizes.
+      tests/d3d12: Check all blocks in test_copy_block_compressed_texture().
+      tests/d3d12: Test copying from small mipmaps of compressed textures.
+      tests/hlsl: Test the "globallycoherent" keyword.
+      tests/hlsl: Run RWTexture basic tests for shader model 6.0 too.
 
-Henri Verbeet (80):
-      tests/shader_runner_gl: Allow unused input elements.
-      vkd3d-shader/d3d-asm: Handle VSIR_DATA_BOOL immediate constants.
-      vkd3d-shader/d3d-asm: Handle VSIR_DATA_F16 immediate constants.
-      vkd3d-shader/d3d-asm: Handle VSIR_DATA_I16 immediate constants.
-      vkd3d-shader/d3d-asm: Handle VSIR_DATA_U16 immediate constants.
-      vkd3d-shader/d3d-asm: Give global flags their own colour.
-      vkd3d-shader/d3d-asm: Recognise the "enable11_1ShaderExtensions" global flag.
-      vkd3d-shader/d3d-asm: Recognise the "allResourcesBound" global flag.
-      vkd3d-shader/d3d-asm: Recognise the "viewportAndRTArrayIndex" global flag.
-      vkd3d-shader/d3d-asm: Recognise the "UAVLoadAdditionalFormats" global flag.
-      vkd3d-shader/d3d-asm: Give data types their own colour.
-      vkd3d-shader/hlsl: Implement constant folding of floating-point modulo expressions.
-      vkd3d-shader/d3d-asm: Recognise the "ROVs" global flag.
-      vkd3d-shader/d3d-asm: Recognise the "waveOps" global flag.
-      vkd3d-shader/d3d-asm: Recognise the "int64Ops" global flag.
-      vkd3d-shader/d3d-asm: Recognise the "nativeLowPrecision" global flag.
-      vkd3d-shader/hlsl: Properly compare hlsl_constant_value_component values in find_constant().
-      tests/hlsl: Use single-component UAVs in rasteriser-ordered-views.shader_test.
-      vkd3d-shader/spirv: Ignore VKD3DSGF_SKIP_OPTIMIZATION.
-      vkd3d-shader/spirv: Only warn about VKD3DSGF_ENABLE_MINIMUM_PRECISION.
-      vkd3d-shader/spirv: Ignore VKD3DSGF_ENABLE_VP_AND_RT_ARRAY_INDEX.
-      vkd3d-shader/spirv: Handle VKD3DSGF_ENABLE_RELAXED_TYPED_UAV_FORMATS.
-      vkd3d-shader/spirv: Ignore VKD3DSGF_ENABLE_UAVS_AT_EVERY_STAGE.
-      vkd3d-shader/spirv: Ignore VKD3DSGF_ENABLE_RASTERIZER_ORDERED_VIEWS.
-      vkd3d-shader/spirv: Output errors for unhandled global flags.
-      vkd3d-shader/ir: Rename struct vkd3d_shader_register to struct vsir_operand.
-      vkd3d-shader/d3d-asm: Recognise the "UAVsAtEveryStage" global flag.
-      vkd3d-shader/spirv: Return void from spirv_compiler_emit_alu_instruction().
-      vkd3d-shader/dxil: Free the fixup list in sm6_parser_cleanup(). (Valgrind)
-      vkd3d-shader/hlsl: Free "allocator_constint" allocations as well in allocate_const_registers(). (Valgrind)
-      vkd3d-shader/dxil: Preserve f16 denormals if they're used in the shader.
-      tests/d3d12: Test depth/stencil SRV resource creation.
-      vkd3d: Retry depth/stencil formats after checking vkd3d_formats[] in vkd3d_get_format().
-      tests/shader_runner_vulkan: Maintain our own format mapping.
-      tests/hlsl: Add a stencil clear/copy/load test.
-      vkd3d-shader/ir: Rename struct vkd3d_shader_register_index to struct vsir_register_index.
-      tests/shader_runner: Always add the minimum shader model to the runner mask.
-      tests/hlsl: Add a stencil export test.
-      vkd3d-shader/d3d-asm: Recognise the "stencilRef" global flag.
-      vkd3d-shader/spirv: Ignore VKD3DSGF_ENABLE_STENCIL_REF in spirv_compiler_emit_global_flags().
-      vkd3d-shader/dxil: Handle SV_StencilRef outputs.
-      vkd3d-shader/ir: Rename struct vkd3d_shader_register_range to struct vsir_register_range.
-      vkd3d: Use vkCmdCopyImage() to copy a subset of the source aspects in d3d12_command_list_CopyResource().
-      vkd3d-shader/tpf: Apply VKD3D_SM4_GLOBAL_FLAGS_MASK when writing dcl_globalFlags.
-      vkd3d-shader/hlsl: Handle SV_StencilRef.
-      build: Strip "@srcdir@/" from paths in the documentation.
-      vkd3d-shader/msl: Implement support for VKD3DSPR_OUTSTENCILREF registers.
-      vkd3d-shader/ir: Handle more immediate constant data types in vsir_operand_compare().
-      vkd3d-shader: Pass the calling function name to vkd3d_shader_vnote().
-      vkd3d-shader: Pass the calling function name to vkd3d_shader_vwarning().
-      vkd3d-shader: Pass the calling function name to vkd3d_shader_verror().
-      vkd3d-shader/fx: Pass the calling function name to fx_parser_error().
-      vkd3d-shader/glsl: Pass the calling function name to vkd3d_glsl_compiler_error().
-      vkd3d-shader/hlsl: Pass the calling function name to hlsl_error().
-      vkd3d-shader/msl: Pass the calling function name to msl_compiler_error().
-      vkd3d-shader/preproc: Pass the calling function name to preproc_error().
-      vkd3d-shader/spirv: Pass the calling function name to spirv_parser_error().
-      vkd3d-shader/spirv: Pass the calling function name to spirv_compiler_error().
-      vkd3d-shader/tpf: Pass the calling function name to tpf_compiler_error().
-      vkd3d-shader: Pass the calling function name to vkd3d_shader_parser_error().
-      vkd3d-shader: Pass the calling function name to vkd3d_shader_scan_error().
-      tests/vkd3d_shader_api: Add a test for HLSL floating-point parsing.
-      tests/tpf: Add a test for the "allResourcesBound" global flag.
-      vkd3d-shader/spirv: Ignore VKD3DSGF_BIND_FOR_DURATION in spirv_compiler_emit_global_flags().
-      vkd3d-shader/glsl: Ignore VKD3DSGF_BIND_FOR_DURATION in shader_glsl_handle_global_flags().
-      vkd3d-shader/msl: Ignore VKD3DSGF_BIND_FOR_DURATION in msl_generator_generate().
-      vkd3d-shader/ir: Avoid leaking the CSE expression in vsir_program_cse(). (Valgrind)
-      vkd3d-shader/fx: Cleanup the vsir program on failure in write_shader_blob(). (Valgrind)
-      tests/hlsl_d3d12: Avoid leaking the "errors" blobs in test_default_include_path(). (Valgrind)
-      tests/vkd3d_shader_api: Avoid leaking "dxc_compiler" in test_query_denormal_mode(). (Valgrind)
-      vkd3d: Explicitly use the "ANY" denormal mode in create_shader_stage().
-      vkd3d-compiler: Explicitly use the "ANY" denormal mode.
-      tests/shader_runner_vulkan: Explicitly use the "ANY" denormal mode.
-      build: Use a more elaborate check for _strtod_l()/_strtof_l()/strtof_l().
-      vkd3d-shader: Document the VFACE and VPOS semantic mappings.
-      vkd3d-shader/dxil: Get rid of the now unused "is_back_ref" field from struct sm6_value.
-      tests/hlsl_d3d12: Properly cleanup temporary files.
-      tests/hlsl: Port test_resource_arrays() from d3d12.c.
-      vkd3d-shader/d3d-asm: Recognise the "64UAVs" global flag.
-      vkd3d-shader/spirv: Ignore VKD3DSGF_ENABLE_UP_TO_64_UAVS in spirv_compiler_emit_global_flags().
+Henri Verbeet (167):
+      vkd3d-shader/glsl: Use vkd3d_shader_find_descriptor().
+      vkd3d-shader/ir: Remove VSIR_OP_DCL_RESOURCE_RAW instructions.
+      vkd3d-shader/ir: Remove VSIR_OP_DCL_RESOURCE_STRUCTURED instructions.
+      vkd3d-shader/ir: Remove VSIR_OP_DCL_UAV_RAW instructions.
+      vkd3d-shader/ir: Remove VSIR_OP_DCL_UAV_STRUCTURED instructions.
+      vkd3d-shader/ir: Remove VSIR_OP_DCL_VERTICES_OUT instructions.
+      vkd3d-shader/glsl: Implement VSIR_OP_STORE_RAW.
+      vkd3d-shader/glsl: Implement VSIR_OP_LD_RAW.
+      vkd3d-shader/glsl: Ignore VKD3DSGF_ENABLE_RAW_AND_STRUCTURED_BUFFERS in shader_glsl_handle_global_flags().
+      vkd3d-shader/glsl: Implement VSIR_OP_STORE_STRUCTURED.
+      vkd3d-shader/glsl: Implement VSIR_OP_LD_STRUCTURED.
+      vkd3d-shader/msl: Ignore VKD3DSGF_ENABLE_UP_TO_64_UAVS in msl_generator_generate().
+      vkd3d-shader/ir: Rename enum vkd3d_shader_register_type to enum vsir_register_type.
+      vkd3d-shader/glsl: Output vsir register type names in error messages.
+      vkd3d-shader/glsl: Output vsir data type names in error messages.
+      vkd3d-shader/glsl: Output vsir dimension names in error messages.
+      tests/shader_runner_gl: Require GL_EXT_shader_image_load_formatted for typed UAV loads without format.
+      tests/d3dbc: Add a test for partially initialised I/O registers.
+      vkd3d-shader/ir: Handle partially initialised I/O registers in vsir_program_remap_output_signature().
+      vkd3d-utils: Introduce D3DReflectVKD3D().
+      tests/hlsl_d3d12: Slightly modify the shader model 5.1 shader in test_reflection().
+      tests/hlsl_d3d12: Get rid of the "is_todo" parameter to check_signature_element_().
+      tests/hlsl_d3d12: Run test_reflection() with multiple d3dcompiler versions.
+      tests/hlsl_d3d12: Run test_default_values_reflection() with multiple d3dcompiler versions.
+      tests/hlsl_d3d12: Run test_signature_reflection() with multiple d3dcompiler versions.
+      tests/hlsl: Add some tests for invalid I/O semantics.
+      vkd3d-shader/hlsl: Disallow user-defined pixel shader outputs in shader model 4+ target profiles.
+      vkd3d-shader/hlsl: Do not validate unused semantic registers in shader model 1-3 target profiles.
+      vkd3d-shader/hlsl: Take the kind of input/output into account in sm1_usage_from_semantic_name().
+      vkd3d-shader/hlsl: Do not allow "sv_target" in sm1_usage_from_semantic_name().
+      vkd3d-utils: Support the ID3D10ShaderReflection interface in D3DReflectVKD3D().
+      vkd3d-utils: Support the ID3D11ShaderReflection interfaces in D3DReflectVKD3D().
+      vkd3d-shader/ir: Rename struct shader_signature to struct vsir_signature.
+      vkd3d-shader/ir: Rename struct signature_element to struct vsir_signature_element.
+      vkd3d-utils: Support the ID3D10ShaderReflection1 interface in D3DReflectVKD3D().
+      vkd3d-shader/ir: Get rid of the "input_control_point_count" parameter to control_point_normaliser_emit_hs_input().
+      vkd3d-shader: Get the output primitive directly from the vsir program in vsir_program_scan().
+      vkd3d-shader: Get the tessellator partitioning directly from the vsir program in vsir_program_scan().
+      tests/hlsl_d3d12: Release the shader blobs on error paths in the reflection tests.
+      tests/hlsl_d3d12: Add some basic thread group size reflection tests.
+      vkd3d-utils: Require version 40 for compute shader support.
+      vkd3d-utils: Implement d3d12_reflection_GetThreadGroupSize().
+      vkd3d-dxbc: Implement updating section data.
+      vkd3d-shader/ir: Remove VSIR_OP_DCL_INPUT_CONTROL_POINT_COUNT instructions.
+      vkd3d-shader/ir: Remove VSIR_OP_DCL_OUTPUT_CONTROL_POINT_COUNT instructions.
+      vkd3d-shader/ir: Remove VSIR_OP_DCL_TESSELLATOR_OUTPUT_PRIMITIVE instructions.
+      vkd3d-shader/ir: Remove VSIR_OP_DCL_TESSELLATOR_PARTITIONING instructions.
+      vkd3d-utils: Introduce D3D10ReflectShader().
+      tests/hlsl_d3d12: Add some STAT reflection tests.
+      vkd3d-utils: Parse STAT sections in d3d12_reflection_init().
+      vkd3d-shader/hlsl: Use VSIR_DATA_U32 as structured buffer resource data type.
+      vkd3d-shader/ir: Validate that the resource data type for raw view descriptors is VSIR_DATA_U32.
+      vkd3d-shader/ir: Validate that the resource data type for structured view descriptors is VSIR_DATA_U32.
+      vkd3d-shader/spirv: Use spirv_compiler_error() in image_format_for_image_read().
+      vkd3d-shader/glsl: Implement support for the VSIR_REGISTER_LOCALTHREADINDEX register.
+      vkd3d-shader/ir: Rename struct vkd3d_shader_scan_descriptor_info1 to struct vsir_descriptor_info.
+      vkd3d-shader/ir: Store the array capacity inside struct vsir_descriptor_info.
+      vkd3d-shader/ir: Rename struct vkd3d_shader_descriptor_info1 to struct vsir_descriptor.
+      vkd3d-utils: Implement d3d12_reflection_GetMovInstructionCount().
+      vkd3d-utils: Implement d3d12_reflection_GetMovcInstructionCount().
+      vkd3d-utils: Implement d3d12_reflection_GetConversionInstructionCount().
+      vkd3d-utils: Implement d3d12_reflection_GetBitwiseInstructionCount().
+      vkd3d-utils: Implement d3d12_reflection_GetGSInputPrimitive().
+      vkd3d-utils: Implement d3d12_reflection_IsSampleFrequencyShader().
+      vkd3d-shader/spirv: Always load the UAV data as VSIR_DATA_U32 in spirv_compiler_emit_store_uav_raw_structured().
+      vkd3d-shader/glsl: Implement support for the VSIR_REGISTER_THREADGROUPID register.
+      vkd3d-shader/ir: Store the formatting flags in struct vsir_compile_info.
+      vkd3d-shader/ir: Store the "strip_debug" flag in struct vsir_compile_info.
+      vkd3d-shader/ir: Store the "ssbo_uavs" flag in struct vsir_compile_info.
+      vkd3d-shader/ir: Store the "uav_read_without_format" flag in struct vsir_compile_info.
+      vkd3d-shader/ir: Store the "write_tess_geom_point_size" flag in struct vsir_compile_info.
+      vkd3d-shader/glsl: Implement VSIR_OP_SYNC.
+      vkd3d-utils: Avoid leaking "name" on error paths in d3d12_type_init().
+      vkd3d-utils: Avoid leaking fields[] on error paths in d3d12_type_init().
+      vkd3d-utils: Avoid leaking "name" on error paths in d3d12_variable_init().
+      vkd3d-utils: Avoid leaking the default value on error in d3d12_variable_init().
+      vkd3d-utils: Avoid leaking "name" on error paths in d3d12_buffer_init().
+      vkd3d-shader/glsl: Implement support for the VSIR_REGISTER_LOCALTHREADID register.
+      vkd3d-shader/ir: Store the default matrix packing order in struct vsir_compile_info.
+      vkd3d-shader/ir: Store the backward compatibility flags in struct vsir_compile_info.
+      vkd3d-shader/ir: Store the fragment coordinate origin in struct vsir_compile_info.
+      vkd3d-shader/ir: Store the feature flags in struct vsir_compile_info.
+      vkd3d-shader/ir: Store the "child_effect" flag in struct vsir_compile_info.
+      vkd3d-shader/glsl: Implement VSIR_OP_ATOMIC_IADD.
+      tests/hlsl_d3d12: Avoid leaking the "errors" blobs in test_preprocess(). (Valgrind)
+      vkd3d-shader/ir: Store the "warn_implicit_truncation" flag in struct vsir_compile_info.
+      vkd3d-shader/ir: Store the "include_empty_buffers" flag in struct vsir_compile_info.
+      vkd3d-shader/ir: Store the denormal mode overrides in struct vsir_compile_info.
+      vkd3d-shader/hlsl: Add DEPTHOUT to io_dcls when outputting depth.
+      vkd3d-utils: Avoid leaking variables[] on error paths in d3d12_buffer_init().
+      vkd3d-utils: Avoid leaking buffers[] on error paths in parse_rdef().
+      vkd3d-utils: Avoid leaking bindings[] on error paths in parse_rdef().
+      vkd3d-utils: Avoid leaking buffers[] on error paths in d3d12_reflection_init().
+      vkd3d-utils: Avoid leaking bindings[] on error paths in d3d12_reflection_init().
+      vkd3d-shader/hlsl: Only consider used uniforms when updating "flat_constant_count" in generate_vsir_descriptors().
+      vkd3d-shader/ir: Remove VSIR_OP_DCL_TGSM_RAW instructions.
+      vkd3d-shader/ir: Remove VSIR_OP_DCL_TGSM_STRUCTURED instructions.
+      vkd3d-shader/glsl: Implement TGSM loads and stores.
+      vkd3d-shader/glsl: Handle TGSM in shader_glsl_atomic().
+      tests: Enable colour output when outputting to a colour capable tty.
+      tests/d3dbc: Add some tests for sub instructions.
+      vkd3d-shader/d3dbc: Lower VSIR_OP_SUB instructions.
+      vkd3d-shader/glsl: Implement VSIR_OP_IMM_ATOMIC_CMP_EXCH.
+      tests/d3dbc: Add tests for source/destination modifiers.
+      vkd3d-shader/d3dbc: Lower destination shift modifiers.
+      vkd3d-shader/d3dbc: Lower BIAS source modifiers.
+      vkd3d-shader/d3dbc: Lower BIASNEG source modifiers.
+      vkd3d-shader/d3dbc: Lower SIGN source modifiers.
+      vkd3d-shader/glsl: Introduce shader_glsl_print_raw_structured_address().
+      vkd3d-shader/glsl: Try to simplify the address in shader_glsl_print_raw_structured_address().
+      vkd3d-dxbc: Support colour output in the Win32 build.
+      vkd3d-shader/d3dbc: Lower SIGNNEG source modifiers.
+      vkd3d-shader/d3dbc: Lower X2 source modifiers.
+      vkd3d-shader/d3dbc: Lower X2NEG source modifiers.
+      vkd3d-shader/d3dbc: Lower COMP source modifiers.
+      tests/d3dbc: Add some tests for break_cmp instructions.
+      vkd3d-shader/d3dbc: Lower VSIR_OP_BREAKC instructions.
+      vkd3d-compiler: Support colour output in the Win32 build.
+      tests/hlsl: Test f32 to i64/u64 conversion.
+      vkd3d-shader/spirv: Handle 64-bit destinations in spirv_compiler_emit_ftou().
+      vkd3d-shader/dxil: Generate signed destination operands for FTOI instructions.
+      vkd3d-shader/spirv: Handle 64-bit destinations in spirv_compiler_emit_ftoi().
+      tests: Support colour output in the Win32 build.
+      tests/hlsl_d3d12: Add ID3D12ShaderReflection_GetResourceBindingDescByName() tests.
+      vkd3d-utils: Implement d3d12_reflection_GetResourceBindingDescByName().
+      tests/hlsl_d3d12: Add ID3D12ShaderReflection_GetConstantBufferByName() tests.
+      vkd3d-utils: Implement d3d12_reflection_GetConstantBufferByName().
+      tests/hlsl_d3d12: Add ID3D12ShaderReflectionConstantBuffer_GetVariableByName() tests.
+      vkd3d-utils: Implement d3d12_buffer_GetVariableByName().
+      vkd3d-utils: Parse the creator string in parse_rdef().
+      vkd3d-utils: Validate the RD11 field size in parse_rdef().
+      vkd3d-shader/hlsl: Only use "type" when initialised in generate_signature_entry(). (Valgrind)
+      tests/hlsl_d3d12: Add ID3D12ShaderReflection_GetVariableByName() tests.
+      vkd3d-utils: Implement d3d12_reflection_GetVariableByName().
+      tests/hlsl_d3d12: Add ID3D12ShaderReflectionType_GetMemberTypeName() tests.
+      vkd3d-utils: Implement d3d12_type_GetMemberTypeName().
+      tests/hlsl_d3d12: Add ID3D12ShaderReflectionType_GetMemberTypeByName() tests.
+      vkd3d-utils: Implement d3d12_type_GetMemberTypeByName().
+      vkd3d-shader/ir: Free the tgsms[] array in vsir_program_cleanup(). (Valgrind)
+      vkd3d-shader/glsl: Handle swizzles on scalar sources in shader_glsl_print_src().
+      vkd3d-shader/dxil: Generate signed source operands for FIRSTBIT_SHI instructions.
+      tests/hlsl_d3d12: Add ID3D12ShaderReflectionVariable_GetBuffer() tests.
+      vkd3d-utils: Initialise the "buffer" field in d3d12_variable_init().
+      vkd3d-utils: Handle "null_variable" in d3d12_variable_GetBuffer().
+      vkd3d-common: Add missing braces to the definition of VKD3D_MUTEX_INITIALIZER.
+      tests/hlsl: Run bitwise.shader_test on more shader models.
+      vkd3d-shader/glsl: Implement VSIR_OP_COUNTBITS.
+      vkd3d-shader/glsl: Implement VSIR_OP_FIRSTBIT_LO.
+      vkd3d-shader/ir: Lower FIRSTBIT_HI and FIRSTBIT_SHI instructions.
+      vkd3d-shader/glsl: Implement VSIR_OP_ILOG2.
+      vkd3d-shader/glsl: Implement VSIR_OP_ULOG2.
+      vkd3d-utils: Handle NULL "desc" pointers in d3d12_reflection_GetDesc().
+      vkd3d-utils: Handle NULL "desc" pointers in d3d12_reflection_GetResourceBindingDesc().
+      tests/hlsl_d3d12: Test compile flags reflection.
+      vkd3d-utils: Parse the compile flags in parse_rdef().
+      tests/hlsl_d3d12: Test invalid blob reflection.
+      vkd3d-utils: Return the expected error codes from D3DReflectVKD3D() for invalid DXBC blobs in version >= 43.
+      vkd3d-utils: Handle NULL "data" pointers with non-zero "data_size" in d3d12_reflection_init().
+      vkd3d-shader/ir: Lower VSIR_OP_FIRSTBIT_SHI to VSIR_OP_FIRSTBIT_HI for the MSL target.
+      tests/hlsl_d3d12: Test ID3D12ShaderReflectionType_IsEqual().
+      vkd3d-utils: Implement d3d12_type_IsEqual().
+      vkd3d-shader/ir: Slightly simplify vsir_program_lower_clz().
+      tests/hlsl_d3d12: Add a basic interface reflection test.
+      vkd3d-shader/ir: Allow indirect addressing of descriptor IDs.
+      vkd3d-shader/tpf: Clone indirect indices of descriptor operands in shader_sm4_read_param().
+      vkd3d-shader/ir: Allow VSIR_REGISTER_FUNCTIONBODY label operands.
+      vkd3d-utils: Do not fail when "rd11->zero" is non-zero in parse_rdef().
 
-Ivan Lyugaev (1):
-      vkd3d-shader/hlsl: Make floating-point number parsing independent of the locale.
+Matteo Bruni (1):
+      vkd3d-utils: NULL-check the standard include initial filename.
 
-Nikolay Sivov (1):
-      vkd3d-shader/hlsl: Make sure buffer sizes are reset before allocations are evaluated.
+Nikolay Sivov (5):
+      vkd3d-shader/fx: Support writing numeric state entries in passes for fx_2_0.
+      vkd3d-shader/fx: Use the global variable list instead of the externs list when writing fx_2_0 parameters.
+      vkd3d-shader/fx: Add support for writing shader object initializers for fx_2_0.
+      vkd3d-shader/fx: Use the globals list when writing fx_4+ objects.
+      vkd3d-shader/fx: Use the globals list when writing buffers.
 
-Shaun Ren (36):
-      tests/shader_runner: Introduce the shader_model field in struct shader_runner.
-      tests/shader_runner: Introduce the should_skip_execution() and get_runner_test_mask() helpers.
-      tests/shader_runner: Add a "test-shader-models" header directive.
-      tests/hlsl: Test SM2 and SM3 in shader-point-size.shader_test.
-      vkd3d-shader/ir: Set a constant semantic name for uninitialized outputs in vsir_program_remap_output_signature().
-      vkd3d-shader/ir: Support PSIZE outputs in SM3 vertex shaders.
-      vkd3d-shader/hlsl: Fix structured copy splitting in split_resource_load().
-      vkd3d-shader/hlsl: Lower stores to resources to resource stores during HLSL codegen.
-      vkd3d-shader/hlsl: Support indexed and structured TGSM stores in lower_resource_stores().
-      vkd3d-shader/hlsl: Generate indexed and structured TGSM stores in VSIR.
-      tests/hlsl: Test SM4 and SM5 in uav-atomics.shader_test.
-      vkd3d-shader/hlsl: Correct InterlockedMin()/InterlockedMax() sign conversion behaviour.
-      tests/hlsl: Add some interlocked tests with typed and structured UAV targets.
-      tests/hlsl: Add some interlocked tests with indexed TGSM targets.
-      tests/shader_runner: Prevent a skipped section from skipping subsequent sections.
-      vkd3d-shader/hlsl: Determine the TGSM status of variables in hlsl_emit_vsir().
-      vkd3d-shader/hlsl: Disallow declaring global variables as both uniform and groupshared.
-      vkd3d-shader/fx: Support compute shaders in get_fx_4_type_name().
-      vkd3d-shader/hlsl: Support compute shaders in hlsl_new_compile().
-      tests/hlsl: Add some compute shader effect tests.
-      vkd3d-shader/hlsl: Validate group barrier calls in sm4_generate_vsir_instr_sync().
-      vkd3d-shader/hlsl: Allow TGSM resource loads in split_matrix_copies().
-      vkd3d-shader/hlsl: Introduce the resolve_assignment_lhs() helper.
-      vkd3d-shader/hlsl: Introduce the resource_access_from_deref() helper.
-      vkd3d-shader/hlsl: Support interlocked operations with indexed or structured targets.
-      tests/hlsl: Test additional combinations of declarations on for loops.
-      tests/hlsl: Add an effect compile test with multiple compute shaders.
-      tests/hlsl: Add an effect compile test with geometry shaders.
-      vkd3d-shader/hlsl: Reset entry function related attributes in hlsl_emit_vsir().
-      vkd3d-shader/fx: Support hull and domain shaders in get_fx_4_type_name().
-      vkd3d-shader/hlsl: Support hull and domain shaders in hlsl_new_compile().
-      tests/hlsl: Add some effect compile tests with hull and domain shaders.
-      vkd3d-shader/hlsl: Introduce the hlsl_ctx_init_entry_function_attributes() helper.
-      vkd3d-shader/hlsl: Initialize all attributes in hlsl_ctx_entry_function_attributes().
-      vkd3d-shader/ir: Copy-propagate SSAs to relative addresses.
-      vkd3d-shader/ir: Add a common subexpression elimination pass for vsir.
+Simon McVittie (2):
+      demos: Use STT_OBJECT instead of @object in the DEMO_ASM_OBJECT_TYPE macro.
+      tests/d3d12: Mark some NaN corner-cases as expected to fail on ppc64el.
 
 Victor Chiletto (2):
-      vkd3d-shader: Introduce vkd3d_shader_code_from_file().
-      vkd3d-utils: Handle D3D_COMPILE_STANDARD_FILE_INCLUDE.
+      tests/d3d12: Test D3D_COMPILE_STANDARD_FILE_INCLUDE with absolute paths.
+      tests/d3d12: Test D3D_COMPILE_STANDARD_FILE_INCLUDE with NULL paths.
 ```
