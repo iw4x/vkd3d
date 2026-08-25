@@ -2989,7 +2989,7 @@ struct spirv_compiler
     bool use_invocation_interlock;
     bool emit_point_size;
 
-    enum vkd3d_shader_opcode phase;
+    enum vsir_opcode phase;
     struct vkd3d_shader_phase control_point_phase;
     struct vkd3d_shader_phase patch_constant_phase;
 
@@ -7253,7 +7253,7 @@ static SpvOp spirv_compiler_map_alu_instruction(const struct vkd3d_shader_instru
 {
     static const struct
     {
-        enum vkd3d_shader_opcode opcode;
+        enum vsir_opcode opcode;
         SpvOp spirv_op;
     }
     alu_ops[] =
@@ -7460,7 +7460,7 @@ static enum GLSLstd450 spirv_compiler_map_ext_glsl_instruction(
 {
     static const struct
     {
-        enum vkd3d_shader_opcode opcode;
+        enum vsir_opcode opcode;
         enum GLSLstd450 glsl_inst;
     }
     glsl_insts[] =
@@ -8399,7 +8399,7 @@ static void spirv_compiler_emit_deriv_instruction(struct spirv_compiler *compile
 
     static const struct instruction_info
     {
-        enum vkd3d_shader_opcode opcode;
+        enum vsir_opcode opcode;
         SpvOp op;
         bool needs_derivative_control;
     }
@@ -9349,7 +9349,7 @@ static SpvOp spirv_compiler_map_atomic_instruction(const struct vkd3d_shader_ins
 {
     static const struct
     {
-        enum vkd3d_shader_opcode opcode;
+        enum vsir_opcode opcode;
         SpvOp spirv_op;
     }
     atomic_ops[] =
@@ -9929,7 +9929,7 @@ static void spirv_compiler_emit_cut_stream(struct spirv_compiler *compiler,
     vkd3d_spirv_build_op_end_primitive(builder);
 }
 
-static uint32_t map_quad_read_across_direction(enum vkd3d_shader_opcode opcode)
+static uint32_t map_quad_read_across_direction(enum vsir_opcode opcode)
 {
     switch (opcode)
     {
@@ -9985,7 +9985,7 @@ static void spirv_compiler_emit_quad_read_lane_at(struct spirv_compiler *compile
     spirv_compiler_emit_store_dst(compiler, dst, val_id);
 }
 
-static SpvOp map_wave_bool_op(enum vkd3d_shader_opcode opcode)
+static SpvOp map_wave_bool_op(enum vsir_opcode opcode)
 {
     switch (opcode)
     {
@@ -10043,7 +10043,7 @@ static void spirv_compiler_emit_wave_active_ballot(struct spirv_compiler *compil
     spirv_compiler_emit_store_dst(compiler, dst, val_id);
 }
 
-static SpvOp map_wave_alu_op(enum vkd3d_shader_opcode opcode, bool is_float)
+static SpvOp map_wave_alu_op(enum vsir_opcode opcode, bool is_float)
 {
     switch (opcode)
     {

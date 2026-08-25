@@ -317,7 +317,7 @@ static inline enum vkd3d_result vkd3d_result_from_shader_error(enum vkd3d_shader
     }
 }
 
-enum vkd3d_shader_opcode
+enum vsir_opcode
 {
     VSIR_OP_ABS,
     VSIR_OP_ACOS,
@@ -661,19 +661,19 @@ enum vkd3d_shader_opcode
     VSIR_OP_COUNT,
 };
 
-const char *vsir_opcode_get_name(enum vkd3d_shader_opcode op, const char *error);
+const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error);
 
-static inline bool vsir_opcode_is_fork_or_join_phase(enum vkd3d_shader_opcode op)
+static inline bool vsir_opcode_is_fork_or_join_phase(enum vsir_opcode op)
 {
     return op == VSIR_OP_HS_FORK_PHASE || op == VSIR_OP_HS_JOIN_PHASE;
 }
 
-static inline bool vsir_opcode_is_control_point_phase(enum vkd3d_shader_opcode op)
+static inline bool vsir_opcode_is_control_point_phase(enum vsir_opcode op)
 {
     return op == VSIR_OP_HS_CONTROL_POINT_PHASE;
 }
 
-static inline bool vsir_opcode_is_imm_atomic(enum vkd3d_shader_opcode op)
+static inline bool vsir_opcode_is_imm_atomic(enum vsir_opcode op)
 {
     return VSIR_OP_IMM_ATOMIC_ALLOC <= op && op <= VSIR_OP_IMM_ATOMIC_XOR;
 }
@@ -1437,7 +1437,7 @@ struct vkd3d_shader_location
 struct vkd3d_shader_instruction
 {
     struct vkd3d_shader_location location;
-    enum vkd3d_shader_opcode opcode;
+    enum vsir_opcode opcode;
     uint32_t flags;
     size_t dst_count;
     size_t src_count;
@@ -1487,7 +1487,7 @@ static inline bool vkd3d_shader_ver_le(const struct vkd3d_shader_version *v, uns
 }
 
 void vsir_instruction_init(struct vkd3d_shader_instruction *ins,
-        const struct vkd3d_shader_location *location, enum vkd3d_shader_opcode opcode);
+        const struct vkd3d_shader_location *location, enum vsir_opcode opcode);
 
 static inline void vkd3d_shader_instruction_make_nop(struct vkd3d_shader_instruction *ins)
 {
@@ -1824,7 +1824,7 @@ enum vkd3d_result vsir_program_validate(struct vsir_program *program, uint64_t c
 struct vsir_src_operand *vsir_program_create_outpointid_param(struct vsir_program *program);
 bool vsir_instruction_init_with_params(struct vsir_program *program,
         struct vkd3d_shader_instruction *ins, const struct vkd3d_shader_location *location,
-        enum vkd3d_shader_opcode opcode, unsigned int dst_count, unsigned int src_count);
+        enum vsir_opcode opcode, unsigned int dst_count, unsigned int src_count);
 
 static inline struct vkd3d_shader_instruction *vsir_program_append(struct vsir_program *program)
 {

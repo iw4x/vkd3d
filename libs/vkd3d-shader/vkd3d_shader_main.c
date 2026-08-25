@@ -1183,7 +1183,7 @@ static void vkd3d_shader_scan_add_uav_flag(const struct vkd3d_shader_scan_contex
 
 static bool vkd3d_shader_instruction_is_uav_read(const struct vkd3d_shader_instruction *instruction)
 {
-    enum vkd3d_shader_opcode opcode = instruction->opcode;
+    enum vsir_opcode opcode = instruction->opcode;
 
     return (VSIR_OP_ATOMIC_AND <= opcode && opcode <= VSIR_OP_ATOMIC_XOR)
             || vsir_opcode_is_imm_atomic(opcode) || opcode == VSIR_OP_LD_UAV_TYPED
@@ -1199,7 +1199,7 @@ static void vkd3d_shader_scan_record_uav_read(struct vkd3d_shader_scan_context *
 
 static bool vkd3d_shader_instruction_is_uav_counter(const struct vkd3d_shader_instruction *instruction)
 {
-    enum vkd3d_shader_opcode opcode = instruction->opcode;
+    enum vsir_opcode opcode = instruction->opcode;
 
     return opcode == VSIR_OP_IMM_ATOMIC_ALLOC || opcode == VSIR_OP_IMM_ATOMIC_CONSUME;
 }
@@ -1212,7 +1212,7 @@ static void vkd3d_shader_scan_record_uav_counter(struct vkd3d_shader_scan_contex
 
 static bool vkd3d_shader_instruction_is_uav_atomic_op(const struct vkd3d_shader_instruction *instruction)
 {
-    enum vkd3d_shader_opcode opcode = instruction->opcode;
+    enum vsir_opcode opcode = instruction->opcode;
 
     return (VSIR_OP_ATOMIC_AND <= opcode && opcode <= VSIR_OP_ATOMIC_XOR) || vsir_opcode_is_imm_atomic(opcode);
 }

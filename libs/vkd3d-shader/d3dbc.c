@@ -308,7 +308,7 @@ struct vkd3d_sm1_opcode_info
     enum vkd3d_sm1_opcode sm1_opcode;
     unsigned int dst_count;
     unsigned int src_count;
-    enum vkd3d_shader_opcode vkd3d_opcode;
+    enum vsir_opcode vsir_opcode;
     struct
     {
         unsigned int major, minor;
@@ -556,7 +556,7 @@ static const struct vkd3d_sm1_opcode_info *shader_sm1_get_opcode_info(
     for (;;)
     {
         info = &sm1->opcode_table[i++];
-        if (info->vkd3d_opcode == VSIR_OP_INVALID)
+        if (info->vsir_opcode == VSIR_OP_INVALID)
             return NULL;
 
         if (opcode == info->sm1_opcode
@@ -986,7 +986,7 @@ static void record_constant_register(struct vkd3d_shader_sm1_parser *sm1,
     }
 }
 
-static unsigned int d3dbc_get_src_register_count(enum vkd3d_shader_opcode opcode, unsigned int src_idx)
+static unsigned int d3dbc_get_src_register_count(enum vsir_opcode opcode, unsigned int src_idx)
 {
     switch (opcode)
     {
@@ -1131,16 +1131,12 @@ static void shader_sm1_skip_opcode(const struct vkd3d_shader_sm1_parser *sm1, co
     }
 
     /* DCL instructions read an extra token for the semantic. */
-    if (opcode_info->vkd3d_opcode == VSIR_OP_DCL)
-    {
+    if (opcode_info->vsir_opcode == VSIR_OP_DCL)
         *ptr += 1;
-    }
     /* We don't count DEF instructions as having a source, but they do have
      * four tokens of float constants. */
-    else if (opcode_info->vkd3d_opcode == VSIR_OP_DEF)
-    {
+    else if (opcode_info->vsir_opcode == VSIR_OP_DEF)
         *ptr += 4;
-    }
 
     *ptr += (opcode_info->dst_count + opcode_info->src_count);
 }
@@ -1573,7 +1569,7 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
         case VKD3D_SM1_OP_DEFB:
         case VKD3D_SM1_OP_DEFI:
             if (!vsir_instruction_init_with_params(program, ins,
-                    &parser->p.location, opcode_info->vkd3d_opcode, 1, 1))
+                    &parser->p.location, opcode_info->vsir_opcode, 1, 1))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
             vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
 
@@ -1606,7 +1602,7 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
          * operate generically on sources or destinations, normalise that. */
         case VKD3D_SM1_OP_TEXKILL:
             if (!vsir_instruction_init_with_params(program, ins, &parser->p.location,
-                    opcode_info->vkd3d_opcode, 0, 1))
+                    opcode_info->vsir_opcode, 0, 1))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
 
             vsir_operand_from_d3dbc(parser, &ins->src[0].reg, &d3dbc_ins->dst[0].o, &d3dbc_ins->dst_rel_addr[0]);
@@ -1616,7 +1612,7 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
 
         default:
             if (!vsir_instruction_init_with_params(program, ins, &parser->p.location,
-                    opcode_info->vkd3d_opcode, d3dbc_ins->dst_count, d3dbc_ins->src_count))
+                    opcode_info->vsir_opcode, d3dbc_ins->dst_count, d3dbc_ins->src_count))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
 
             if (d3dbc_ins->dst_count)
@@ -1984,7 +1980,7 @@ static uint32_t sm1_version(enum vkd3d_shader_type type, unsigned int major, uns
 }
 
 static const struct vkd3d_sm1_opcode_info *shader_sm1_get_opcode_info_from_vsir(
-        struct d3dbc_compiler *compiler, enum vkd3d_shader_opcode vkd3d_opcode)
+        struct d3dbc_compiler *compiler, enum vsir_opcode vsir_opcode)
 {
     const struct vkd3d_shader_version *version = &compiler->program->shader_version;
     const struct vkd3d_sm1_opcode_info *info;
@@ -1993,10 +1989,10 @@ static const struct vkd3d_sm1_opcode_info *shader_sm1_get_opcode_info_from_vsir(
     for (;;)
     {
         info = &compiler->opcode_table[i++];
-        if (info->vkd3d_opcode == VSIR_OP_INVALID)
+        if (info->vsir_opcode == VSIR_OP_INVALID)
             return NULL;
 
-        if (vkd3d_opcode == info->vkd3d_opcode
+        if (vsir_opcode == info->vsir_opcode
                 && vkd3d_shader_ver_ge(version, info->min_version.major, info->min_version.minor)
                 && (vkd3d_shader_ver_le(version, info->max_version.major, info->max_version.minor)
                         || !info->max_version.major))

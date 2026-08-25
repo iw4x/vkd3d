@@ -667,7 +667,7 @@ struct vkd3d_shader_sm4_parser
 
     struct vsir_program *program;
 
-    enum vkd3d_shader_opcode phase;
+    enum vsir_opcode phase;
     bool has_control_point_phase;
     unsigned int input_register_masks[MAX_REG_OUTPUT];
     unsigned int output_register_masks[MAX_REG_OUTPUT];
@@ -685,7 +685,7 @@ struct vkd3d_shader_sm4_parser
 struct vkd3d_sm4_opcode_info
 {
     enum vkd3d_sm4_opcode opcode;
-    enum vkd3d_shader_opcode handler_idx;
+    enum vsir_opcode vsir_opcode;
     char dst_info[SM4_MAX_DST_COUNT];
     char src_info[SM4_MAX_SRC_COUNT];
     void (*read_opcode_func)(struct vkd3d_shader_instruction *ins, uint32_t opcode, uint32_t opcode_token,
@@ -1917,7 +1917,7 @@ static void init_sm4_lookup_tables(struct vkd3d_sm4_lookup_tables *lookup)
         const struct vkd3d_sm4_opcode_info *info = &opcode_table[i];
 
         lookup->opcode_info_from_sm4[info->opcode] = info;
-        lookup->opcode_info_from_vsir[info->handler_idx] = info;
+        lookup->opcode_info_from_vsir[info->vsir_opcode] = info;
     }
 
     for (i = 0; i < ARRAY_SIZE(register_type_table); ++i)
@@ -1945,7 +1945,7 @@ static const struct vkd3d_sm4_opcode_info *get_info_from_sm4_opcode(
 }
 
 static const struct vkd3d_sm4_opcode_info *get_info_from_vsir_opcode(
-        const struct vkd3d_sm4_lookup_tables *lookup, enum vkd3d_shader_opcode vsir_opcode)
+        const struct vkd3d_sm4_lookup_tables *lookup, enum vsir_opcode vsir_opcode)
 {
     if (vsir_opcode >= VSIR_OP_COUNT)
         return NULL;
@@ -2648,7 +2648,7 @@ static void shader_sm4_read_instruction(struct vkd3d_shader_sm4_parser *sm4, str
         return;
     }
 
-    vsir_instruction_init(ins, &sm4->p.location, opcode_info->handler_idx);
+    vsir_instruction_init(ins, &sm4->p.location, opcode_info->vsir_opcode);
     if (ins->opcode == VSIR_OP_HS_CONTROL_POINT_PHASE || ins->opcode == VSIR_OP_HS_FORK_PHASE
             || ins->opcode == VSIR_OP_HS_JOIN_PHASE)
         sm4->phase = ins->opcode;

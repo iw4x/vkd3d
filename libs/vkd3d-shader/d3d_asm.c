@@ -1509,7 +1509,7 @@ static void shader_dump_register_space(struct vkd3d_d3d_asm_compiler *compiler, 
         shader_print_uint_literal(compiler, ", space=", register_space, "");
 }
 
-static void shader_print_opcode(struct vkd3d_d3d_asm_compiler *compiler, enum vkd3d_shader_opcode opcode)
+static void shader_print_opcode(struct vkd3d_d3d_asm_compiler *compiler, enum vsir_opcode opcode)
 {
     vkd3d_string_buffer_printf(&compiler->buffer, "%s%s%s", compiler->colours.opcode,
             vsir_opcode_get_name(opcode, "<unknown>"), compiler->colours.reset);

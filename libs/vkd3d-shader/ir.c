@@ -185,7 +185,7 @@ const char *vsir_register_type_get_name(enum vsir_register_type type, const char
     return error;
 }
 
-const char *vsir_opcode_get_name(enum vkd3d_shader_opcode op, const char *error)
+const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
 {
     static const char * const names[] =
     {
@@ -1431,7 +1431,7 @@ static void vsir_dst_operand_init_output(struct vsir_dst_operand *dst,
 }
 
 void vsir_instruction_init(struct vkd3d_shader_instruction *ins,
-        const struct vkd3d_shader_location *location, enum vkd3d_shader_opcode opcode)
+        const struct vkd3d_shader_location *location, enum vsir_opcode opcode)
 {
     *ins = (struct vkd3d_shader_instruction)
     {
@@ -1443,7 +1443,7 @@ void vsir_instruction_init(struct vkd3d_shader_instruction *ins,
 
 bool vsir_instruction_init_with_params(struct vsir_program *program,
         struct vkd3d_shader_instruction *ins, const struct vkd3d_shader_location *location,
-        enum vkd3d_shader_opcode opcode, unsigned int dst_count, unsigned int src_count)
+        enum vsir_opcode opcode, unsigned int dst_count, unsigned int src_count)
 {
     vsir_instruction_init(ins, location, opcode);
     ins->dst_count = dst_count;
@@ -1485,7 +1485,8 @@ static bool vsir_instruction_init_label(struct vkd3d_shader_instruction *ins,
 
 static bool vsir_instruction_is_dcl(const struct vkd3d_shader_instruction *instruction)
 {
-    enum vkd3d_shader_opcode opcode = instruction->opcode;
+    enum vsir_opcode opcode = instruction->opcode;
+
     return (VSIR_OP_DCL <= opcode && opcode <= VSIR_OP_DCL_VERTICES_OUT)
             || opcode == VSIR_OP_HS_DECLS || opcode == VSIR_OP_DEF
             || opcode == VSIR_OP_DEFI || opcode == VSIR_OP_DEFB;
@@ -1506,8 +1507,8 @@ static bool vsir_program_iterator_clone_instruction(struct vsir_program *program
     return !dst->src_count || (dst->src = vsir_program_clone_src_operands(program, dst->src, dst->src_count));
 }
 
-static bool get_opcode_from_rel_op(enum vkd3d_shader_rel_op rel_op,
-        enum vsir_data_type data_type, enum vkd3d_shader_opcode *opcode, bool *requires_swap)
+static bool vsir_opcode_from_rel_op(enum vsir_opcode *opcode,
+        enum vkd3d_shader_rel_op rel_op, enum vsir_data_type data_type, bool *requires_swap)
 {
     switch (rel_op)
     {
@@ -1633,7 +1634,7 @@ static enum vkd3d_result vsir_program_lower_breakc(struct vsir_program *program,
     const struct vkd3d_shader_location location = ins->location;
     const struct vsir_src_operand *src = ins->src;
     struct vsir_program_iterator it;
-    enum vkd3d_shader_opcode opcode;
+    enum vsir_opcode opcode;
     unsigned int cmp_id;
     bool swap;
 
@@ -1642,7 +1643,7 @@ static enum vkd3d_result vsir_program_lower_breakc(struct vsir_program *program,
      * <CMP> srCMP, SRC0, SRC1
      * breakp_nz srCMP */
 
-    if (!(get_opcode_from_rel_op(ins->flags, src[0].reg.data_type, &opcode, &swap)))
+    if (!(vsir_opcode_from_rel_op(&opcode, ins->flags, src[0].reg.data_type, &swap)))
     {
         vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
                 "Unhandled comparison operation %#x for data type \"%s\" (%#x).", ins->flags,
@@ -1716,7 +1717,7 @@ static enum vkd3d_result vsir_program_lower_ifc(struct vsir_program *program,
         struct vkd3d_shader_message_context *message_context)
 {
     struct vkd3d_shader_instruction *ifc, *ins;
-    enum vkd3d_shader_opcode opcode;
+    enum vsir_opcode opcode;
     bool swap;
 
     if (!vsir_program_iterator_insert_after(it, 2))
@@ -1727,7 +1728,7 @@ static enum vkd3d_result vsir_program_lower_ifc(struct vsir_program *program,
         *tmp_idx = program->temp_count++;
 
     /* Replace ifc comparison with actual comparison, saving the result in the tmp register. */
-    if (!(get_opcode_from_rel_op(ifc->flags, ifc->src[0].reg.data_type, &opcode, &swap)))
+    if (!(vsir_opcode_from_rel_op(&opcode, ifc->flags, ifc->src[0].reg.data_type, &swap)))
     {
         vkd3d_shader_error(message_context, &ifc->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
                 "Aborting due to not yet implemented feature: opcode for rel_op %u and data type %u.",
@@ -1822,7 +1823,7 @@ static enum vkd3d_result vsir_program_lower_mnxn(struct vsir_program *program, s
     const struct vsir_src_operand *src = ins->src;
     const struct vsir_dst_operand *dst = ins->dst;
     struct vsir_program_iterator it;
-    enum vkd3d_shader_opcode opcode;
+    enum vsir_opcode opcode;
     unsigned int reg_count;
 
     /* mNxM DST, SRC0, SRC1
@@ -2252,8 +2253,8 @@ static enum vkd3d_result vsir_program_lower_clz(struct vsir_program *program,
     const struct vsir_src_operand *src = ins->src;
     const struct vsir_dst_operand *dst = ins->dst;
     unsigned int ieq_id, log2_id, xor_id;
-    enum vkd3d_shader_opcode log2_op;
     struct vsir_program_iterator it;
+    enum vsir_opcode log2_op;
 
     /* firstbit_(s)hi DST, SRC
      *      ->
@@ -4067,7 +4068,7 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
     {
         for (i = 0; i < ins->src_count; ++i)
         {
-            enum vkd3d_shader_opcode new_opcodes[2] = {VSIR_OP_NOP, VSIR_OP_NOP};
+            enum vsir_opcode new_opcodes[2] = {VSIR_OP_NOP, VSIR_OP_NOP};
             struct vsir_src_operand *src = &ins->src[i];
 
             switch (src->modifiers)
@@ -4835,7 +4836,7 @@ struct hull_flattener
 {
     struct vsir_program *program;
 
-    enum vkd3d_shader_opcode phase;
+    enum vsir_opcode phase;
     struct vkd3d_shader_location last_ret_location;
     unsigned int *ssa_map;
     unsigned int orig_ssa_count;
@@ -5047,7 +5048,7 @@ static enum vkd3d_result vsir_program_flatten_hull_shader_phases(struct vsir_pro
 struct control_point_normaliser
 {
     struct vsir_program *program;
-    enum vkd3d_shader_opcode phase;
+    enum vsir_opcode phase;
 };
 
 struct vsir_src_operand *vsir_program_create_outpointid_param(struct vsir_program *program)
@@ -5233,7 +5234,7 @@ struct io_normaliser
     struct vsir_signature *patch_constant_signature;
     struct vsir_normalisation_flags *normalisation_flags;
 
-    enum vkd3d_shader_opcode phase;
+    enum vsir_opcode phase;
 
     struct vsir_dst_operand *input_dcl_params[MAX_REG_OUTPUT];
     struct vsir_dst_operand *output_dcl_params[MAX_REG_OUTPUT];
@@ -9293,7 +9294,7 @@ static enum vkd3d_result vsir_cfg_structure_list_emit_jump(struct vsir_cfg *cfg,
      * we're breaking or continue-ing. */
     unsigned int jump_target = jump->target << 1;
     struct vkd3d_shader_instruction *ins;
-    enum vkd3d_shader_opcode opcode;
+    enum vsir_opcode opcode;
 
     switch (jump->type)
     {
@@ -9727,8 +9728,8 @@ static enum vkd3d_result insert_alpha_test_before_ret(struct vsir_program *progr
 
     static const struct
     {
-        enum vkd3d_shader_opcode float_opcode;
-        enum vkd3d_shader_opcode uint_opcode;
+        enum vsir_opcode float_opcode;
+        enum vsir_opcode uint_opcode;
         bool swap;
     }
     opcodes[] =
@@ -10075,7 +10076,7 @@ struct sysval_array_normaliser
      * allocated for this phase yet. */
     unsigned int idxtemp_idx;
 
-    enum vkd3d_shader_opcode phase;
+    enum vsir_opcode phase;
 };
 
 static enum vkd3d_result sysval_array_normaliser_add_components(
@@ -11562,7 +11563,7 @@ static enum vkd3d_result vsir_program_insert_vertex_fog(struct vsir_program *pro
  * E.g. "add r0.yz, r1.xyzw, r2.xyzw" uses the .yz components of r1 and r2, and
  * therefore those sources are considered "masked", but
  * "dp3 r0.y, r1.xyzw, r2.xyzw" uses the .xyz components. */
-static bool vsir_src_is_masked(enum vkd3d_shader_opcode opcode, unsigned int src_idx)
+static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
 {
     switch (opcode)
     {
@@ -11978,7 +11979,7 @@ static void liveness_track_src(struct liveness_tracker *tracker, struct vsir_src
 }
 
 static void liveness_track_dst(struct liveness_tracker *tracker, struct vsir_dst_operand *dst,
-        unsigned int index, const struct vkd3d_shader_version *version, enum vkd3d_shader_opcode opcode)
+        unsigned int index, const struct vkd3d_shader_version *version, enum vsir_opcode opcode)
 {
     struct liveness_tracker_reg *reg;
 
@@ -12260,7 +12261,7 @@ static void vsir_remap_immconst64(struct vsir_src_operand *src, unsigned int wri
         src->reg.u.immconst_u64[1] = src->reg.u.immconst_u64[0];
 }
 
-static bool vsir_opcode_is_double(enum vkd3d_shader_opcode opcode)
+static bool vsir_opcode_is_double(enum vsir_opcode opcode)
 {
     switch (opcode)
     {
@@ -12759,7 +12760,7 @@ struct validation_context
     bool invalid_instruction_idx;
     enum vkd3d_result status;
     bool dcl_temps_found;
-    enum vkd3d_shader_opcode phase;
+    enum vsir_opcode phase;
     bool inside_block;
 
     struct validation_context_temp_data
@@ -12778,7 +12779,7 @@ struct validation_context
         size_t first_assigned;
     } *ssas;
 
-    enum vkd3d_shader_opcode *blocks;
+    enum vsir_opcode *blocks;
     size_t depth;
     size_t blocks_capacity;
 
@@ -14576,7 +14577,7 @@ static void vsir_validate_cf_type(struct validation_context *ctx,
                 instruction->opcode, name_from_cf_type(ctx->program->cf_type));
 }
 
-static void vsir_validator_push_block(struct validation_context *ctx, enum vkd3d_shader_opcode opcode)
+static void vsir_validator_push_block(struct validation_context *ctx, enum vsir_opcode opcode)
 {
     if (!vkd3d_array_reserve((void **)&ctx->blocks, &ctx->blocks_capacity, ctx->depth + 1, sizeof(*ctx->blocks)))
     {
@@ -17214,7 +17215,7 @@ static bool vsir_instruction_is_pure(const struct vsir_program *program, const s
     return true;
 }
 
-static bool vsir_op_is_commutative(enum vkd3d_shader_opcode opcode)
+static bool vsir_opcode_is_commutative(enum vsir_opcode opcode)
 {
     switch (opcode)
     {
@@ -17383,7 +17384,7 @@ static struct vsir_cse_expr *vsir_cse_make_expr(const struct vkd3d_shader_instru
         return NULL;
     }
 
-    if (vsir_op_is_commutative(ins->opcode))
+    if (vsir_opcode_is_commutative(ins->opcode))
     {
         /* Normalize operand order for commutative operations. */
         if (vsir_src_operand_compare(&ins->src[0], &ins->src[1]) <= 0)

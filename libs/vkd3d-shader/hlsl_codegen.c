@@ -10419,7 +10419,7 @@ static enum vsir_register_type sm4_get_semantic_register_type(enum vkd3d_shader_
 
 static struct vkd3d_shader_instruction *generate_vsir_add_program_instruction(struct hlsl_ctx *ctx,
         struct vsir_program *program, const struct vkd3d_shader_location *loc,
-        enum vkd3d_shader_opcode opcode, unsigned int dst_count, unsigned int src_count)
+        enum vsir_opcode opcode, unsigned int dst_count, unsigned int src_count)
 {
     struct vkd3d_shader_instruction *ins;
 
@@ -10777,9 +10777,8 @@ static void sm4_generate_vsir_rasterizer_sample_count(struct hlsl_ctx *ctx,
 }
 
 /* Translate ops that can be mapped to a single vsir instruction with only one dst register. */
-static void generate_vsir_instr_expr_single_instr_op(struct hlsl_ctx *ctx,
-        struct vsir_program *program, struct hlsl_ir_expr *expr, enum vkd3d_shader_opcode opcode,
-        uint32_t src_mod, uint32_t dst_mod, bool map_src_swizzles)
+static void generate_vsir_instr_expr_single_instr_op(struct hlsl_ctx *ctx, struct vsir_program *program,
+        struct hlsl_ir_expr *expr, enum vsir_opcode opcode, uint32_t src_mod, uint32_t dst_mod, bool map_src_swizzles)
 {
     struct hlsl_ir_node *instr = &expr->node;
     struct vkd3d_shader_instruction *ins;
@@ -10816,7 +10815,7 @@ static void generate_vsir_instr_expr_single_instr_op(struct hlsl_ctx *ctx,
 /* Translate ops that have 1 src and need one instruction for each component in
  * the d3dbc backend. */
 static void sm1_generate_vsir_instr_expr_per_component_instr_op(struct hlsl_ctx *ctx,
-        struct vsir_program *program, struct hlsl_ir_expr *expr, enum vkd3d_shader_opcode opcode)
+        struct vsir_program *program, struct hlsl_ir_expr *expr, enum vsir_opcode opcode)
 {
     struct hlsl_ir_node *operand = expr->operands[0].node;
     struct hlsl_ir_node *instr = &expr->node;
@@ -11332,7 +11331,7 @@ static void sm1_generate_vsir_init_dst_operand_from_deref(struct hlsl_ctx *ctx, 
 static void sm1_generate_vsir_instr_mova(struct hlsl_ctx *ctx,
         struct vsir_program *program, struct hlsl_ir_node *instr)
 {
-    enum vkd3d_shader_opcode opcode = hlsl_version_ge(ctx, 2, 0) ? VSIR_OP_MOVA : VSIR_OP_MOV;
+    enum vsir_opcode opcode = hlsl_version_ge(ctx, 2, 0) ? VSIR_OP_MOVA : VSIR_OP_MOV;
     struct vkd3d_shader_instruction *ins;
     struct vsir_dst_operand *dst;
 
@@ -11475,8 +11474,8 @@ static void sm1_generate_vsir_instr_resource_load(struct hlsl_ctx *ctx,
     struct hlsl_ir_node *ddy = load->ddy.node;
     struct hlsl_ir_node *instr = &load->node;
     struct vkd3d_shader_instruction *ins;
-    enum vkd3d_shader_opcode opcode;
     unsigned int src_count = 2;
+    enum vsir_opcode opcode;
     uint32_t flags = 0;
 
     VKD3D_ASSERT(instr->reg.allocated);
@@ -12290,9 +12289,9 @@ static void sm4_generate_vsir_instr_dcl_semantic(struct hlsl_ctx *ctx, struct vs
     const bool output = var->is_output_semantic;
     enum vkd3d_shader_sysval_semantic semantic;
     struct vkd3d_shader_instruction *ins;
-    enum vkd3d_shader_opcode opcode;
     struct vsir_dst_operand *dst;
     enum vsir_register_type type;
+    enum vsir_opcode opcode;
     unsigned int idx = 0;
     uint32_t write_mask;
     bool has_idx;
@@ -12577,7 +12576,7 @@ static bool sm4_generate_vsir_instr_expr_cast(struct hlsl_ctx *ctx,
 }
 
 static void sm4_generate_vsir_expr_with_two_destinations(struct hlsl_ctx *ctx, struct vsir_program *program,
-        enum vkd3d_shader_opcode opcode, const struct hlsl_ir_expr *expr, unsigned int dst_idx)
+        enum vsir_opcode opcode, const struct hlsl_ir_expr *expr, unsigned int dst_idx)
 {
     const struct hlsl_ir_node *instr = &expr->node;
     struct vkd3d_shader_instruction *ins;
@@ -13231,7 +13230,7 @@ static bool sm4_generate_vsir_instr_resource_store(struct hlsl_ctx *ctx,
 
     if (store->store_type != HLSL_RESOURCE_STORE)
     {
-        enum vkd3d_shader_opcode opcode;
+        enum vsir_opcode opcode;
 
         VKD3D_ASSERT(!store->value.node && !store->coords.node);
         VKD3D_ASSERT(store->resource.var->regs[HLSL_REGSET_STREAM_OUTPUTS].allocated);
@@ -13363,7 +13362,7 @@ static bool sm4_generate_vsir_instr_ld(struct hlsl_ctx *ctx,
     bool tgsm = load->resource.var->is_tgsm;
     struct vkd3d_shader_instruction *ins;
     bool multisampled, raw, structured;
-    enum vkd3d_shader_opcode opcode;
+    enum vsir_opcode opcode;
 
     VKD3D_ASSERT(load->load_type == HLSL_RESOURCE_LOAD);
 
@@ -13453,7 +13452,7 @@ static bool sm4_generate_vsir_instr_sample(struct hlsl_ctx *ctx,
     const struct hlsl_deref *sampler = &load->sampler;
     const struct hlsl_ir_node *instr = &load->node;
     struct vkd3d_shader_instruction *ins;
-    enum vkd3d_shader_opcode opcode;
+    enum vsir_opcode opcode;
     unsigned int src_count;
 
     switch (load->load_type)
@@ -13538,10 +13537,10 @@ static bool sm4_generate_vsir_instr_gather(struct hlsl_ctx *ctx, struct vsir_pro
     const struct hlsl_ir_node *texel_offset = load->texel_offset.node;
     const struct hlsl_ir_node *coords = load->coords.node;
     const struct hlsl_deref *resource = &load->resource;
-    enum vkd3d_shader_opcode opcode = VSIR_OP_GATHER4;
     const struct hlsl_deref *sampler = &load->sampler;
     const struct hlsl_ir_node *instr = &load->node;
     unsigned int src_count = 3, current_arg = 0;
+    enum vsir_opcode opcode = VSIR_OP_GATHER4;
     struct vkd3d_shader_instruction *ins;
 
     if (texel_offset && !sm4_generate_vsir_validate_texel_offset_aoffimmi(texel_offset))
@@ -13735,7 +13734,7 @@ static bool sm4_generate_vsir_instr_interlocked(struct hlsl_ctx *ctx,
         struct vsir_program *program, struct hlsl_ir_interlocked *interlocked)
 {
 
-    static const enum vkd3d_shader_opcode opcodes[] =
+    static const enum vsir_opcode opcodes[] =
     {
         [HLSL_INTERLOCKED_ADD] = VSIR_OP_ATOMIC_IADD,
         [HLSL_INTERLOCKED_AND] = VSIR_OP_ATOMIC_AND,
@@ -13746,7 +13745,7 @@ static bool sm4_generate_vsir_instr_interlocked(struct hlsl_ctx *ctx,
         [HLSL_INTERLOCKED_XOR] = VSIR_OP_ATOMIC_XOR,
     };
 
-    static const enum vkd3d_shader_opcode imm_opcodes[] =
+    static const enum vsir_opcode imm_opcodes[] =
     {
         [HLSL_INTERLOCKED_ADD] = VSIR_OP_IMM_ATOMIC_IADD,
         [HLSL_INTERLOCKED_AND] = VSIR_OP_IMM_ATOMIC_AND,
@@ -13763,8 +13762,8 @@ static bool sm4_generate_vsir_instr_interlocked(struct hlsl_ctx *ctx,
     struct hlsl_ir_node *instr = &interlocked->node;
     bool is_imm = interlocked->node.reg.allocated;
     struct vkd3d_shader_instruction *ins;
-    enum vkd3d_shader_opcode opcode;
     struct vsir_dst_operand *dst;
+    enum vsir_opcode opcode;
 
     if (!interlocked->dst.var->is_tgsm && hlsl_deref_get_type(ctx, &interlocked->dst)->class != HLSL_CLASS_UAV)
     {
@@ -14469,7 +14468,7 @@ static void sm4_generate_vsir_add_dcl_texture(struct hlsl_ctx *ctx,
     enum hlsl_regset regset = uav ? HLSL_REGSET_UAVS : HLSL_REGSET_TEXTURES;
     struct vkd3d_shader_instruction *ins;
     struct hlsl_type *component_type;
-    enum vkd3d_shader_opcode opcode;
+    enum vsir_opcode opcode;
     bool multisampled;
     unsigned int i;
 
@@ -14586,8 +14585,8 @@ static void sm4_generate_vsir_add_dcl_tgsm(struct hlsl_ctx *ctx,
     struct vkd3d_shader_tgsm_structured *tgsm_structured;
     struct vkd3d_shader_tgsm_raw *tgsm_raw;
     struct vkd3d_shader_instruction *ins;
-    enum vkd3d_shader_opcode opcode;
     struct vsir_dst_operand *dst;
+    enum vsir_opcode opcode;
 
     opcode = raw ? VSIR_OP_DCL_TGSM_RAW : VSIR_OP_DCL_TGSM_STRUCTURED;
     if (!(ins = generate_vsir_add_program_instruction(ctx, program, &var->loc, opcode, 0, 0)))
