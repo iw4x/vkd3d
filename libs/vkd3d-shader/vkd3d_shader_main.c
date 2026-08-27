@@ -1181,7 +1181,7 @@ static void vkd3d_shader_scan_add_uav_flag(const struct vkd3d_shader_scan_contex
     }
 }
 
-static bool vkd3d_shader_instruction_is_uav_read(const struct vkd3d_shader_instruction *instruction)
+static bool vsir_instruction_is_uav_read(const struct vsir_instruction *instruction)
 {
     enum vsir_opcode opcode = instruction->opcode;
 
@@ -1197,7 +1197,7 @@ static void vkd3d_shader_scan_record_uav_read(struct vkd3d_shader_scan_context *
     vkd3d_shader_scan_add_uav_flag(context, reg, VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_UAV_READ);
 }
 
-static bool vkd3d_shader_instruction_is_uav_counter(const struct vkd3d_shader_instruction *instruction)
+static bool vsir_instruction_is_uav_counter(const struct vsir_instruction *instruction)
 {
     enum vsir_opcode opcode = instruction->opcode;
 
@@ -1210,7 +1210,7 @@ static void vkd3d_shader_scan_record_uav_counter(struct vkd3d_shader_scan_contex
     vkd3d_shader_scan_add_uav_flag(context, reg, VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_UAV_COUNTER);
 }
 
-static bool vkd3d_shader_instruction_is_uav_atomic_op(const struct vkd3d_shader_instruction *instruction)
+static bool vsir_instruction_is_uav_atomic_op(const struct vsir_instruction *instruction)
 {
     enum vsir_opcode opcode = instruction->opcode;
 
@@ -1256,7 +1256,7 @@ static struct vsir_descriptor *vkd3d_shader_scan_add_descriptor(struct vkd3d_sha
 }
 
 static void vkd3d_shader_scan_constant_buffer_declaration(struct vkd3d_shader_scan_context *context,
-        const struct vkd3d_shader_instruction *instruction)
+        const struct vsir_instruction *instruction)
 {
     const struct vkd3d_shader_constant_buffer *cb = &instruction->declaration.cb;
     struct vsir_descriptor *d;
@@ -1268,7 +1268,7 @@ static void vkd3d_shader_scan_constant_buffer_declaration(struct vkd3d_shader_sc
 }
 
 static void vkd3d_shader_scan_sampler_declaration(struct vkd3d_shader_scan_context *context,
-        const struct vkd3d_shader_instruction *instruction)
+        const struct vsir_instruction *instruction)
 {
     const struct vkd3d_shader_sampler *sampler = &instruction->declaration.sampler;
     struct vsir_descriptor *d;
@@ -1389,7 +1389,7 @@ static void vkd3d_shader_scan_resource_declaration(struct vkd3d_shader_scan_cont
 }
 
 static void vkd3d_shader_scan_typed_resource_declaration(struct vkd3d_shader_scan_context *context,
-        const struct vkd3d_shader_instruction *instruction)
+        const struct vsir_instruction *instruction)
 {
     const struct vkd3d_shader_semantic *semantic = &instruction->declaration.semantic;
 
@@ -1405,7 +1405,7 @@ static void vkd3d_shader_scan_typed_resource_declaration(struct vkd3d_shader_sca
 }
 
 static int vkd3d_shader_scan_instruction(struct vkd3d_shader_scan_context *context,
-        const struct vkd3d_shader_instruction *instruction)
+        const struct vsir_instruction *instruction)
 {
     const struct vsir_operand *sampler_reg;
     struct vkd3d_shader_cf_info *cf_info;
@@ -1618,7 +1618,7 @@ static int vkd3d_shader_scan_instruction(struct vkd3d_shader_scan_context *conte
             break;
     }
 
-    if (vkd3d_shader_instruction_is_uav_read(instruction))
+    if (vsir_instruction_is_uav_read(instruction))
     {
         for (i = 0; i < instruction->dst_count; ++i)
         {
@@ -1632,10 +1632,10 @@ static int vkd3d_shader_scan_instruction(struct vkd3d_shader_scan_context *conte
         }
     }
 
-    if (vkd3d_shader_instruction_is_uav_counter(instruction))
+    if (vsir_instruction_is_uav_counter(instruction))
         vkd3d_shader_scan_record_uav_counter(context, &instruction->src[0].reg);
 
-    if (vkd3d_shader_instruction_is_uav_atomic_op(instruction))
+    if (vsir_instruction_is_uav_atomic_op(instruction))
     {
         for (i = 0; i < instruction->dst_count; ++i)
         {
@@ -1730,7 +1730,7 @@ static int vsir_program_scan(struct vsir_program *program, const struct vkd3d_sh
     struct vkd3d_shader_scan_descriptor_info *descriptor_info;
     struct vkd3d_shader_scan_signature_info *signature_info;
     struct vkd3d_shader_scan_context context;
-    struct vkd3d_shader_instruction *ins;
+    struct vsir_instruction *ins;
     int ret = VKD3D_OK;
 
     descriptor_info = vkd3d_find_struct(compile_info->next, SCAN_DESCRIPTOR_INFO);

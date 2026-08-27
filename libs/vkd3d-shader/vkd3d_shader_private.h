@@ -1434,7 +1434,7 @@ struct vkd3d_shader_location
 
 /* This structure is used by vsir_cse_expr_key_compare(); changes to the
  * structure should be reflected by that function as well. */
-struct vkd3d_shader_instruction
+struct vsir_instruction
 {
     struct vkd3d_shader_location location;
     enum vsir_opcode opcode;
@@ -1486,17 +1486,17 @@ static inline bool vkd3d_shader_ver_le(const struct vkd3d_shader_version *v, uns
     return v->major < major || (v->major == major && v->minor <= minor);
 }
 
-void vsir_instruction_init(struct vkd3d_shader_instruction *ins,
+void vsir_instruction_init(struct vsir_instruction *ins,
         const struct vkd3d_shader_location *location, enum vsir_opcode opcode);
 
-static inline void vkd3d_shader_instruction_make_nop(struct vkd3d_shader_instruction *ins)
+static inline void vsir_instruction_make_nop(struct vsir_instruction *ins)
 {
     struct vkd3d_shader_location location = ins->location;
 
     vsir_instruction_init(ins, &location, VSIR_OP_NOP);
 }
 
-static inline bool vkd3d_shader_instruction_has_texel_offset(const struct vkd3d_shader_instruction *ins)
+static inline bool vsir_instruction_has_texel_offset(const struct vsir_instruction *ins)
 {
     return ins->texel_offset.u || ins->texel_offset.v || ins->texel_offset.w;
 }
@@ -1520,14 +1520,14 @@ void *shader_param_allocator_get(struct vkd3d_shader_param_allocator *allocator,
 
 struct vkd3d_shader_instruction_array
 {
-    struct vkd3d_shader_instruction *elements;
+    struct vsir_instruction *elements;
     size_t capacity;
     size_t count;
 };
 
 bool shader_instruction_array_init(struct vkd3d_shader_instruction_array *array, size_t reserve);
 void shader_instruction_array_cleanup(struct vkd3d_shader_instruction_array *array);
-struct vkd3d_shader_instruction *shader_instruction_array_append(struct vkd3d_shader_instruction_array *array);
+struct vsir_instruction *shader_instruction_array_append(struct vkd3d_shader_instruction_array *array);
 bool shader_instruction_array_insert_at(struct vkd3d_shader_instruction_array *instructions, size_t idx, size_t count);
 
 struct vsir_program_iterator
@@ -1541,8 +1541,7 @@ static inline struct vsir_program_iterator vsir_program_iterator(struct vkd3d_sh
     return (struct vsir_program_iterator){ .array = array };
 }
 
-static inline struct vkd3d_shader_instruction *vsir_program_iterator_current(
-        struct vsir_program_iterator *iterator)
+static inline struct vsir_instruction *vsir_program_iterator_current(struct vsir_program_iterator *iterator)
 {
     if (iterator->idx >= iterator->array->count)
         return NULL;
@@ -1550,23 +1549,21 @@ static inline struct vkd3d_shader_instruction *vsir_program_iterator_current(
     return &iterator->array->elements[iterator->idx];
 }
 
-static inline struct vkd3d_shader_instruction *vsir_program_iterator_head(
-        struct vsir_program_iterator *iterator)
+static inline struct vsir_instruction *vsir_program_iterator_head(struct vsir_program_iterator *iterator)
 {
     iterator->idx = 0;
 
     return vsir_program_iterator_current(iterator);
 }
 
-static inline struct vkd3d_shader_instruction *vsir_program_iterator_tail(struct vsir_program_iterator *iterator)
+static inline struct vsir_instruction *vsir_program_iterator_tail(struct vsir_program_iterator *iterator)
 {
     iterator->idx = iterator->array->count - 1;
 
     return vsir_program_iterator_current(iterator);
 }
 
-static inline struct vkd3d_shader_instruction *vsir_program_iterator_next(
-        struct vsir_program_iterator *iterator)
+static inline struct vsir_instruction *vsir_program_iterator_next(struct vsir_program_iterator *iterator)
 {
     if (iterator->idx < iterator->array->count || iterator->idx == SIZE_MAX)
         ++iterator->idx;
@@ -1574,8 +1571,7 @@ static inline struct vkd3d_shader_instruction *vsir_program_iterator_next(
     return vsir_program_iterator_current(iterator);
 }
 
-static inline struct vkd3d_shader_instruction *vsir_program_iterator_prev(
-        struct vsir_program_iterator *iterator)
+static inline struct vsir_instruction *vsir_program_iterator_prev(struct vsir_program_iterator *iterator)
 {
     if (iterator->idx != SIZE_MAX)
         --iterator->idx;
@@ -1596,7 +1592,7 @@ static inline bool vsir_program_iterator_insert_after(struct vsir_program_iterat
  * instruction as before the insertion, and argument `ins_it' is initialized
  * to point to the first inserted instruction. A pointer to the first inserted
  * instruction is returned. */
-static inline struct vkd3d_shader_instruction *vsir_program_iterator_insert_before(
+static inline struct vsir_instruction *vsir_program_iterator_insert_before(
         struct vsir_program_iterator *it, struct vsir_program_iterator *ins_it, size_t count)
 {
     VKD3D_ASSERT(it != ins_it);
@@ -1614,7 +1610,7 @@ static inline struct vkd3d_shader_instruction *vsir_program_iterator_insert_befo
 /* When insertion takes place, argument `it' is updated to point to the first
  * inserted instruction. A pointer to this first inserted instruction is
  * returned. */
-static inline struct vkd3d_shader_instruction *vsir_program_iterator_insert_before_and_move(
+static inline struct vsir_instruction *vsir_program_iterator_insert_before_and_move(
         struct vsir_program_iterator *it, size_t count)
 {
     VKD3D_ASSERT(it->idx != SIZE_MAX);
@@ -1823,10 +1819,10 @@ enum vkd3d_result vsir_program_validate(struct vsir_program *program, uint64_t c
         const char *source_name, struct vkd3d_shader_message_context *message_context);
 struct vsir_src_operand *vsir_program_create_outpointid_param(struct vsir_program *program);
 bool vsir_instruction_init_with_params(struct vsir_program *program,
-        struct vkd3d_shader_instruction *ins, const struct vkd3d_shader_location *location,
+        struct vsir_instruction *ins, const struct vkd3d_shader_location *location,
         enum vsir_opcode opcode, unsigned int dst_count, unsigned int src_count);
 
-static inline struct vkd3d_shader_instruction *vsir_program_append(struct vsir_program *program)
+static inline struct vsir_instruction *vsir_program_append(struct vsir_program *program)
 {
     return shader_instruction_array_append(&program->instructions);
 }

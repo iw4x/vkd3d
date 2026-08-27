@@ -1276,8 +1276,7 @@ static void shader_sm1_read_comment(struct vkd3d_shader_sm1_parser *sm1)
     }
 }
 
-static void d3dbc_update_descriptors(struct vkd3d_shader_sm1_parser *d3dbc,
-        const struct vkd3d_shader_instruction *ins)
+static void d3dbc_update_descriptors(struct vkd3d_shader_sm1_parser *d3dbc, const struct vsir_instruction *ins)
 {
     enum vkd3d_shader_resource_type type = VKD3D_SHADER_RESOURCE_TEXTURE_2D;
     const struct vkd3d_shader_d3dbc_source_info *source_info;
@@ -1313,7 +1312,7 @@ static void d3dbc_update_descriptors(struct vkd3d_shader_sm1_parser *d3dbc,
     }
 }
 
-static void shader_sm1_validate_instruction(struct vkd3d_shader_sm1_parser *sm1, struct vkd3d_shader_instruction *ins)
+static void shader_sm1_validate_instruction(struct vkd3d_shader_sm1_parser *sm1, struct vsir_instruction *ins)
 {
     if ((ins->opcode == VSIR_OP_BREAKP || ins->opcode == VSIR_OP_IF) && ins->flags)
     {
@@ -1519,7 +1518,7 @@ static void vsir_dst_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, 
 
 static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_parser *parser,
         const struct d3dbc_instruction *d3dbc_ins,
-        const struct vkd3d_sm1_opcode_info *opcode_info, struct vkd3d_shader_instruction *ins)
+        const struct vkd3d_sm1_opcode_info *opcode_info, struct vsir_instruction *ins)
 {
     struct vsir_program *program = parser->program;
     struct vkd3d_shader_semantic *semantic;
@@ -1769,7 +1768,7 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
         struct vkd3d_shader_message_context *message_context, struct vsir_program *program)
 {
     struct vkd3d_shader_sm1_parser sm1 = {0};
-    struct vkd3d_shader_instruction *ins;
+    struct vsir_instruction *ins;
     struct vsir_descriptor *d;
     unsigned int i;
     int ret;
@@ -2001,7 +2000,7 @@ static const struct vkd3d_sm1_opcode_info *shader_sm1_get_opcode_info_from_vsir(
 }
 
 static const struct vkd3d_sm1_opcode_info *shader_sm1_get_opcode_info_from_vsir_instruction(
-        struct d3dbc_compiler *compiler, const struct vkd3d_shader_instruction *ins)
+        struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
 {
     const struct vkd3d_sm1_opcode_info *info;
 
@@ -2094,7 +2093,7 @@ static uint32_t swizzle_from_vsir(uint32_t swizzle)
             | ((w & 0x3) << VKD3D_SM1_SWIZZLE_COMPONENT_SHIFT(3));
 }
 
-static bool is_inconsequential_instr(const struct vkd3d_shader_instruction *ins)
+static bool is_inconsequential_instr(const struct vsir_instruction *ins)
 {
     const struct vsir_src_operand *src = &ins->src[0];
     const struct vsir_dst_operand *dst = &ins->dst[0];
@@ -2172,7 +2171,7 @@ static void validate_register_limits(struct d3dbc_compiler *compiler,
     }
 }
 
-static void d3dbc_write_instruction(struct d3dbc_compiler *compiler, const struct vkd3d_shader_instruction *ins)
+static void d3dbc_write_instruction(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
 {
     const struct vkd3d_shader_version *version = &compiler->program->shader_version;
     struct vkd3d_bytecode_buffer *buffer = &compiler->buffer;
@@ -2225,10 +2224,10 @@ static void d3dbc_write_instruction(struct d3dbc_compiler *compiler, const struc
     set_u32(buffer, token_position, token);
 };
 
-static void d3dbc_write_texkill(struct d3dbc_compiler *compiler, const struct vkd3d_shader_instruction *ins)
+static void d3dbc_write_texkill(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
 {
     const struct vsir_operand *reg = &ins->src[0].reg;
-    struct vkd3d_shader_instruction tmp;
+    struct vsir_instruction tmp;
     struct vsir_dst_operand dst;
 
     /* TEXKILL, uniquely, encodes its argument as a destination, when it is
@@ -2246,7 +2245,7 @@ static void d3dbc_write_texkill(struct d3dbc_compiler *compiler, const struct vk
     d3dbc_write_instruction(compiler, &tmp);
 }
 
-static void d3dbc_write_vsir_def(struct d3dbc_compiler *compiler, const struct vkd3d_shader_instruction *ins)
+static void d3dbc_write_vsir_def(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
 {
     const struct vkd3d_shader_version *version = &compiler->program->shader_version;
     struct vkd3d_bytecode_buffer *buffer = &compiler->buffer;
@@ -2270,7 +2269,7 @@ static void d3dbc_write_vsir_def(struct d3dbc_compiler *compiler, const struct v
         put_f32(buffer, ins->src[0].reg.u.immconst_f32[x]);
 }
 
-static void d3dbc_write_vsir_defi(struct d3dbc_compiler *compiler, const struct vkd3d_shader_instruction *ins)
+static void d3dbc_write_vsir_defi(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
 {
     const struct vkd3d_shader_version *version = &compiler->program->shader_version;
     struct vkd3d_bytecode_buffer *buffer = &compiler->buffer;
@@ -2319,7 +2318,7 @@ static void d3dbc_write_vsir_sampler_dcl(struct d3dbc_compiler *compiler,
     write_sm1_dst_register(buffer, &reg);
 }
 
-static void d3dbc_write_vsir_dcl(struct d3dbc_compiler *compiler, const struct vkd3d_shader_instruction *ins)
+static void d3dbc_write_vsir_dcl(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
 {
     const struct vkd3d_shader_version *version = &compiler->program->shader_version;
     const struct vkd3d_shader_semantic *semantic = &ins->declaration.semantic;
@@ -2360,7 +2359,7 @@ static void d3dbc_write_vsir_dcl(struct d3dbc_compiler *compiler, const struct v
     }
 }
 
-static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *compiler, const struct vkd3d_shader_instruction *ins)
+static void d3dbc_write_vsir_instruction(struct d3dbc_compiler *compiler, const struct vsir_instruction *ins)
 {
     uint32_t writemask;
 
@@ -2519,7 +2518,7 @@ static void d3dbc_write_semantic_dcls(struct d3dbc_compiler *compiler)
 static void d3dbc_write_program_instructions(struct d3dbc_compiler *compiler)
 {
     struct vsir_program_iterator it = vsir_program_iterator(&compiler->program->instructions);
-    struct vkd3d_shader_instruction *ins;
+    struct vsir_instruction *ins;
 
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
