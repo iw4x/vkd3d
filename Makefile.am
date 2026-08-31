@@ -394,8 +394,8 @@ libvkd3d_common_la_SOURCES = \
 	libs/vkd3d-common/debug.c \
 	libs/vkd3d-common/error.c \
 	libs/vkd3d-common/memory.c \
-	libs/vkd3d-common/utf8.c
-libvkd3d_common_la_LIBADD = @PTHREAD_LIBS@
+	libs/vkd3d-common/string.c
+libvkd3d_common_la_LIBADD = @PTHREAD_LIBS@ -lm
 
 lib_LTLIBRARIES = libvkd3d-shader.la libvkd3d.la libvkd3d-utils.la
 
@@ -486,8 +486,8 @@ libvkd3d_la_SOURCES = \
 	include/private/vkd3d_common.h \
 	include/private/vkd3d_memory.h \
 	include/private/vkd3d_shader_utils.h \
+	include/private/vkd3d_string.h \
 	include/private/vkd3d_test.h \
-	include/private/vkd3d_utf8.h \
 	include/vkd3d_d3d12.idl \
 	include/vkd3d_d3dcommon.idl \
 	include/vkd3d_unknown.idl \

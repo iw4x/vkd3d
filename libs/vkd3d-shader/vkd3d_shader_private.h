@@ -49,6 +49,7 @@
 #include "vkd3d_common.h"
 #include "vkd3d_memory.h"
 #include "vkd3d_shader.h"
+#include "vkd3d_string.h"
 #include "list.h"
 
 #include <inttypes.h>
@@ -1870,18 +1871,6 @@ void vsir_program_trace(struct vsir_program *program);
 
 const char *shader_get_type_prefix(enum vkd3d_shader_type type);
 
-struct vkd3d_string_buffer
-{
-    char *buffer;
-    size_t buffer_size, content_size;
-};
-
-struct vkd3d_string_buffer_cache
-{
-    struct vkd3d_string_buffer **buffers;
-    size_t count, max_count, capacity;
-};
-
 enum vsir_asm_flags
 {
     VSIR_ASM_FLAG_NONE = 0,
@@ -1895,23 +1884,6 @@ enum vsir_asm_flags
 enum vkd3d_result d3d_asm_compile(struct vsir_program *program,
         const struct vsir_compile_info *compile_info, struct vkd3d_shader_code *out,
         enum vsir_asm_flags flags, struct vkd3d_shader_message_context *message_context);
-void vkd3d_string_buffer_cleanup(struct vkd3d_string_buffer *buffer);
-struct vkd3d_string_buffer *vkd3d_string_buffer_get(struct vkd3d_string_buffer_cache *list);
-void vkd3d_string_buffer_init(struct vkd3d_string_buffer *buffer);
-void vkd3d_string_buffer_cache_cleanup(struct vkd3d_string_buffer_cache *list);
-void vkd3d_string_buffer_cache_init(struct vkd3d_string_buffer_cache *list);
-void vkd3d_string_buffer_clear(struct vkd3d_string_buffer *buffer);
-void vkd3d_string_buffer_truncate(struct vkd3d_string_buffer *buffer, size_t size);
-int vkd3d_string_buffer_print_f16(struct vkd3d_string_buffer *buffer, uint16_t f);
-int vkd3d_string_buffer_print_f32(struct vkd3d_string_buffer *buffer, float f);
-int vkd3d_string_buffer_print_f64(struct vkd3d_string_buffer *buffer, double d);
-int vkd3d_string_buffer_print_string_escaped(struct vkd3d_string_buffer *buffer, const char *s, size_t len);
-int vkd3d_string_buffer_printf(struct vkd3d_string_buffer *buffer, const char *format, ...) VKD3D_PRINTF_FUNC(2, 3);
-void vkd3d_string_buffer_release(struct vkd3d_string_buffer_cache *list, struct vkd3d_string_buffer *buffer);
-#define vkd3d_string_buffer_trace(buffer) \
-        vkd3d_string_buffer_trace_(buffer, __FUNCTION__)
-void vkd3d_string_buffer_trace_(const struct vkd3d_string_buffer *buffer, const char *function);
-int vkd3d_string_buffer_vprintf(struct vkd3d_string_buffer *buffer, const char *format, va_list args);
 void vkd3d_shader_code_from_string_buffer(struct vkd3d_shader_code *code, struct vkd3d_string_buffer *buffer);
 
 struct vkd3d_bytecode_buffer
