@@ -650,6 +650,54 @@ HRESULT return_interface(void *iface, REFIID iface_iid,
     return hr;
 }
 
+struct debug_buffer
+{
+    struct vkd3d_string_buffer b;
+};
+
+static void debug_buffer_cleanup(struct debug_buffer *buffer)
+{
+    vkd3d_string_buffer_cleanup(&buffer->b);
+}
+
+static void debug_buffer_init(struct debug_buffer *buffer)
+{
+    vkd3d_string_buffer_init(&buffer->b);
+}
+
+static void debug_buffer_append(struct debug_buffer *buffer, const char *format, ...)
+{
+    va_list args;
+
+    if (buffer->b.content_size)
+        vkd3d_string_buffer_printf(&buffer->b, " | ");
+
+    va_start(args, format);
+    vkd3d_string_buffer_vprintf(&buffer->b, format, args);
+    va_end(args);
+}
+
+static void debug_buffer_append_flag(struct debug_buffer *buffer, uint32_t *flags, uint32_t flag, const char *name)
+{
+    if (!(*flags & flag))
+        return;
+    debug_buffer_append(buffer, "%s", name);
+    *flags &= ~flag;
+}
+
+static const char *debug_buffer_ret(struct debug_buffer *buffer, uint32_t flags, const char *default_string)
+{
+    const char *ret = default_string;
+
+    if (flags)
+        debug_buffer_append(buffer, "%#x", flags);
+    if (buffer->b.content_size)
+        ret = vkd3d_dbg_sprintf("%s", buffer->b.buffer);
+    debug_buffer_cleanup(buffer);
+
+    return ret;
+}
+
 const char *debug_cpu_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle)
 {
     return vkd3d_dbg_sprintf("{%#"PRIxPTR"}", (uintptr_t)handle.ptr);
@@ -809,67 +857,55 @@ const char *debug_vk_extent_3d(VkExtent3D extent)
 
 const char *debug_vk_queue_flags(VkQueueFlags flags)
 {
-    char buffer[222];
+    struct debug_buffer buffer;
 
-    buffer[0] = '\0';
-#define FLAG_TO_STR(f) if (flags & f) { strcat(buffer, " | "#f); flags &= ~f; }
-    FLAG_TO_STR(VK_QUEUE_GRAPHICS_BIT)
-    FLAG_TO_STR(VK_QUEUE_COMPUTE_BIT)
-    FLAG_TO_STR(VK_QUEUE_TRANSFER_BIT)
-    FLAG_TO_STR(VK_QUEUE_SPARSE_BINDING_BIT)
-    FLAG_TO_STR(VK_QUEUE_PROTECTED_BIT)
+    debug_buffer_init(&buffer);
+#define FLAG_TO_STR(f) debug_buffer_append_flag(&buffer, (uint32_t *)&flags, f, #f)
+    FLAG_TO_STR(VK_QUEUE_GRAPHICS_BIT);
+    FLAG_TO_STR(VK_QUEUE_COMPUTE_BIT);
+    FLAG_TO_STR(VK_QUEUE_TRANSFER_BIT);
+    FLAG_TO_STR(VK_QUEUE_SPARSE_BINDING_BIT);
+    FLAG_TO_STR(VK_QUEUE_PROTECTED_BIT);
 #undef FLAG_TO_STR
-#define FLAG_TO_STR(f, n) if (flags & f) { strcat(buffer, " | "#n); flags &= ~f; }
-    FLAG_TO_STR(0x20, VK_QUEUE_VIDEO_DECODE_BIT_KHR)
-    FLAG_TO_STR(0x40, VK_QUEUE_VIDEO_ENCODE_BIT_KHR)
-    FLAG_TO_STR(0x100, VK_QUEUE_OPTICAL_FLOW_BIT_NV)
+#define FLAG_TO_STR(f, n) debug_buffer_append_flag(&buffer, (uint32_t *)&flags, f, #n)
+    FLAG_TO_STR(0x20, VK_QUEUE_VIDEO_DECODE_BIT_KHR);
+    FLAG_TO_STR(0x40, VK_QUEUE_VIDEO_ENCODE_BIT_KHR);
+    FLAG_TO_STR(0x100, VK_QUEUE_OPTICAL_FLOW_BIT_NV);
 #undef FLAG_TO_STR
-    if (flags)
-        FIXME("Unrecognized flag(s) %#x.\n", flags);
 
-    if (!buffer[0])
-        return "0";
-    return vkd3d_dbg_sprintf("%s", &buffer[3]);
+    return debug_buffer_ret(&buffer, flags, "0");
 }
 
 const char *debug_vk_memory_heap_flags(VkMemoryHeapFlags flags)
 {
-    char buffer[80];
+    struct debug_buffer buffer;
 
-    buffer[0] = '\0';
-#define FLAG_TO_STR(f) if (flags & f) { strcat(buffer, " | "#f); flags &= ~f; }
-    FLAG_TO_STR(VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
-    FLAG_TO_STR(VK_MEMORY_HEAP_MULTI_INSTANCE_BIT)
+    debug_buffer_init(&buffer);
+#define FLAG_TO_STR(f) debug_buffer_append_flag(&buffer, (uint32_t *)&flags, f, #f)
+    FLAG_TO_STR(VK_MEMORY_HEAP_DEVICE_LOCAL_BIT);
+    FLAG_TO_STR(VK_MEMORY_HEAP_MULTI_INSTANCE_BIT);
 #undef FLAG_TO_STR
-    if (flags)
-        FIXME("Unrecognized flag(s) %#x.\n", flags);
 
-    if (!buffer[0])
-        return "0";
-    return vkd3d_dbg_sprintf("%s", &buffer[3]);
+    return debug_buffer_ret(&buffer, flags, "0");
 }
 
 const char *debug_vk_memory_property_flags(VkMemoryPropertyFlags flags)
 {
-    char buffer[320];
+    struct debug_buffer buffer;
 
-    buffer[0] = '\0';
-#define FLAG_TO_STR(f) if (flags & f) { strcat(buffer, " | "#f); flags &= ~f; }
-    FLAG_TO_STR(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
-    FLAG_TO_STR(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
-    FLAG_TO_STR(VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
-    FLAG_TO_STR(VK_MEMORY_PROPERTY_HOST_CACHED_BIT)
-    FLAG_TO_STR(VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT)
-    FLAG_TO_STR(VK_MEMORY_PROPERTY_PROTECTED_BIT)
-    FLAG_TO_STR(VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD)
-    FLAG_TO_STR(VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD)
+    debug_buffer_init(&buffer);
+#define FLAG_TO_STR(f) debug_buffer_append_flag(&buffer, (uint32_t *)&flags, f, #f)
+    FLAG_TO_STR(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    FLAG_TO_STR(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+    FLAG_TO_STR(VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    FLAG_TO_STR(VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+    FLAG_TO_STR(VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT);
+    FLAG_TO_STR(VK_MEMORY_PROPERTY_PROTECTED_BIT);
+    FLAG_TO_STR(VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD);
+    FLAG_TO_STR(VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD);
 #undef FLAG_TO_STR
-    if (flags)
-        FIXME("Unrecognized flag(s) %#x.\n", flags);
 
-    if (!buffer[0])
-        return "0";
-    return vkd3d_dbg_sprintf("%s", &buffer[3]);
+    return debug_buffer_ret(&buffer, flags, "0");
 }
 
 HRESULT hresult_from_errno(int rc)
