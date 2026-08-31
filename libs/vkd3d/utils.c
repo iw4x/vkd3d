@@ -779,6 +779,30 @@ const char *debug_d3d12_filter(D3D12_FILTER f)
     return vkd3d_dbg_sprintf("UNKNOWN(%#x)", f);
 }
 
+const char *debug_d3d12_root_signature_flags(D3D12_ROOT_SIGNATURE_FLAGS flags)
+{
+    struct debug_buffer buffer;
+
+    debug_buffer_init(&buffer);
+#define FLAG_TO_STR(f) debug_buffer_append_flag(&buffer, (uint32_t *)&flags, D3D12_ROOT_SIGNATURE_FLAG_##f, #f)
+    FLAG_TO_STR(NONE);
+    FLAG_TO_STR(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+    FLAG_TO_STR(DENY_VERTEX_SHADER_ROOT_ACCESS);
+    FLAG_TO_STR(DENY_HULL_SHADER_ROOT_ACCESS);
+    FLAG_TO_STR(DENY_DOMAIN_SHADER_ROOT_ACCESS);
+    FLAG_TO_STR(DENY_GEOMETRY_SHADER_ROOT_ACCESS);
+    FLAG_TO_STR(DENY_PIXEL_SHADER_ROOT_ACCESS);
+    FLAG_TO_STR(ALLOW_STREAM_OUTPUT);
+    FLAG_TO_STR(LOCAL_ROOT_SIGNATURE);
+    FLAG_TO_STR(DENY_AMPLIFICATION_SHADER_ROOT_ACCESS);
+    FLAG_TO_STR(DENY_MESH_SHADER_ROOT_ACCESS);
+    FLAG_TO_STR(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED);
+    FLAG_TO_STR(SAMPLER_HEAP_DIRECTLY_INDEXED);
+#undef FLAG_TO_STR
+
+    return debug_buffer_ret(&buffer, flags, "NONE");
+}
+
 static const char *debug_d3d12_shader_component(D3D12_SHADER_COMPONENT_MAPPING component)
 {
     switch (component)

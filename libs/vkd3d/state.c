@@ -1644,7 +1644,7 @@ static HRESULT d3d12_root_signature_init(struct d3d12_root_signature *root_signa
 
     if (desc->Flags & ~(D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
             | D3D12_ROOT_SIGNATURE_FLAG_ALLOW_STREAM_OUTPUT))
-        FIXME("Ignoring root signature flags %#x.\n", desc->Flags);
+        FIXME("Ignoring root signature flags %s.\n", debug_d3d12_root_signature_flags(desc->Flags));
 
     if (FAILED(hr = d3d12_root_signature_info_from_desc(&info, desc, device->vk_info.EXT_descriptor_indexing)))
         return hr;
