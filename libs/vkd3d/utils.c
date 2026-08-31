@@ -665,6 +665,72 @@ const char *debug_d3d12_box(const D3D12_BOX *box)
             box->right, box->bottom, box->back);
 }
 
+const char *debug_d3d12_comparison_func(D3D12_COMPARISON_FUNC f)
+{
+    switch (f)
+    {
+#define TO_STR(f) case D3D12_COMPARISON_FUNC_##f: return #f;
+        TO_STR(NEVER);
+        TO_STR(LESS);
+        TO_STR(EQUAL);
+        TO_STR(LESS_EQUAL);
+        TO_STR(GREATER);
+        TO_STR(NOT_EQUAL);
+        TO_STR(GREATER_EQUAL);
+        TO_STR(ALWAYS);
+#undef TO_STR
+    }
+
+    return vkd3d_dbg_sprintf("UNKNOWN(%#x)", f);
+}
+
+const char *debug_d3d12_filter(D3D12_FILTER f)
+{
+    switch (f)
+    {
+#define TO_STR(f) case D3D12_FILTER_##f: return #f;
+        TO_STR(MIN_MAG_MIP_POINT);
+        TO_STR(MIN_MAG_POINT_MIP_LINEAR);
+        TO_STR(MIN_POINT_MAG_LINEAR_MIP_POINT);
+        TO_STR(MIN_POINT_MAG_MIP_LINEAR);
+        TO_STR(MIN_LINEAR_MAG_MIP_POINT);
+        TO_STR(MIN_LINEAR_MAG_POINT_MIP_LINEAR);
+        TO_STR(MIN_MAG_LINEAR_MIP_POINT);
+        TO_STR(MIN_MAG_MIP_LINEAR);
+        TO_STR(ANISOTROPIC);
+        TO_STR(COMPARISON_MIN_MAG_MIP_POINT);
+        TO_STR(COMPARISON_MIN_MAG_POINT_MIP_LINEAR);
+        TO_STR(COMPARISON_MIN_POINT_MAG_LINEAR_MIP_POINT);
+        TO_STR(COMPARISON_MIN_POINT_MAG_MIP_LINEAR);
+        TO_STR(COMPARISON_MIN_LINEAR_MAG_MIP_POINT);
+        TO_STR(COMPARISON_MIN_LINEAR_MAG_POINT_MIP_LINEAR);
+        TO_STR(COMPARISON_MIN_MAG_LINEAR_MIP_POINT);
+        TO_STR(COMPARISON_MIN_MAG_MIP_LINEAR);
+        TO_STR(COMPARISON_ANISOTROPIC);
+        TO_STR(MINIMUM_MIN_MAG_MIP_POINT);
+        TO_STR(MINIMUM_MIN_MAG_POINT_MIP_LINEAR);
+        TO_STR(MINIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT);
+        TO_STR(MINIMUM_MIN_POINT_MAG_MIP_LINEAR);
+        TO_STR(MINIMUM_MIN_LINEAR_MAG_MIP_POINT);
+        TO_STR(MINIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR);
+        TO_STR(MINIMUM_MIN_MAG_LINEAR_MIP_POINT);
+        TO_STR(MINIMUM_MIN_MAG_MIP_LINEAR);
+        TO_STR(MINIMUM_ANISOTROPIC);
+        TO_STR(MAXIMUM_MIN_MAG_MIP_POINT);
+        TO_STR(MAXIMUM_MIN_MAG_POINT_MIP_LINEAR);
+        TO_STR(MAXIMUM_MIN_POINT_MAG_LINEAR_MIP_POINT);
+        TO_STR(MAXIMUM_MIN_POINT_MAG_MIP_LINEAR);
+        TO_STR(MAXIMUM_MIN_LINEAR_MAG_MIP_POINT);
+        TO_STR(MAXIMUM_MIN_LINEAR_MAG_POINT_MIP_LINEAR);
+        TO_STR(MAXIMUM_MIN_MAG_LINEAR_MIP_POINT);
+        TO_STR(MAXIMUM_MIN_MAG_MIP_LINEAR);
+        TO_STR(MAXIMUM_ANISOTROPIC);
+#undef TO_STR
+    }
+
+    return vkd3d_dbg_sprintf("UNKNOWN(%#x)", f);
+}
+
 static const char *debug_d3d12_shader_component(D3D12_SHADER_COMPONENT_MAPPING component)
 {
     switch (component)
@@ -694,6 +760,22 @@ const char *debug_d3d12_shader_component_mapping(unsigned int mapping)
             debug_d3d12_shader_component(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(1, mapping)),
             debug_d3d12_shader_component(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(2, mapping)),
             debug_d3d12_shader_component(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(3, mapping)));
+}
+
+const char *debug_d3d12_texture_address_mode(D3D12_TEXTURE_ADDRESS_MODE m)
+{
+    switch (m)
+    {
+#define TO_STR(m) case D3D12_TEXTURE_ADDRESS_MODE_##m: return #m;
+        TO_STR(WRAP);
+        TO_STR(MIRROR);
+        TO_STR(CLAMP);
+        TO_STR(BORDER);
+        TO_STR(MIRROR_ONCE);
+#undef TO_STR
+    }
+
+    return vkd3d_dbg_sprintf("UNKNOWN(%#x)", m);
 }
 
 const char *debug_denormal_mode(enum vkd3d_shader_denormal_mode m)
