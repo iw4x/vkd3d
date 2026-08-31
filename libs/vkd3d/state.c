@@ -1621,9 +1621,88 @@ static HRESULT d3d12_root_signature_init(struct d3d12_root_signature *root_signa
     const struct vkd3d_vulkan_info *vk_info = &device->vk_info;
     struct vkd3d_descriptor_set_context context;
     struct d3d12_root_signature_info info;
+    const D3D12_ROOT_DESCRIPTOR_TABLE *t;
+    const D3D12_STATIC_SAMPLER_DESC *s;
+    unsigned int i, j, first, last;
+    const D3D12_ROOT_DESCRIPTOR *d;
+    const D3D12_ROOT_CONSTANTS *c;
+    const D3D12_ROOT_PARAMETER *p;
     bool use_vk_heaps;
-    unsigned int i;
     HRESULT hr;
+
+    if (TRACE_ON())
+    {
+        if (desc->NumParameters)
+            TRACE("Parameters:\n");
+        for (i = 0; i < desc->NumParameters; ++i)
+        {
+            p = &desc->pParameters[i];
+            switch (p->ParameterType)
+            {
+                case D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE:
+                    t = &p->u.DescriptorTable;
+                    TRACE("    %u: table, visibility %s.\n", i, debug_d3d12_shader_visibility(p->ShaderVisibility));
+                    for (j = 0; j < t->NumDescriptorRanges; ++j)
+                    {
+                        TRACE("        %u: %s.\n", j, debug_d3d12_descriptor_range(&t->pDescriptorRanges[j]));
+                    }
+                    break;
+
+                case D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS:
+                    c = &p->u.Constants;
+                    first = c->ShaderRegister;
+                    last = first + c->Num32BitValues - 1;
+                    TRACE("    %u: constants[%u:%u], space %u, visibility %s.\n", i, first, last,
+                            c->RegisterSpace, debug_d3d12_shader_visibility(p->ShaderVisibility));
+                    break;
+
+                case D3D12_ROOT_PARAMETER_TYPE_CBV:
+                    d = &p->u.Descriptor;
+                    TRACE("    %u: cbv[%u], space %u, visibility %s.\n", i, d->ShaderRegister,
+                            d->RegisterSpace, debug_d3d12_shader_visibility(p->ShaderVisibility));
+                    break;
+
+                case D3D12_ROOT_PARAMETER_TYPE_SRV:
+                    d = &p->u.Descriptor;
+                    TRACE("    %u: srv[%u], space %u, visibility %s.\n", i, d->ShaderRegister,
+                            d->RegisterSpace, debug_d3d12_shader_visibility(p->ShaderVisibility));
+                    break;
+
+                case D3D12_ROOT_PARAMETER_TYPE_UAV:
+                    d = &p->u.Descriptor;
+                    TRACE("    %u: uav[%u], space %u, visibility %s.\n", i, d->ShaderRegister,
+                            d->RegisterSpace, debug_d3d12_shader_visibility(p->ShaderVisibility));
+                    break;
+
+                default:
+                    TRACE("    %u: UNKNOWN(%#x), visibility %s.\n", i, p->ParameterType,
+                            debug_d3d12_shader_visibility(p->ShaderVisibility));
+                    break;
+            }
+        }
+
+        if (desc->NumStaticSamplers)
+            TRACE("Static samplers:\n");
+        for (i = 0; i < desc->NumStaticSamplers; ++i)
+        {
+            s = &desc->pStaticSamplers[i];
+            TRACE("    %u: sampler[%u], space %u, visibility %s.\n", i, s->ShaderRegister,
+                    s->RegisterSpace, debug_d3d12_shader_visibility(s->ShaderVisibility));
+            TRACE("        filter %s.\n", debug_d3d12_filter(s->Filter));
+            TRACE("        address {%s, %s, %s}.\n",
+                    debug_d3d12_texture_address_mode(s->AddressU),
+                    debug_d3d12_texture_address_mode(s->AddressV),
+                    debug_d3d12_texture_address_mode(s->AddressW));
+            TRACE("        lod-bias %.8e.\n", s->MipLODBias);
+            TRACE("        max-anisotropy %u.\n", s->MaxAnisotropy);
+            TRACE("        comparison %s.\n", debug_d3d12_comparison_func(s->ComparisonFunc));
+            TRACE("        border-colour %s.\n", debug_d3d12_static_border_color(s->BorderColor));
+            TRACE("        min-lod %.8e.\n", s->MinLOD);
+            TRACE("        max-lod %.8e.\n", s->MaxLOD);
+        }
+
+        TRACE("Flags: %s.\n", debug_d3d12_root_signature_flags(desc->Flags));
+    }
 
     memset(&context, 0, sizeof(context));
 

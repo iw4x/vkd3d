@@ -1790,9 +1790,12 @@ HRESULT return_interface(void *iface, REFIID iface_iid, REFIID requested_iid, vo
 const char *debug_cpu_handle(D3D12_CPU_DESCRIPTOR_HANDLE handle);
 const char *debug_d3d12_box(const D3D12_BOX *box);
 const char *debug_d3d12_comparison_func(D3D12_COMPARISON_FUNC f);
+const char *debug_d3d12_descriptor_range(const D3D12_DESCRIPTOR_RANGE *r);
 const char *debug_d3d12_filter(D3D12_FILTER f);
 const char *debug_d3d12_root_signature_flags(D3D12_ROOT_SIGNATURE_FLAGS flags);
 const char *debug_d3d12_shader_component_mapping(unsigned int mapping);
+const char *debug_d3d12_shader_visibility(D3D12_SHADER_VISIBILITY v);
+const char *debug_d3d12_static_border_color(D3D12_STATIC_BORDER_COLOR c);
 const char *debug_d3d12_texture_address_mode(D3D12_TEXTURE_ADDRESS_MODE m);
 const char *debug_denormal_mode(enum vkd3d_shader_denormal_mode m);
 const char *debug_gpu_handle(D3D12_GPU_DESCRIPTOR_HANDLE handle);

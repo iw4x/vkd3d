@@ -732,6 +732,42 @@ const char *debug_d3d12_comparison_func(D3D12_COMPARISON_FUNC f)
     return vkd3d_dbg_sprintf("UNKNOWN(%#x)", f);
 }
 
+const char *debug_d3d12_descriptor_range(const D3D12_DESCRIPTOR_RANGE *r)
+{
+    unsigned int first, last;
+    const char *type = NULL;
+
+    switch (r->RangeType)
+    {
+        case D3D12_DESCRIPTOR_RANGE_TYPE_SRV:
+            type = "srv";
+            break;
+
+        case D3D12_DESCRIPTOR_RANGE_TYPE_UAV:
+            type = "uav";
+            break;
+
+        case D3D12_DESCRIPTOR_RANGE_TYPE_CBV:
+            type = "cbv";
+            break;
+
+        case D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER:
+            type = "sampler";
+            break;
+    }
+
+    first = r->BaseShaderRegister;
+    last = first + r->NumDescriptors - 1;
+
+    if (type)
+        return vkd3d_dbg_sprintf("%s[%u:%u], space %u, offset %u",
+                type, first, last, r->RegisterSpace, r->OffsetInDescriptorsFromTableStart);
+
+    return vkd3d_dbg_sprintf("unknown<%#x>[%u:%u], space %u, offset %u",
+            r->RangeType, first, last, r->RegisterSpace,
+            r->OffsetInDescriptorsFromTableStart);
+}
+
 const char *debug_d3d12_filter(D3D12_FILTER f)
 {
     switch (f)
@@ -832,6 +868,39 @@ const char *debug_d3d12_shader_component_mapping(unsigned int mapping)
             debug_d3d12_shader_component(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(1, mapping)),
             debug_d3d12_shader_component(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(2, mapping)),
             debug_d3d12_shader_component(D3D12_DECODE_SHADER_4_COMPONENT_MAPPING(3, mapping)));
+}
+
+const char *debug_d3d12_shader_visibility(D3D12_SHADER_VISIBILITY v)
+{
+    switch (v)
+    {
+#define TO_STR(v) case D3D12_SHADER_VISIBILITY_##v: return #v;
+        TO_STR(ALL);
+        TO_STR(VERTEX);
+        TO_STR(HULL);
+        TO_STR(DOMAIN);
+        TO_STR(GEOMETRY);
+        TO_STR(PIXEL);
+        TO_STR(AMPLIFICATION);
+        TO_STR(MESH);
+#undef TO_STR
+    }
+
+    return vkd3d_dbg_sprintf("UNKNOWN(%#x)", v);
+}
+
+const char *debug_d3d12_static_border_color(D3D12_STATIC_BORDER_COLOR c)
+{
+    switch (c)
+    {
+#define TO_STR(c) case D3D12_STATIC_BORDER_COLOR_##c: return #c;
+        TO_STR(TRANSPARENT_BLACK);
+        TO_STR(OPAQUE_BLACK);
+        TO_STR(OPAQUE_WHITE);
+#undef TO_STR
+    }
+
+    return vkd3d_dbg_sprintf("UNKNOWN(%#x)", c);
 }
 
 const char *debug_d3d12_texture_address_mode(D3D12_TEXTURE_ADDRESS_MODE m)
