@@ -64,3 +64,304 @@ write cbv-0 (4) f32(50, -1, -1, -1)
 write cbv-0 (8) f32(-2, -2, -2, -2)
 todo(msl & sm>=6) draw quad
 probe (0, 0) f32(10, 20, 30, -2)
+
+[require]
+shader model < 4.0
+
+% Test whether multiplications by zero are simplified to zero, in presence of
+% the `precise` modifier.
+
+% We will always declare two uniforms, `aa`, `bb`, and initialize the cbv to
+% [1, 1, 1, 1, 2, 2, 2, 2], this way, if aa is allocated bb will have the
+% value of 2, and 1 otherwise.
+% This test only works for SM1-3, so we will only work on those.
+
+% By default a multiplication by zero is simplified, unless ieee-strictness is
+% in place, in which case, it never is.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 p = aa * 0;
+
+    return bb + p;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(1, 1, 1, 1)
+
+% If a value it is assigned to a variable with type modifier `precise`,
+% multiplications by zero required to compute it are not simplified.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    precise float4 p = aa * 0;
+
+    return bb + p;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+todo probe (0, 0) f32(2, 2, 2, 2)
+
+% This also applies to casts to types with precise modifiers.
+[pixel shader todo]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 p = (precise float4)(aa * 0);
+
+    return bb + p;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+todo draw quad
+probe (0, 0) f32(2, 2, 2, 2)
+
+% It doesn't propagate downstream if only one operand is precise.
+[pixel shader todo]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 p = (precise float4)aa * 0;
+
+    return bb + p;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+todo draw quad
+probe (0, 0) f32(1, 1, 1, 1)
+
+% `precise` propagates across multiple variables.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 q = aa * 0;
+    precise float4 p = 100 + q;
+
+    return bb + p;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+todo probe (0, 0) f32(102, 102, 102, 102)
+
+% `precise` propagates across multiple variables, even if dynamically written.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 q = 0;
+
+    if (bb.x)
+        q += aa * 0;
+    precise float4 p = 100 + q;
+
+    return bb + p;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+todo probe (0, 0) f32(102, 102, 102, 102)
+
+% `aa` is not allocated here because p.xy is overridden.
+% DSE is at play here.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 q = aa * 0;
+
+    precise float4 p = float4(q.xy, 100, 100);
+    p.xy = 100;
+
+    return bb + p;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(101, 101, 101, 101)
+
+% The intermediate variable components are turned to `precise`,
+% even if the `precise` result itself is not used.
+% Achieving this means splitting all upstream operations into a precise and a
+% non-precise part, which is a niche edge-case.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 q = aa * 0;
+
+    precise float4 p = float4(q.xy, 100, 100);
+    p.xy = 100;
+
+    return bb + p + q;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+todo probe (0, 0) f32(102, 102, 102, 102)
+
+% TODO: Once we can check for the inf-nan-preserve capability, we can test
+% this per-component splitting of instructions in SM4:
+
+% write cbv-0 (0) f32(inf, inf, inf, inf)
+% write cbv-0 (4) f32(2, 2, 2, 2)
+% if(sm>=4) todo probe (0, 0) f32(nan, nan, 102, 102)
+
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 q = aa * 0;
+
+    precise float4 p = float4(q.xy, 100, 100);
+    p.xy = 100;
+
+    return bb + p + float4(0, 0, q.zw);
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(101, 101, 101, 101)
+
+% When components of a variable are marked to be computed precisely, this does
+% not affect following stores to the same components.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 q = 100 * bb;
+
+    precise float4 p = float4(q.x, 100, 100, 100);
+    q = aa * 0; // Not precise.
+
+    return bb + p + q;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(101, 101, 101, 101)
+
+% Stores to a variable before the precise one are not marked as precise.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 q = aa * 0; // Not precise.
+
+    q.x = 100 * bb.x;
+    precise float4 p = float4(q.x, 100, 100, 100);
+
+    return bb + p + q;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(201, 101, 101, 101)
+
+% Only one precise component is enough to allocate the variable.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 q = aa * 0;
+
+    float r0 = q.x;
+    float r1 = q.y;
+    precise float r2 = q.z;
+    float r3 = q.w;
+
+    return bb + float4(r0, r1, r2, r3);
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+todo probe (0, 0) f32(2, 2, 2, 2)
+
+% Even if `q` is precise, `aa` is not allocated, because its components that
+% depend on it are not used.
+[pixel shader]
+float4 aa, bb;
+
+struct apple
+{
+    float4 m1, m2;
+};
+
+float4 main() : sv_target
+{
+    precise struct apple q = {aa * 0, 100, 100, 100, 100};
+    return bb + q.m2;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(101, 101, 101, 101)
+
+% Precise is a type modifier, it can be typedef'ed.
+[pixel shader]
+float4 aa, bb;
+
+typedef precise float4 pfloat4;
+
+float4 main() : sv_target
+{
+    pfloat4 p = aa * 0;
+
+    return bb + p;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+todo probe (0, 0) f32(2, 2, 2, 2)
+
+% Same here, apple.m2 being precise doesn't affect apple.m1.
+[pixel shader]
+float4 aa, bb;
+
+struct apple
+{
+    float4 m1;
+    precise float4 m2;
+};
+
+float4 main() : sv_target
+{
+    precise struct apple q = {aa * 0, 100, 100, 100, 100};
+    return bb + q.m2;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(101, 101, 101, 101)
