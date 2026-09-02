@@ -365,3 +365,80 @@ write cbv-0 (0) f32(1, 1, 1, 1)
 write cbv-0 (4) f32(2, 2, 2, 2)
 draw quad
 probe (0, 0) f32(101, 101, 101, 101)
+
+% A binary expression is (most of the time) precise if both operands are
+% precise.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    precise float4 p = aa;
+    precise float4 zero = 0;
+    float4 q = p * zero;
+
+    return bb + q;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+todo probe (0, 0) f32(2, 2, 2, 2)
+
+% A binary expression is not precise if only one operand is precise.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 p = aa;
+    precise float4 zero = 0;
+    float4 q = p * zero;
+
+    return bb + q;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(1, 1, 1, 1)
+
+% A binary expression is not precise if only one operand is precise.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    precise float4 p = aa;
+    float4 zero = 0;
+    float4 q = p * zero;
+
+    return bb + q;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(1, 1, 1, 1)
+
+% Downstream propagation happens before upstream propagation. This suggests
+% that expressions inherit the `precise` type modifier from its operands at
+% the moment they are constructed, and this is not part of the underlying
+% propagation algorithm.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 p = aa;
+    precise float4 q = 100 * p;
+    precise float4 zero = 0;
+    float4 r = p * zero;
+
+    return bb + r;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(1, 1, 1, 1)
