@@ -39195,6 +39195,73 @@ static void test_enumerate_meta_commands(void)
     ok(!refcount, "ID3D12Device has %u references left.\n", refcount);
 }
 
+static void test_fence_rewind_dependent_wait(void)
+{
+    unsigned int run = 0, wakeup = 0;
+    ID3D12Fence *fence1, *fence2;
+    unsigned int refcount, ret;
+    ID3D12CommandQueue *queue;
+    ID3D12Device *device;
+    HANDLE event;
+    HRESULT hr;
+
+    if (!(device = create_device()))
+    {
+        skip("Failed to create device.\n");
+        return;
+    }
+    queue = create_command_queue(device, D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_PRIORITY_NORMAL);
+
+    for (run = 0; run < 5 && !wakeup; ++run)
+    {
+        vkd3d_test_push_context("run %u", run);
+
+        hr = ID3D12Device_CreateFence(device, 0, D3D12_FENCE_FLAG_NONE, &IID_ID3D12Fence, (void **)&fence1);
+        ok(hr == S_OK, "Got hr %#x.\n", hr);
+        hr = ID3D12Device_CreateFence(device, 0, D3D12_FENCE_FLAG_NONE, &IID_ID3D12Fence, (void **)&fence2);
+        ok(hr == S_OK, "Got hr %#x.\n", hr);
+
+        queue_signal(queue, fence1, 2);
+        queue_signal(queue, fence2, 1);
+
+        queue_wait(queue, fence2, 1);
+        queue_signal(queue, fence1, 1);
+        queue_signal(queue, fence2, 2);
+
+        queue_wait(queue, fence1, 2);
+        queue_wait(queue, fence2, 2);
+        queue_signal(queue, fence2, 3);
+
+        event = create_event();
+        hr = ID3D12Fence_SetEventOnCompletion(fence2, 3, event);
+        ok(hr == S_OK, "Got hr %#x.\n", hr);
+        ret = wait_event(event, 100);
+        if (ret == WAIT_OBJECT_0)
+        {
+            ++wakeup;
+        }
+        else
+        {
+            hr = ID3D12Fence_Signal(fence1, 2);
+            ok(hr == S_OK, "Got hr %#x.\n", hr);
+            ret = wait_event(event, 1000);
+            ok(ret == WAIT_OBJECT_0, "Got ret %#x.\n", ret);
+        }
+        destroy_event(event);
+
+        wait_queue_idle(device, queue);
+        ID3D12Fence_Release(fence2);
+        ID3D12Fence_Release(fence1);
+
+        vkd3d_test_pop_context();
+    }
+    todo ok(!wakeup, "Got %u wakeup after %u runs.\n", wakeup, run);
+
+    ID3D12CommandQueue_Release(queue);
+    refcount = ID3D12Device_Release(device);
+    ok(!refcount, "ID3D12Device has %u references left.\n", refcount);
+}
+
 START_TEST(d3d12)
 {
     parse_args(argc, argv);
@@ -39380,6 +39447,7 @@ START_TEST(d3d12)
     run_test(test_shader_cache);
     run_test(test_multi_fence_event);
     run_test(test_enumerate_meta_commands);
+    run_test(test_fence_rewind_dependent_wait);
 
 #if defined(VKD3D_CROSSTEST)
     print_dll_version("d3dcompiler_47.dll");
