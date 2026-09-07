@@ -565,3 +565,32 @@ write cbv-0 (4) f32(2, 2, 2, 2)
 write cbv-0 (8) f32(3, 3, 3, 3)
 draw quad
 todo probe (0, 0) f32(2, 2, 2, 2)
+
+[require]
+shader model >= 3.0
+shader model < 4.0
+
+% The components of a reused variable are not marked as precise on subsequent
+% loads. Branching is used to avoid copy-prop.
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    float4 temp = 100 * bb;
+    [branch]
+    if (bb.x)
+        temp = 100 + bb;
+    precise float4 p = temp;
+
+    temp = aa * 0;
+    [branch]
+    if (!bb.x)
+        temp = 100;
+    return temp + p;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(101, 101, 101, 101)
