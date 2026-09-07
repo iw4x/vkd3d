@@ -566,6 +566,68 @@ write cbv-0 (8) f32(3, 3, 3, 3)
 draw quad
 todo probe (0, 0) f32(2, 2, 2, 2)
 
+% Test the upstream of the precise modifier across a function call.
+[pixel shader]
+float4 aa, bb;
+
+float4 foo(float4 p)
+{
+    return aa * p;
+}
+
+float4 main() : sv_target
+{
+    precise float4 p = foo(0);
+    return p + bb;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+todo probe (0, 0) f32(2, 2, 2, 2)
+
+% Test the precise modifier on an output parameter.
+[pixel shader]
+float4 aa, bb;
+
+float4 foo(precise out float4 p)
+{
+    p = aa * 0;
+    return bb;
+}
+
+float4 main() : sv_target
+{
+    float4 ret, q;
+
+    ret = foo(q);
+    return ret + q;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+todo probe (0, 0) f32(2, 2, 2, 2)
+
+% Test the precise modifier on an input parameter (it has not effect here).
+[pixel shader]
+float4 aa, bb;
+
+float4 foo(precise float4 p)
+{
+    return 123 * p;
+}
+
+float4 main() : sv_target
+{
+    return foo(aa * 0) + bb;
+}
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(1, 1, 1, 1)
+
 [require]
 shader model >= 3.0
 shader model < 4.0
