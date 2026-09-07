@@ -442,3 +442,126 @@ write cbv-0 (0) f32(1, 1, 1, 1)
 write cbv-0 (4) f32(2, 2, 2, 2)
 draw quad
 probe (0, 0) f32(1, 1, 1, 1)
+
+% Test the effect of the precise modifier on a precise struct member.
+[pixel shader]
+float4 aa, bb;
+
+struct apple
+{
+    float4 q;
+    precise float4 p;
+};
+
+float4 main() : sv_target
+{
+    struct apple ap;
+
+    ap.p = aa * 0;
+    return ap.p + bb;
+}
+
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+todo probe (0, 0) f32(2, 2, 2, 2)
+
+% Test the effect of the precise modifier on a non-precise struct member.
+[pixel shader]
+float4 aa, bb;
+
+struct apple
+{
+    float4 q;
+    precise float4 p;
+};
+
+float4 main() : sv_target
+{
+    struct apple ap;
+
+    ap.q = aa * 0;
+    return ap.q + bb;
+}
+
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+probe (0, 0) f32(1, 1, 1, 1)
+
+% Test cascading of the precise modifier.
+[pixel shader]
+float4 aa, bb;
+
+struct apple
+{
+    float4 q;
+    float4 p;
+};
+
+float4 main() : sv_target
+{
+    precise struct apple ap;
+
+    ap.q = aa * 0;
+    return ap.q + bb;
+}
+
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+todo probe (0, 0) f32(2, 2, 2, 2)
+
+[pixel shader]
+float4 aa, bb;
+
+float4 main() : sv_target
+{
+    precise struct apple
+    {
+        float4 q;
+        float4 p;
+    } ap;
+
+    ap.p = 0 * aa;
+    return ap.p + bb;
+}
+
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+draw quad
+todo probe (0, 0) f32(2, 2, 2, 2)
+
+[pixel shader]
+float4 aa, bb, cc;
+
+struct apple
+{
+    struct
+    {
+        float4 q;
+        precise float4 p;
+    } seed[4];
+
+    float4 r;
+};
+
+float4 main() : sv_target
+{
+    struct apple ap;
+
+    ap.seed[0].q = aa * 0;
+    ap.seed[2].p = bb * 0;
+    return ap.seed[2].p + ap.seed[0].q +  cc;
+}
+
+[test]
+write cbv-0 (0) f32(1, 1, 1, 1)
+write cbv-0 (4) f32(2, 2, 2, 2)
+write cbv-0 (8) f32(3, 3, 3, 3)
+draw quad
+todo probe (0, 0) f32(2, 2, 2, 2)
