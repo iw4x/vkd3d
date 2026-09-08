@@ -411,6 +411,7 @@ HRESULT WINAPI D3DCompile2VKD3D(const void *data, SIZE_T data_size, const char *
             | D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR
             | D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY
             | D3DCOMPILE_IEEE_STRICTNESS);
+    static const uint32_t ignored_effect_flags = ~(D3DCOMPILE_EFFECT_CHILD_EFFECT);
 
     TRACE("data %p, data_size %"PRIuPTR", filename %s, macros %p, include %p, entry_point %s, "
             "profile %s, flags %#x, effect_flags %#x, secondary_flags %#x, secondary_data %p, "
@@ -421,8 +422,8 @@ HRESULT WINAPI D3DCompile2VKD3D(const void *data, SIZE_T data_size, const char *
 
     if (flags & ignored_flags)
         FIXME("Ignoring flags %#x.\n", flags & ignored_flags);
-    if (effect_flags & ~D3DCOMPILE_EFFECT_CHILD_EFFECT)
-        FIXME("Ignoring effect flags %#x.\n", effect_flags);
+    if (effect_flags & ignored_effect_flags)
+        FIXME("Ignoring effect flags %#x.\n", effect_flags & ignored_effect_flags);
     if (secondary_flags)
         FIXME("Ignoring secondary flags %#x.\n", secondary_flags);
 
