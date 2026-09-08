@@ -406,6 +406,12 @@ HRESULT WINAPI D3DCompile2VKD3D(const void *data, SIZE_T data_size, const char *
     HRESULT hr;
     int ret;
 
+    static const uint32_t ignored_flags = ~(D3DCOMPILE_DEBUG
+            | D3DCOMPILE_PACK_MATRIX_ROW_MAJOR
+            | D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR
+            | D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY
+            | D3DCOMPILE_IEEE_STRICTNESS);
+
     TRACE("data %p, data_size %"PRIuPTR", filename %s, macros %p, include %p, entry_point %s, "
             "profile %s, flags %#x, effect_flags %#x, secondary_flags %#x, secondary_data %p, "
             "secondary_data_size %"PRIuPTR", shader_blob %p, messages_blob %p, compiler_version %u.\n",
@@ -413,8 +419,8 @@ HRESULT WINAPI D3DCompile2VKD3D(const void *data, SIZE_T data_size, const char *
             debugstr_a(profile), flags, effect_flags, secondary_flags, secondary_data,
             (uintptr_t)secondary_data_size, shader_blob, messages_blob, compiler_version);
 
-    if (flags & ~(D3DCOMPILE_DEBUG | D3DCOMPILE_PACK_MATRIX_ROW_MAJOR | D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR))
-        FIXME("Ignoring flags %#x.\n", flags);
+    if (flags & ignored_flags)
+        FIXME("Ignoring flags %#x.\n", flags & ignored_flags);
     if (effect_flags & ~D3DCOMPILE_EFFECT_CHILD_EFFECT)
         FIXME("Ignoring effect flags %#x.\n", effect_flags);
     if (secondary_flags)
