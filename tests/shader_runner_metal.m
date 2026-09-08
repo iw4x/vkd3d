@@ -528,8 +528,10 @@ static bool compile_shader(struct metal_runner *runner, enum shader_type type, s
         {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16, VKD3D_SHADER_DENORMAL_MODE_ANY},
         {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32, VKD3D_SHADER_DENORMAL_MODE_ANY},
         {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64, VKD3D_SHADER_DENORMAL_MODE_ANY},
-        {VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_MASK, VKD3D_SHADER_GLOBAL_FLAGS0_REFACTORING_ALLOWED},
-        {VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_VALUE, VKD3D_SHADER_GLOBAL_FLAGS0_REFACTORING_ALLOWED},
+        {VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_MASK,
+                shader_runner_get_global_flags0_override_compile_option(&runner->r, true)},
+        {VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_VALUE,
+                shader_runner_get_global_flags0_override_compile_option(&runner->r, false)},
     };
 
     if (!(runner->d3d_blobs[type] = compile_hlsl(&runner->r, type)))

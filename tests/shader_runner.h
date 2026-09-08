@@ -380,6 +380,30 @@ struct shader_runner_ops
     void (*release_readback)(struct shader_runner *runner, struct resource_readback *rb);
 };
 
+static inline uint32_t shader_runner_get_global_flags0_override_compile_option(
+        const struct shader_runner *runner, bool get_mask)
+{
+    const bool *required_caps = runner->require_shader_caps;
+    const struct shader_runner_caps *caps = runner->caps;
+    enum shader_model model = runner->shader_model;
+    uint32_t mask = 0, value = 0;
+
+    /* The d3dbc shader format doesn't have a way to disallow refactoring, but
+     * in order to get consistent results when testing (in particular with the
+     * ieee-strictness option), we can override the flag to 0 when the
+     * no-refactoring cap is required. As long as the backend supports it. */
+    if (model < SHADER_MODEL_4_0 && required_caps[SHADER_CAP_NO_REFACTORING])
+        mask |= VKD3D_SHADER_GLOBAL_FLAGS0_REFACTORING_ALLOWED;
+
+    if (!caps->shader_caps[SHADER_CAP_NO_REFACTORING])
+    {
+        mask |= VKD3D_SHADER_GLOBAL_FLAGS0_REFACTORING_ALLOWED;
+        value |= VKD3D_SHADER_GLOBAL_FLAGS0_REFACTORING_ALLOWED;
+    }
+
+    return get_mask ? mask : value;
+}
+
 static inline unsigned int get_level_dimension(unsigned int dimension, unsigned int level)
 {
     return max(1, dimension >> level);
