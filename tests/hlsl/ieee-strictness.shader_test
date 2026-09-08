@@ -1,0 +1,57 @@
+[require]
+options: ieee-strictness
+no-refactoring
+
+[pixel-shader]
+float4 aa;
+
+float4 main() : sv_target
+{
+    return 0 * aa;
+}
+
+[test]
+write cbv-0 (0) f32(1.0, nan, inf, -inf)
+draw quad
+probe (0, 0) f32(0.0, nan, -nan, -nan)
+
+[pixel-shader]
+float4 aa;
+
+float4 main() : sv_target
+{
+    return aa == aa;
+}
+
+[test]
+write cbv-0 (0) f32(-nan, nan, inf, -inf)
+draw quad
+if(sm<4) probe (0, 0) f32(0, 0, 0, 0)
+if(sm>=4) probe (0, 0) f32(0, 0, 1, 1)
+
+[pixel-shader]
+float4 aa;
+
+float4 main() : sv_target
+{
+    return aa != aa;
+}
+
+[test]
+write cbv-0 (0) f32(-nan, nan, inf, -inf)
+draw quad
+if(sm<4) probe (0, 0) f32(1, 1, 1, 1)
+if(sm>=4) probe (0, 0) f32(1, 1, 0, 0)
+
+[pixel-shader]
+float4 aa;
+
+float4 main() : sv_target
+{
+    return aa > aa;
+}
+
+[test]
+write cbv-0 (0) f32(-nan, nan, inf, -inf)
+draw quad
+todo(sm<4) probe (0, 0) f32(0, 0, 0, 0)

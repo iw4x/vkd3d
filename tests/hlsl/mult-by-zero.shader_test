@@ -221,13 +221,6 @@ write cbv-0 (4) f32(2, 2, 2, 2)
 draw quad
 todo probe (0, 0) f32(102, 102, 102, 102)
 
-% TODO: Once we can check for the inf-nan-preserve capability, we can test
-% this per-component splitting of instructions in SM4:
-
-% write cbv-0 (0) f32(inf, inf, inf, inf)
-% write cbv-0 (4) f32(2, 2, 2, 2)
-% if(sm>=4) todo probe (0, 0) f32(nan, nan, 102, 102)
-
 [pixel shader]
 float4 aa, bb;
 
