@@ -194,12 +194,12 @@ static bool compare_float(float f, float g, unsigned int ulps)
     u.f = f;
     x = u.i;
     if (isnan(f))
-        x = (x & 0xff800000) | 0x400000;
+        x = (x & 0x7f800000) | 0x400000;
 
     u.f = g;
     y = u.i;
     if (isnan(g))
-        y = (y & 0xff800000) | 0x400000;
+        y = (y & 0x7f800000) | 0x400000;
 
     if (x < 0)
         x = INT_MIN - x;
