@@ -668,6 +668,9 @@ static void d3dbc_parse_src_operand(struct vkd3d_shader_sm1_parser *parser,
     d3dbc_parse_operand(parser, &src->o, token);
     src->swizzle = swizzle_from_sm1((token & VKD3D_SM1_SWIZZLE_MASK) >> VKD3D_SM1_SWIZZLE_SHIFT);
     src->modifiers = (token & VKD3D_SM1_SRC_MODIFIER_MASK) >> VKD3D_SM1_SRC_MODIFIER_SHIFT;
+    if (src->modifiers >= VKD3DSPSM_COUNT)
+        vkd3d_shader_parser_warning(&parser->p, VKD3D_SHADER_WARNING_D3DBC_INVALID_SOURCE_MODIFIER,
+                "Invalid source modifier %#x.", src->modifiers);
 }
 
 static void d3dbc_parse_dst_operand(struct vkd3d_shader_sm1_parser *parser,
