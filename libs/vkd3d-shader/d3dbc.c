@@ -650,6 +650,8 @@ static enum d3dbc_register_type parse_register_type(
 
     if ((uint32_t)d3dbc_type < ARRAY_SIZE(types))
         return types[d3dbc_type];
+    vkd3d_shader_parser_warning(&sm1->p, VKD3D_SHADER_WARNING_D3DBC_INVALID_REGISTER_TYPE,
+            "Invalid register type %#x.", d3dbc_type);
     return D3DBC_REGISTER_INVALID;
 }
 
