@@ -128,6 +128,7 @@ enum vkd3d_sm1_resource_type
     VKD3D_SM1_RESOURCE_TEXTURE_2D   = 0x2,
     VKD3D_SM1_RESOURCE_TEXTURE_CUBE = 0x3,
     VKD3D_SM1_RESOURCE_TEXTURE_3D   = 0x4,
+    VKD3D_SM1_RESOURCE_COUNT
 };
 
 enum vkd3d_sm1_misc_register
@@ -1203,6 +1204,10 @@ static void shader_sm1_read_semantic(struct vkd3d_shader_sm1_parser *sm1,
     semantic->usage = (usage_token & VKD3D_SM1_DCL_USAGE_MASK) >> VKD3D_SM1_DCL_USAGE_SHIFT;
     semantic->usage_idx = (usage_token & VKD3D_SM1_DCL_USAGE_INDEX_MASK) >> VKD3D_SM1_DCL_USAGE_INDEX_SHIFT;
     semantic->resource_type = (usage_token & VKD3D_SM1_RESOURCE_TYPE_MASK) >> VKD3D_SM1_RESOURCE_TYPE_SHIFT;
+
+    if (semantic->resource_type == VKD3D_SM1_RESOURCE_TEXTURE_1D || semantic->resource_type >= VKD3D_SM1_RESOURCE_COUNT)
+        vkd3d_shader_parser_warning(&sm1->p, VKD3D_SHADER_WARNING_D3DBC_INVALID_RESOURCE_TYPE,
+                "Invalid resource type %#x.", semantic->resource_type);
 }
 
 static void shader_sm1_read_immconst(struct vkd3d_shader_sm1_parser *sm1,
