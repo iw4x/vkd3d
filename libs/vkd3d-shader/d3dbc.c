@@ -1205,6 +1205,9 @@ static void shader_sm1_read_semantic(struct vkd3d_shader_sm1_parser *sm1,
     semantic->usage_idx = (usage_token & VKD3D_SM1_DCL_USAGE_INDEX_MASK) >> VKD3D_SM1_DCL_USAGE_INDEX_SHIFT;
     semantic->resource_type = (usage_token & VKD3D_SM1_RESOURCE_TYPE_MASK) >> VKD3D_SM1_RESOURCE_TYPE_SHIFT;
 
+    if (semantic->usage >= VKD3D_DECL_USAGE_COUNT)
+        vkd3d_shader_parser_warning(&sm1->p, VKD3D_SHADER_WARNING_D3DBC_INVALID_USAGE,
+                "Invalid usage %#x.", semantic->usage);
     if (semantic->resource_type == VKD3D_SM1_RESOURCE_TEXTURE_1D || semantic->resource_type >= VKD3D_SM1_RESOURCE_COUNT)
         vkd3d_shader_parser_warning(&sm1->p, VKD3D_SHADER_WARNING_D3DBC_INVALID_RESOURCE_TYPE,
                 "Invalid resource type %#x.", semantic->resource_type);
