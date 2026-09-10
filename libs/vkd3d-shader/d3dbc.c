@@ -680,6 +680,9 @@ static void d3dbc_parse_dst_operand(struct vkd3d_shader_sm1_parser *parser,
     dst->write_mask = (token & VKD3D_SM1_WRITEMASK_MASK) >> VKD3D_SM1_WRITEMASK_SHIFT;
     dst->modifiers = (token & VKD3D_SM1_DST_MODIFIER_MASK) >> VKD3D_SM1_DST_MODIFIER_SHIFT;
     dst->shift = (token & VKD3D_SM1_DSTSHIFT_MASK) >> VKD3D_SM1_DSTSHIFT_SHIFT;
+    if (dst->modifiers & ~VKD3DSPDM_MASK)
+        vkd3d_shader_parser_warning(&parser->p, VKD3D_SHADER_WARNING_D3DBC_INVALID_DESTINATION_MODIFIER,
+                "Invalid destination modifiers %#x.", dst->modifiers);
 }
 
 static struct vsir_signature_element *find_signature_element(const struct vsir_signature *signature,
