@@ -2576,8 +2576,8 @@ done:
     ok(!refcount, "ID3D12Device has %u references left.\n", (unsigned int)refcount);
 }
 
-static void test_resource_alignment_case(ID3D12Device *device, const D3D12_RESOURCE_DESC *desc,
-        bool is_64kb_swizzle_supported)
+static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
+        const D3D12_RESOURCE_DESC *desc, bool is_64kb_swizzle_supported)
 {
     static const D3D12_HEAP_PROPERTIES heap_properties = { D3D12_HEAP_TYPE_DEFAULT };
 
@@ -2671,6 +2671,42 @@ static void test_resource_alignment_case(ID3D12Device *device, const D3D12_RESOU
 
         ID3D12Resource_Release(resource);
     }
+
+    /* Zero placement offset. */
+    hr = ID3D12Device_CreatePlacedResource(device, heap, 0, desc,
+            D3D12_RESOURCE_STATE_COMMON, NULL, &IID_ID3D12Resource, (void **)&resource);
+    /* vkd3d doesn't support some layouts and is too generous with accepting textures as small. */
+    todo_if((desc->Layout != D3D12_TEXTURE_LAYOUT_UNKNOWN && hr == E_NOTIMPL)
+            || (expected_hr == E_INVALIDARG && hr == S_OK))
+    ok(hr == expected_hr, "Got hr %#x, expected %#x.\n", hr, expected_hr);
+
+    if (SUCCEEDED(hr))
+    {
+        desc2 = ID3D12Resource_GetDesc(resource);
+        todo_if(desc->Alignment == 0)
+        ok(desc2.Alignment == expected_alignment, "Got alignment %#"PRIx64", expected %#"PRIx64".\n",
+                desc2.Alignment, expected_alignment);
+
+        ID3D12Resource_Release(resource);
+    }
+
+    /* Placement offset corresponding to the alignment. */
+    hr = ID3D12Device_CreatePlacedResource(device, heap, desc->Alignment, desc,
+            D3D12_RESOURCE_STATE_COMMON, NULL, &IID_ID3D12Resource, (void **)&resource);
+    /* vkd3d doesn't support some layouts and is too generous with accepting textures as small. */
+    todo_if((desc->Layout != D3D12_TEXTURE_LAYOUT_UNKNOWN && hr == E_NOTIMPL)
+            || (expected_hr == E_INVALIDARG && hr == S_OK))
+    ok(hr == expected_hr, "Got hr %#x, expected %#x.\n", hr, expected_hr);
+
+    if (SUCCEEDED(hr))
+    {
+        desc2 = ID3D12Resource_GetDesc(resource);
+        todo_if(desc->Alignment == 0)
+        ok(desc2.Alignment == expected_alignment, "Got alignment %#"PRIx64", expected %#"PRIx64".\n",
+                desc2.Alignment, expected_alignment);
+
+        ID3D12Resource_Release(resource);
+    }
 }
 
 static void test_resource_alignment(void)
@@ -2678,7 +2714,9 @@ static void test_resource_alignment(void)
     unsigned int desc_idx, alignment_idx;
     bool is_64kb_swizzle_supported;
     ID3D12Device *device;
+    ID3D12Heap *heap;
     int var_x, var_y;
+    HRESULT hr;
 
     static const D3D12_RESOURCE_DESC resource_alignment_descs[] =
     {
@@ -2814,6 +2852,13 @@ static void test_resource_alignment(void)
         D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT * 2,
     };
 
+    static const D3D12_HEAP_DESC heap_desc =
+    {
+        .SizeInBytes = 128 * 1024 * 1024,
+        .Properties.Type = D3D12_HEAP_TYPE_DEFAULT,
+        .Alignment = D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT,
+    };
+
     if (!(device = create_device()))
     {
         skip("Failed to create device.\n");
@@ -2821,6 +2866,9 @@ static void test_resource_alignment(void)
     }
 
     is_64kb_swizzle_supported = is_standard_swizzle_64kb_supported(device);
+
+    hr = ID3D12Device_CreateHeap(device, &heap_desc, &IID_ID3D12Heap, (void **)&heap);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
 
     for (desc_idx = 0; desc_idx < ARRAY_SIZE(resource_alignment_descs); ++desc_idx)
     {
@@ -2842,7 +2890,7 @@ static void test_resource_alignment(void)
                     vkd3d_test_push_context("test %u, %"PRIu64"x%ux%u, alignment %#x",
                             desc_idx, desc.Width, desc.Height, desc.DepthOrArraySize, desc.Alignment);
 
-                    test_resource_alignment_case(device, &desc, is_64kb_swizzle_supported);
+                    test_resource_alignment_case(device, heap, &desc, is_64kb_swizzle_supported);
 
                     vkd3d_test_pop_context();
                 }
@@ -2850,6 +2898,7 @@ static void test_resource_alignment(void)
         }
     }
 
+    ID3D12Heap_Release(heap);
     ID3D12Device_Release(device);
 }
 
