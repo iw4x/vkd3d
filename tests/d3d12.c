@@ -2576,6 +2576,274 @@ done:
     ok(!refcount, "ID3D12Device has %u references left.\n", (unsigned int)refcount);
 }
 
+static void test_resource_alignment_case(ID3D12Device *device, const D3D12_RESOURCE_DESC *desc,
+        bool is_64kb_swizzle_supported)
+{
+    static const D3D12_HEAP_PROPERTIES heap_properties = { D3D12_HEAP_TYPE_DEFAULT };
+
+    unsigned int small_alignment, default_alignment;
+    uint64_t expected_alignment;
+    D3D12_RESOURCE_DESC desc2;
+    ID3D12Resource *resource;
+    HRESULT hr, expected_hr;
+    bool is_ms, is_small;
+
+    is_ms = desc->SampleDesc.Count > 1;
+    if (is_ms)
+    {
+        small_alignment = D3D12_SMALL_MSAA_RESOURCE_PLACEMENT_ALIGNMENT;
+        default_alignment = D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT;
+    }
+    else
+    {
+        small_alignment = D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT;
+        default_alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+    }
+
+    /* Differently to what Microsoft documentation pretends, multisampled resources seem
+     * to always be considered small. */
+    is_small = true;
+    if (!is_ms)
+    {
+        unsigned int tile_size, tile_log_size,
+                tile_log_width, tile_log_height, tile_log_depth,
+                tile_width, tile_height, tile_depth,
+                tile_width_count, tile_height_count, tile_depth_count, tile_count;
+
+        /* To decide whether a texture is small we need to cover it with at most 16 tiles of size 4 KiB.
+         * The texel tile sizes need to be as equal as possible, with width >= height >= depth. */
+        tile_size = D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT / format_size(desc->Format);
+        tile_log_size = vkd3d_log2i(tile_size);
+        tile_log_depth = desc->Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ? tile_log_size / 3 : 0;
+        tile_log_height = (tile_log_size - tile_log_depth) / 2;
+        tile_log_width = tile_log_size - tile_log_depth - tile_log_height;
+        tile_width = 1u << tile_log_width;
+        tile_height = 1u << tile_log_height;
+        tile_depth = 1u << tile_log_depth;
+        tile_width_count = (desc->Width + tile_width - 1) / tile_width;
+        tile_height_count = (desc->Height + tile_height - 1) / tile_height;
+        if (desc->Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)
+            tile_depth_count = (desc->DepthOrArraySize + tile_depth - 1) / tile_depth;
+        else
+            tile_depth_count = 1;
+        tile_count = tile_width_count * tile_height_count * tile_depth_count;
+
+        is_small &= tile_count <= D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT
+                / D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT;
+        is_small &= desc->Layout == D3D12_TEXTURE_LAYOUT_UNKNOWN;
+        is_small &= !(desc->Flags & (D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET
+                | D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL));
+    }
+
+    if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE && !is_64kb_swizzle_supported)
+        expected_hr = E_INVALIDARG;
+    else if (desc->Alignment == 0)
+        expected_hr = S_OK;
+    else if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE)
+        expected_hr = desc->Alignment == D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT ? S_OK : E_INVALIDARG;
+    else if (desc->Alignment == default_alignment)
+        expected_hr = S_OK;
+    else if (desc->Alignment == small_alignment && is_small)
+        expected_hr = S_OK;
+    else
+        expected_hr = E_INVALIDARG;
+
+    expected_alignment = desc->Alignment;
+    if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE
+            || desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE)
+        expected_alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+    else if (desc->Alignment == 0)
+        expected_alignment = default_alignment;
+
+    hr = ID3D12Device_CreateCommittedResource(device, &heap_properties, D3D12_HEAP_FLAG_NONE, desc,
+            D3D12_RESOURCE_STATE_COMMON, NULL, &IID_ID3D12Resource, (void **)&resource);
+    /* vkd3d doesn't support some layouts and is too generous wich accepting textures as small. */
+    todo_if((desc->Layout != D3D12_TEXTURE_LAYOUT_UNKNOWN && hr == E_NOTIMPL)
+            || (expected_hr == E_INVALIDARG && hr == S_OK))
+    ok(hr == expected_hr, "Got hr %#x, expected %#x.\n", hr, expected_hr);
+
+    if (SUCCEEDED(hr))
+    {
+        desc2 = ID3D12Resource_GetDesc(resource);
+        todo_if(desc->Alignment == 0)
+        ok(desc2.Alignment == expected_alignment, "Got alignment %#"PRIx64", expected %#"PRIx64".\n",
+                desc2.Alignment, expected_alignment);
+
+        ID3D12Resource_Release(resource);
+    }
+}
+
+static void test_resource_alignment(void)
+{
+    unsigned int desc_idx, alignment_idx;
+    bool is_64kb_swizzle_supported;
+    ID3D12Device *device;
+    int var_x, var_y;
+
+    static const D3D12_RESOURCE_DESC resource_alignment_descs[] =
+    {
+        /* Small textures. */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 8, 8, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 8, 8, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 8, 8, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 8, 8, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 8, 8, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 8, 8, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 8, 8, 1, 1, DXGI_FORMAT_R32_UINT,
+                {4, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 8, 8, 1, 1, DXGI_FORMAT_R32_UINT,
+                {4, 0}, D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET },
+
+        /* Large textures. */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 2048, 2048, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 2048, 2048, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 2048, 2048, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 2048, 2048, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 2048, 2048, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 2048, 2048, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 2048, 2048, 1, 1, DXGI_FORMAT_R32_UINT,
+                {4, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 2048, 2048, 1, 1, DXGI_FORMAT_R32_UINT,
+                {4, 0}, D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET },
+
+        /* The edge between large and small: with 4 bytes formats tiles are square 32x32. */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 128, 128, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 32, 512, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 16, 1024, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 512, 32, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 1024, 16, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        /* With 8 bytes formats tiles are rectangles 32x16, so a larger width is preferred. */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 128, 64, 1, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 32, 256, 1, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 16, 512, 1, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 512, 16, 1, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 1024, 8, 1, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        /* Only the first subresource counts for testing smallness. */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 128, 128, 4, 4, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+
+        /* With 3D textures and 8 bytes formats, tiles are 8x8x8. */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 16, 16, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 8, 32, 32, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 4, 64, 32, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 8, 32, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 64, 4, 32, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 32, 8, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 64, 32, 4, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        /* With 3D textures and 16 bytes formats, tiles are 8x8x4. */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 16, 16, 16, 1, DXGI_FORMAT_R32G32B32A32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 8, 32, 16, 1, DXGI_FORMAT_R32G32B32A32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 4, 64, 16, 1, DXGI_FORMAT_R32G32B32A32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 8, 16, 1, DXGI_FORMAT_R32G32B32A32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 64, 4, 16, 1, DXGI_FORMAT_R32G32B32A32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 32, 4, 1, DXGI_FORMAT_R32G32B32A32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 64, 2, 1, DXGI_FORMAT_R32G32B32A32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        /* With 3D textures and 4 bytes formats, tiles are 16x8x8. */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 32, 16, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 16, 64, 16, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 8, 128, 16, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 8, 64, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 4, 128, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 64, 8, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 128, 4, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        /* And as before only the first subresource counts for testing smallness. */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 16, 16, 4, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+    };
+
+    static const unsigned int resource_alignment_alignments[] =
+    {
+        0,
+        D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT / 2,
+        D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT,
+        D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT * 2,
+        D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT / 2,
+        D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
+        D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT * 2,
+        D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT / 2,
+        D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT,
+        D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT * 2,
+    };
+
+    if (!(device = create_device()))
+    {
+        skip("Failed to create device.\n");
+        return;
+    }
+
+    is_64kb_swizzle_supported = is_standard_swizzle_64kb_supported(device);
+
+    for (desc_idx = 0; desc_idx < ARRAY_SIZE(resource_alignment_descs); ++desc_idx)
+    {
+        for (alignment_idx = 0; alignment_idx < ARRAY_SIZE(resource_alignment_alignments); ++alignment_idx)
+        {
+            for (var_x = -1; var_x <= 1; ++var_x)
+            {
+                for (var_y = -1; var_y <= 1; ++var_y)
+                {
+                    D3D12_RESOURCE_DESC desc = resource_alignment_descs[desc_idx];
+
+                    desc.Alignment = resource_alignment_alignments[alignment_idx];
+                    desc.Width += var_x;
+                    desc.Height += var_y;
+
+                    vkd3d_test_push_context("test %u, %"PRIu64"x%ux%u, alignment %#x",
+                            desc_idx, desc.Width, desc.Height, desc.DepthOrArraySize, desc.Alignment);
+
+                    test_resource_alignment_case(device, &desc, is_64kb_swizzle_supported);
+
+                    vkd3d_test_pop_context();
+                }
+            }
+        }
+    }
+
+    ID3D12Device_Release(device);
+}
+
 static void test_create_descriptor_heap(void)
 {
     D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle;
@@ -39284,6 +39552,7 @@ START_TEST(d3d12)
     run_test(test_create_heap);
     run_test(test_create_placed_resource);
     run_test(test_create_reserved_resource);
+    run_test(test_resource_alignment);
     run_test(test_create_descriptor_heap);
     run_test(test_create_sampler);
     run_test(test_create_unordered_access_view);
