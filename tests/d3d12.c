@@ -2582,6 +2582,7 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
     static const D3D12_HEAP_PROPERTIES heap_properties = { D3D12_HEAP_TYPE_DEFAULT };
 
     unsigned int small_alignment, default_alignment;
+    D3D12_RESOURCE_ALLOCATION_INFO allocation_info;
     uint64_t expected_alignment;
     D3D12_RESOURCE_DESC desc2;
     ID3D12Resource *resource;
@@ -2634,6 +2635,22 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
         is_small &= !(desc->Flags & (D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET
                 | D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL));
     }
+
+    expected_alignment = default_alignment;
+    if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE
+            || desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE)
+        expected_alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+    else if (is_ms && desc->Alignment != 0 && desc->Alignment != default_alignment)
+        expected_alignment = small_alignment;
+    else if (is_small && desc->Alignment == small_alignment)
+        expected_alignment = small_alignment;
+
+    allocation_info = ID3D12Device_GetResourceAllocationInfo(device, 0, 1, desc);
+    /* We'd like to be more specific, but there are currently too many cases
+     * in which this can go wrong. */
+    todo_if(allocation_info.Alignment != expected_alignment)
+    ok(allocation_info.Alignment == expected_alignment, "Expected alignment %#"PRIx64", got %#"PRIx64".\n",
+            expected_alignment, allocation_info.Alignment);
 
     if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE && !is_64kb_swizzle_supported)
         expected_hr = E_INVALIDARG;
