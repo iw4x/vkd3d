@@ -2618,8 +2618,8 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
         tile_log_depth = desc->Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ? tile_log_size / 3 : 0;
         tile_log_height = (tile_log_size - tile_log_depth) / 2;
         tile_log_width = tile_log_size - tile_log_depth - tile_log_height;
-        tile_width = 1u << tile_log_width;
-        tile_height = 1u << tile_log_height;
+        tile_width = (1u << tile_log_width) * format_block_width(desc->Format);
+        tile_height = (1u << tile_log_height) * format_block_height(desc->Format);
         tile_depth = 1u << tile_log_depth;
         tile_width_count = (desc->Width + tile_width - 1) / tile_width;
         tile_height_count = (desc->Height + tile_height - 1) / tile_height;
@@ -2806,6 +2806,17 @@ static void test_resource_alignment(void)
                 {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
         { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 512, 8, 1, 1, DXGI_FORMAT_R32G32B32_UINT,
                 {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        /* BC1 is 8 bytes large, but tiles are 4 time bigger in both directions: 128x64. */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 512, 256, 1, 1, DXGI_FORMAT_BC1_UNORM,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 128, 1024, 1, 1, DXGI_FORMAT_BC1_UNORM,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 64, 2048, 1, 1, DXGI_FORMAT_BC1_UNORM,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 2048, 64, 1, 1, DXGI_FORMAT_BC1_UNORM,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 4096, 32, 1, 1, DXGI_FORMAT_BC1_UNORM,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
         /* Only the first subresource counts for testing smallness. */
         { D3D12_RESOURCE_DIMENSION_TEXTURE2D, 0, 128, 128, 4, 4, DXGI_FORMAT_R32_UINT,
                 {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
@@ -2869,6 +2880,21 @@ static void test_resource_alignment(void)
         { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 64, 8, 1, DXGI_FORMAT_R32_UINT,
                 {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
         { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 128, 4, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        /* With 3D textures and BC1, tiles are 32x32x8. */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 128, 64, 16, 1, DXGI_FORMAT_BC1_UNORM,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 128, 32, 1, DXGI_FORMAT_BC1_UNORM,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 16, 128, 64, 1, DXGI_FORMAT_BC1_UNORM,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 128, 32, 32, 1, DXGI_FORMAT_BC1_UNORM,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 128, 16, 64, 1, DXGI_FORMAT_BC1_UNORM,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 128, 128, 8, 1, DXGI_FORMAT_BC1_UNORM,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 128, 256, 4, 1, DXGI_FORMAT_BC1_UNORM,
                 {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
         /* And as before only the first subresource counts for testing smallness. */
         { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 16, 16, 4, DXGI_FORMAT_R32G32_UINT,
