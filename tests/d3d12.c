@@ -2602,8 +2602,8 @@ static void test_resource_alignment_case(ID3D12Device *device, const D3D12_RESOU
 
     /* Differently to what Microsoft documentation pretends, multisampled resources seem
      * to always be considered small. */
-    is_small = true;
-    if (!is_ms)
+    is_small = desc->Dimension != D3D12_RESOURCE_DIMENSION_BUFFER;
+    if (!is_ms && is_small)
     {
         unsigned int tile_size, tile_log_size,
                 tile_log_width, tile_log_height, tile_log_depth,
@@ -2792,6 +2792,12 @@ static void test_resource_alignment(void)
         /* And as before only the first subresource counts for testing smallness. */
         { D3D12_RESOURCE_DIMENSION_TEXTURE3D, 0, 32, 16, 16, 4, DXGI_FORMAT_R32G32_UINT,
                 {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+
+        /* For buffers the size is irrelevant, the alignment is always 64 KiB. */
+        { D3D12_RESOURCE_DIMENSION_BUFFER, 0, 8, 1, 1, 1, DXGI_FORMAT_UNKNOWN,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_ROW_MAJOR, 0 },
+        { D3D12_RESOURCE_DIMENSION_BUFFER, 0, 8 * 1024 * 1024, 1, 1, 1, DXGI_FORMAT_UNKNOWN,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_ROW_MAJOR, 0 },
     };
 
     static const unsigned int resource_alignment_alignments[] =
@@ -2825,6 +2831,9 @@ static void test_resource_alignment(void)
                 for (var_y = -1; var_y <= 1; ++var_y)
                 {
                     D3D12_RESOURCE_DESC desc = resource_alignment_descs[desc_idx];
+
+                    if (desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER && var_y != 0)
+                        continue;
 
                     desc.Alignment = resource_alignment_alignments[alignment_idx];
                     desc.Width += var_x;
