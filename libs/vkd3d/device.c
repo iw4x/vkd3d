@@ -4193,6 +4193,19 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
             return S_OK;
         }
 
+        case D3D12_FEATURE_D3D12_TIGHT_ALIGNMENT:
+        {
+            D3D12_FEATURE_DATA_TIGHT_ALIGNMENT *data = feature_data;
+
+            if (feature_data_size != sizeof(*data))
+                WARN("Invalid size %u.\n", feature_data_size);
+
+            data->SupportTier = D3D12_TIGHT_ALIGNMENT_TIER_NOT_SUPPORTED;
+
+            TRACE("Tight alignment support tier %#x.\n", data->SupportTier);
+            return S_OK;
+        }
+
         default:
             FIXME("Unhandled feature %#x.\n", feature);
             return E_NOTIMPL;
