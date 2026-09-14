@@ -3018,24 +3018,31 @@ static void test_resource_alignment(void)
                 {1, 0}, D3D12_TEXTURE_LAYOUT_ROW_MAJOR, 0 },
     };
 
-    static const unsigned int resource_alignment_alignments[] =
+    static const struct
     {
-        0,
-        0x4,
-        0x8,
-        0x10,
-        0x80,
-        0x100,
-        0x200,
-        D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT / 2,
-        D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT,
-        D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT * 2,
-        D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT / 2,
-        D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
-        D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT * 2,
-        D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT / 2,
-        D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT,
-        D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT * 2,
+        bool use_for_buffers;
+        bool use_for_textures;
+        bool use_for_ms_textures;
+        unsigned int alignment;
+    }
+    resource_alignment_alignments[] =
+    {
+        {true,  true,  true,  0},
+        {true,  true,  true,  0x4},
+        {true,  true,  true,  0x8},
+        {true,  true,  true,  0x10},
+        {true,  false, false, 0x80},
+        {true,  false, false, 0x100},
+        {true,  false, false, 0x200},
+        {true,  true,  false, D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT / 2},
+        {true,  true,  false, D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT},
+        {true,  true,  false, D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT * 2},
+        {true,  true,  true,  D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT / 2},
+        {true,  true,  true,  D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT},
+        {true,  true,  true,  D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT * 2},
+        {true,  false, true,  D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT / 2},
+        {true,  false, true,  D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT},
+        {true,  false, true,  D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT * 2},
     };
 
     static const D3D12_HEAP_DESC heap_desc =
@@ -3072,8 +3079,29 @@ static void test_resource_alignment(void)
 
                     if (desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER && var_y != 0)
                         continue;
+                    if ((var_x == 0 && var_y != 0) || (var_x != 0 && var_y == 0))
+                        continue;
 
-                    desc.Alignment = resource_alignment_alignments[alignment_idx];
+                    if (desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
+                    {
+                        if (!resource_alignment_alignments[alignment_idx].use_for_buffers)
+                            continue;
+                    }
+                    else
+                    {
+                        if (desc.SampleDesc.Count == 1)
+                        {
+                            if (!resource_alignment_alignments[alignment_idx].use_for_textures)
+                                continue;
+                        }
+                        else
+                        {
+                            if (!resource_alignment_alignments[alignment_idx].use_for_ms_textures)
+                                continue;
+                        }
+                    }
+
+                    desc.Alignment = resource_alignment_alignments[alignment_idx].alignment;
                     desc.Width += var_x;
                     desc.Height += var_y;
 
