@@ -550,6 +550,21 @@ static bool are_unaligned_block_textures_supported(ID3D12Device *device)
     return options.UnalignedBlockTexturesSupported;
 }
 
+static D3D12_TIGHT_ALIGNMENT_TIER get_tight_alignment_tier(ID3D12Device *device)
+{
+    D3D12_FEATURE_DATA_TIGHT_ALIGNMENT options;
+    HRESULT hr;
+
+    if (FAILED(hr = ID3D12Device_CheckFeatureSupport(device,
+            D3D12_FEATURE_D3D12_TIGHT_ALIGNMENT, &options, sizeof(options))))
+    {
+        trace("Failed to check feature support, hr %#x.\n", hr);
+        return D3D12_TIGHT_ALIGNMENT_TIER_NOT_SUPPORTED;
+    }
+
+    return options.SupportTier;
+}
+
 #define create_cb_root_signature(a, b, c, e) create_cb_root_signature_(__FILE__, __LINE__, a, b, c, e)
 static ID3D12RootSignature *create_cb_root_signature_(const char *file, unsigned int line,
         ID3D12Device *device, unsigned int reg_idx, D3D12_SHADER_VISIBILITY shader_visibility,
@@ -2581,13 +2596,21 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
 {
     static const D3D12_HEAP_PROPERTIES heap_properties = { D3D12_HEAP_TYPE_DEFAULT };
 
+    const bool tight_alignment = desc->Flags & D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
+    D3D12_RESOURCE_ALLOCATION_INFO allocation_info, zero_allocation_info;
     unsigned int small_alignment, default_alignment;
-    D3D12_RESOURCE_ALLOCATION_INFO allocation_info;
     uint64_t expected_alignment;
     D3D12_RESOURCE_DESC desc2;
     ID3D12Resource *resource;
     HRESULT hr, expected_hr;
     bool is_ms, is_small;
+
+    if (tight_alignment)
+    {
+        desc2 = *desc;
+        desc2.Alignment = 0;
+        zero_allocation_info = ID3D12Device_GetResourceAllocationInfo(device, 0, 1, &desc2);
+    }
 
     is_ms = desc->SampleDesc.Count > 1;
     if (is_ms)
@@ -2636,41 +2659,96 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
                 | D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL));
     }
 
-    expected_alignment = default_alignment;
-    if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE
-            || desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE)
-        expected_alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-    else if (is_ms && desc->Alignment != 0 && desc->Alignment != default_alignment)
-        expected_alignment = small_alignment;
-    else if (is_small && desc->Alignment == small_alignment)
-        expected_alignment = small_alignment;
-
     allocation_info = ID3D12Device_GetResourceAllocationInfo(device, 0, 1, desc);
-    /* We'd like to be more specific, but there are currently too many cases
-     * in which this can go wrong. */
-    todo_if(allocation_info.Alignment != expected_alignment)
-    ok(allocation_info.Alignment == expected_alignment, "Expected alignment %#"PRIx64", got %#"PRIx64".\n",
-            expected_alignment, allocation_info.Alignment);
+    if (tight_alignment)
+    {
+        unsigned int max_alignment;
 
-    if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE && !is_64kb_swizzle_supported)
-        expected_hr = E_INVALIDARG;
-    else if (desc->Alignment == 0)
-        expected_hr = S_OK;
-    else if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE)
-        expected_hr = desc->Alignment == D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT ? S_OK : E_INVALIDARG;
-    else if (desc->Alignment == default_alignment)
-        expected_hr = S_OK;
-    else if (desc->Alignment == small_alignment && is_small)
-        expected_hr = S_OK;
+        if (desc->Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
+            max_alignment = 256;
+        else if (is_small)
+            max_alignment = small_alignment;
+        else
+            max_alignment = default_alignment;
+
+        /* When requesting tight alignment the driver choice is not
+         * deterministic, there are just some limits. */
+        ok(allocation_info.Alignment >= 8, "Got alignment %#"PRIx64".\n", allocation_info.Alignment);
+        if (desc->Alignment <= (desc->Dimension == D3D12_RESOURCE_DIMENSION_BUFFER ? 0x100 : default_alignment))
+        {
+            ok(allocation_info.Alignment <= max_alignment, "Got Alignment %#"PRIx64", expected <= %#x.\n",
+                    allocation_info.Alignment, max_alignment);
+            ok(allocation_info.Alignment == zero_allocation_info.Alignment
+                    /* WARP behaves differently than AMD and NVIDIA. */
+                    || broken_on_warp(desc->Dimension == D3D12_RESOURCE_DIMENSION_BUFFER),
+                    "Got alignment %#"PRIx64", expected %#"PRIx64".\n",
+                    allocation_info.Alignment, zero_allocation_info.Alignment);
+        }
+        else
+        {
+            ok(allocation_info.SizeInBytes == ~(UINT64)0, "Got SizeInBytes %"PRIx64".\n", allocation_info.SizeInBytes);
+            ok(allocation_info.Alignment == D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
+                    "Got Alignment %#"PRIx64", expected %#x.\n",
+                    allocation_info.Alignment, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
+        }
+    }
     else
-        expected_hr = E_INVALIDARG;
-
-    expected_alignment = desc->Alignment;
-    if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE
-            || desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE)
-        expected_alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-    else if (desc->Alignment == 0)
+    {
         expected_alignment = default_alignment;
+        if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE
+                || desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE)
+            expected_alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+        else if (is_ms && desc->Alignment != 0 && desc->Alignment != default_alignment)
+            expected_alignment = small_alignment;
+        else if (is_small && desc->Alignment == small_alignment)
+            expected_alignment = small_alignment;
+
+        /* We'd like to be more specific, but there are currently too many cases
+         * in which this can go wrong. */
+        todo_if(allocation_info.Alignment != expected_alignment)
+        ok(allocation_info.Alignment == expected_alignment, "Got Alignment %#"PRIx64", expected %#"PRIx64".\n",
+                allocation_info.Alignment, expected_alignment);
+    }
+
+    if (tight_alignment)
+    {
+        if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE
+                || desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE)
+            expected_hr = E_INVALIDARG;
+        else if (desc->Alignment > (desc->Dimension == D3D12_RESOURCE_DIMENSION_BUFFER ? 0x1000 : default_alignment))
+            expected_hr = E_INVALIDARG;
+        else
+            expected_hr = S_OK;
+    }
+    else
+    {
+        if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE && !is_64kb_swizzle_supported)
+            expected_hr = E_INVALIDARG;
+        else if (desc->Alignment == 0)
+            expected_hr = S_OK;
+        else if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE)
+            expected_hr = desc->Alignment == D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT ? S_OK : E_INVALIDARG;
+        else if (desc->Alignment == default_alignment)
+            expected_hr = S_OK;
+        else if (desc->Alignment == small_alignment && is_small)
+            expected_hr = S_OK;
+        else
+            expected_hr = E_INVALIDARG;
+    }
+
+    if (tight_alignment)
+    {
+        expected_alignment = zero_allocation_info.Alignment;
+    }
+    else
+    {
+        expected_alignment = desc->Alignment;
+        if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE
+                || desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE)
+            expected_alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+        else if (desc->Alignment == 0)
+            expected_alignment = default_alignment;
+    }
 
     hr = ID3D12Device_CreateCommittedResource(device, &heap_properties, D3D12_HEAP_FLAG_NONE, desc,
             D3D12_RESOURCE_STATE_COMMON, NULL, &IID_ID3D12Resource, (void **)&resource);
@@ -2683,10 +2761,24 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
     {
         desc2 = ID3D12Resource_GetDesc(resource);
         todo_if(desc->Alignment == 0)
-        ok(desc2.Alignment == expected_alignment, "Got alignment %#"PRIx64", expected %#"PRIx64".\n",
+        ok(desc2.Alignment == expected_alignment
+                /* WARP behaves differently than AMD and NVIDIA. */
+                || broken_on_warp(desc->Dimension == D3D12_RESOURCE_DIMENSION_BUFFER),
+                "Got alignment %#"PRIx64", expected %#"PRIx64".\n",
                 desc2.Alignment, expected_alignment);
 
         ID3D12Resource_Release(resource);
+    }
+
+    if (tight_alignment)
+    {
+        if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE
+                || desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE)
+            expected_hr = E_INVALIDARG;
+        else if (desc->Alignment > (desc->Dimension == D3D12_RESOURCE_DIMENSION_BUFFER ? 0x100 : default_alignment))
+            expected_hr = E_INVALIDARG;
+        else
+            expected_hr = S_OK;
     }
 
     /* Zero placement offset. */
@@ -2701,13 +2793,29 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
     {
         desc2 = ID3D12Resource_GetDesc(resource);
         todo_if(desc->Alignment == 0)
-        ok(desc2.Alignment == expected_alignment, "Got alignment %#"PRIx64", expected %#"PRIx64".\n",
+        ok(desc2.Alignment == expected_alignment
+                /* WARP behaves differently than AMD and NVIDIA. */
+                || broken_on_warp(tight_alignment && desc->Dimension == D3D12_RESOURCE_DIMENSION_BUFFER),
+                "Got alignment %#"PRIx64", expected %#"PRIx64".\n",
                 desc2.Alignment, expected_alignment);
 
         ID3D12Resource_Release(resource);
     }
 
-    /* Placement offset corresponding to the alignment. */
+    /* Placement offset corresponding to the alignment: the results here are
+     * interesting. On NVIDIA and WARP offsets smaller than the alignment
+     * declared by the driver are accepted; on AMD they lead to a device loss.
+     * How do we interpret that? Normally I would assume, since NVIDIA and WARP
+     * are consistency in accepting, that they correspond to the specification
+     * and AMD is buggy. However the AMD behavior is more sensible: the
+     * alignment declared by the driver should be the smallest offset that can
+     * be supported, so it's not clear why NVIDIA and WARP accept smaller
+     * offsets. For the moment I'll resort to just avoid testing small offsets,
+     * which don't seem to be the recommended way to use tight alignment anyway,
+     * so that no specific behavior is imposed on vkd3d. */
+    if (tight_alignment && desc->Alignment < zero_allocation_info.Alignment)
+        return;
+
     hr = ID3D12Device_CreatePlacedResource(device, heap, desc->Alignment, desc,
             D3D12_RESOURCE_STATE_COMMON, NULL, &IID_ID3D12Resource, (void **)&resource);
     /* vkd3d doesn't support some layouts and is too generous with accepting textures as small. */
@@ -2719,7 +2827,10 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
     {
         desc2 = ID3D12Resource_GetDesc(resource);
         todo_if(desc->Alignment == 0)
-        ok(desc2.Alignment == expected_alignment, "Got alignment %#"PRIx64", expected %#"PRIx64".\n",
+        ok(desc2.Alignment == expected_alignment
+                /* WARP behaves differently than AMD and NVIDIA. */
+                || broken_on_warp(tight_alignment && desc->Dimension == D3D12_RESOURCE_DIMENSION_BUFFER),
+                "Got alignment %#"PRIx64", expected %#"PRIx64".\n",
                 desc2.Alignment, expected_alignment);
 
         ID3D12Resource_Release(resource);
@@ -2728,11 +2839,11 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
 
 static void test_resource_alignment(void)
 {
+    bool is_64kb_swizzle_supported, is_tight_alignment_supported;
     unsigned int desc_idx, alignment_idx;
-    bool is_64kb_swizzle_supported;
     ID3D12Device *device;
-    ID3D12Heap *heap;
     int var_x, var_y;
+    ID3D12Heap *heap;
     HRESULT hr;
 
     static const D3D12_RESOURCE_DESC resource_alignment_descs[] =
@@ -2910,6 +3021,12 @@ static void test_resource_alignment(void)
     static const unsigned int resource_alignment_alignments[] =
     {
         0,
+        0x4,
+        0x8,
+        0x10,
+        0x80,
+        0x100,
+        0x200,
         D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT / 2,
         D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT,
         D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT * 2,
@@ -2936,6 +3053,10 @@ static void test_resource_alignment(void)
 
     is_64kb_swizzle_supported = is_standard_swizzle_64kb_supported(device);
 
+    is_tight_alignment_supported = get_tight_alignment_tier(device) >= D3D12_TIGHT_ALIGNMENT_TIER_1;
+    if (!is_tight_alignment_supported)
+        skip("Tight alignment is not supported, will skip related tests.\n");
+
     hr = ID3D12Device_CreateHeap(device, &heap_desc, &IID_ID3D12Heap, (void **)&heap);
     ok(hr == S_OK, "Got hr %#x.\n", hr);
 
@@ -2960,6 +3081,16 @@ static void test_resource_alignment(void)
                             desc_idx, desc.Width, desc.Height, desc.DepthOrArraySize, desc.Alignment);
 
                     test_resource_alignment_case(device, heap, &desc, is_64kb_swizzle_supported);
+
+                    if (is_tight_alignment_supported)
+                    {
+                        vkd3d_test_push_context("tight");
+
+                        desc.Flags |= D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
+                        test_resource_alignment_case(device, heap, &desc, is_64kb_swizzle_supported);
+
+                        vkd3d_test_pop_context();
+                    }
 
                     vkd3d_test_pop_context();
                 }
