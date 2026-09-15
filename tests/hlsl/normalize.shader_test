@@ -52,7 +52,7 @@ probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 
 write cbv-0 (0) f32(0, 0, 0, 0)
 draw quad
-if(sm<4) todo probe (0, 0) f32(0, 0, 0, 0)
+if(sm<4) probe (0, 0) f32(0, 0, 0, 0)
 if(sm>=4) bug(mvk) probe (0, 0) f32(-nan, -nan, -nan, -nan)
 % ^ In mvk we get another type of NaN.
 
@@ -75,7 +75,7 @@ probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 
 write cbv-0 (0) f32(0, 0, 0, 0)
 if(sm<4) draw quad
-if(sm<4) todo probe (0, 0) f32(0, 0, 0, 0)
+if(sm<4) probe (0, 0) f32(0, 0, 0, 0)
 
 write cbv-0 (0) f32(-1.0, 0, 0, 0)
 draw quad

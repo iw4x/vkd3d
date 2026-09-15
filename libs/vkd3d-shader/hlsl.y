@@ -4535,33 +4535,6 @@ static bool intrinsic_noise(struct hlsl_ctx *ctx,
     return !!add_expr(ctx, params->instrs, HLSL_OP1_NOISE, args, ret_type, loc);
 }
 
-static bool intrinsic_normalize(struct hlsl_ctx *ctx,
-        const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
-{
-    struct hlsl_type *type = params->args[0]->data_type;
-    struct hlsl_ir_node *dot, *rsq, *arg;
-
-    if (type->class == HLSL_CLASS_MATRIX)
-    {
-        struct vkd3d_string_buffer *string;
-
-        if ((string = hlsl_type_to_string(ctx, type)))
-            hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
-                    "Invalid type %s.", string->buffer);
-        hlsl_release_string_buffer(ctx, string);
-    }
-
-    arg = intrinsic_float_convert_arg(ctx, params, params->args[0], loc);
-
-    if (!(dot = add_binary_dot_expr(ctx, params->instrs, arg, arg, loc)))
-        return false;
-
-    if (!(rsq = add_unary_arithmetic_expr(ctx, params->instrs, HLSL_OP1_RSQ, dot, loc)))
-        return false;
-
-    return !!add_binary_arithmetic_expr(ctx, params->instrs, HLSL_OP2_MUL, rsq, arg, loc);
-}
-
 static bool intrinsic_pow(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
@@ -4734,6 +4707,36 @@ static bool intrinsic_sign(struct hlsl_ctx *ctx,
 
     /* Adding these two together will make 1 when > 0, -1 when < 0, and 0 when neither */
     return !!add_binary_arithmetic_expr(ctx, params->instrs, HLSL_OP2_ADD, neg, op1, loc);
+}
+
+static bool intrinsic_normalize(struct hlsl_ctx *ctx,
+        const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
+{
+    struct hlsl_type *type = params->args[0]->data_type;
+    struct hlsl_ir_node *dot, *rsq, *arg;
+
+    if (type->class == HLSL_CLASS_MATRIX)
+    {
+        struct vkd3d_string_buffer *string;
+
+        if ((string = hlsl_type_to_string(ctx, type)))
+            hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                    "Invalid type %s.", string->buffer);
+        hlsl_release_string_buffer(ctx, string);
+    }
+
+    if (hlsl_version_lt(ctx, 4, 0) && (type->e.numeric.dimx == 1))
+        return intrinsic_sign(ctx, params, loc);
+
+    arg = intrinsic_float_convert_arg(ctx, params, params->args[0], loc);
+
+    if (!(dot = add_binary_dot_expr(ctx, params->instrs, arg, arg, loc)))
+        return false;
+
+    if (!(rsq = add_unary_arithmetic_expr(ctx, params->instrs, HLSL_OP1_RSQ, dot, loc)))
+        return false;
+
+    return !!add_binary_arithmetic_expr(ctx, params->instrs, HLSL_OP2_MUL, rsq, arg, loc);
 }
 
 static bool intrinsic_sin(struct hlsl_ctx *ctx,
