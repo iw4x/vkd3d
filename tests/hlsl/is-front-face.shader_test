@@ -92,7 +92,7 @@ shader model < 4.1
 clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 todo(msl) draw triangle list 6
 probe (160, 240) f32(2.0, 0.0, 0.0, 0.0)
-todo(glsl) probe (480, 240) f32(2.0, 1.0, 0.0, 0.0)
+probe (480, 240) f32(2.0, 1.0, 0.0, 0.0)
 
 [require]
 % vface is mapped in sm4 only with the backcompat option.
