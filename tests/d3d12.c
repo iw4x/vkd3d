@@ -2596,14 +2596,19 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
 {
     static const D3D12_HEAP_PROPERTIES heap_properties = { D3D12_HEAP_TYPE_DEFAULT };
 
+    D3D12_RESOURCE_ALLOCATION_INFO allocation_info, zero_allocation_info, allocation_info2;
     const bool tight_alignment = desc->Flags & D3D12_RESOURCE_FLAG_USE_TIGHT_ALIGNMENT;
-    D3D12_RESOURCE_ALLOCATION_INFO allocation_info, zero_allocation_info;
+    D3D12_RESOURCE_ALLOCATION_INFO1 resource_alloc_info;
     unsigned int small_alignment, default_alignment;
     uint64_t expected_alignment;
     D3D12_RESOURCE_DESC desc2;
     ID3D12Resource *resource;
     HRESULT hr, expected_hr;
+    ID3D12Device4 *device4;
     bool is_ms, is_small;
+
+    if (FAILED(hr = ID3D12Device_QueryInterface(device, &IID_ID3D12Device4, (void **)&device4)))
+        device4 = NULL;
 
     if (tight_alignment)
     {
@@ -2710,6 +2715,24 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
                 allocation_info.Alignment, expected_alignment);
     }
 
+    if (device4)
+    {
+        allocation_info2 = ID3D12Device4_GetResourceAllocationInfo1(device4, 0, 1, desc, &resource_alloc_info);
+        ok(allocation_info2.SizeInBytes == allocation_info.SizeInBytes,
+                "Got SizeInBytes %#"PRIx64", expected %#"PRIx64".\n",
+                allocation_info2.SizeInBytes, allocation_info.SizeInBytes);
+        ok(allocation_info2.Alignment == allocation_info.Alignment,
+                "Got Alignment %#"PRIx64", expected %#"PRIx64".\n",
+                allocation_info2.Alignment, allocation_info.Alignment);
+        if (allocation_info2.SizeInBytes != ~(UINT64)0)
+        {
+            ok(!resource_alloc_info.Offset, "Got Offset %#"PRIx64".\n", resource_alloc_info.Offset);
+            ok(resource_alloc_info.Alignment == allocation_info.Alignment,
+                    "Got Alignment %#"PRIx64", expected %#"PRIx64".\n",
+                    resource_alloc_info.Alignment, allocation_info.Alignment);
+        }
+    }
+
     if (tight_alignment)
     {
         if (desc->Layout == D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE
@@ -2814,7 +2837,11 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
      * which don't seem to be the recommended way to use tight alignment anyway,
      * so that no specific behavior is imposed on vkd3d. */
     if (tight_alignment && desc->Alignment < zero_allocation_info.Alignment)
+    {
+        if (device4)
+            ID3D12Device4_Release(device4);
         return;
+    }
 
     hr = ID3D12Device_CreatePlacedResource(device, heap, desc->Alignment, desc,
             D3D12_RESOURCE_STATE_COMMON, NULL, &IID_ID3D12Resource, (void **)&resource);
@@ -2835,6 +2862,9 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
 
         ID3D12Resource_Release(resource);
     }
+
+    if (device4)
+        ID3D12Device4_Release(device4);
 }
 
 static void test_resource_alignment(void)
