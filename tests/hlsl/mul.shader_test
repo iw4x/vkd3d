@@ -1,3 +1,6 @@
+[header]
+test-shader-models (2.0 3.0 4.0 6.0)
+
 [pixel shader]
 float4 main() : sv_target
 {
@@ -316,4 +319,685 @@ float4 main() : sv_target
 
 [test]
 draw quad
-probe (0, 0) rgba (5.0, 11.0, 0.0, 0.0)
+probe (0, 0) f32(5.0, 11.0, 0.0, 0.0)
+
+[require]
+shader model < 6.0
+
+% The purpose of the following tests is to check that we are emitting the same
+% d3dbc/tpf instructions fxc does for the different mul() cases.
+%
+% We do this by means of checking that the result is exactly zero when
+% subtracting an expression obtained with the equivalent operations.
+%
+% This is particularly important to avoid z-fighting bugs, since it is common
+% for the mul() operation to compute vertex depth.
+%
+% When we fail to do this, the results are inconsistent across backends, being
+% non zero in some of them. This depends on the internal optimizations
+% performed by the driver.
+%
+% Since in SM6 we are not compiling from HLSL directly, and results depend on
+% the DXC version and vary from backend to backend, and mul() is implemented
+% differently, it is excluded.
+
+% In some test we pass a uniform twice (named e.g. `a` and `aa`) with the same
+% value, both to preempt the backends from performing optimizations, and fxc
+% itself from simplifying a subtraction of equivalent expressions into zero.
+%
+% This cannot be done for all tests, in particular matrix-matrix
+% multiplications, where we might hit the following error in ps_2_0:
+%
+%     error X5608: Compiled shader code uses too many arithmetic instruction
+%     slots [...]. Max. allowed by the target (ps_2_0) is 64.
+
+% Test that mul(vector, vector) is performed using dp4 instructions.
+[pixel-shader]
+float4 aa, a;
+float4 b;
+
+float4 main() : sv_target
+{
+    return mul(aa, b) - dot(a, b);
+}
+[test]
+write cbv-0 (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0 (4) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0 (8) f32(0.5, 0.6, 0.7, 0.8)
+draw quad
+todo(radv & mesa<25.1.6 & sm<3 | radv & sm>=4 | opengl & radeonsi) probe (0, 0) f32(0, 0, 0, 0)
+
+% Test that mul(vector, column_major matrix) is performed using dp4 instructions.
+[pixel-shader]
+float4x4 b;
+float4 aa, a;
+
+float4 main() : sv_target
+{
+    float4 res = mul(aa, b);
+    float4 b0 = float4(b._m00, b._m10, b._m20, b._m30);
+    float4 b1 = float4(b._m01, b._m11, b._m21, b._m31);
+    float4 b2 = float4(b._m02, b._m12, b._m22, b._m32);
+    float4 b3 = float4(b._m03, b._m13, b._m23, b._m33);
+    float4 dp4mul;
+
+    dp4mul.x = dot(a, b0);
+    dp4mul.y = dot(a, b1);
+    dp4mul.z = dot(a, b2);
+    dp4mul.w = dot(a, b3);
+    return res - dp4mul;
+}
+[test]
+write cbv-0  (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0  (4) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0  (8) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
+write cbv-0 (20) f32(1.7, 1.8, 1.9, 2.0)
+draw quad
+todo(radv | opengl) probe (0, 0) f32(0, 0, 0, 0)
+
+% Test that mul(vector, row_major matrix) is performed as if using mad instructions.
+[pixel-shader]
+row_major float4x4 b;
+float4 aa, a;
+
+float4 main() : sv_target
+{
+    float4 res = mul(aa, b);
+    float4 b0 = b[0];
+    float4 b1 = b[1];
+    float4 b2 = b[2];
+    float4 b3 = b[3];
+    float4 madmul;
+
+    madmul = a.x * b0;
+    madmul += a.y * b1;
+    madmul += a.z * b2;
+    madmul += a.w * b3;
+
+    return res - madmul;
+}
+
+[test]
+write cbv-0  (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0  (4) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0  (8) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
+write cbv-0 (20) f32(1.7, 1.8, 1.9, 2.0)
+draw quad
+todo(radv & mesa>=26 & sm<4 | mvk<1.4.0 | mvk & sm<4 | msl) probe (0, 0) f32(0, 0, 0, 0)
+
+% Test that mul(column_major matrix, vector) is performed as if using mad instructions.
+[pixel-shader]
+float4x4 a;
+float4 bb, b;
+
+float4 main() : sv_target
+{
+    float4 res = mul(a, bb);
+    float4 a0 = float4(a._m00, a._m10, a._m20, a._m30);
+    float4 a1 = float4(a._m01, a._m11, a._m21, a._m31);
+    float4 a2 = float4(a._m02, a._m12, a._m22, a._m32);
+    float4 a3 = float4(a._m03, a._m13, a._m23, a._m33);
+    float4 madmul;
+
+    madmul = a0 * b.x;
+    madmul += a1 * b.y;
+    madmul += a2 * b.z;
+    madmul += a3 * b.w;
+
+    return res - madmul;
+}
+
+[test]
+write cbv-0  (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0  (4) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0  (8) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
+write cbv-0 (20) f32(1.7, 1.8, 1.9, 2.0)
+draw quad
+todo(radv & mesa>=26 & sm<4 | mvk<1.4.0 | mvk & sm<4 | msl) probe (0, 0) f32(0, 0, 0, 0)
+
+% Test that mul(row_major matrix, vector) is performed as if using dp4 instructions.
+[pixel-shader]
+row_major float4x4 a;
+float4 bb, b;
+
+float4 main() : sv_target
+{
+    float4 res = mul(a, bb);
+    float4 a0 = a[0];
+    float4 a1 = a[1];
+    float4 a2 = a[2];
+    float4 a3 = a[3];
+    float4 dp4mul;
+
+    dp4mul.x = dot(a0, b);
+    dp4mul.y = dot(a1, b);
+    dp4mul.z = dot(a2, b);
+    dp4mul.w = dot(a3, b);
+    return res - dp4mul;
+}
+
+[test]
+write cbv-0  (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0  (4) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0  (8) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
+write cbv-0 (20) f32(1.7, 1.8, 1.9, 2.0)
+draw quad
+todo(radv | opengl) probe (0, 0) f32(0, 0, 0, 0)
+
+% Same as the previous tests, but test that the original matrix majority is
+% preserved even if the matrices are passed as function parameters.
+[pixel-shader]
+float4x4 a;
+float4 bb, b;
+
+float4 mulfn(row_major float4x4 mat)
+{
+    return mul(mat, bb);
+}
+
+float4 main() : sv_target
+{
+    float4 res = mulfn(a);
+    float4 a0 = float4(a._m00, a._m10, a._m20, a._m30);
+    float4 a1 = float4(a._m01, a._m11, a._m21, a._m31);
+    float4 a2 = float4(a._m02, a._m12, a._m22, a._m32);
+    float4 a3 = float4(a._m03, a._m13, a._m23, a._m33);
+    float4 madmul;
+
+    madmul = a0 * b.x;
+    madmul += a1 * b.y;
+    madmul += a2 * b.z;
+    madmul += a3 * b.w;
+
+    return res - madmul;
+}
+
+[test]
+write cbv-0  (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0  (4) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0  (8) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
+write cbv-0 (20) f32(1.7, 1.8, 1.9, 2.0)
+draw quad
+todo(radv & mesa>=26 & sm<4 | mvk<1.4.0 | mvk & sm<4 | msl) probe (0, 0) f32(0, 0, 0, 0)
+
+[pixel-shader]
+row_major float4x4 a;
+float4 bb, b;
+
+float4 mulfn(float4x4 mat)
+{
+    return mul(mat, bb);
+}
+
+float4 main() : sv_target
+{
+    float4 res = mulfn(a);
+    float4 a0 = a[0];
+    float4 a1 = a[1];
+    float4 a2 = a[2];
+    float4 a3 = a[3];
+    float4 dp4mul;
+
+    dp4mul.x = dot(a0, b);
+    dp4mul.y = dot(a1, b);
+    dp4mul.z = dot(a2, b);
+    dp4mul.w = dot(a3, b);
+    return res - dp4mul;
+}
+
+[test]
+write cbv-0  (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0  (4) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0  (8) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
+write cbv-0 (20) f32(1.7, 1.8, 1.9, 2.0)
+draw quad
+todo(radv | opengl) probe (0, 0) f32(0, 0, 0, 0)
+
+% Test that mul(row_major matrix, column_major matrix) is performed using dp4
+% instructions.
+[pixel-shader]
+row_major float4x4 aa, a;
+float4x4 b;
+
+float4 main() : sv_target
+{
+    float4x4 res = mul(aa, b);
+    float4x4 dp4mul;
+
+    float4 a0 = a[0];
+    float4 a1 = a[1];
+    float4 a2 = a[2];
+    float4 a3 = a[3];
+    float4 b0 = float4(b._m00, b._m10, b._m20, b._m30);
+    float4 b1 = float4(b._m01, b._m11, b._m21, b._m31);
+    float4 b2 = float4(b._m02, b._m12, b._m22, b._m32);
+    float4 b3 = float4(b._m03, b._m13, b._m23, b._m33);
+
+    dp4mul._m00 = dot(a0, b0);
+    dp4mul._m01 = dot(a0, b1);
+    dp4mul._m02 = dot(a0, b2);
+    dp4mul._m03 = dot(a0, b3);
+    dp4mul._m10 = dot(a1, b0);
+    dp4mul._m11 = dot(a1, b1);
+    dp4mul._m12 = dot(a1, b2);
+    dp4mul._m13 = dot(a1, b3);
+    dp4mul._m20 = dot(a2, b0);
+    dp4mul._m21 = dot(a2, b1);
+    dp4mul._m22 = dot(a2, b2);
+    dp4mul._m23 = dot(a2, b3);
+    dp4mul._m30 = dot(a3, b0);
+    dp4mul._m31 = dot(a3, b1);
+    dp4mul._m32 = dot(a3, b2);
+    dp4mul._m33 = dot(a3, b3);
+
+    return abs(dp4mul[0] - res[0])
+            + abs(dp4mul[1] - res[1])
+            + abs(dp4mul[2] - res[2])
+            + abs(dp4mul[3] - res[3]);
+}
+
+[test]
+write cbv-0  (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0  (4) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0  (8) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (16) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0 (20) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0 (24) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (28) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (32) f32(1.7, 1.8, 1.9, 2.0)
+write cbv-0 (36) f32(2.1, 2.2, 2.3, 2.4)
+write cbv-0 (40) f32(2.5, 2.6, 2.7, 2.8)
+write cbv-0 (44) f32(2.9, 3.0, 3.1, 3.2)
+draw quad
+todo(radv | opengl | mvk<1.4.0) probe (0, 0) f32(0, 0, 0, 0)
+
+% Same as the previous test, but test that matrix majority is preserved even if
+% the matrices are passed as function parameters.
+[pixel-shader]
+row_major float4x4 a;
+float4x4 b;
+
+float4x4 mulfn(float4x4 mat1, float4x4 mat2)
+{
+    return mul(mat1, mat2);
+}
+
+float4 main() : sv_target
+{
+    float4x4 res = mulfn(a, b);
+    float4x4 dp4mul;
+
+    float4 a0 = a[0];
+    float4 a1 = a[1];
+    float4 a2 = a[2];
+    float4 a3 = a[3];
+    float4 b0 = float4(b._m00, b._m10, b._m20, b._m30);
+    float4 b1 = float4(b._m01, b._m11, b._m21, b._m31);
+    float4 b2 = float4(b._m02, b._m12, b._m22, b._m32);
+    float4 b3 = float4(b._m03, b._m13, b._m23, b._m33);
+
+    dp4mul._m00 = dot(a0, b0);
+    dp4mul._m01 = dot(a0, b1);
+    dp4mul._m02 = dot(a0, b2);
+    dp4mul._m03 = dot(a0, b3);
+    dp4mul._m10 = dot(a1, b0);
+    dp4mul._m11 = dot(a1, b1);
+    dp4mul._m12 = dot(a1, b2);
+    dp4mul._m13 = dot(a1, b3);
+    dp4mul._m20 = dot(a2, b0);
+    dp4mul._m21 = dot(a2, b1);
+    dp4mul._m22 = dot(a2, b2);
+    dp4mul._m23 = dot(a2, b3);
+    dp4mul._m30 = dot(a3, b0);
+    dp4mul._m31 = dot(a3, b1);
+    dp4mul._m32 = dot(a3, b2);
+    dp4mul._m33 = dot(a3, b3);
+
+    return abs(dp4mul[0] - res[0])
+            + abs(dp4mul[1] - res[1])
+            + abs(dp4mul[2] - res[2])
+            + abs(dp4mul[3] - res[3]);
+}
+
+[test]
+write cbv-0  (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0  (4) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0  (8) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
+write cbv-0 (20) f32(2.1, 2.2, 2.3, 2.4)
+write cbv-0 (24) f32(2.5, 2.6, 2.7, 2.8)
+write cbv-0 (28) f32(2.9, 3.0, 3.1, 3.2)
+draw quad
+todo(radv | opengl | mvk<1.4.0) probe (0, 0) f32(0, 0, 0, 0)
+
+% Test that mul(column_major matrix, column_major matrix) is performed as if
+% using mad instructions.
+[pixel-shader]
+float4x4 a;
+float4x4 b;
+
+float4 main() : sv_target
+{
+    float4x4 res = mul(a, b);
+    float4x4 madmul;
+    float4 p;
+
+    float4 a0 = float4(a._m00, a._m10, a._m20, a._m30);
+    float4 a1 = float4(a._m01, a._m11, a._m21, a._m31);
+    float4 a2 = float4(a._m02, a._m12, a._m22, a._m32);
+    float4 a3 = float4(a._m03, a._m13, a._m23, a._m33);
+    float4 b0 = float4(b._m00, b._m10, b._m20, b._m30);
+    float4 b1 = float4(b._m01, b._m11, b._m21, b._m31);
+    float4 b2 = float4(b._m02, b._m12, b._m22, b._m32);
+    float4 b3 = float4(b._m03, b._m13, b._m23, b._m33);
+
+    p = mul(a0, b0.x);
+    p += mul(a1, b0.y);
+    p += mul(a2, b0.z);
+    p += mul(a3, b0.w);
+    madmul._m00 = p.x;
+    madmul._m10 = p.y;
+    madmul._m20 = p.z;
+    madmul._m30 = p.w;
+
+    p = mul(a0, b1.x);
+    p += mul(a1, b1.y);
+    p += mul(a2, b1.z);
+    p += mul(a3, b1.w);
+    madmul._m01 = p.x;
+    madmul._m11 = p.y;
+    madmul._m21 = p.z;
+    madmul._m31 = p.w;
+
+    p = mul(a0, b2.x);
+    p += mul(a1, b2.y);
+    p += mul(a2, b2.z);
+    p += mul(a3, b2.w);
+    madmul._m02 = p.x;
+    madmul._m12 = p.y;
+    madmul._m22 = p.z;
+    madmul._m32 = p.w;
+
+    p = mul(a0, b3.x);
+    p += mul(a1, b3.y);
+    p += mul(a2, b3.z);
+    p += mul(a3, b3.w);
+    madmul._m03 = p.x;
+    madmul._m13 = p.y;
+    madmul._m23 = p.z;
+    madmul._m33 = p.w;
+
+    return abs(madmul[0] - res[0])
+            + abs(madmul[1] - res[1])
+            + abs(madmul[2] - res[2])
+            + abs(madmul[3] - res[3]);
+}
+
+[test]
+write cbv-0  (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0  (4) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0  (8) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
+write cbv-0 (20) f32(2.1, 2.2, 2.3, 2.4)
+write cbv-0 (24) f32(2.5, 2.6, 2.7, 2.8)
+write cbv-0 (28) f32(2.9, 3.0, 3.1, 3.2)
+draw quad
+probe (0, 0) f32(0, 0, 0, 0)
+
+% Test that mul(column_major matrix, row_major matrix) is performed as if using
+% mad instructions.
+[pixel-shader]
+float4x4 a;
+row_major float4x4 b;
+
+float4 main() : sv_target
+{
+    float4x4 res = mul(a, b);
+    float4x4 madmul;
+    float4 p;
+
+    float4 a0 = float4(a._m00, a._m10, a._m20, a._m30);
+    float4 a1 = float4(a._m01, a._m11, a._m21, a._m31);
+    float4 a2 = float4(a._m02, a._m12, a._m22, a._m32);
+    float4 a3 = float4(a._m03, a._m13, a._m23, a._m33);
+    float4 b0 = b[0];
+    float4 b1 = b[1];
+    float4 b2 = b[2];
+    float4 b3 = b[3];
+
+    p = mul(a0, b0.x);
+    p += mul(a1, b1.x);
+    p += mul(a2, b2.x);
+    p += mul(a3, b3.x);
+    madmul._m00 = p.x;
+    madmul._m10 = p.y;
+    madmul._m20 = p.z;
+    madmul._m30 = p.w;
+
+    p = mul(a0, b0.y);
+    p += mul(a1, b1.y);
+    p += mul(a2, b2.y);
+    p += mul(a3, b3.y);
+    madmul._m01 = p.x;
+    madmul._m11 = p.y;
+    madmul._m21 = p.z;
+    madmul._m31 = p.w;
+
+    p = mul(a0, b0.z);
+    p += mul(a1, b1.z);
+    p += mul(a2, b2.z);
+    p += mul(a3, b3.z);
+    madmul._m02 = p.x;
+    madmul._m12 = p.y;
+    madmul._m22 = p.z;
+    madmul._m32 = p.w;
+
+    p = mul(a0, b0.w);
+    p += mul(a1, b1.w);
+    p += mul(a2, b2.w);
+    p += mul(a3, b3.w);
+    madmul._m03 = p.x;
+    madmul._m13 = p.y;
+    madmul._m23 = p.z;
+    madmul._m33 = p.w;
+
+    return abs(madmul[0] - res[0])
+            + abs(madmul[1] - res[1])
+            + abs(madmul[2] - res[2])
+            + abs(madmul[3] - res[3]);
+}
+
+[test]
+write cbv-0  (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0  (4) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0  (8) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
+write cbv-0 (20) f32(2.1, 2.2, 2.3, 2.4)
+write cbv-0 (24) f32(2.5, 2.6, 2.7, 2.8)
+write cbv-0 (28) f32(2.9, 3.0, 3.1, 3.2)
+draw quad
+probe (0, 0) f32(0, 0, 0, 0)
+
+% Test that mul(row_major matrix, row_major matrix) is performed as if using mad
+% instructions.
+[pixel-shader]
+row_major float4x4 aa, a;
+row_major float4x4 b;
+
+float4 main() : sv_target
+{
+    float4x4 res = mul(aa, b);
+    float4x4 madmul;
+    float4 p;
+
+    float4 a0 = a[0];
+    float4 a1 = a[1];
+    float4 a2 = a[2];
+    float4 a3 = a[3];
+    float4 b0 = b[0];
+    float4 b1 = b[1];
+    float4 b2 = b[2];
+    float4 b3 = b[3];
+
+    p = mul(a0.x, b0);
+    p += mul(a0.y, b1);
+    p += mul(a0.z, b2);
+    p += mul(a0.w, b3);
+    madmul._m00 = p.x;
+    madmul._m01 = p.y;
+    madmul._m02 = p.z;
+    madmul._m03 = p.w;
+
+    p = mul(a1.x, b0);
+    p += mul(a1.y, b1);
+    p += mul(a1.z, b2);
+    p += mul(a1.w, b3);
+    madmul._m10 = p.x;
+    madmul._m11 = p.y;
+    madmul._m12 = p.z;
+    madmul._m13 = p.w;
+
+    p = mul(a2.x, b0);
+    p += mul(a2.y, b1);
+    p += mul(a2.z, b2);
+    p += mul(a2.w, b3);
+    madmul._m20 = p.x;
+    madmul._m21 = p.y;
+    madmul._m22 = p.z;
+    madmul._m23 = p.w;
+
+    p = mul(a3.x, b0);
+    p += mul(a3.y, b1);
+    p += mul(a3.z, b2);
+    p += mul(a3.w, b3);
+    madmul._m30 = p.x;
+    madmul._m31 = p.y;
+    madmul._m32 = p.z;
+    madmul._m33 = p.w;
+
+    return abs(madmul[0] - res[0])
+            + abs(madmul[1] - res[1])
+            + abs(madmul[2] - res[2])
+            + abs(madmul[3] - res[3]);
+}
+
+[test]
+write cbv-0  (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0  (4) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0  (8) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (16) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0 (20) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0 (24) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (28) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (32) f32(1.7, 1.8, 1.9, 2.0)
+write cbv-0 (36) f32(2.1, 2.2, 2.3, 2.4)
+write cbv-0 (40) f32(2.5, 2.6, 2.7, 2.8)
+write cbv-0 (44) f32(2.9, 3.0, 3.1, 3.2)
+draw quad
+todo(radv & mesa>=26 & sm<4 | mvk<1.4.0) probe (0, 0) f32(0, 0, 0, 0)
+
+[pixel-shader]
+row_major float4x4 a;
+float4x4 b;
+float4 c, cc;
+
+float4 mulfn(float4x4 m)
+{
+    // Replacing a component with a constant inhibits dot product vectorization.
+    float4 vecH = float4(cc.xyz, 1);
+
+    return mul(vecH, m);
+}
+
+float4 main() : sv_target
+{
+    float4 dp4mul, madmul;
+    float4 a0 = a[0];
+    float4 a1 = a[1];
+    float4 a2 = a[2];
+    float4 a3 = a[3];
+    float4 b0 = float4(b._m00, b._m10, b._m20, b._m30);
+    float4 b1 = float4(b._m01, b._m11, b._m21, b._m31);
+    float4 b2 = float4(b._m02, b._m12, b._m22, b._m32);
+    float4 b3 = float4(b._m03, b._m13, b._m23, b._m33);
+
+    madmul = c.x * a0;
+    madmul += c.y * a1;
+    madmul += c.z * a2;
+    madmul += 1 * a3;
+
+    dp4mul.x = dot(float4(c.xyz, 1), b0);
+    dp4mul.y = dot(float4(c.xyz, 1), b1);
+    dp4mul.z = dot(float4(c.xyz, 1), b2);
+    dp4mul.w = dot(float4(c.xyz, 1), b3);
+
+    // The first mul() must be performed using mul+add/mad instructions.
+    // The second mul() must be performed using dp4 instructions.
+    // This means that the matrix majority of function arguments is propagated
+    // through function calls, regardless of the majority declared in the
+    // parameters.
+    return abs(mulfn(a) - madmul) + abs(mulfn(b) - dp4mul);
+}
+
+[test]
+write cbv-0  (0) f32(0.1, 0.2, 0.3, 0.4)
+write cbv-0  (4) f32(0.5, 0.6, 0.7, 0.8)
+write cbv-0  (8) f32(0.9, 1.0, 1.1, 1.2)
+write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
+write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
+write cbv-0 (20) f32(2.1, 2.2, 2.3, 2.4)
+write cbv-0 (24) f32(2.5, 2.6, 2.7, 2.8)
+write cbv-0 (28) f32(2.9, 3.0, 3.1, 3.2)
+write cbv-0 (32) f32(3.3, 3.4, 3.5, 3.6)
+write cbv-0 (36) f32(3.3, 3.4, 3.5, 3.6)
+draw quad
+todo(radv & mesa<26 | radv & mesa>=26 & sm>=4 | opengl | mvk<1.4.0 | mvk & sm<4 | msl) probe (0, 0) f32(0, 0, 0, 0)
+
+[pixel-shader]
+row_major float2x3 aa, a;
+float3x2 b;
+
+float4 main() : sv_target
+{
+    float2x2 res = mul(aa, b);
+    float2x2 dp3mul;
+
+    float3 a0 = a[0];
+    float3 a1 = a[1];
+    float3 b0 = float3(b._m00, b._m10, b._m20);
+    float3 b1 = float3(b._m01, b._m11, b._m21);
+
+    dp3mul._m00 = dot(a0, b0);
+    dp3mul._m01 = dot(a0, b1);
+    dp3mul._m10 = dot(a1, b0);
+    dp3mul._m11 = dot(a1, b1);
+
+    return float4(abs(res - dp3mul));
+}
+
+[test]
+write cbv-0  (0) f32(1e-3, 1, 1e3, 0)
+write cbv-0  (4) f32(2e-3, 2, 2e3, 0)
+write cbv-0  (8) f32(1e-3, 1, 1e3, 0)
+write cbv-0 (12) f32(2e-3, 2, 2e3, 0)
+write cbv-0 (16) f32(3e-3, 4e-3, 5e-3, 0)
+write cbv-0 (20) f32(3e3, 4e3, 5e-3, 0)
+draw quad
+todo(radv & mesa>=26 & sm<4) probe (0, 0) f32(0, 0, 0, 0)
