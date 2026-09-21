@@ -3907,7 +3907,72 @@ struct vectorize_exprs_state
     size_t count, capacity;
 };
 
-static bool is_same_vectorizable_source(struct hlsl_ir_node *a, struct hlsl_ir_node *b)
+static bool derefs_are_same_vector(struct hlsl_ctx *ctx, const struct hlsl_deref *a, const struct hlsl_deref *b)
+{
+    struct hlsl_type *type = a->var->data_type;
+
+    if (a->var != b->var)
+        return false;
+
+    for (unsigned int i = 0; type->class != HLSL_CLASS_VECTOR && i < a->path_len && i < b->path_len; ++i)
+    {
+        if (a->path[i].node != b->path[i].node)
+            return false;
+        type = hlsl_get_element_type_from_path_index(ctx, type, a->path[i].node);
+    }
+
+    return true;
+}
+
+static bool derefs_are_equivalent(struct hlsl_ctx *ctx, const struct hlsl_deref *a, const struct hlsl_deref *b)
+{
+    struct hlsl_type *type = a->var->data_type;
+
+    if (a->var != b->var)
+        return false;
+    if (a->path_len != b->path_len)
+        return false;
+
+    for (unsigned int i = 0; i < a->path_len; ++i)
+    {
+        if (a->path[i].node != b->path[i].node)
+            return false;
+        type = hlsl_get_element_type_from_path_index(ctx, type, a->path[i].node);
+    }
+    return true;
+}
+
+static bool nodes_are_equivalent(struct hlsl_ctx *ctx,
+        const struct hlsl_ir_node *c1, const struct hlsl_ir_node *c2)
+{
+    if (c1 == c2)
+        return true;
+
+    if (c1->type == HLSL_IR_LOAD && c2->type == HLSL_IR_LOAD)
+    {
+        const struct hlsl_ir_load *l1 = hlsl_ir_load(c1), *l2 = hlsl_ir_load(c2);
+
+        /* Loads to immutable variables are equivalent even if in different
+         * locations in the program. */
+        if (!l1->src.var->is_input_semantic && !l1->src.var->is_uniform && !l1->src.var->is_compile_time_const)
+            return false;
+        return derefs_are_equivalent(ctx, &l1->src, &l2->src);
+    }
+    else if (c1->type == HLSL_IR_SWIZZLE && c2->type == HLSL_IR_SWIZZLE
+            && hlsl_types_are_equal(c1->data_type, c2->data_type))
+    {
+        const struct hlsl_ir_swizzle *s1 = hlsl_ir_swizzle(c1), *s2 = hlsl_ir_swizzle(c2);
+
+        VKD3D_ASSERT(c1->data_type->class <= HLSL_CLASS_VECTOR);
+
+        if (s1->val.node == s2->val.node && s1->u.vector == s2->u.vector)
+            return true;
+    }
+
+    return false;
+}
+
+static bool is_same_vectorizable_source(struct hlsl_ctx *ctx, struct hlsl_ir_node *a, struct hlsl_ir_node *b)
 {
     /* TODO: We can also vectorize different constants. */
 
@@ -3916,10 +3981,10 @@ static bool is_same_vectorizable_source(struct hlsl_ir_node *a, struct hlsl_ir_n
     if (b->type == HLSL_IR_SWIZZLE)
         b = hlsl_ir_swizzle(b)->val.node;
 
-    return a == b;
+    return nodes_are_equivalent(ctx, a, b);
 }
 
-static bool is_same_vectorizable_expr(struct hlsl_ir_expr *a, struct hlsl_ir_expr *b)
+static bool is_same_vectorizable_expr(struct hlsl_ctx *ctx, struct hlsl_ir_expr *a, struct hlsl_ir_expr *b)
 {
     if (a->op != b->op)
         return false;
@@ -3928,7 +3993,7 @@ static bool is_same_vectorizable_expr(struct hlsl_ir_expr *a, struct hlsl_ir_exp
     {
         if (!a->operands[j].node)
             break;
-        if (!is_same_vectorizable_source(a->operands[j].node, b->operands[j].node))
+        if (!is_same_vectorizable_source(ctx, a->operands[j].node, b->operands[j].node))
             return false;
     }
 
@@ -3958,7 +4023,7 @@ static void record_vectorizable_expr(struct hlsl_ctx *ctx, struct hlsl_block *bl
 
         if (expr->node.data_type->e.numeric.dimx + group->component_count <= 4
                 && group->block == block
-                && is_same_vectorizable_expr(expr, other))
+                && is_same_vectorizable_expr(ctx, expr, other))
         {
             group->exprs[group->expr_count++] = expr;
             group->component_count += expr->node.data_type->e.numeric.dimx;
@@ -4191,23 +4256,6 @@ static bool can_vectorize_store(struct hlsl_ctx *ctx, struct hlsl_ir_store *stor
     return true;
 }
 
-static bool derefs_are_same_vector(struct hlsl_ctx *ctx, const struct hlsl_deref *a, const struct hlsl_deref *b)
-{
-    struct hlsl_type *type = a->var->data_type;
-
-    if (a->var != b->var)
-        return false;
-
-    for (unsigned int i = 0; type->class != HLSL_CLASS_VECTOR && i < a->path_len && i < b->path_len; ++i)
-    {
-        if (a->path[i].node != b->path[i].node)
-            return false;
-        type = hlsl_get_element_type_from_path_index(ctx, type, a->path[i].node);
-    }
-
-    return true;
-}
-
 static void record_vectorizable_store(struct hlsl_ctx *ctx, struct hlsl_block *block,
         struct hlsl_ir_store *store, struct vectorize_stores_state *state)
 {
@@ -4246,7 +4294,7 @@ static void record_vectorizable_store(struct hlsl_ctx *ctx, struct hlsl_block *b
              * they're not executed in exactly the same flow, and
              * therefore can't be vectorized. */
             if (group->block == block
-                    && is_same_vectorizable_source(store->rhs.node, other->rhs.node))
+                    && is_same_vectorizable_source(ctx, store->rhs.node, other->rhs.node))
             {
                 if (group->store_count < ARRAY_SIZE(group->stores))
                 {
@@ -10152,25 +10200,6 @@ static struct hlsl_ir_node *fold_unary_identities(struct hlsl_ctx *ctx,
     return NULL;
 }
 
-static bool nodes_are_equivalent(const struct hlsl_ir_node *c1, const struct hlsl_ir_node *c2)
-{
-    if (c1 == c2)
-        return true;
-
-    if (c1->type == HLSL_IR_SWIZZLE && c2->type == HLSL_IR_SWIZZLE
-            && hlsl_types_are_equal(c1->data_type, c2->data_type))
-    {
-        const struct hlsl_ir_swizzle *s1 = hlsl_ir_swizzle(c1), *s2 = hlsl_ir_swizzle(c2);
-
-        VKD3D_ASSERT(c1->data_type->class <= HLSL_CLASS_VECTOR);
-
-        if (s1->val.node == s2->val.node && s1->u.vector == s2->u.vector)
-            return true;
-    }
-
-    return false;
-}
-
 /* Replaces all conditionals in an expression chain of the form (cond ? x : y)
  * with x or y, assuming cond = cond_value. */
 static struct hlsl_ir_node *evaluate_conditionals_recurse(struct hlsl_ctx *ctx,
@@ -10187,7 +10216,7 @@ static struct hlsl_ir_node *evaluate_conditionals_recurse(struct hlsl_ctx *ctx,
         return NULL;
     expr = hlsl_ir_expr(instr);
 
-    if (expr->op == HLSL_OP3_TERNARY && nodes_are_equivalent(cond, expr->operands[0].node))
+    if (expr->op == HLSL_OP3_TERNARY && nodes_are_equivalent(ctx, cond, expr->operands[0].node))
     {
         struct hlsl_ir_node *x = cond_value ? expr->operands[1].node : expr->operands[2].node;
 
@@ -10237,7 +10266,7 @@ static struct hlsl_ir_node *fold_conditional_identities(struct hlsl_ctx *ctx,
     VKD3D_ASSERT(c->data_type->e.numeric.type == HLSL_TYPE_BOOL);
 
     /* c ? x : x -> x */
-    if (nodes_are_equivalent(x, y))
+    if (nodes_are_equivalent(ctx, x, y))
         return x;
 
     if (c->type == HLSL_IR_CONSTANT)
