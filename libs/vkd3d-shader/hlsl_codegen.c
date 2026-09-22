@@ -4213,6 +4213,62 @@ out:
     return progress;
 }
 
+/* Turn swizzles of a MUL operation, such as:
+ *
+ * @3: @1.osw1         , osw1 being an optional swizzle
+ * @4: @2.osw2         , osw2 being an optional swizzle
+ * @5: mul @3 @4
+ * @6: @5.sw3          , where sw3 is any swizzle.
+ *
+ * where @6 is the only user of @5, into:
+ *
+ * @6_1: @1.osw1.sw3     , where .osw1.sw3 is the combination of swizzle osw1 and sw3
+ * @6_2: @2.osw2.sw3     , where .osw2.sw3 is the combination of swizzle osw2 and sw3
+ * @6_3: mul @5_1 @5_2
+ *
+ * TODO: generalize to other elementwise binary operations.
+ */
+static struct hlsl_ir_node *raise_elementwise_op_swizzles(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
+{
+    struct hlsl_ir_swizzle *swizzle, *operand_swizzle;
+    struct hlsl_ir_node *combined_swizzles[2];
+    struct hlsl_ir_expr *expr;
+    unsigned int i, dim;
+    uint32_t s;
+
+    if (instr->type != HLSL_IR_SWIZZLE)
+        return NULL;
+    swizzle = hlsl_ir_swizzle(instr);
+    dim = instr->data_type->e.numeric.dimx;
+
+    if (swizzle->val.node->type != HLSL_IR_EXPR)
+        return NULL;
+    expr = hlsl_ir_expr(swizzle->val.node);
+    if (expr->op != HLSL_OP2_MUL)
+        return NULL;
+    if (list_count(&swizzle->val.node->uses) != 1)
+        return NULL;
+
+    for (i = 0; i < 2; ++i)
+    {
+        if (expr->operands[i].node->type == HLSL_IR_SWIZZLE)
+        {
+            operand_swizzle = hlsl_ir_swizzle(expr->operands[i].node);
+            s = hlsl_combine_swizzles(operand_swizzle->u.vector, swizzle->u.vector, dim);
+            combined_swizzles[i] = hlsl_block_add_swizzle(ctx, block, s, dim,
+                    operand_swizzle->val.node, &instr->loc);
+        }
+        else
+        {
+            combined_swizzles[i] = hlsl_block_add_swizzle(ctx, block,
+                    swizzle->u.vector, dim, expr->operands[i].node, &instr->loc);
+        }
+    }
+
+    return hlsl_block_add_binary_expr(ctx, block, HLSL_OP2_MUL, combined_swizzles[0], combined_swizzles[1]);
+}
+
 struct vectorize_stores_state
 {
     struct vectorizable_stores_group
@@ -10395,6 +10451,7 @@ void hlsl_run_const_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
     {
         progress = hlsl_run_folding_passes(ctx, body);
         progress |= hlsl_transform_ir(ctx, flatten_conditional_branches, body, NULL);
+        progress |= replace_ir(ctx, raise_elementwise_op_swizzles, body);
     } while (progress);
 }
 
