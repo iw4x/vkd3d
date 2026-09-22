@@ -3977,11 +3977,20 @@ static bool nodes_are_equivalent(struct hlsl_ctx *ctx,
             && hlsl_types_are_equal(c1->data_type, c2->data_type))
     {
         const struct hlsl_ir_swizzle *s1 = hlsl_ir_swizzle(c1), *s2 = hlsl_ir_swizzle(c2);
+        size_t dimx = c1->data_type->e.numeric.dimx;
+        uint32_t sw1, sw2;
 
         VKD3D_ASSERT(c1->data_type->class <= HLSL_CLASS_VECTOR);
 
-        if (s1->val.node == s2->val.node && s1->u.vector == s2->u.vector)
-            return true;
+        sw1 = s1->u.vector;
+        sw2 = s2->u.vector;
+        if (dimx < 4)
+        {
+            sw1 &= (1u << VKD3D_SHADER_SWIZZLE_SHIFT(dimx)) - 1;
+            sw2 &= (1u << VKD3D_SHADER_SWIZZLE_SHIFT(dimx)) - 1;
+        }
+        if (sw1 == sw2 && nodes_are_equivalent(ctx, s1->val.node, s2->val.node))
+             return true;
     }
 
     return false;
