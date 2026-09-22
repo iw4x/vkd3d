@@ -3958,6 +3958,19 @@ static bool nodes_are_equivalent(struct hlsl_ctx *ctx,
             return false;
         return derefs_are_equivalent(ctx, &l1->src, &l2->src);
     }
+    else if (c1->type == HLSL_IR_CONSTANT && c2->type == HLSL_IR_CONSTANT)
+    {
+        const struct hlsl_ir_constant *k1 = hlsl_ir_constant(c1), *k2 = hlsl_ir_constant(c2);
+
+        if (!hlsl_types_are_equal(c1->data_type, c2->data_type))
+            return false;
+        for (unsigned int i = 0; i < c1->data_type->e.numeric.dimx; ++i)
+        {
+            if (k1->value.u[i].u != k2->value.u[i].u)
+                return false;
+        }
+        return true;
+    }
     else if (c1->type == HLSL_IR_SWIZZLE && c2->type == HLSL_IR_SWIZZLE
             && hlsl_types_are_equal(c1->data_type, c2->data_type))
     {
@@ -3974,7 +3987,7 @@ static bool nodes_are_equivalent(struct hlsl_ctx *ctx,
 
 static bool is_same_vectorizable_source(struct hlsl_ctx *ctx, struct hlsl_ir_node *a, struct hlsl_ir_node *b)
 {
-    /* TODO: We can also vectorize different constants. */
+    /* TODO: We can also vectorize different constants, by only looking at the components after swizzling. */
 
     if (a->type == HLSL_IR_SWIZZLE)
         a = hlsl_ir_swizzle(a)->val.node;
