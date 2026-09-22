@@ -3907,6 +3907,9 @@ struct vectorize_exprs_state
     size_t count, capacity;
 };
 
+static bool nodes_are_equivalent(struct hlsl_ctx *ctx,
+        const struct hlsl_ir_node *c1, const struct hlsl_ir_node *c2);
+
 static bool derefs_are_same_vector(struct hlsl_ctx *ctx, const struct hlsl_deref *a, const struct hlsl_deref *b)
 {
     struct hlsl_type *type = a->var->data_type;
@@ -3916,11 +3919,10 @@ static bool derefs_are_same_vector(struct hlsl_ctx *ctx, const struct hlsl_deref
 
     for (unsigned int i = 0; type->class != HLSL_CLASS_VECTOR && i < a->path_len && i < b->path_len; ++i)
     {
-        if (a->path[i].node != b->path[i].node)
+        if (!nodes_are_equivalent(ctx, a->path[i].node, b->path[i].node))
             return false;
         type = hlsl_get_element_type_from_path_index(ctx, type, a->path[i].node);
     }
-
     return true;
 }
 
@@ -3935,7 +3937,7 @@ static bool derefs_are_equivalent(struct hlsl_ctx *ctx, const struct hlsl_deref 
 
     for (unsigned int i = 0; i < a->path_len; ++i)
     {
-        if (a->path[i].node != b->path[i].node)
+        if (!nodes_are_equivalent(ctx, a->path[i].node, b->path[i].node))
             return false;
         type = hlsl_get_element_type_from_path_index(ctx, type, a->path[i].node);
     }
