@@ -3440,8 +3440,8 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
 {
     struct d3d12_device *device = impl_from_ID3D12Device9(iface);
 
-    TRACE("iface %p, feature %#x, feature_data %p, feature_data_size %u.\n",
-            iface, feature, feature_data, feature_data_size);
+    TRACE("iface %p, feature %s, feature_data %p, feature_data_size %u.\n",
+            iface, debug_d3d12_feature(feature), feature_data, feature_data_size);
 
     switch (feature)
     {
@@ -4207,7 +4207,7 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
         }
 
         default:
-            FIXME("Unhandled feature %#x.\n", feature);
+            FIXME("Unhandled feature %s.\n", debug_d3d12_feature(feature));
             return E_NOTIMPL;
     }
 }
