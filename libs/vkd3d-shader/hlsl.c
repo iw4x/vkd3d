@@ -4961,6 +4961,20 @@ uint32_t hlsl_combine_swizzles(uint32_t first, uint32_t second, unsigned int dim
     return ret;
 }
 
+uint32_t hlsl_concat_swizzles(uint32_t swizzle1, size_t dimx1, uint32_t swizzle2, size_t dimx2)
+{
+    uint32_t ret = HLSL_SWIZZLE(X, X, X, X);
+
+    for (unsigned int i = 0; i < dimx1 + dimx2; ++i)
+    {
+        if (i < dimx1)
+            hlsl_swizzle_set_component(&ret, i, hlsl_swizzle_get_component(swizzle1, i));
+        else
+            hlsl_swizzle_set_component(&ret, i, hlsl_swizzle_get_component(swizzle2, i - dimx1));
+    }
+    return ret;
+}
+
 const struct hlsl_profile_info *hlsl_get_target_info(const char *target)
 {
     unsigned int i;

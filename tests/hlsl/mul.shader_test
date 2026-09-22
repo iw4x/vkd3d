@@ -365,7 +365,7 @@ write cbv-0 (0) f32(0.1, 0.2, 0.3, 0.4)
 write cbv-0 (4) f32(0.1, 0.2, 0.3, 0.4)
 write cbv-0 (8) f32(0.5, 0.6, 0.7, 0.8)
 draw quad
-todo(radv & mesa<25.1.6 & sm<3 | radv & sm>=4 | opengl & radeonsi) probe (0, 0) f32(0, 0, 0, 0)
+todo(radv & mesa<25.1.6 & sm<3 | radv & mesa>=26 & sm<4) probe (0, 0) f32(0, 0, 0, 0)
 
 % Test that mul(vector, column_major matrix) is performed using dp4 instructions.
 [pixel-shader]
@@ -395,7 +395,7 @@ write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
 write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
 write cbv-0 (20) f32(1.7, 1.8, 1.9, 2.0)
 draw quad
-todo(radv | opengl) probe (0, 0) f32(0, 0, 0, 0)
+todo(radv & mesa<26 & sm<3 | radv & mesa>=26 & sm<4) probe (0, 0) f32(0, 0, 0, 0)
 
 % Test that mul(vector, row_major matrix) is performed as if using mad instructions.
 [pixel-shader]
@@ -490,7 +490,7 @@ write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
 write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
 write cbv-0 (20) f32(1.7, 1.8, 1.9, 2.0)
 draw quad
-todo(radv | opengl) probe (0, 0) f32(0, 0, 0, 0)
+todo(radv & mesa<26 & sm<3 | radv & mesa>=26 & sm<4) probe (0, 0) f32(0, 0, 0, 0)
 
 % Same as the previous tests, but test that the original matrix majority is
 % preserved even if the matrices are passed as function parameters.
@@ -563,7 +563,7 @@ write cbv-0 (12) f32(1.3, 1.4, 1.5, 1.6)
 write cbv-0 (16) f32(1.7, 1.8, 1.9, 2.0)
 write cbv-0 (20) f32(1.7, 1.8, 1.9, 2.0)
 draw quad
-todo(radv | opengl) probe (0, 0) f32(0, 0, 0, 0)
+todo(radv & mesa<26 & sm<3 | radv & mesa>=26 & sm<4) probe (0, 0) f32(0, 0, 0, 0)
 
 % Test that mul(row_major matrix, column_major matrix) is performed using dp4
 % instructions.
@@ -622,7 +622,7 @@ write cbv-0 (36) f32(2.1, 2.2, 2.3, 2.4)
 write cbv-0 (40) f32(2.5, 2.6, 2.7, 2.8)
 write cbv-0 (44) f32(2.9, 3.0, 3.1, 3.2)
 draw quad
-todo(radv | opengl | mvk<1.4.0) probe (0, 0) f32(0, 0, 0, 0)
+todo(radv & mesa<26 & sm<3 | radv & mesa>=26 & sm<4 | mvk<1.4.0 & sm<3) probe (0, 0) f32(0, 0, 0, 0)
 
 % Same as the previous test, but test that matrix majority is preserved even if
 % the matrices are passed as function parameters.
@@ -682,7 +682,7 @@ write cbv-0 (20) f32(2.1, 2.2, 2.3, 2.4)
 write cbv-0 (24) f32(2.5, 2.6, 2.7, 2.8)
 write cbv-0 (28) f32(2.9, 3.0, 3.1, 3.2)
 draw quad
-todo(radv | opengl | mvk<1.4.0) probe (0, 0) f32(0, 0, 0, 0)
+todo(radv & sm<3 | mvk<1.4.0 & sm<3) probe (0, 0) f32(0, 0, 0, 0)
 
 % Test that mul(column_major matrix, column_major matrix) is performed as if
 % using mad instructions.
@@ -968,7 +968,7 @@ write cbv-0 (28) f32(2.9, 3.0, 3.1, 3.2)
 write cbv-0 (32) f32(3.3, 3.4, 3.5, 3.6)
 write cbv-0 (36) f32(3.3, 3.4, 3.5, 3.6)
 draw quad
-todo(radv & mesa<26 | radv & mesa>=26 & sm>=4 | opengl | mvk<1.4.0 | mvk & sm<4 | msl) probe (0, 0) f32(0, 0, 0, 0)
+todo(radv & mesa<26 & sm<4 | opengl & !radeonsi | mvk<1.4.0 | mvk & sm<4 | msl) probe (0, 0) f32(0, 0, 0, 0)
 
 [pixel-shader]
 row_major float2x3 aa, a;

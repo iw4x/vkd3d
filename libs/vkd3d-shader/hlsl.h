@@ -1876,6 +1876,7 @@ unsigned int hlsl_get_multiarray_size(const struct hlsl_type *type);
 const struct hlsl_type *hlsl_get_stream_output_type(const struct hlsl_type *type);
 
 uint32_t hlsl_combine_swizzles(uint32_t first, uint32_t second, unsigned int dim);
+uint32_t hlsl_concat_swizzles(uint32_t swizzle1, size_t dimx1, uint32_t swizzle2, size_t dimx2);
 unsigned int hlsl_combine_writemasks(unsigned int first, unsigned int second);
 uint32_t hlsl_map_swizzle(uint32_t swizzle, unsigned int writemask);
 uint32_t hlsl_swizzle_from_writemask(unsigned int writemask);

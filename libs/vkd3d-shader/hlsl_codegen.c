@@ -4269,6 +4269,110 @@ static struct hlsl_ir_node *raise_elementwise_op_swizzles(struct hlsl_ctx *ctx,
     return hlsl_block_add_binary_expr(ctx, block, HLSL_OP2_MUL, combined_swizzles[0], combined_swizzles[1]);
 }
 
+static bool is_vectorizable_dot(struct hlsl_ctx *ctx,
+        const struct hlsl_ir_node *instr, struct hlsl_block *block,
+        struct hlsl_ir_swizzle **sw1, struct hlsl_ir_swizzle **sw2)
+{
+    struct hlsl_ir_expr *expr;
+
+    if (instr->data_type->class > HLSL_CLASS_VECTOR || instr->data_type->e.numeric.dimx > 1)
+        return false;
+
+    if (instr->type != HLSL_IR_EXPR)
+        return false;
+    expr = hlsl_ir_expr(instr);
+
+    VKD3D_ASSERT(instr->data_type->class <= HLSL_CLASS_VECTOR);
+
+    if (expr->op != HLSL_OP2_DOT && expr->op != HLSL_OP2_MUL)
+        return false;
+
+    if (expr->op == HLSL_OP2_MUL && instr->data_type->e.numeric.dimx > 1)
+        return false;
+
+    if (expr->operands[0].node->type != HLSL_IR_SWIZZLE
+            || expr->operands[1].node->type != HLSL_IR_SWIZZLE)
+        return false;
+
+    *sw1 = hlsl_ir_swizzle(expr->operands[0].node);
+    *sw2 = hlsl_ir_swizzle(expr->operands[1].node);
+    return true;
+}
+
+/* Turn sequences like
+ *
+ * @3: @1.sw1
+ * @4: @2.sw2
+ * @5: dot @3 @4         , where a scalar mul is also considered a dot.
+ * @6: @1.sw3
+ * @7: @2.sw4
+ * @8: dot @6 @7         , where a scalar mul is also considered a dot.
+ * @9: add @5 @8
+ *
+ * into
+ *
+ * @9_1: @1.sw1sw3       , where .sw1sw3 is the concatenation of swizzles .sw1 and .sw3.
+ * @9_2: @2.sw2sw4       , where .sw2sw4 is the concatenation of swizzles .sw2 and .sw4.
+ * @9_3: dot @9_1 @9_2
+ *
+ */
+static struct hlsl_ir_node *vectorize_dot_exprs(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
+{
+    struct hlsl_ir_swizzle *arg1_sw1, *arg1_sw2, *arg2_sw1, *arg2_sw2, *aux;
+    struct hlsl_ir_node *args[HLSL_MAX_OPERANDS] = {0};
+    size_t new_dimx, arg1_dimx, arg2_dimx;
+    uint32_t new_swizzle1, new_swizzle2;
+    struct hlsl_ir_expr *expr;
+
+    if (instr->type != HLSL_IR_EXPR)
+        return NULL;
+    expr = hlsl_ir_expr(instr);
+    if (expr->op != HLSL_OP2_ADD)
+        return NULL;
+    VKD3D_ASSERT(instr->data_type->class <= HLSL_CLASS_VECTOR);
+    if (instr->data_type->e.numeric.dimx > 1 || !hlsl_type_is_floating_point(instr->data_type))
+        return NULL;
+
+    if (!is_vectorizable_dot(ctx, expr->operands[0].node, block, &arg1_sw1, &arg1_sw2))
+        return NULL;
+    VKD3D_ASSERT(arg1_sw1->node.data_type->e.numeric.dimx == arg1_sw2->node.data_type->e.numeric.dimx);
+    arg1_dimx = arg1_sw1->node.data_type->e.numeric.dimx;
+
+    if (!is_vectorizable_dot(ctx, expr->operands[1].node, block, &arg2_sw1, &arg2_sw2))
+        return NULL;
+    VKD3D_ASSERT(arg2_sw1->node.data_type->e.numeric.dimx == arg2_sw2->node.data_type->e.numeric.dimx);
+    arg2_dimx = arg2_sw1->node.data_type->e.numeric.dimx;
+
+    new_dimx = arg1_dimx + arg2_dimx;
+    if (new_dimx > 4)
+        return NULL;
+
+    if (!nodes_are_equivalent(ctx, arg1_sw1->val.node, arg2_sw1->val.node)
+            || !nodes_are_equivalent(ctx, arg1_sw2->val.node, arg2_sw2->val.node))
+    {
+        if (nodes_are_equivalent(ctx, arg1_sw1->val.node, arg2_sw2->val.node)
+                && nodes_are_equivalent(ctx, arg1_sw2->val.node, arg2_sw1->val.node))
+        {
+            aux = arg2_sw1;
+            arg2_sw1 = arg2_sw2;
+            arg2_sw2 = aux;
+        }
+        else
+        {
+            return NULL;
+        }
+    }
+
+    new_swizzle1 = hlsl_concat_swizzles(arg1_sw1->u.vector, arg1_dimx, arg2_sw1->u.vector, arg2_dimx);
+    args[0] = hlsl_block_add_swizzle(ctx, block, new_swizzle1, new_dimx, arg1_sw1->val.node, &instr->loc);
+
+    new_swizzle2 = hlsl_concat_swizzles(arg1_sw2->u.vector, arg1_dimx, arg2_sw2->u.vector, arg2_dimx);
+    args[1] = hlsl_block_add_swizzle(ctx, block, new_swizzle2, new_dimx, arg1_sw2->val.node, &instr->loc);
+
+    return hlsl_block_add_expr(ctx, block, HLSL_OP2_DOT, args, instr->data_type, &instr->loc);
+}
+
 struct vectorize_stores_state
 {
     struct vectorizable_stores_group
@@ -10452,6 +10556,8 @@ void hlsl_run_const_passes(struct hlsl_ctx *ctx, struct hlsl_block *body)
         progress = hlsl_run_folding_passes(ctx, body);
         progress |= hlsl_transform_ir(ctx, flatten_conditional_branches, body, NULL);
         progress |= replace_ir(ctx, raise_elementwise_op_swizzles, body);
+        if (hlsl_version_ge(ctx, 3, 0))
+            progress |= replace_ir(ctx, vectorize_dot_exprs, body);
     } while (progress);
 }
 

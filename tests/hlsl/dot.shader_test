@@ -146,7 +146,7 @@ write cbv-0 (4) f32(1, 2e-4, 2e-4, 2e-4)
 write cbv-0 (8) f32(1, 1e-4, 1e-4, 1e-4)
 draw quad
 if(sm<3) probe (0, 0) f32(1.19209290e-07, 1.19209290e-07, 1.19209290e-07, 1.19209290e-07)
-if(sm>=3) todo(sm<6) probe (0, 0) f32(0, 0, 0, 0)
+if(sm>=3) probe (0, 0) f32(0, 0, 0, 0)
 
 % In SM3-5, fxc lowers the expression on the left to a dp3+add instruction
 % instead of a dp4 like the dot() expression on the right, so dot product
