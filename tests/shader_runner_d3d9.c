@@ -200,7 +200,7 @@ static D3DTEXTUREADDRESS sampler_address_to_d3d9(D3D12_TEXTURE_ADDRESS_MODE addr
             return D3DTADDRESS_MIRRORONCE;
     }
 
-    vkd3d_unreachable();
+    fatal_error("Unhandled texture address mode %#x.\n", address);
 }
 
 static D3DMULTISAMPLE_TYPE get_multisample_type(D3DFORMAT format, unsigned int sample_count)
@@ -617,7 +617,7 @@ static bool d3d9_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pri
                 break;
 
             case RESOURCE_TYPE_UAV:
-                vkd3d_unreachable();
+                fatal_error("Unhandled UAV resource.\n");
 
             case RESOURCE_TYPE_VERTEX_BUFFER:
                 for (j = 0; j < runner->r.input.element_count; ++j)
