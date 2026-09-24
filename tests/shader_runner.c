@@ -3797,8 +3797,10 @@ START_TEST(shader_runner)
     run_shader_tests_d3d11();
     run_shader_tests_d3d12(dxc);
 
+#ifdef SONAME_LIBDXCOMPILER
     if (dxc)
         print_dll_version(SONAME_LIBDXCOMPILER);
+#endif
     print_dll_version("d3d9.dll");
     print_dll_version("d3d11.dll");
 
