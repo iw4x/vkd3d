@@ -2642,13 +2642,26 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
         /* To decide whether a texture is small we need to cover it with at most 16 tiles of size 4 KiB.
          * The texel tile sizes need to be as equal as possible, with width >= height >= depth. */
         tile_size = D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT / format_size(desc->Format);
-        tile_log_size = vkd3d_log2i(tile_size);
-        tile_log_depth = desc->Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ? tile_log_size / 3 : 0;
-        tile_log_height = (tile_log_size - tile_log_depth) / 2;
-        tile_log_width = tile_log_size - tile_log_depth - tile_log_height;
-        tile_width = (1u << tile_log_width) * format_block_width(desc->Format);
-        tile_height = (1u << tile_log_height) * format_block_height(desc->Format);
-        tile_depth = 1u << tile_log_depth;
+        if (desc->Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE1D)
+        {
+            tile_log_size = vkd3d_log2i(tile_size);
+            tile_log_depth = desc->Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ? tile_log_size / 3 : 0;
+            tile_log_height = (tile_log_size - tile_log_depth) / 2;
+            tile_log_width = tile_log_size - tile_log_depth - tile_log_height;
+            tile_width = (1u << tile_log_width) * format_block_width(desc->Format);
+            tile_height = (1u << tile_log_height) * format_block_height(desc->Format);
+            tile_depth = 1u << tile_log_depth;
+        }
+        else
+        {
+            /* This is not equivalent to the above when the pixel format size is
+             * not a power of two. In the branch above the logarithm treats
+             * 16-bytes pixels as 12-bytes, but for 1D textures that's not
+             * supposed to happen .*/
+            tile_width = tile_size;
+            tile_height = 1;
+            tile_depth = 1;
+        }
         tile_width_count = (desc->Width + tile_width - 1) / tile_width;
         tile_height_count = (desc->Height + tile_height - 1) / tile_height;
         if (desc->Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)
@@ -3046,6 +3059,17 @@ static void test_resource_alignment(void)
                 {1, 0}, D3D12_TEXTURE_LAYOUT_ROW_MAJOR, 0 },
         { D3D12_RESOURCE_DIMENSION_BUFFER, 0, 8 * 1024 * 1024, 1, 1, 1, DXGI_FORMAT_UNKNOWN,
                 {1, 0}, D3D12_TEXTURE_LAYOUT_ROW_MAJOR, 0 },
+
+        /* 1D textures. */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE1D, 0, 16384, 1, 1, 1, DXGI_FORMAT_R32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE1D, 0, 8192, 1, 1, 1, DXGI_FORMAT_R32G32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        { D3D12_RESOURCE_DIMENSION_TEXTURE1D, 0, 4096, 1, 1, 1, DXGI_FORMAT_R32G32B32A32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
+        /* With 12-bytes formats, tiles are 341x1x1. Interesting, not a power of two! */
+        { D3D12_RESOURCE_DIMENSION_TEXTURE1D, 0, 5456, 1, 1, 1, DXGI_FORMAT_R32G32B32_UINT,
+                {1, 0}, D3D12_TEXTURE_LAYOUT_UNKNOWN, 0 },
     };
 
     static const struct
@@ -3107,7 +3131,8 @@ static void test_resource_alignment(void)
                 {
                     D3D12_RESOURCE_DESC desc = resource_alignment_descs[desc_idx];
 
-                    if (desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
+                    if (desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER
+                            || desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE1D)
                     {
                         if (var_y != 0)
                             continue;
@@ -3137,6 +3162,10 @@ static void test_resource_alignment(void)
                     desc.Alignment = resource_alignment_alignments[alignment_idx].alignment;
                     desc.Width += var_x;
                     desc.Height += var_y;
+
+                    if (desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE1D
+                            && desc.Width > D3D12_REQ_TEXTURE1D_U_DIMENSION)
+                        continue;
 
                     vkd3d_test_push_context("test %u, %"PRIu64"x%ux%u, alignment %#x",
                             desc_idx, desc.Width, desc.Height, desc.DepthOrArraySize, desc.Alignment);
