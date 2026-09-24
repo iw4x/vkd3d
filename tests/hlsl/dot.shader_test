@@ -1,3 +1,6 @@
+[header]
+test-shader-models (2.0 3.0 4.0 6.0)
+
 [pixel shader]
 uniform float4 x;
 uniform float4 y;
@@ -122,3 +125,63 @@ float4 main() : SV_TARGET
 {
     return dot(x, y);
 }
+
+[require]
+no-refactoring
+
+% In SM3-5, fxc lowers the expression on the left to a dp4. If we fail
+% to do this, the return value won't be zero, like in SM2.
+[pixel-shader]
+float4 a, aa;
+float4 b;
+
+float4 main() : sv_target
+{
+    return (a.x * b.x  + (a.y * b.y + a.z * b.z + a.w * b.w)) - dot(aa, b);
+}
+
+[test]
+write cbv-0 (0) f32(1, 2e-4, 2e-4, 2e-4)
+write cbv-0 (4) f32(1, 2e-4, 2e-4, 2e-4)
+write cbv-0 (8) f32(1, 1e-4, 1e-4, 1e-4)
+draw quad
+if(sm<3) probe (0, 0) f32(1.19209290e-07, 1.19209290e-07, 1.19209290e-07, 1.19209290e-07)
+if(sm>=3) todo(sm<6) probe (0, 0) f32(0, 0, 0, 0)
+
+% In SM3-5, fxc lowers the expression on the left to a dp3+add instruction
+% instead of a dp4 like the dot() expression on the right, so dot product
+% vectorization shall not vectorize constant components.
+[pixel-shader]
+float4 a;
+float3 b;
+
+float4 main() : sv_target
+{
+    return (a.x * 1 + (a.y * b.x + a.z * b.y + a.w * b.z)) - dot(a, float4(1, b));
+}
+
+[test]
+write cbv-0 (0) f32(1, 3e-4, 3e-4, 3e-4)
+write cbv-0 (4) f32(1e-4, 1e-4, 1e-4, 0)
+draw quad
+if(sm<6) probe (0, 0) f32(1.19209290e-07, 1.19209290e-07, 1.19209290e-07, 1.19209290e-07)
+if(sm>=6) probe (0, 0) f32(9.00000003e-08, 9.00000003e-08, 9.00000003e-08, 9.00000003e-08)
+
+% fxc doesn't lower the expression on the left to a dot product, implying it
+% doesn't vectorize dot expressions from muls that are already vectorized.
+[pixel-shader]
+float4 a, b;
+
+float4 main() : sv_target
+{
+    float4 c = a * b;
+
+    return (c.x + (c.y + (c.z + c.w))) - dot(a, b);
+}
+
+[test]
+write cbv-0 (0) f32(1, 3e-4, 3e-4, 3e-4)
+write cbv-0 (4) f32(1e-4, 1e-4, 1e-4, 1)
+draw quad
+if(sm<6) probe (0, 0) f32(2.91038305e-11, 2.91038305e-11, 2.91038305e-11, 2.91038305e-11)
+if(sm>=6) probe (0, 0) f32(7.27595761e-12, 7.27595761e-12, 7.27595761e-12, 7.27595761e-12)
