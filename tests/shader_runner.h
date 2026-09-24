@@ -149,7 +149,7 @@ struct viewport
     float height;
 };
 
-#define MAX_UNIFORM_BUFFERS 3
+#define MAX_UNIFORM_BUFFERS 4
 #define MAX_INPUT_BINDINGS 32
 #define MAX_DESCRIPTORS 32
 #define MAX_RESOURCES 32

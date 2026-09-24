@@ -1,0 +1,1203 @@
+[pixel-shader todo]
+namespace A
+{
+}
+
+namespace B
+{
+    namespace C
+    {
+        namespace D
+        {
+        }
+    }
+}
+
+// Reopening namespaces.
+namespace B
+{
+    namespace C
+    {
+    }
+}
+
+float4 main() : sv_target
+{
+    return 0;
+}
+
+[pixel-shader fail]
+namespace A
+{
+    float4 main() : sv_target
+    {
+        return 0;
+    }
+}
+
+% Namespace names can use reserved names.
+[pixel-shader todo(sm<6)]
+namespace sin
+{
+}
+
+float4 main() : sv_target
+{
+    return 1;
+}
+
+% The namespace sin shadows the sin() intrinsic.
+[pixel-shader fail]
+namespace sin
+{
+}
+
+float4 main() : sv_target
+{
+    return sin(1);
+}
+
+% Qualified identifier resolution takes the first possible match.
+[pixel-shader fail]
+namespace A
+{
+    static const float x = 1;
+}
+
+namespace B
+{
+    namespace A
+    {
+        namespace x
+        {
+        }
+    }
+
+    static const float y = A::x;
+}
+
+float4 main() : sv_target
+{
+    return B::y;
+}
+
+[pixel-shader fail]
+namespace A
+{
+    static const float x = 1;
+}
+
+float4 main() : sv_target
+{
+    return A::::x;
+}
+
+[pixel-shader fail]
+namespace A
+{
+    static const float x = 1;
+}
+
+float4 main() : sv_target
+{
+    return A::1;
+}
+
+[pixel-shader todo]
+namespace A
+{
+    static const int x = 3;
+    static const float y[x] = {4, 5, 6};
+}
+
+float4 main() : sv_target
+{
+    return float4(A::x, A::y[0], A::y[1], A::y[2]);
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(3.0, 4.0, 5.0, 6.0)
+
+[pixel-shader todo]
+namespace A
+{
+    namespace B
+    {
+        static const int x = 2;
+        static float y[x];
+    }
+}
+
+namespace A
+{
+    static float z = B::x;
+}
+
+float4 main() : sv_target
+{
+    A::B::y[0] = 1;
+    A::B::y[1] = 2;
+    ++A::z;
+    return float4(A::B::y[0], A::B::y[1], A::z, A::B::x);
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 2.0, 3.0, 2.0)
+
+[pixel-shader todo(sm<6)]
+static const float S = 4;
+
+namespace A
+{
+    namespace B
+    {
+        typedef float T;
+
+        struct S
+        {
+            T x;
+        };
+    }
+}
+
+namespace A
+{
+    static const B::T x = 1;
+
+    struct U
+    {
+        B::S s;
+        B::T y;
+    };
+}
+
+float4 main() : sv_target
+{
+    A::B::T y = 2;
+    A::U s;
+    s.s.x = 3;
+    s.y = S;
+
+    return float4(A::x, y, s.s.x, s.y);
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 2.0, 3.0, 4.0)
+
+[pixel-shader fail]
+namespace A
+{
+    typedef float T;
+}
+
+T x;
+
+float4 main() : sv_target
+{
+    return x;
+}
+
+[pixel-shader todo(sm<6)]
+typedef uint T;
+
+namespace A
+{
+    typedef float T;
+}
+
+namespace B
+{
+    typedef int T;
+}
+
+float4 main() : sv_target
+{
+    T x = 1.1;
+    A::T y = 2.1;
+    B::T z = 3.1;
+    return float4(x, y, z, 0);
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 2.1, 3.0, 0.0)
+
+[pixel-shader fail(sm>=6) todo(sm<6)]
+static const float x = 1;
+
+namespace A
+{
+    static const float x = 2;
+}
+
+namespace B
+{
+    static const float x = 3;
+}
+
+float4 main() : sv_target
+{
+    float A = 0;
+    typedef float B;
+    typedef float x;
+    return float4(::x, ::A::x, B::x, A::x);
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 2.0, 3.0, 2.0)
+
+[pixel-shader fail]
+namespace A
+{
+    typedef float T;
+}
+
+namespace A
+{
+    typedef int T;
+}
+
+float4 main() : sv_target
+{
+    return 0;
+}
+
+[pixel-shader fail]
+typedef float B;
+
+namespace A
+{
+    namespace B
+    {
+    }
+
+    // B is already declared as a namespace.
+    typedef B T;
+}
+
+float4 main() : sv_target
+{
+    return 0;
+}
+
+[pixel-shader fail]
+static const int B = 2;
+
+namespace A
+{
+    namespace B
+    {
+    }
+
+    // B is already declared as a namespace.
+    typedef float T[B];
+}
+
+float4 main() : sv_target
+{
+    return 0;
+}
+
+[pixel-shader fail]
+namespace A
+{
+}
+
+// A is already declared as a namespace.
+typedef float A;
+
+float4 main() : sv_target
+{
+    return 0;
+}
+
+[pixel-shader fail(sm>=6) todo(sm<6)]
+typedef float A;
+static const float x = 1;
+
+float f()
+{
+    return 2;
+}
+
+namespace A
+{
+}
+
+namespace x
+{
+}
+
+namespace f
+{
+}
+
+float4 main() : sv_target
+{
+    A a = x;
+    return float4(a, f(), 0, 0);
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 2.0, 0.0, 0.0)
+
+[pixel-shader fail]
+namespace A
+{
+    float f()
+    {
+        return 1;
+    }
+}
+
+namespace A
+{
+    // f() is already declared.
+    float f()
+    {
+        return 2;
+    }
+}
+
+float4 main() : sv_target
+{
+    return float4(A::f(), 0, 0, 0);
+}
+
+[pixel-shader fail]
+namespace A
+{
+    float f()
+    {
+        return 1;
+    }
+}
+
+float4 main() : sv_target
+{
+    return float4(A::f(), A::g(), 0, 0);
+}
+
+namespace A
+{
+    float g()
+    {
+        return 2;
+    }
+}
+
+[pixel-shader todo(sm<6)]
+static const float x = 1;
+
+float f()
+{
+    return 2;
+}
+
+namespace A
+{
+    static const float x = 3;
+
+    float f()
+    {
+        return x + 1;
+    }
+}
+
+float4 main() : sv_target
+{
+    return float4(x, f(), A::x, A::f());
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 2.0, 3.0, 4.0)
+
+[pixel-shader todo(sm<6)]
+namespace A
+{
+    float f()
+    {
+        return 1;
+    }
+}
+
+namespace A
+{
+    namespace B
+    {
+        float g()
+        {
+            return f() + 1;
+        }
+    }
+}
+
+float4 main() : sv_target
+{
+    return float4(A::f(), A::B::g(), 0, 0);
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 2.0, 0.0, 0.0)
+
+[pixel-shader todo(sm<6)]
+namespace A
+{
+    float f(float x, out float y);
+}
+
+float4 main() : sv_target
+{
+    float y;
+    return float4(A::f(1, y), y, 0, 0);
+}
+
+namespace A
+{
+    float f(float u, out float v)
+    {
+        v = 2;
+        return u;
+    }
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 2.0, 0.0, 0.0)
+
+[pixel-shader todo(sm<6)]
+namespace A
+{
+    namespace B
+    {
+        float g();
+    }
+
+    float f();
+}
+
+float A::f()
+{
+    return 1;
+}
+
+float4 main() : sv_target
+{
+    float y;
+    return float4(A::f(), A::B::g(), 0, 0);
+}
+
+float ::A::B::g()
+{
+    return 2;
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 2.0, 0.0, 0.0)
+
+[pixel-shader todo(sm<6)]
+namespace A
+{
+    namespace B
+    {
+        float f();
+    }
+}
+
+float4 main() : sv_target
+{
+    return A::B::f();
+}
+
+namespace A
+{
+    float B::f()
+    {
+        return 1;
+    }
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+
+% Qualified prototype redcleration is not allowed for SM < 6.
+[pixel-shader fail(sm<6)]
+namespace A
+{
+    namespace B
+    {
+        float f();
+    }
+}
+
+float A::B::f();
+
+float A::B::f()
+{
+    return 1;
+}
+
+float4 main() : sv_target
+{
+    return A::B::f();
+}
+
+% Qualified function definition without a declaration in the namespace.
+[pixel-shader fail]
+namespace A
+{
+}
+
+float A::f()
+{
+    return 1;
+}
+
+float4 main() : sv_target
+{
+    return A::f();
+}
+
+[pixel-shader fail]
+namespace A
+{
+}
+
+float A::f()
+{
+    return 1;
+}
+
+namespace A
+{
+    float f();
+}
+
+float4 main() : sv_target
+{
+    return A::f();
+}
+
+% A declaration inside a namespace prevent lookup with the same name in upper scopes.
+
+[pixel-shader fail]
+float f(float x, float y)
+{
+    return 1;
+}
+
+namespace A
+{
+    float f(float x)
+    {
+        return 2;
+    }
+
+    namespace B
+    {
+        float g()
+        {
+            return f(1, 2);
+        }
+    }
+}
+
+float4 main() : sv_target
+{
+    return A::B::g();
+}
+
+[pixel-shader fail]
+float f()
+{
+    return 1;
+}
+
+namespace A
+{
+    static const float f = 2;
+
+    namespace B
+    {
+        float g()
+        {
+            return f();
+        }
+    }
+}
+
+float4 main() : sv_target
+{
+    return A::B::g();
+}
+
+[pixel-shader fail]
+float f()
+{
+    return 1;
+}
+
+namespace A
+{
+    typedef float f;
+
+    namespace B
+    {
+        float g()
+        {
+            return f();
+        }
+    }
+}
+
+float4 main() : sv_target
+{
+    return A::B::g();
+}
+
+[pixel-shader fail]
+float f()
+{
+    return 1;
+}
+
+namespace A
+{
+    namespace f
+    {
+    }
+
+    namespace B
+    {
+        float g()
+        {
+            return f();
+        }
+    }
+}
+
+float4 main() : sv_target
+{
+    return A::B::g();
+}
+
+[pixel-shader fail(sm>=6) todo(sm<6)]
+namespace A
+{
+    float f()
+    {
+        return 1;
+    }
+}
+
+namespace B
+{
+    namespace A
+    {
+    }
+
+    float f()
+    {
+        return A::f();
+    }
+}
+
+float4 main() : sv_target
+{
+    return B::f();
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+
+[pixel-shader todo(sm<6)]
+float f()
+{
+    return 1;
+}
+
+namespace A
+{
+    float g()
+    {
+        return ::f();
+    }
+}
+
+float4 main() : sv_target
+{
+    return A::g();
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+
+[pixel-shader fail]
+namespace A
+{
+    float f()
+    {
+        return 1;
+    }
+}
+
+namespace B
+{
+    namespace A
+    {
+        static const float f = 2;
+    }
+
+    float g()
+    {
+        return A::f();
+    }
+}
+
+float4 main() : sv_target
+{
+    return B::g();
+}
+
+[pixel-shader fail]
+namespace A
+{
+    float f()
+    {
+        return 1;
+    }
+}
+
+namespace B
+{
+    namespace A
+    {
+        typedef float f;
+    }
+
+    float g()
+    {
+        return A::f();
+    }
+}
+
+float4 main() : sv_target
+{
+    return B::g();
+}
+
+[pixel-shader fail]
+namespace A
+{
+    float f()
+    {
+        return 1;
+    }
+}
+
+namespace B
+{
+    namespace A
+    {
+        namespace f
+        {
+        }
+    }
+
+    float g()
+    {
+        return A::f();
+    }
+}
+
+float4 main() : sv_target
+{
+    return B::g();
+}
+
+% Intrinsics can't be accessed via the global '::' scope operator.
+[pixel-shader fail]
+namespace A
+{
+    float f()
+    {
+        return ::sin(0);
+    }
+}
+
+float4 main() : sv_target
+{
+    return A::f();
+}
+
+% SM < 6 allocates uniforms grouped by namespace; SM6 uses declaration order instead.
+[pixel-shader todo]
+float x;
+
+namespace A
+{
+    float y;
+}
+
+namespace B
+{
+    float z;
+}
+
+float u;
+
+namespace A
+{
+    float v;
+}
+
+float4 main() : sv_target
+{
+    return float4(x, A::y + A::v, B::z, u);
+}
+
+[test]
+if(sm<4) write cbv-f32  (0) f32(1.0)
+if(sm<4) write cbv-f32  (4) f32(10.0)
+if(sm<4) write cbv-f32  (8) f32(100.0)
+if(sm<4) write cbv-f32 (12) f32(1000.0)
+if(sm<4) write cbv-f32 (16) f32(10000.0)
+if(sm>=4) write cbv-0 (0) f32(1.0, 10.0, 100.0, 1000.0)
+if(sm>=4) write cbv-0 (4) f32(10000.0)
+todo(sm<6) draw quad
+if(sm<6)  probe (0, 0) f32(1.0, 110.0, 1000.0, 10000.0)
+if(sm>=6) probe (0, 0) f32(1.0, 10010.0, 100.0, 1000.0)
+
+[pixel-shader todo]
+namespace A
+{
+    uniform float x;
+    float y = 2;
+    const float z = 3;
+}
+
+float4 main() : sv_target
+{
+    return float4(A::x, A::y, A::z, 0);
+}
+
+[test]
+if(sm<4) write cbv-f32 (0) f32(6.0)
+if(sm<4) write cbv-f32 (4) f32(7.0)
+if(sm<4) write cbv-f32 (8) f32(8.0)
+if(sm>=4) write cbv-0 (0) f32(6.0, 7.0, 8.0, 0.0)
+todo(sm<6) draw quad
+probe (0, 0) f32(6.0, 7.0, 8.0, 0.0)
+
+[pixel-shader fail]
+namespace A
+{
+    float x;
+}
+
+float4 main() : sv_target
+{
+    A::x = 2;
+    return A::x;
+}
+
+[pixel-shader fail(sm<6)]
+namespace A
+{
+    float x : register(c3);
+}
+
+namespace B
+{
+    float x : register(c3);
+}
+
+float4 main() : sv_target
+{
+    return float4(A::x, B::x, 0, 0);
+}
+
+[require]
+shader model >= 4.0
+
+% For SM < 6, constant buffer members are placed in the containing namespace;
+% for SM6, they are placed in the global namespace.
+[pixel-shader todo fail(sm>=6)]
+namespace A
+{
+    cbuffer C : register(b0)
+    {
+        float x : packoffset(c0.y);
+    };
+
+    float f()
+    {
+        return x;
+    }
+
+    namespace B
+    {
+        cbuffer D : register(b2)
+        {
+            float2 z : packoffset(c1.z);
+        };
+    }
+}
+
+namespace A
+{
+    cbuffer C : register(b1)
+    {
+        float y : packoffset(c2.x);
+    };
+
+    float g()
+    {
+        return y;
+    }
+}
+
+float4 main() : sv_target
+{
+    return float4(A::f(), A::g(), ::A::B::z);
+}
+
+[test]
+write cbv-0 (1) f32(1.0)
+write cbv-1 (8) f32(2.0)
+write cbv-2 (6) f32(3.0, 4.0)
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 2.0, 3.0, 4.0)
+
+% SM < 6 allocates cbuffers grouped by namespace; SM6 uses declaration order instead.
+% The members are read through functions in their namespaces, since SM6 places them in the global namespace.
+[pixel-shader todo(sm<6)]
+namespace A
+{
+    cbuffer C  // b1
+    {
+        float a;
+    };
+
+    float f()
+    {
+        return a;
+    }
+}
+
+namespace B
+{
+    cbuffer C  // b3
+    {
+        float b;
+    };
+
+    float g()
+    {
+        return b;
+    }
+}
+
+float y;       // b0
+
+namespace A
+{
+    cbuffer D  // b2
+    {
+        float c;
+    };
+
+    float h()
+    {
+        return c;
+    }
+}
+
+float4 main() : sv_target
+{
+    return float4(A::f(), A::h(), B::g(), y);
+}
+
+[test]
+write cbv-0 (0) f32(1.0)
+write cbv-1 (0) f32(2.0)
+write cbv-2 (0) f32(3.0)
+write cbv-3 (0) f32(4.0)
+todo(sm<6) draw quad
+if(sm<6)  probe (0, 0) f32(2.0, 3.0, 4.0, 1.0)
+if(sm>=6) probe (0, 0) f32(2.0, 4.0, 3.0, 1.0)
+
+[pixel-shader fail]
+namespace A
+{
+    cbuffer C
+    {
+        float4 x;
+    };
+}
+
+float4 main() : sv_target
+{
+    return A::C::x;
+}
+
+[pixel-shader fail]
+namespace A
+{
+    cbuffer C
+    {
+        float4 x;
+    };
+}
+
+float4 main() : sv_target
+{
+    return A::C;
+}
+
+[require]
+shader model >= 5.0
+
+[uav-0]
+stride 4
+size (buffer, 2)
+
+0 0
+
+[compute-shader todo(sm<6)]
+namespace A
+{
+    groupshared uint x;
+}
+
+namespace B
+{
+    groupshared uint x;
+}
+
+RWStructuredBuffer<uint> u : register(u0);
+
+    [numthreads(2, 1, 1)]
+void main(uint i : SV_GroupIndex)
+{
+    if (i == 0)
+        A::x = 1;
+    else
+        B::x = 2;
+    GroupMemoryBarrierWithGroupSync();
+    u[i] = i == 0 ? B::x : A::x;
+}
+
+[test]
+todo(sm<6 | msl) dispatch 1 1 1
+probe uav-0 (0) u32(2)
+probe uav-0 (1) u32(1)
+
+[require]
+shader model >= 5.1
+
+[pixel-shader todo(sm<6)]
+struct S
+{
+    float x;
+};
+
+namespace A
+{
+    ConstantBuffer<S> C : register(b0);
+
+    float f()
+    {
+        return C.x;
+    }
+}
+
+namespace B
+{
+    ConstantBuffer<S> C : register(b1);
+}
+
+float y;                 // b3
+
+namespace A
+{
+    ConstantBuffer<S> D : register(b2);
+}
+
+
+float4 main() : sv_target
+{
+    return float4(A::C.x, A::D.x, B::C.x, y);
+}
+
+[test]
+write cbv-0 (0) f32(1.0)
+write cbv-1 (0) f32(2.0)
+write cbv-2 (0) f32(3.0)
+write cbv-3 (0) f32(4.0)
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 3.0, 2.0, 4.0)
+
+[pixel-shader todo(sm<6)]
+struct S
+{
+    float x;
+};
+
+namespace A
+{
+    ConstantBuffer<S> C;  // b1
+}
+
+namespace B
+{
+    ConstantBuffer<S> C;  // b3
+}
+
+float y;                  // b0
+
+namespace A
+{
+    ConstantBuffer<S> D;  // b2
+}
+
+float4 main() : sv_target
+{
+    return float4(A::C.x, A::D.x, B::C.x, y);
+}
+
+[test]
+write cbv-0 (0) f32(1.0)
+write cbv-1 (0) f32(2.0)
+write cbv-2 (0) f32(3.0)
+write cbv-3 (0) f32(4.0)
+todo(sm<6) draw quad
+if(sm<6)  probe (0, 0) f32(2.0, 3.0, 4.0, 1.0)
+if(sm>=6) probe (0, 0) f32(2.0, 4.0, 3.0, 1.0)
+
+[pixel-shader fail]
+struct S
+{
+    float x;
+};
+
+namespace A
+{
+    ConstantBuffer<S> C;
+}
+
+float4 main() : sv_target
+{
+    return A::x;
+}
