@@ -3107,9 +3107,12 @@ static void test_resource_alignment(void)
                 {
                     D3D12_RESOURCE_DESC desc = resource_alignment_descs[desc_idx];
 
-                    if (desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER && var_y != 0)
-                        continue;
-                    if ((var_x == 0 && var_y != 0) || (var_x != 0 && var_y == 0))
+                    if (desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
+                    {
+                        if (var_y != 0)
+                            continue;
+                    }
+                    else if ((var_x == 0 && var_y != 0) || (var_x != 0 && var_y == 0))
                         continue;
 
                     if (desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
