@@ -1205,33 +1205,6 @@ static void shader_dump_ins_modifiers(struct vkd3d_d3d_asm_compiler *compiler,
     struct vkd3d_string_buffer *buffer = &compiler->buffer;
     uint32_t mmask = dst->modifiers;
 
-    switch (dst->shift)
-    {
-        case 0:
-            break;
-        case 13:
-            vkd3d_string_buffer_printf(buffer, "_d8");
-            break;
-        case 14:
-            vkd3d_string_buffer_printf(buffer, "_d4");
-            break;
-        case 15:
-            vkd3d_string_buffer_printf(buffer, "_d2");
-            break;
-        case 1:
-            vkd3d_string_buffer_printf(buffer, "_x2");
-            break;
-        case 2:
-            vkd3d_string_buffer_printf(buffer, "_x4");
-            break;
-        case 3:
-            vkd3d_string_buffer_printf(buffer, "_x8");
-            break;
-        default:
-            vkd3d_string_buffer_printf(buffer, "_unhandled_shift(%d)", dst->shift);
-            break;
-    }
-
     if (mmask & VKD3DSPDM_SATURATE)
         vkd3d_string_buffer_printf(buffer, "_sat");
     if (mmask & VKD3DSPDM_PARTIALPRECISION)

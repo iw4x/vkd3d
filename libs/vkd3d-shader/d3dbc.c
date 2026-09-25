@@ -1528,7 +1528,6 @@ static void vsir_dst_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, 
         vsir->write_mask = d3dbc->write_mask;
     else
         vsir->write_mask = 0;
-    vsir->shift = 0;
 }
 
 static struct vsir_instruction *d3dbc_append_instruction(struct vkd3d_shader_sm1_parser *parser,

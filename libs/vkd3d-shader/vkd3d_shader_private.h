@@ -1163,7 +1163,6 @@ struct vsir_dst_operand
     struct vsir_operand reg;
     uint32_t write_mask;
     uint32_t modifiers;
-    unsigned int shift;
 };
 
 void vsir_dst_operand_init(struct vsir_dst_operand *dst, enum vsir_register_type reg_type,

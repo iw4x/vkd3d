@@ -1355,7 +1355,6 @@ void vsir_dst_operand_init(struct vsir_dst_operand *dst, enum vsir_register_type
     vsir_operand_init(&dst->reg, reg_type, data_type, idx_count);
     dst->write_mask = VKD3DSP_WRITEMASK_0;
     dst->modifiers = VKD3DSPDM_NONE;
-    dst->shift = 0;
 }
 
 static void vsir_dst_operand_init_io(struct vsir_dst_operand *dst, enum vsir_register_type reg_type,
@@ -13701,28 +13700,6 @@ static void vsir_validate_dst_operand(struct validation_context *ctx, const stru
         }
     }
 
-    switch (dst->shift)
-    {
-        case 0:
-            break;
-
-        case 1:
-        case 2:
-        case 3:
-        case 13:
-        case 14:
-        case 15:
-            if (dst->reg.data_type != VSIR_DATA_F32)
-                validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_DATA_TYPE,
-                        "Invalid data type \"%s\" (%#x) for destination with shift.",
-                        vsir_data_type_get_name(dst->reg.data_type, "<unknown>"), dst->reg.data_type);
-            break;
-
-        default:
-            validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_SHIFT, "Destination has invalid shift %#x.",
-                    dst->shift);
-    }
-
     switch (dst->reg.type)
     {
         case VSIR_REGISTER_SSA:
@@ -14904,10 +14881,6 @@ static void vsir_validate_dcl_index_range(struct validation_context *ctx,
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_MODIFIERS,
                 "Invalid modifier %#x on a DCL_INDEX_RANGE destination parameter.", range->dst.modifiers);
 
-    if (range->dst.shift != 0)
-        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_SHIFT,
-                "Invalid shift %u on a DCL_INDEX_RANGE destination parameter.", range->dst.shift);
-
     if (!vsir_get_io_register_data(ctx, range->dst.reg.type, &io_reg_data))
     {
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_REGISTER_TYPE,
@@ -15514,11 +15487,6 @@ static void vsir_validate_phi(struct validation_context *ctx, const struct vsir_
         validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_MODIFIERS,
                 "Invalid modifiers %#x for the destination of a PHI instruction, expected none.",
                 instruction->dst[0].modifiers);
-
-    if (instruction->dst[0].shift != 0)
-        validator_error(ctx, VKD3D_SHADER_ERROR_VSIR_INVALID_SHIFT,
-                "Invalid shift %#x for the destination of a PHI instruction, expected none.",
-                instruction->dst[0].shift);
 }
 
 static void vsir_validate_rep(struct validation_context *ctx, const struct vsir_instruction *instruction)
@@ -16672,7 +16640,7 @@ static bool can_propagate_ssa_source(const struct vsir_program *program, const s
     /* TODO: Propagate copies for other register types. */
     if (ins->dst[0].reg.type != VSIR_REGISTER_SSA)
         return false;
-    if (ins->dst[0].modifiers || ins->dst[0].shift)
+    if (ins->dst[0].modifiers)
         return false;
 
     dst_data_type = ins->dst[0].reg.data_type;
@@ -16981,7 +16949,7 @@ static void vsir_program_output_copy_hoisting_record_mov(
     if (!is_write_only(dst->reg.type))
         return;
     if (src->modifiers || (dst->modifiers & ~VKD3DSPDM_SATURATE)
-            || dst->shift || data_type_is_64_bit(src->reg.data_type))
+            || data_type_is_64_bit(src->reg.data_type))
         return;
     for (unsigned int i = 0; i < dst->reg.idx_count; ++i)
     {
@@ -17260,8 +17228,6 @@ static int vsir_cse_expr_key_compare(const void *key, const struct rb_entry *e)
     if ((ret = vkd3d_u32_compare(a->dst->write_mask, b->dst->write_mask)))
         return ret;
     if ((ret = vkd3d_u32_compare(a->dst->modifiers, b->dst->modifiers)))
-        return ret;
-    if ((ret = vkd3d_u32_compare(a->dst->shift, b->dst->shift)))
         return ret;
 
     VKD3D_ASSERT(a->src_count == b->src_count);
