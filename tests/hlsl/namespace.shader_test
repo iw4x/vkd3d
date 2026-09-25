@@ -1,4 +1,4 @@
-[pixel-shader todo]
+[pixel-shader]
 namespace A
 {
 }
@@ -26,7 +26,7 @@ float4 main() : sv_target
     return 0;
 }
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     float4 main() : sv_target
@@ -36,7 +36,7 @@ namespace A
 }
 
 % Namespace names can use reserved names.
-[pixel-shader todo(sm<6)]
+[pixel-shader]
 namespace sin
 {
 }
@@ -58,7 +58,7 @@ float4 main() : sv_target
 }
 
 % Qualified identifier resolution takes the first possible match.
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     static const float x = 1;
@@ -81,7 +81,7 @@ float4 main() : sv_target
     return B::y;
 }
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     static const float x = 1;
@@ -92,7 +92,7 @@ float4 main() : sv_target
     return A::::x;
 }
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     static const float x = 1;
@@ -315,7 +315,7 @@ float4 main() : sv_target
     return 0;
 }
 
-[pixel-shader fail(sm>=6) todo(sm<6)]
+[pixel-shader fail(sm>=6)]
 typedef float A;
 static const float x = 1;
 
@@ -343,10 +343,10 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 probe (0, 0) f32(1.0, 2.0, 0.0, 0.0)
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     float f()
@@ -369,7 +369,7 @@ float4 main() : sv_target
     return float4(A::f(), 0, 0, 0);
 }
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     float f()
@@ -530,7 +530,7 @@ todo(sm<6) draw quad
 probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 
 % Qualified prototype redcleration is not allowed for SM < 6.
-[pixel-shader fail(sm<6)]
+[pixel-shader fail(sm<6) todo(sm<6)]
 namespace A
 {
     namespace B
@@ -589,7 +589,7 @@ float4 main() : sv_target
 
 % A declaration inside a namespace prevent lookup with the same name in upper scopes.
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 float f(float x, float y)
 {
     return 1;
@@ -616,7 +616,7 @@ float4 main() : sv_target
     return A::B::g();
 }
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 float f()
 {
     return 1;
@@ -640,7 +640,7 @@ float4 main() : sv_target
     return A::B::g();
 }
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 float f()
 {
     return 1;
@@ -664,7 +664,7 @@ float4 main() : sv_target
     return A::B::g();
 }
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 float f()
 {
     return 1;
@@ -743,7 +743,7 @@ float4 main() : sv_target
 todo(sm<6) draw quad
 probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     float f()
@@ -770,7 +770,7 @@ float4 main() : sv_target
     return B::g();
 }
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     float f()
@@ -797,7 +797,7 @@ float4 main() : sv_target
     return B::g();
 }
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     float f()
@@ -827,7 +827,7 @@ float4 main() : sv_target
 }
 
 % Intrinsics can't be accessed via the global '::' scope operator.
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     float f()
@@ -900,7 +900,7 @@ if(sm>=4) write cbv-0 (0) f32(6.0, 7.0, 8.0, 0.0)
 todo(sm<6) draw quad
 probe (0, 0) f32(6.0, 7.0, 8.0, 0.0)
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     float x;
@@ -912,7 +912,7 @@ float4 main() : sv_target
     return A::x;
 }
 
-[pixel-shader fail(sm<6)]
+[pixel-shader fail(sm<6) todo(sm<6)]
 namespace A
 {
     float x : register(c3);
@@ -1038,7 +1038,7 @@ todo(sm<6) draw quad
 if(sm<6)  probe (0, 0) f32(2.0, 3.0, 4.0, 1.0)
 if(sm>=6) probe (0, 0) f32(2.0, 4.0, 3.0, 1.0)
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     cbuffer C
@@ -1052,7 +1052,7 @@ float4 main() : sv_target
     return A::C::x;
 }
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 namespace A
 {
     cbuffer C
@@ -1186,7 +1186,7 @@ todo(sm<6) draw quad
 if(sm<6)  probe (0, 0) f32(2.0, 3.0, 4.0, 1.0)
 if(sm>=6) probe (0, 0) f32(2.0, 4.0, 3.0, 1.0)
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 struct S
 {
     float x;

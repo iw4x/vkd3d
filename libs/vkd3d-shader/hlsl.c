@@ -138,7 +138,7 @@ void hlsl_add_var(struct hlsl_ctx *ctx, struct hlsl_ir_var *decl)
     list_add_tail(&scope->vars, &decl->scope_entry);
 }
 
-struct hlsl_ir_var *hlsl_get_var(struct hlsl_scope *scope, const char *name)
+struct hlsl_ir_var *hlsl_get_var_in_scope(struct hlsl_scope *scope, const char *name)
 {
     struct hlsl_ir_var *var;
 
@@ -147,9 +147,19 @@ struct hlsl_ir_var *hlsl_get_var(struct hlsl_scope *scope, const char *name)
         if (var->name && !strcmp(name, var->name))
             return var;
     }
-    if (!scope->upper)
-        return NULL;
-    return hlsl_get_var(scope->upper, name);
+    return NULL;
+}
+
+struct hlsl_ir_var *hlsl_get_var(struct hlsl_scope *scope, const char *name)
+{
+    for (; scope; scope = scope->upper)
+    {
+        struct hlsl_ir_var *var;
+
+        if ((var = hlsl_get_var_in_scope(scope, name)))
+            return var;
+    }
+    return NULL;
 }
 
 void hlsl_free_state_block_entry(struct hlsl_state_block_entry *entry)
@@ -3403,6 +3413,7 @@ static struct hlsl_scope *hlsl_new_scope(struct hlsl_ctx *ctx, struct hlsl_scope
     if (!(scope = hlsl_alloc(ctx, sizeof(*scope))))
         return NULL;
     list_init(&scope->vars);
+    list_init(&scope->namespaces);
     rb_init(&scope->types, compare_hlsl_types_rb);
     scope->upper = upper;
     list_add_tail(&ctx->scopes, &scope->entry);
@@ -3425,6 +3436,42 @@ void hlsl_pop_scope(struct hlsl_ctx *ctx)
 
     VKD3D_ASSERT(prev_scope);
     ctx->cur_scope = prev_scope;
+}
+
+struct hlsl_scope *hlsl_get_namespace(const struct hlsl_scope *scope, const char *name)
+{
+    struct hlsl_scope *namespace;
+
+    LIST_FOR_EACH_ENTRY(namespace, &scope->namespaces, struct hlsl_scope, namespace_entry)
+    {
+        if (!strcmp(namespace->namespace, name))
+            return namespace;
+    }
+    return NULL;
+}
+
+bool hlsl_push_namespace(struct hlsl_ctx *ctx, char *name, const struct vkd3d_shader_location *loc)
+{
+    struct hlsl_scope *scope;
+
+    if ((scope = hlsl_get_namespace(ctx->cur_scope, name)))
+    {
+        vkd3d_free(name);
+        ctx->cur_scope = scope;
+        return true;
+    }
+
+    if (!(scope = hlsl_new_scope(ctx, ctx->cur_scope)))
+    {
+        vkd3d_free(name);
+        return false;
+    }
+    scope->namespace = name;
+    scope->namespace_loc = *loc;
+    list_add_tail(&ctx->cur_scope->namespaces, &scope->namespace_entry);
+
+    ctx->cur_scope = scope;
+    return true;
 }
 
 static bool func_decl_matches(const struct hlsl_ir_function_decl *decl,
@@ -5402,6 +5449,7 @@ static void hlsl_ctx_cleanup(struct hlsl_ctx *ctx)
         LIST_FOR_EACH_ENTRY_SAFE(var, next_var, &scope->vars, struct hlsl_ir_var, scope_entry)
             hlsl_free_var(var);
         rb_destroy(&scope->types, NULL, NULL);
+        vkd3d_free(scope->namespace);
         vkd3d_free(scope);
     }
 

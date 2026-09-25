@@ -1218,6 +1218,7 @@ static void add_record_access_recurse(struct hlsl_ctx *ctx, struct hlsl_block *b
 static bool add_typedef(struct hlsl_ctx *ctx, struct hlsl_type *const orig_type, struct list *list)
 {
     struct parse_variable_def *v, *v_next;
+    struct hlsl_scope *namespace;
     struct hlsl_type *type;
     unsigned int i;
     bool ret;
@@ -1273,10 +1274,18 @@ static bool add_typedef(struct hlsl_ctx *ctx, struct hlsl_type *const orig_type,
         type->name = v->name;
         type->is_typedef = true;
 
-        ret = hlsl_scope_add_type(ctx->cur_scope, type);
-        if (!ret)
+        if ((namespace = hlsl_get_namespace(ctx->cur_scope, type->name)))
+        {
+            hlsl_error(ctx, &v->loc, VKD3D_SHADER_ERROR_HLSL_REDEFINED,
+                    "Type '%s' is already declared as a namespace.", v->name);
+            hlsl_note(ctx, &namespace->namespace_loc, VKD3D_SHADER_LOG_ERROR,
+                    "'%s' was previously declared here.", v->name);
+        }
+        else if (!hlsl_scope_add_type(ctx->cur_scope, type))
+        {
             hlsl_error(ctx, &v->loc, VKD3D_SHADER_ERROR_HLSL_REDEFINED,
                     "Type '%s' is already defined.", v->name);
+        }
         cleanup_parse_initializer(&v->initializer);
         vkd3d_free(v);
     }
@@ -1400,6 +1409,13 @@ static void add_technique(struct hlsl_ctx *ctx, const char *name, struct hlsl_sc
     struct hlsl_ir_var *var;
     struct hlsl_type *type;
 
+    if (ctx->cur_scope->namespace)
+    {
+        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
+                "Techniques are not allowed inside namespaces.");
+        return;
+    }
+
     type = hlsl_get_type(ctx->globals, typename, false, false);
     if (!(var = hlsl_new_var(ctx, name, type, loc, NULL, 0, NULL)))
         return;
@@ -1414,6 +1430,13 @@ static void add_effect_group(struct hlsl_ctx *ctx, const char *name, struct hlsl
 {
     struct hlsl_ir_var *var;
     struct hlsl_type *type;
+
+    if (ctx->cur_scope->namespace)
+    {
+        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
+                "Effect groups are not allowed inside namespaces.");
+        return;
+    }
 
     type = hlsl_get_type(ctx->globals, "fxgroup", false, false);
     if (!(var = hlsl_new_var(ctx, name, type, loc, NULL, 0, NULL)))
@@ -2514,6 +2537,7 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
     struct hlsl_semantic new_semantic;
     bool unbounded_res_array = false;
     bool constant_buffer = false;
+    struct hlsl_scope *scope;
     struct hlsl_ir_var *var;
     struct hlsl_type *type;
     bool stream_output;
@@ -2526,6 +2550,12 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
         VKD3D_ASSERT(basic_type->modifiers & HLSL_MODIFIERS_MAJORITY_MASK);
 
     type = basic_type;
+
+    if (ctx->cur_scope->namespace)
+    {
+        hlsl_fixme(ctx, &v->loc, "Variables inside namespaces.");
+        return;
+    }
 
     if (basic_type->class <= HLSL_CLASS_LAST_NUMERIC && basic_type->e.numeric.type == HLSL_TYPE_HALF
             && !v->arrays.count && ctx->cur_scope == ctx->globals && !ctx->compile_info.allow_half_globals
@@ -2699,6 +2729,14 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_REDEFINED,
                     "'%s' is already defined as a function.", var->name);
             hlsl_note(ctx, &func->loc, VKD3D_SHADER_LOG_ERROR,
+                    "'%s' was previously defined here.", var->name);
+        }
+
+        if ((scope = hlsl_get_namespace(ctx->cur_scope, var->name)))
+        {
+            hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_REDEFINED,
+                    "'%s' is already defined as a namespace.", var->name);
+            hlsl_note(ctx, &scope->namespace_loc, VKD3D_SHADER_LOG_ERROR,
                     "'%s' was previously defined here.", var->name);
         }
     }
@@ -7306,6 +7344,7 @@ static void validate_uav_type(struct hlsl_ctx *ctx, enum hlsl_sampler_dim dim,
 
 %token <name> VAR_IDENTIFIER
 %token <name> NEW_IDENTIFIER
+%token <name> NAMESPACE_IDENTIFIER
 %token <name> STRING
 %token <name> TYPE_IDENTIFIER
 
@@ -7377,6 +7416,7 @@ static void validate_uav_type(struct hlsl_ctx *ctx, enum hlsl_sampler_dim dim,
 
 %type <name> any_identifier
 %type <name> var_identifier
+%type <name> var_modifier_identifier
 %type <name> stateblock_lhs_identifier
 %type <name> name_opt
 %destructor { vkd3d_free($$); } <name>
@@ -7427,6 +7467,7 @@ static void validate_uav_type(struct hlsl_ctx *ctx, enum hlsl_sampler_dim dim,
 
 hlsl_prog:
       %empty
+    | hlsl_prog namespace_declaration
     | hlsl_prog func_declaration
     | hlsl_prog buffer_declaration buffer_body
     | hlsl_prog declaration_statement
@@ -7438,6 +7479,19 @@ hlsl_prog:
     | hlsl_prog global_technique
     | hlsl_prog effect_group
     | hlsl_prog ';'
+
+namespace_declaration:
+      namespace_prefix '{' hlsl_prog '}'
+        {
+            hlsl_pop_scope(ctx);
+        }
+
+namespace_prefix:
+      KW_NAMESPACE any_identifier
+        {
+            if (!hlsl_push_namespace(ctx, $2, &@2))
+                YYABORT;
+        }
 
 name_opt:
       %empty
@@ -7549,6 +7603,12 @@ effect_group:
 buffer_declaration:
       var_modifiers buffer_type any_identifier colon_attributes annotations_opt
         {
+            if (ctx->cur_scope->namespace)
+            {
+                hlsl_fixme(ctx, &@3, "Buffers inside namespaces.");
+                YYABORT;
+            }
+
             if ($4.semantic.name)
                 hlsl_error(ctx, &@4, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC, "Semantics are not allowed on buffers.");
 
@@ -7637,9 +7697,16 @@ named_struct_spec:
 
             $$ = hlsl_new_struct_type(ctx, $2, $5.fields, $5.count);
 
-            if (hlsl_get_var(ctx->cur_scope, $2))
+            if (hlsl_get_var_in_scope(ctx->cur_scope, $2))
             {
-                hlsl_error(ctx, &@2, VKD3D_SHADER_ERROR_HLSL_REDEFINED, "\"%s\" is already declared as a variable.", $2);
+                hlsl_error(ctx, &@2, VKD3D_SHADER_ERROR_HLSL_REDEFINED,
+                        "\"%s\" is already declared as a variable.", $2);
+                YYABORT;
+            }
+            if (hlsl_get_namespace(ctx->cur_scope, $2))
+            {
+                hlsl_error(ctx, &@2, VKD3D_SHADER_ERROR_HLSL_REDEFINED,
+                        "\"%s\" is already declared as a namespace.", $2);
                 YYABORT;
             }
 
@@ -7661,6 +7728,7 @@ any_identifier:
       VAR_IDENTIFIER
     | TYPE_IDENTIFIER
     | NEW_IDENTIFIER
+    | NAMESPACE_IDENTIFIER
 
 /* TODO: Multiple inheritance support for interfaces. */
 base_optional:
@@ -7870,9 +7938,17 @@ func_prototype_no_attrs:
     /* var_modifiers is necessary to avoid shift/reduce conflicts. */
       var_modifiers type var_identifier '(' parameters ')' colon_attributes
         {
+            struct hlsl_scope *upper = ctx->cur_scope->upper;
+            struct hlsl_scope *namespace;
             uint32_t modifiers = $1;
             struct hlsl_ir_var *var;
             struct hlsl_type *type;
+
+            if (upper->namespace)
+            {
+                hlsl_fixme(ctx, &@3, "Functions inside namespaces.");
+                YYABORT;
+            }
 
             /* Functions are unconditionally inlined. */
             modifiers &= ~HLSL_MODIFIER_INLINE;
@@ -7887,6 +7963,13 @@ func_prototype_no_attrs:
                 hlsl_error(ctx, &@3, VKD3D_SHADER_ERROR_HLSL_REDEFINED,
                         "\"%s\" is already declared as a variable.", $3);
                 hlsl_note(ctx, &var->loc, VKD3D_SHADER_LOG_ERROR,
+                        "\"%s\" was previously declared here.", $3);
+            }
+            if ((namespace = hlsl_get_namespace(upper, $3)))
+            {
+                hlsl_error(ctx, &@3, VKD3D_SHADER_ERROR_HLSL_REDEFINED,
+                        "\"%s\" is already declared as a namespace.", $3);
+                hlsl_note(ctx, &namespace->namespace_loc, VKD3D_SHADER_LOG_ERROR,
                         "\"%s\" was previously declared here.", $3);
             }
             if (hlsl_types_are_equal(type, ctx->builtin_types.Void) && $7.semantic.name)
@@ -8050,6 +8133,10 @@ annotations_scope_start:
 var_identifier:
       VAR_IDENTIFIER
     | NEW_IDENTIFIER
+
+var_modifier_identifier:
+      var_identifier
+    | NAMESPACE_IDENTIFIER
 
 colon_attributes:
       %empty
@@ -9236,7 +9323,7 @@ var_modifiers:
         {
             $$ = add_modifiers(ctx, $2, HLSL_PRIMITIVE_TRIANGLEADJ, &@1);
         }
-    | var_identifier var_modifiers
+    | var_modifier_identifier var_modifiers
         {
             $$ = $2;
 

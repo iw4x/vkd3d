@@ -1074,13 +1074,21 @@ struct hlsl_scope
     /* Item entry for hlsl_ctx.scopes. */
     struct list entry;
 
+    /* Item entry for hlsl_scope.namespaces. */
+    struct list namespace_entry;
+
     /* List containing the variables declared in this scope; linked by hlsl_ir_var->scope_entry. */
     struct list vars;
+    /* List containing the namespaces declared in this scope; linked by hlsl_scope->namespace_entry. */
+    struct list namespaces;
     /* Tree map containing the types declared in this scope, using hlsl_tree.name as key.
      * The types are attached through the hlsl_type.scope_entry fields. */
     struct rb_tree types;
     /* Scope containing this scope. This value is NULL for the global scope. */
     struct hlsl_scope *upper;
+    /* Namespace name of the scope. This value is NULL for ordinary scopes. */
+    char *namespace;
+    struct vkd3d_shader_location namespace_loc;
     /* The scope was created for the loop statement. */
     bool loop;
     /* The scope was created for the switch statement. */
@@ -1733,6 +1741,7 @@ struct hlsl_ir_function_decl *hlsl_get_func_decl(struct hlsl_ctx *ctx, const cha
         const struct hlsl_func_parameters *parameters);
 const struct hlsl_profile_info *hlsl_get_target_info(const char *target);
 struct hlsl_type *hlsl_get_type(struct hlsl_scope *scope, const char *name, bool recursive, bool case_insensitive);
+struct hlsl_ir_var *hlsl_get_var_in_scope(struct hlsl_scope *scope, const char *name);
 struct hlsl_ir_var *hlsl_get_var(struct hlsl_scope *scope, const char *name);
 
 struct hlsl_type *hlsl_get_element_type_from_path_index(struct hlsl_ctx *ctx, const struct hlsl_type *type,
@@ -1839,6 +1848,9 @@ void hlsl_note_(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc,
 
 void hlsl_push_scope(struct hlsl_ctx *ctx);
 void hlsl_pop_scope(struct hlsl_ctx *ctx);
+
+struct hlsl_scope *hlsl_get_namespace(const struct hlsl_scope *scope, const char *name);
+bool hlsl_push_namespace(struct hlsl_ctx *ctx, char *name, const struct vkd3d_shader_location *loc);
 
 bool hlsl_scope_add_type(struct hlsl_scope *scope, struct hlsl_type *type);
 
