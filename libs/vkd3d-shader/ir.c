@@ -1335,7 +1335,7 @@ static void vsir_src_operand_init_temp_f32(struct vsir_src_operand *src, unsigne
     src->reg.idx[0].offset = idx;
 }
 
-static void vsir_src_operand_init_temp_f32v4(struct vsir_src_operand *src, unsigned int idx)
+void vsir_src_operand_init_temp_f32v4(struct vsir_src_operand *src, unsigned int idx)
 {
     vsir_src_operand_init(src, VSIR_REGISTER_TEMP, VSIR_DATA_F32, 1);
     src->reg.dimension = VSIR_DIMENSION_VEC4;

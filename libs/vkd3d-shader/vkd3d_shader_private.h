@@ -1187,6 +1187,7 @@ void vsir_src_operand_init(struct vsir_src_operand *src, enum vsir_register_type
         enum vsir_data_type data_type, unsigned int idx_count);
 void vsir_src_operand_init_label(struct vsir_src_operand *src, unsigned int label_id);
 void vsir_src_operand_init_ssa_f32v4(struct vsir_src_operand *src, unsigned int idx);
+void vsir_src_operand_init_temp_f32v4(struct vsir_src_operand *src, unsigned int idx);
 
 struct vkd3d_shader_index_range
 {

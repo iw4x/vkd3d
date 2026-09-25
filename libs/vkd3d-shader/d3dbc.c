@@ -1521,7 +1521,7 @@ static void vsir_dst_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, 
         const struct d3dbc_dst_operand *d3dbc, const struct d3dbc_src_operand *rel_addr)
 {
     vsir_operand_from_d3dbc(parser, &vsir->reg, &d3dbc->o, rel_addr);
-    vsir->modifiers = d3dbc->modifiers;
+    vsir->modifiers = VKD3DSPDM_NONE;
     if (vsir->reg.dimension == VSIR_DIMENSION_SCALAR)
         vsir->write_mask = VKD3DSP_WRITEMASK_0;
     else if (vsir->reg.dimension == VSIR_DIMENSION_VEC4)
@@ -1799,6 +1799,7 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
     {
         const struct vkd3d_sm1_opcode_info *opcode_info;
         struct d3dbc_instruction d3dbc_ins;
+        struct d3dbc_dst_operand orig_dst;
 
         if (!d3dbc_parse_instruction(&sm1, &d3dbc_ins, &opcode_info))
         {
@@ -1806,13 +1807,50 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
             vsir_program_cleanup(program);
             return VKD3D_ERROR_INVALID_SHADER;
         }
+        orig_dst = d3dbc_ins.dst[0];
 
         shader_sm1_validate_instruction(&sm1, &d3dbc_ins);
+
+        if (d3dbc_ins.dst_count)
+        {
+            /* It is always legitimate to ignore _pp. */
+            d3dbc_ins.dst[0].modifiers &= ~VKD3DSPDM_PARTIALPRECISION;
+
+            if (d3dbc_ins.dst[0].modifiers & VKD3DSPDM_SATURATE)
+            {
+                /* Don't forget to scan the original. */
+                d3dbc_scan_operand(&sm1, &orig_dst.o, orig_dst.write_mask, false, 1);
+
+                /* Replace the output with a temporary, r32, which is outside
+                 * the range of legal temps for any d3dbc program.
+                 * We will insert VSIR_OP_SATURATE after translating the
+                 * instruction. */
+                d3dbc_ins.dst[0].modifiers &= ~VKD3DSPDM_SATURATE;
+                d3dbc_ins.dst[0].o.type = D3DBC_REGISTER_TEMP;
+                d3dbc_ins.dst[0].o.index = 32;
+                d3dbc_ins.dst[0].o.has_rel_addr = false;
+            }
+
+            /* We handle _centroid in d3dbc_append_instruction(). */
+            if (d3dbc_ins.dst[0].modifiers & ~VKD3DSPDM_MSAMPCENTROID)
+                vkd3d_shader_parser_error(&sm1.p, VKD3D_SHADER_ERROR_D3DBC_NOT_IMPLEMENTED,
+                        "Aborting due to unimplemented feature: Destination modifier %#x.", d3dbc_ins.dst[0].modifiers);
+        }
 
         if ((ret = shader_sm1_read_instruction(&sm1, &d3dbc_ins, opcode_info)))
         {
             vsir_program_cleanup(program);
             return ret;
+        }
+
+        if (d3dbc_ins.dst_count && (orig_dst.modifiers & VKD3DSPDM_SATURATE))
+        {
+            struct vsir_instruction *ins;
+
+            if (!(ins = d3dbc_append_instruction(&sm1, VSIR_OP_SATURATE, 1, 1)))
+                break;
+            vsir_dst_operand_from_d3dbc(&sm1, &ins->dst[0], &orig_dst, &d3dbc_ins.dst_rel_addr[0]);
+            vsir_src_operand_init_temp_f32v4(&ins->src[0], 32);
         }
     }
 
