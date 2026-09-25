@@ -1528,7 +1528,7 @@ static void vsir_dst_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, 
         vsir->write_mask = d3dbc->write_mask;
     else
         vsir->write_mask = 0;
-    vsir->shift = d3dbc->shift;
+    vsir->shift = 0;
 }
 
 static struct vsir_instruction *d3dbc_append_instruction(struct vkd3d_shader_sm1_parser *parser,
@@ -1781,6 +1781,29 @@ static uint32_t get_external_constant_count(struct vkd3d_shader_sm1_parser *sm1,
     return 0;
 }
 
+static float scale_from_shift(struct vkd3d_shader_sm1_parser *parser, unsigned int shift)
+{
+    switch (shift)
+    {
+        case 1: /* _x2 */
+            return 2.0f;
+        case 2: /* _x4 */
+            return 4.0f;
+        case 3: /* _x8 */
+            return 8.0f;
+        case 13: /* _d8 */
+            return 1.0f / 8.0f;
+        case 14: /* _d4 */
+            return 1.0f / 4.0f;
+        case 15: /* _d2 */
+            return 1.0f / 2.0f;
+        default:
+            vkd3d_shader_parser_error(&parser->p, VKD3D_SHADER_ERROR_D3DBC_NOT_IMPLEMENTED,
+                    "Unhandled destination shift %#x.", shift);
+            return 0.0f;
+    }
+}
+
 int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t config_flags,
         struct vkd3d_shader_message_context *message_context, struct vsir_program *program)
 {
@@ -1816,16 +1839,17 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
             /* It is always legitimate to ignore _pp. */
             d3dbc_ins.dst[0].modifiers &= ~VKD3DSPDM_PARTIALPRECISION;
 
-            if (d3dbc_ins.dst[0].modifiers & VKD3DSPDM_SATURATE)
+            if ((d3dbc_ins.dst[0].modifiers & VKD3DSPDM_SATURATE) || d3dbc_ins.dst[0].shift)
             {
                 /* Don't forget to scan the original. */
                 d3dbc_scan_operand(&sm1, &orig_dst.o, orig_dst.write_mask, false, 1);
 
                 /* Replace the output with a temporary, r32, which is outside
                  * the range of legal temps for any d3dbc program.
-                 * We will insert VSIR_OP_SATURATE after translating the
-                 * instruction. */
+                 * We will insert VSIR_OP_SATURATE and/or shift after
+                 * translating the instruction. */
                 d3dbc_ins.dst[0].modifiers &= ~VKD3DSPDM_SATURATE;
+                d3dbc_ins.dst[0].shift = 0;
                 d3dbc_ins.dst[0].o.type = D3DBC_REGISTER_TEMP;
                 d3dbc_ins.dst[0].o.index = 32;
                 d3dbc_ins.dst[0].o.has_rel_addr = false;
@@ -1841,6 +1865,20 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
         {
             vsir_program_cleanup(program);
             return ret;
+        }
+
+        if (d3dbc_ins.dst_count && orig_dst.shift)
+        {
+            struct vsir_instruction *ins;
+
+            if (!(ins = d3dbc_append_instruction(&sm1, VSIR_OP_MUL, 1, 2)))
+                break;
+            if (orig_dst.modifiers & VKD3DSPDM_SATURATE)
+                vsir_dst_operand_init_temp_f32v4(&ins->dst[0], 32);
+            else
+                vsir_dst_operand_from_d3dbc(&sm1, &ins->dst[0], &orig_dst, &d3dbc_ins.dst_rel_addr[0]);
+            vsir_src_operand_init_temp_f32v4(&ins->src[0], 32);
+            vsir_src_operand_init_const_f32(&ins->src[1], scale_from_shift(&sm1, orig_dst.shift));
         }
 
         if (d3dbc_ins.dst_count && (orig_dst.modifiers & VKD3DSPDM_SATURATE))

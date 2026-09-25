@@ -1170,6 +1170,7 @@ void vsir_dst_operand_init(struct vsir_dst_operand *dst, enum vsir_register_type
         enum vsir_data_type data_type, unsigned int idx_count);
 void vsir_dst_operand_init_null(struct vsir_dst_operand *dst);
 void vsir_dst_operand_init_ssa_f32v4(struct vsir_dst_operand *dst, unsigned int idx);
+void vsir_dst_operand_init_temp_f32v4(struct vsir_dst_operand *dst, unsigned int idx);
 
 /* This structure is used by vsir_src_operand_compare(); changes to the
  * structure should be reflected by the comparison function as well. */
@@ -1185,6 +1186,7 @@ struct vsir_src_operand
 
 void vsir_src_operand_init(struct vsir_src_operand *src, enum vsir_register_type reg_type,
         enum vsir_data_type data_type, unsigned int idx_count);
+void vsir_src_operand_init_const_f32(struct vsir_src_operand *src, float value);
 void vsir_src_operand_init_label(struct vsir_src_operand *src, unsigned int label_id);
 void vsir_src_operand_init_ssa_f32v4(struct vsir_src_operand *src, unsigned int idx);
 void vsir_src_operand_init_temp_f32v4(struct vsir_src_operand *src, unsigned int idx);

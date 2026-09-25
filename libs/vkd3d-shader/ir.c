@@ -1225,7 +1225,7 @@ void vsir_src_operand_init(struct vsir_src_operand *src, enum vsir_register_type
     src->owner_index = 0;
 }
 
-static void vsir_src_operand_init_const_f32(struct vsir_src_operand *src, float value)
+void vsir_src_operand_init_const_f32(struct vsir_src_operand *src, float value)
 {
     vsir_src_operand_init(src, VSIR_REGISTER_IMMCONST, VSIR_DATA_F32, 0);
     src->reg.u.immconst_f32[0] = value;
@@ -1413,7 +1413,7 @@ static void vsir_dst_operand_init_temp_bool(struct vsir_dst_operand *dst, unsign
     dst->reg.idx[0].offset = idx;
 }
 
-static void vsir_dst_operand_init_temp_f32v4(struct vsir_dst_operand *dst, unsigned int idx)
+void vsir_dst_operand_init_temp_f32v4(struct vsir_dst_operand *dst, unsigned int idx)
 {
     vsir_dst_operand_init(dst, VSIR_REGISTER_TEMP, VSIR_DATA_F32, 1);
     dst->reg.idx[0].offset = idx;
@@ -3586,10 +3586,9 @@ static enum vkd3d_result vsir_program_lower_d3dbc_modifiers(struct vsir_program 
         struct vsir_program_iterator *it, struct vkd3d_shader_message_context *message_context)
 {
     struct vsir_instruction *ins = vsir_program_iterator_current(it);
-    unsigned int tmp_dst_id, tmp_src_id, i;
     struct vsir_program_iterator new_it;
     struct vsir_instruction *new_ins;
-    float scale;
+    unsigned int tmp_src_id, i;
 
     for (i = 0; i < ins->src_count; ++i)
     {
@@ -3698,59 +3697,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_modifiers(struct vsir_program 
         }
 
         vsir_src_operand_init_ssa(src, tmp_src_id, src->reg.data_type, src->reg.dimension);
-    }
-
-    for (i = 0; i < ins->dst_count; ++i)
-    {
-        struct vsir_dst_operand *dst = &ins->dst[i];
-
-        if (!dst->shift)
-            continue;
-
-        switch (dst->shift)
-        {
-            case 1: /* _x2 */
-                scale = 2.0f;
-                break;
-            case 2: /* _x4 */
-                scale = 4.0f;
-                break;
-            case 3: /* _x8 */
-                scale = 8.0f;
-                break;
-            case 13: /* _d8 */
-                scale = 0.125f;
-                break;
-            case 14: /* _d4 */
-                scale = 0.25f;
-                break;
-            case 15: /* _d2 */
-                scale = 0.5f;
-                break;
-            default:
-                vkd3d_shader_error(message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
-                        "Unhandled destination shift %#x.", dst->shift);
-                return VKD3D_ERROR_NOT_IMPLEMENTED;
-        }
-
-        if (!vsir_program_iterator_insert_after(it, 1))
-            return VKD3D_ERROR_OUT_OF_MEMORY;
-        new_ins = vsir_program_iterator_next(it);
-        ins = vsir_program_iterator_prev(it);
-
-        if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_MUL, 1, 2))
-        {
-            vsir_instruction_init(new_ins, &ins->location, VSIR_OP_NOP);
-            return VKD3D_ERROR_OUT_OF_MEMORY;
-        }
-
-        new_ins->dst[0] = *dst;
-        new_ins->dst[0].shift = 0;
-
-        tmp_dst_id = program->ssa_count++;
-        vsir_dst_operand_init_ssa(dst, tmp_dst_id, dst->reg.data_type, dst->reg.dimension);
-        vsir_src_operand_init_ssa(&new_ins->src[0], tmp_dst_id, dst->reg.data_type, dst->reg.dimension);
-        vsir_src_operand_init_const_f32(&new_ins->src[1], scale);
     }
 
     return VKD3D_OK;
