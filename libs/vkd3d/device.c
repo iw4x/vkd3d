@@ -4193,6 +4193,41 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
             return S_OK;
         }
 
+        case D3D12_FEATURE_D3D12_OPTIONS19:
+        {
+            D3D12_FEATURE_DATA_D3D12_OPTIONS19 *data = feature_data;
+
+            if (feature_data_size != sizeof(*data))
+            {
+                WARN("Invalid size %u.\n", feature_data_size);
+                return E_INVALIDARG;
+            }
+
+            data->MismatchingOutputDimensionsSupported = FALSE;
+            data->SupportedSampleCountsWithNoOutputs = 0;
+            data->PointSamplingAddressesNeverRoundUp = FALSE;
+            data->RasterizerDesc2Supported = FALSE;
+            data->NarrowQuadrilateralLinesSupported = FALSE;
+            data->AnisoFilterWithPointMipSupported = FALSE;
+            data->MaxSamplerDescriptorHeapSize = 0;
+            data->MaxSamplerDescriptorHeapSizeWithStaticSamplers = 0;
+            data->MaxViewDescriptorHeapSize = 0;
+            data->ComputeOnlyCustomHeapSupported = FALSE;
+
+            TRACE("Mismatching output dimensions support %#x.\n", data->MismatchingOutputDimensionsSupported);
+            TRACE("Supported sample counts with no outputs %u.\n", data->SupportedSampleCountsWithNoOutputs);
+            TRACE("Point sampling addresses never round up %#x.\n", data->PointSamplingAddressesNeverRoundUp);
+            TRACE("Rasterizer desc2 support %#x.\n", data->RasterizerDesc2Supported);
+            TRACE("Narrow quadrilateral lines support %#x.\n", data->NarrowQuadrilateralLinesSupported);
+            TRACE("Aniso filter with point mip support %#x.\n", data->AnisoFilterWithPointMipSupported);
+            TRACE("Max sampler descriptor heap size %u.\n", data->MaxSamplerDescriptorHeapSize);
+            TRACE("Max sampler descriptor heap size with static samplers %u.\n",
+                    data->MaxSamplerDescriptorHeapSizeWithStaticSamplers);
+            TRACE("Max view descriptor heap size %u.\n", data->MaxViewDescriptorHeapSize);
+            TRACE("Compute only custom heap support %#x.\n", data->ComputeOnlyCustomHeapSupported);
+            return S_OK;
+        }
+
         case D3D12_FEATURE_D3D12_TIGHT_ALIGNMENT:
         {
             D3D12_FEATURE_DATA_TIGHT_ALIGNMENT *data = feature_data;
