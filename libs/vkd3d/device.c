@@ -4246,6 +4246,28 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
             return S_OK;
         }
 
+        case D3D12_FEATURE_D3D12_OPTIONS21:
+        {
+            D3D12_FEATURE_DATA_D3D12_OPTIONS21 *data = feature_data;
+
+            if (feature_data_size != sizeof(*data))
+            {
+                WARN("Invalid size %u.\n", feature_data_size);
+                return E_INVALIDARG;
+            }
+
+            data->WorkGraphsTier = D3D12_WORK_GRAPHS_TIER_NOT_SUPPORTED;
+            data->ExecuteIndirectTier = D3D12_EXECUTE_INDIRECT_TIER_1_0;
+            data->SampleCmpGradientAndBiasSupported = FALSE;
+            data->ExtendedCommandInfoSupported = FALSE;
+
+            TRACE("Work graphs tier %#x.\n", data->WorkGraphsTier);
+            TRACE("Execute indirect tier %#x.\n", data->ExecuteIndirectTier);
+            TRACE("Sample comparison gradient and bias support %#x.\n", data->SampleCmpGradientAndBiasSupported);
+            TRACE("Extended command info support %#x.\n", data->ExtendedCommandInfoSupported);
+            return S_OK;
+        }
+
         case D3D12_FEATURE_D3D12_TIGHT_ALIGNMENT:
         {
             D3D12_FEATURE_DATA_TIGHT_ALIGNMENT *data = feature_data;
