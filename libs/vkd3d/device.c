@@ -4228,6 +4228,24 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
             return S_OK;
         }
 
+        case D3D12_FEATURE_D3D12_OPTIONS20:
+        {
+            D3D12_FEATURE_DATA_D3D12_OPTIONS20 *data = feature_data;
+
+            if (feature_data_size != sizeof(*data))
+            {
+                WARN("Invalid size %u.\n", feature_data_size);
+                return E_INVALIDARG;
+            }
+
+            data->ComputeOnlyWriteWatchSupported = FALSE;
+            data->RecreateAtTier = D3D12_RECREATE_AT_TIER_NOT_SUPPORTED;
+
+            TRACE("Compute only write watch support %#x.\n", data->ComputeOnlyWriteWatchSupported);
+            TRACE("Recreate at tier %#x.\n", data->RecreateAtTier);
+            return S_OK;
+        }
+
         case D3D12_FEATURE_D3D12_TIGHT_ALIGNMENT:
         {
             D3D12_FEATURE_DATA_TIGHT_ALIGNMENT *data = feature_data;
