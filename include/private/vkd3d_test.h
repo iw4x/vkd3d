@@ -446,6 +446,9 @@ static bool running_under_wine(void)
     return module && GetProcAddress(module, "wine_server_call");
 }
 
+/* Do not trigger -Wmissing-prototypes. */
+int wmain(int argc, WCHAR **wargv);
+
 int wmain(int argc, WCHAR **wargv)
 {
     char **argv;
