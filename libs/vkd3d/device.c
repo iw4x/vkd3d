@@ -4115,6 +4115,7 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
             if (feature_data_size != sizeof(*data))
             {
                 WARN("Invalid size %u.\n", feature_data_size);
+                return E_INVALIDARG;
             }
 
             data->AdvancedTextureOpsSupported = FALSE;
@@ -4134,6 +4135,7 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
             if (feature_data_size != sizeof(*data))
             {
                 WARN("Invalid size %u.\n", feature_data_size);
+                return E_INVALIDARG;
             }
 
             data->TriangleFanSupported = FALSE;
@@ -4151,6 +4153,7 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
             if (feature_data_size != sizeof(*data))
             {
                 WARN("Invalid size %u.\n", feature_data_size);
+                return E_INVALIDARG;
             }
 
             data->DynamicDepthBiasSupported = FALSE;
@@ -4168,6 +4171,7 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
             if (feature_data_size != sizeof(*data))
             {
                 WARN("Invalid size %u.\n", feature_data_size);
+                return E_INVALIDARG;
             }
 
             data->NonNormalizedCoordinateSamplersSupported = FALSE;
@@ -4185,6 +4189,7 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
             if (feature_data_size != sizeof(*data))
             {
                 WARN("Invalid size %u.\n", feature_data_size);
+                return E_INVALIDARG;
             }
 
             data->RenderPassesValid = FALSE;
@@ -4273,7 +4278,10 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
             D3D12_FEATURE_DATA_TIGHT_ALIGNMENT *data = feature_data;
 
             if (feature_data_size != sizeof(*data))
+            {
                 WARN("Invalid size %u.\n", feature_data_size);
+                return E_INVALIDARG;
+            }
 
             data->SupportTier = D3D12_TIGHT_ALIGNMENT_TIER_NOT_SUPPORTED;
 
