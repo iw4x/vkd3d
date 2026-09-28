@@ -103,6 +103,8 @@ static inline void *get_d3d12_pfn_(const char *name)
     return GetProcAddress(GetModuleHandleA("d3d12.dll"), name);
 }
 
+#ifdef VKD3D_CROSSTEST
+
 static struct d3d10
 {
     bool loaded;
@@ -219,6 +221,15 @@ static inline HRESULT WINAPI D3DReflectVKD3D(const void *data, SIZE_T data_size,
 
     return d3dcompilers[version - 33].D3DReflect(data, data_size, iid, reflection);
 }
+
+#else /* VKD3D_CROSSTEST */
+
+static inline bool load_d3dcompiler(unsigned int version)
+{
+    return true;
+}
+
+#endif /* VKD3D_CROSSTEST */
 
 #else
 #define INFINITE VKD3D_INFINITE
