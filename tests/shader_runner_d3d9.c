@@ -27,6 +27,28 @@
 #include "shader_runner.h"
 #include "vkd3d_test.h"
 
+typedef struct IDirect3DShaderValidator9 IDirect3DShaderValidator9;
+
+typedef HRESULT (WINAPI *shader_validator_cb)(const char *file, int line,
+        UINT_PTR unknown, UINT_PTR message_id, const char *message, void *context);
+
+struct IDirect3DShaderValidator9Vtbl
+{
+    HRESULT (WINAPI *QueryInterface)(IDirect3DShaderValidator9 *iface, REFIID iid, void **out);
+    ULONG (WINAPI *AddRef)(IDirect3DShaderValidator9 *iface);
+    ULONG (WINAPI *Release)(IDirect3DShaderValidator9 *iface);
+    HRESULT (WINAPI *Begin)(IDirect3DShaderValidator9 *iface,
+            shader_validator_cb callback, void *context, UINT_PTR unknown);
+    HRESULT (WINAPI *Instruction)(IDirect3DShaderValidator9 *iface,
+            const char *file, int line, const uint32_t *tokens, unsigned int token_count);
+    HRESULT (WINAPI *End)(IDirect3DShaderValidator9 *iface);
+};
+
+struct IDirect3DShaderValidator9
+{
+    const struct IDirect3DShaderValidator9Vtbl *vtbl;
+};
+
 struct d3d9_resource
 {
     struct resource r;
@@ -58,6 +80,7 @@ static struct d3d9_shader_runner *d3d9_shader_runner(struct shader_runner *r)
 }
 
 static IDirect3D9 *(WINAPI *pDirect3DCreate9)(UINT sdk_version);
+static IDirect3DShaderValidator9 *(WINAPI *Direct3DShaderValidatorCreate9)(void);
 
 static HRESULT set_viewport(IDirect3DDevice9 *device, unsigned int x, unsigned int y,
         unsigned int width, unsigned int height, float min_depth, float max_depth)
@@ -497,6 +520,53 @@ static void d3d9_runner_clear(struct shader_runner *r, struct resource *res,
     }
 }
 
+static HRESULT WINAPI d3d9_runner_validator_message(const char *file, int line,
+        UINT_PTR unknown, UINT_PTR message_id, const char *message, void *context)
+{
+    trace("%s\n", message);
+
+    return S_OK;
+}
+
+static bool d3d9_runner_validate(ID3D10Blob *code)
+{
+    IDirect3DShaderValidator9 *validator;
+    unsigned int count;
+    uint32_t *ptr;
+    HRESULT hr;
+
+    ptr = ID3D10Blob_GetBufferPointer(code);
+    /* Shader model 1.x instructions don't encode the instruction length in
+     * the bytecode. It's still possible to validate those, but we'd need to
+     * derive the length from the opcode. */
+    if (D3DSHADER_VERSION_MAJOR(*ptr) < 2)
+        return true;
+
+    validator = Direct3DShaderValidatorCreate9();
+    validator->vtbl->Begin(validator, d3d9_runner_validator_message, NULL, 0);
+    validator->vtbl->Instruction(validator, NULL, 0, ptr, 1);
+    ++ptr;
+
+    while (*ptr != D3DSIO_END)
+    {
+        if ((*ptr & D3DSI_OPCODE_MASK) == D3DSIO_COMMENT)
+        {
+            ptr += ((*ptr & D3DSI_COMMENTSIZE_MASK) >> D3DSI_COMMENTSIZE_SHIFT) + 1;
+            continue;
+        }
+
+        count = ((*ptr & D3DSI_INSTLENGTH_MASK) >> D3DSI_INSTLENGTH_SHIFT) + 1;
+        validator->vtbl->Instruction(validator, NULL, 0, ptr, count);
+        ptr += count;
+    }
+
+    validator->vtbl->Instruction(validator, NULL, 0, ptr, 1);
+    hr = validator->vtbl->End(validator);
+    validator->vtbl->Release(validator);
+
+    return SUCCEEDED(hr);
+}
+
 static bool d3d9_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY primitive_topology,
         unsigned int vertex_count, unsigned int instance_count, unsigned int first_vertex, unsigned int first_instance)
 {
@@ -524,9 +594,22 @@ static bool d3d9_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pri
 
     if (!(vs_code = compile_hlsl(&runner->r, SHADER_TYPE_VS)))
         return false;
+    if (!d3d9_runner_validate(vs_code))
+    {
+        trace("Compilation produced an invalid vertex shader.\n");
+        ID3D10Blob_Release(vs_code);
+        return false;
+    }
 
     if (!(ps_code = compile_hlsl(&runner->r, SHADER_TYPE_PS)))
     {
+        ID3D10Blob_Release(vs_code);
+        return false;
+    }
+    if (!d3d9_runner_validate(ps_code))
+    {
+        trace("Compilation produced an invalid pixel shader.\n");
+        ID3D10Blob_Release(ps_code);
         ID3D10Blob_Release(vs_code);
         return false;
     }
@@ -939,6 +1022,7 @@ void run_shader_tests_d3d9(void)
         return;
 
     pDirect3DCreate9 = (void *)GetProcAddress(d3d9_module, "Direct3DCreate9");
+    Direct3DShaderValidatorCreate9 = (void *)GetProcAddress(d3d9_module, "Direct3DShaderValidatorCreate9");
 
     if (init_test_context(&runner))
     {
