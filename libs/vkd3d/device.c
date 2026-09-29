@@ -3689,7 +3689,7 @@ static HRESULT STDMETHODCALLTYPE d3d12_device_CheckFeatureSupport(ID3D12Device9 
 
             TRACE("Request shader model %#x.\n", data->HighestShaderModel);
 
-            data->HighestShaderModel = min(data->HighestShaderModel, D3D_SHADER_MODEL_6_1);
+            data->HighestShaderModel = min(data->HighestShaderModel, D3D_SHADER_MODEL_6_2);
 
             TRACE("Shader model %#x.\n", data->HighestShaderModel);
             return S_OK;
