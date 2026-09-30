@@ -38,6 +38,7 @@ typedef int HRESULT;
 
 #define VK_NO_PROTOTYPES
 #define COBJMACROS
+#define CONST_VTABLE
 #define INITGUID
 #define WIDL_C_INLINE_WRAPPERS
 #include "vkd3d_test.h"
