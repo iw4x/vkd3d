@@ -6855,9 +6855,9 @@ static struct hlsl_ir_node *lower_casts_to_bool(struct hlsl_ctx *ctx,
 struct hlsl_ir_node *hlsl_add_conditional(struct hlsl_ctx *ctx, struct hlsl_block *instrs,
         struct hlsl_ir_node *condition, struct hlsl_ir_node *if_true, struct hlsl_ir_node *if_false)
 {
+    struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS] = {0};
     struct hlsl_type *false_type = if_false->data_type;
     struct hlsl_type *cond_type = condition->data_type;
-    struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS];
     struct hlsl_type *true_type = if_true->data_type;
 
     VKD3D_ASSERT(hlsl_types_are_equal(true_type, false_type)
