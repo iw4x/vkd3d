@@ -404,6 +404,7 @@ static struct resource *d3d9_runner_create_resource(struct shader_runner *r, con
                 }
                 break;
             }
+            fatal_error("Unhandled resource dimension %#x.\n", params->desc.dimension);
         }
 
         case RESOURCE_TYPE_UAV:
