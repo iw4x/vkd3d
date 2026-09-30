@@ -64,14 +64,14 @@ static void wait_queue_idle_(const char *file, unsigned int line, ID3D12Device *
     vkd3d_release_vk_queue(queue);
 }
 
-static ULONG get_refcount(void *iface)
+static unsigned int get_refcount(void *iface)
 {
     IUnknown *unk = iface;
     IUnknown_AddRef(unk);
     return IUnknown_Release(unk);
 }
 
-static ULONG resource_get_internal_refcount(ID3D12Resource *resource)
+static unsigned int resource_get_internal_refcount(ID3D12Resource *resource)
 {
     vkd3d_resource_incref(resource);
     return vkd3d_resource_decref(resource);
@@ -118,7 +118,7 @@ static void test_create_instance(void)
 {
     struct vkd3d_instance_create_info create_info;
     struct vkd3d_instance *instance;
-    ULONG refcount;
+    unsigned int refcount;
     HRESULT hr;
 
     create_info = instance_default_create_info;
@@ -235,11 +235,10 @@ static void test_additional_instance_extensions(void)
     const char *enabled_extensions[ARRAY_SIZE(extensions)];
     struct vkd3d_instance_create_info create_info;
     struct vkd3d_instance *instance;
+    unsigned int refcount, i;
     uint32_t extension_count;
     PFN_vkVoidFunction pfn;
     VkInstance vk_instance;
-    unsigned int i;
-    ULONG refcount;
     HRESULT hr;
 
     if (!(extension_count = check_instance_extensions(enabled_extensions,
@@ -282,8 +281,8 @@ static void test_create_device(void)
 {
     struct vkd3d_instance *instance, *tmp_instance;
     struct vkd3d_device_create_info create_info;
+    unsigned int refcount;
     ID3D12Device *device;
-    ULONG refcount;
     HRESULT hr;
 
     hr = vkd3d_create_device(NULL, &IID_ID3D12Device, (void **)&device);
@@ -402,8 +401,8 @@ static void test_required_device_extensions(void)
     struct vkd3d_instance_create_info instance_create_info;
     struct vkd3d_device_create_info device_create_info;
     struct vkd3d_instance *instance;
+    unsigned int refcount;
     ID3D12Device *device;
-    ULONG refcount;
     HRESULT hr;
 
     instance_create_info = instance_default_create_info;
@@ -436,10 +435,10 @@ static void test_additional_device_extensions(void)
     uint32_t extension_count;
     PFN_vkVoidFunction pfn;
     VkInstance vk_instance;
+    unsigned int refcount;
     ID3D12Device *device;
     VkDevice vk_device;
     uint32_t count;
-    ULONG refcount;
     VkResult vr;
     HRESULT hr;
 
@@ -505,8 +504,8 @@ static void test_optional_device_extensions(void)
     struct vkd3d_instance_create_info instance_create_info;
     struct vkd3d_device_create_info device_create_info;
     struct vkd3d_instance *instance;
+    unsigned int refcount;
     ID3D12Device *device;
-    ULONG refcount;
     HRESULT hr;
 
     instance_create_info = instance_default_create_info;
@@ -545,9 +544,9 @@ static void test_physical_device(void)
     VkPhysicalDevice vk_physical_device;
     struct vkd3d_instance *instance;
     VkInstance vk_instance;
+    unsigned int refcount;
     ID3D12Device *device;
     uint32_t i, count;
-    ULONG refcount;
     VkResult vr;
     HRESULT hr;
 
@@ -603,8 +602,8 @@ static void test_physical_device(void)
 static void test_adapter_luid(void)
 {
     struct vkd3d_device_create_info create_info;
+    unsigned int refcount;
     ID3D12Device *device;
-    ULONG refcount;
     HRESULT hr;
     LUID luid;
 
@@ -672,10 +671,10 @@ static void test_device_parent(void)
 {
     struct vkd3d_device_create_info create_info;
     struct parent parent_impl;
+    unsigned int refcount;
     ID3D12Device *device;
     IUnknown *unknown;
     IUnknown *parent;
-    ULONG refcount;
     HRESULT hr;
 
     parent_impl.IUnknown_iface.lpVtbl = &parent_vtbl;
@@ -707,9 +706,9 @@ static void test_vkd3d_queue(void)
 {
     ID3D12CommandQueue *direct_queue, *compute_queue, *copy_queue;
     uint32_t vk_queue_family;
+    unsigned int refcount;
     ID3D12Device *device;
     VkQueue vk_queue;
-    ULONG refcount;
 
     device = create_device();
     ok(device, "Failed to create device.\n");
@@ -748,8 +747,8 @@ static void test_vkd3d_queue(void)
 static void test_resource_internal_refcount(void)
 {
     ID3D12Resource *resource;
+    unsigned int refcount;
     ID3D12Device *device;
-    ULONG refcount;
 
     device = create_device();
     ok(device, "Failed to create device.\n");
@@ -891,10 +890,10 @@ static void test_external_resource_map(void)
     D3D12_HEAP_FLAGS heap_flags;
     ID3D12Resource *vk_resource;
     VkDeviceMemory vk_memory;
+    unsigned int refcount;
     ID3D12Device *device;
     VkDevice vk_device;
     VkImage vk_image;
-    ULONG refcount;
     HRESULT hr;
     void *ptr;
 
@@ -1103,9 +1102,9 @@ static void test_application_info(void)
     struct vkd3d_device_create_info device_info;
     struct vkd3d_application_info app_info;
     struct vkd3d_instance *instance;
+    unsigned int refcount;
     ID3D12Device *device;
     unsigned int i;
-    ULONG refcount;
     HRESULT hr;
 
     static const struct
