@@ -728,7 +728,7 @@ static ID3D11SamplerState *create_sampler(ID3D11Device *device, const struct sam
     desc.AddressU = (D3D11_TEXTURE_ADDRESS_MODE)sampler->u_address;
     desc.AddressV = (D3D11_TEXTURE_ADDRESS_MODE)sampler->v_address;
     desc.AddressW = (D3D11_TEXTURE_ADDRESS_MODE)sampler->w_address;
-    desc.ComparisonFunc = sampler->func;
+    desc.ComparisonFunc = (D3D11_COMPARISON_FUNC)sampler->func;
     desc.MaxLOD = D3D11_FLOAT32_MAX;
 
     hr = ID3D11Device_CreateSamplerState(device, &desc, &d3d11_sampler);
@@ -972,14 +972,14 @@ static bool d3d11_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pr
                 dsv = resource->dsv;
                 ds_desc.DepthEnable = TRUE;
                 ds_desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-                ds_desc.DepthFunc = runner->r.depth_func;
+                ds_desc.DepthFunc = (D3D11_COMPARISON_FUNC)runner->r.depth_func;
                 ds_desc.StencilEnable = runner->r.stencil_enable;
                 ds_desc.StencilReadMask = D3D11_DEFAULT_STENCIL_READ_MASK;
                 ds_desc.StencilWriteMask = D3D11_DEFAULT_STENCIL_WRITE_MASK;
-                ds_desc.FrontFace.StencilFailOp = runner->r.stencil.StencilFailOp;
-                ds_desc.FrontFace.StencilDepthFailOp = runner->r.stencil.StencilDepthFailOp;
-                ds_desc.FrontFace.StencilPassOp = runner->r.stencil.StencilPassOp;
-                ds_desc.FrontFace.StencilFunc = runner->r.stencil.StencilFunc;
+                ds_desc.FrontFace.StencilFailOp = (D3D11_STENCIL_OP)runner->r.stencil.StencilFailOp;
+                ds_desc.FrontFace.StencilDepthFailOp = (D3D11_STENCIL_OP)runner->r.stencil.StencilDepthFailOp;
+                ds_desc.FrontFace.StencilPassOp = (D3D11_STENCIL_OP)runner->r.stencil.StencilPassOp;
+                ds_desc.FrontFace.StencilFunc = (D3D11_COMPARISON_FUNC)runner->r.stencil.StencilFunc;
                 ds_desc.BackFace = ds_desc.FrontFace;
                 hr = ID3D11Device_CreateDepthStencilState(device, &ds_desc, &ds_state);
                 ok(hr == S_OK, "Failed to create depth/stencil state, hr %#lx.\n", hr);
