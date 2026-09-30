@@ -619,7 +619,7 @@ static void test_adapter_luid(void)
 
     luid = ID3D12Device_GetAdapterLuid(device);
     ok(luid.HighPart == 0xdeadc0de && luid.LowPart == 0xdeadbeef,
-            "Got unexpected LUID %08x:%08x.\n", luid.HighPart, luid.LowPart);
+            "Got unexpected LUID %08x:%08x.\n", (uint32_t)luid.HighPart, (uint32_t)luid.LowPart);
 
     refcount = ID3D12Device_Release(device);
     ok(!refcount, "Device has %u references left.\n", refcount);
