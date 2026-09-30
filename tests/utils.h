@@ -825,7 +825,7 @@ static inline bool get_dll_version(const char *file_name, unsigned int *major, u
         unsigned int *build, unsigned int *patch)
 {
     BOOL (WINAPI *GetFileVersionInfoA)(const char *, DWORD, DWORD, void *);
-    BOOL (WINAPI *VerQueryValueA)(void *, char *, void **, UINT*);
+    BOOL (WINAPI *VerQueryValueA)(const void *, const char *, void **, UINT *);
     DWORD (WINAPI *GetFileVersionInfoSizeA)(const char *, DWORD *);
     HMODULE version_module;
     DWORD size, handle;
