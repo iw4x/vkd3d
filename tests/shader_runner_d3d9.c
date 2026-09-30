@@ -772,7 +772,7 @@ static bool d3d9_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pri
     ok(hr == D3D_OK, "Failed to set render state, hr %#lx.\n", hr);
     hr = IDirect3DDevice9_SetRenderState(device, D3DRS_CLIPPLANEENABLE, runner->r.clip_plane_mask);
     ok(hr == D3D_OK, "Failed to set render state, hr %#lx.\n", hr);
-    for (unsigned int i = 0; i < 8; ++i)
+    for (i = 0; i < 8; ++i)
     {
         hr = IDirect3DDevice9_SetClipPlane(device, i, &runner->r.clip_planes[i].x);
         ok(hr == D3D_OK, "Failed to set clip plane, hr %#lx.\n", hr);
@@ -809,7 +809,7 @@ static bool d3d9_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY pri
     hr = IDirect3DDevice9_SetRenderState(device, D3DRS_FOGDENSITY, float_to_int(runner->r.fog_density));
     ok(hr == D3D_OK, "Failed to set render state, hr %#lx.\n", hr);
 
-    for (unsigned int i = 0; i < 8; ++i)
+    for (i = 0; i < 8; ++i)
     {
         hr = IDirect3DDevice9_SetTextureStageState(device, i, D3DTSS_BUMPENVMAT00,
                 float_to_int(runner->r.bump[i].matrix[0][0]));
