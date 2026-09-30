@@ -31,6 +31,9 @@
 #  undef __forceinline
 #  define __forceinline __inline__ __attribute__((__always_inline__,__gnu_inline__))
 # endif
+
+# define _HRESULT_DEFINED
+typedef int HRESULT;
 #endif
 
 #define VK_NO_PROTOTYPES
