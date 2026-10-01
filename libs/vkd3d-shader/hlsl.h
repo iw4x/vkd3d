@@ -1095,6 +1095,13 @@ struct hlsl_scope
     bool annotations;
 };
 
+struct hlsl_identifier
+{
+    /* Scope in which the identifier was found, or NULL if the lexer returned NEW_IDENTIFIER. */
+    struct hlsl_scope *scope;
+    char *name;
+};
+
 struct hlsl_profile_info
 {
     const char *name;
@@ -1830,6 +1837,8 @@ void hlsl_pop_scope(struct hlsl_ctx *ctx);
 
 struct hlsl_scope *hlsl_get_namespace(const struct hlsl_scope *scope, const char *name);
 bool hlsl_push_namespace(struct hlsl_ctx *ctx, char *name, const struct vkd3d_shader_location *loc);
+
+void hlsl_identifier_cleanup(struct hlsl_identifier *identifier);
 
 bool hlsl_scope_add_type(struct hlsl_scope *scope, struct hlsl_type *type);
 

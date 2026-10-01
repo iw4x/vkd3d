@@ -162,6 +162,11 @@ struct hlsl_ir_var *hlsl_get_var(struct hlsl_scope *scope, const char *name)
     return NULL;
 }
 
+void hlsl_identifier_cleanup(struct hlsl_identifier *identifier)
+{
+    vkd3d_free(identifier->name);
+}
+
 void hlsl_free_state_block_entry(struct hlsl_state_block_entry *entry)
 {
     unsigned int i;

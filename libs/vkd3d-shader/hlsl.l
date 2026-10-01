@@ -35,6 +35,8 @@ static void update_location(struct hlsl_ctx *ctx, YYLTYPE *loc);
 
 static void apply_escape_sequences(char *str);
 
+static int resolve_identifier(struct hlsl_ctx *ctx, const char *text, struct hlsl_identifier *identifier);
+
 #define YY_USER_ACTION update_location(yyget_extra(yyscanner), yyget_lloc(yyscanner));
 
 %}
@@ -219,26 +221,9 @@ while                   {return KW_WHILE;               }
 
 {IDENTIFIER}            {
                             struct hlsl_ctx *ctx = yyget_extra(yyscanner);
-                            struct hlsl_scope *scope;
-
                             if (hlsl_version_ge(ctx, 5, 1) && !strcmp(yytext, "ConstantBuffer"))
                                 return KW_CONSTANTBUFFER;
-
-                            yylval->name = hlsl_strdup(ctx, yytext);
-                            for (scope = ctx->cur_scope; scope; scope = scope->upper)
-                            {
-                                if (hlsl_get_var_in_scope(scope, yytext))
-                                    return VAR_IDENTIFIER;
-                                /* FIXME: Support functions in non-global namespace scopes. */
-                                if (scope == ctx->globals && hlsl_get_function(ctx, yytext))
-                                    return VAR_IDENTIFIER;
-                                if (hlsl_get_type(scope, yytext, false, true))
-                                    return TYPE_IDENTIFIER;
-                                if (hlsl_get_namespace(scope, yytext))
-                                    return NAMESPACE_IDENTIFIER;
-                            }
-
-                            return NEW_IDENTIFIER;
+                            return resolve_identifier(ctx, yytext, &yylval->identifier);
                         }
 
 {STRING}                {
@@ -499,4 +484,39 @@ static void apply_escape_sequences(char *str)
         ++i;
     }
     str[k++] = '\0';
+}
+
+static int resolve_identifier(struct hlsl_ctx *ctx, const char *text, struct hlsl_identifier *identifier)
+{
+    int ret = NEW_IDENTIFIER;
+    struct hlsl_scope *scope;
+
+    memset(identifier, 0, sizeof(*identifier));
+
+    if (!(identifier->name = hlsl_strdup(ctx, text)))
+        return 0;
+
+    for (scope = ctx->cur_scope; scope; scope = scope->upper)
+    {
+        /* FIXME: Support functions in non-global namespace scopes. */
+        if (hlsl_get_var_in_scope(scope, text)
+                || (scope == ctx->globals && hlsl_get_function(ctx, text)))
+        {
+            ret = VAR_IDENTIFIER;
+            break;
+        }
+        if (hlsl_get_type(scope, text, false, true))
+        {
+            ret = TYPE_IDENTIFIER;
+            break;
+        }
+        if (hlsl_get_namespace(scope, text))
+        {
+            ret = NAMESPACE_IDENTIFIER;
+            break;
+        }
+    }
+
+    identifier->scope = scope;
+    return ret;
 }
