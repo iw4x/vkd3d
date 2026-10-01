@@ -64,6 +64,7 @@ struct vulkan_shader_runner
     bool demote_to_helper_invocation;
     bool driver_properties;
     bool float_controls;
+    bool denormal_control;
 
     struct vulkan_test_context context;
 
@@ -536,12 +537,15 @@ static void init_compile_options(struct vulkan_shader_runner *runner)
             shader_runner_get_global_flags0_override_compile_option(&runner->r, true));
     vulkan_shader_runner_add_compile_option(runner, VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_VALUE,
             shader_runner_get_global_flags0_override_compile_option(&runner->r, false));
-    vulkan_shader_runner_add_compile_option(runner,
-            VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16, VKD3D_SHADER_DENORMAL_MODE_ANY);
-    vulkan_shader_runner_add_compile_option(runner,
-            VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32, VKD3D_SHADER_DENORMAL_MODE_ANY);
-    vulkan_shader_runner_add_compile_option(runner,
-            VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64, VKD3D_SHADER_DENORMAL_MODE_ANY);
+    if (!runner->denormal_control)
+    {
+        vulkan_shader_runner_add_compile_option(runner,
+                VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16, VKD3D_SHADER_DENORMAL_MODE_ANY);
+        vulkan_shader_runner_add_compile_option(runner,
+                VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32, VKD3D_SHADER_DENORMAL_MODE_ANY);
+        vulkan_shader_runner_add_compile_option(runner,
+                VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64, VKD3D_SHADER_DENORMAL_MODE_ANY);
+    }
 }
 
 static bool compile_hlsl_and_scan(struct vulkan_shader_runner *runner, enum shader_type type)
@@ -2163,6 +2167,7 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
     VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT demote_to_helper_invocation_features;
     VkDeviceQueueCreateInfo queue_desc = {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
     VkDeviceCreateInfo device_desc = {.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+    const VkPhysicalDeviceFloatControlsPropertiesKHR *float_controls_properties;
     VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT interlock_features;
     const VkPhysicalDeviceSubgroupProperties *subgroup_properties;
     struct vulkan_test_context *context = &runner->context;
@@ -2268,10 +2273,17 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
     runner->caps.shader_caps[SHADER_CAP_FOG] = true;
     runner->caps.shader_caps[SHADER_CAP_POINT_SIZE] = true;
     runner->caps.shader_caps[SHADER_CAP_TEXTURE_SWIZZLE] = true;
+    float_controls_properties = &device_info.float_controls_properties;
     if (runner->float_controls
-            && device_info.float_controls_properties.shaderSignedZeroInfNanPreserveFloat16
-            && device_info.float_controls_properties.shaderSignedZeroInfNanPreserveFloat32
-            && device_info.float_controls_properties.shaderSignedZeroInfNanPreserveFloat64)
+            && float_controls_properties->denormBehaviorIndependence != VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE_KHR
+            && float_controls_properties->shaderDenormPreserveFloat32
+            && float_controls_properties->shaderDenormPreserveFloat64
+            && float_controls_properties->shaderDenormFlushToZeroFloat32)
+        runner->denormal_control = true;
+    if (runner->float_controls
+            && float_controls_properties->shaderSignedZeroInfNanPreserveFloat16
+            && float_controls_properties->shaderSignedZeroInfNanPreserveFloat32
+            && float_controls_properties->shaderSignedZeroInfNanPreserveFloat64)
         runner->caps.shader_caps[SHADER_CAP_NO_REFACTORING] = true;
 
     subgroup_properties = &device_info.subgroup_properties;
