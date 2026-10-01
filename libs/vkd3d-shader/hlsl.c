@@ -5607,6 +5607,7 @@ struct hlsl_ir_function_decl *hlsl_compile_internal_function(struct hlsl_ctx *ct
     const struct hlsl_ir_function_decl *saved_cur_function = ctx->cur_function;
     struct vkd3d_shader_code code = {.code = hlsl, .size = strlen(hlsl)};
     const char *saved_internal_func_name = ctx->internal_func_name;
+    struct vkd3d_shader_location saved_location = ctx->location;
     struct vkd3d_string_buffer *internal_name;
     struct hlsl_ir_function_decl *func;
     void *saved_scanner = ctx->scanner;
@@ -5633,6 +5634,7 @@ struct hlsl_ir_function_decl *hlsl_compile_internal_function(struct hlsl_ctx *ct
     ctx->scanner = saved_scanner;
     ctx->internal_func_name = saved_internal_func_name;
     ctx->cur_function = saved_cur_function;
+    ctx->location = saved_location;
     hlsl_pop_scope(ctx);
     if (ret)
     {
