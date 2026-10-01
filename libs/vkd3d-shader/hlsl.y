@@ -2531,6 +2531,7 @@ static void validate_groupshared_var(struct hlsl_ctx *ctx, const struct hlsl_ir_
 
 static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
 {
+    bool nonlocal = ctx->cur_scope == ctx->globals || ctx->cur_scope->namespace;
     uint32_t modifiers = v->modifiers | v->semantic.modifiers;
     struct hlsl_type *basic_type = v->basic_type;
     struct hlsl_ir_function_decl *func;
@@ -2551,14 +2552,8 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
 
     type = basic_type;
 
-    if (ctx->cur_scope->namespace)
-    {
-        hlsl_fixme(ctx, &v->loc, "Variables inside namespaces.");
-        return;
-    }
-
     if (basic_type->class <= HLSL_CLASS_LAST_NUMERIC && basic_type->e.numeric.type == HLSL_TYPE_HALF
-            && !v->arrays.count && ctx->cur_scope == ctx->globals && !ctx->compile_info.allow_half_globals
+            && !v->arrays.count && nonlocal && !ctx->compile_info.allow_half_globals
             && ctx->profile->type != VKD3D_SHADER_TYPE_EFFECT)
     {
         hlsl_error(ctx, &v->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
@@ -2697,12 +2692,20 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
                     "packoffset() is only allowed inside constant buffer declarations.");
     }
 
+    if (ctx->cur_scope->namespace)
+    {
+        if (!(modifiers & HLSL_STORAGE_STATIC))
+            hlsl_fixme(ctx, &v->loc, "Non-static variables inside namespaces.");
+        if (constant_buffer || !type_contains_only_numerics(type))
+            hlsl_fixme(ctx, &v->loc, "Non-numeric variables inside namespaces.");
+    }
+
     if (!(modifiers & (HLSL_STORAGE_UNIFORM | HLSL_STORAGE_STATIC | HLSL_STORAGE_GROUPSHARED))
             && (type->modifiers & HLSL_MODIFIER_CONST) && !v->initializer.args_count)
         hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_MISSING_INITIALIZER,
                 "Const variable \"%s\" is missing an initializer.", var->name);
 
-    if (ctx->cur_scope == ctx->globals)
+    if (nonlocal)
     {
         if ((modifiers & HLSL_STORAGE_UNIFORM) && (modifiers & HLSL_STORAGE_STATIC))
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_MODIFIER,
@@ -5771,6 +5774,12 @@ static struct hlsl_block *add_call(struct hlsl_ctx *ctx, const struct hlsl_ident
     const char *name = identifier->name;
     struct hlsl_ir_function_decl *decl;
 
+    if (hlsl_identifier_is_qualified(identifier))
+    {
+        hlsl_fixme(ctx, loc, "Qualified function calls.");
+        goto fail;
+    }
+
     for (unsigned int i = 0; i < args->args_count; ++i)
     {
         if (args->args[i]->data_type->class == HLSL_CLASS_ERROR)
@@ -7153,6 +7162,23 @@ static void validate_uav_type(struct hlsl_ctx *ctx, enum hlsl_sampler_dim dim,
     hlsl_release_string_buffer(ctx, string);
 }
 
+static char *take_unqualified_identifier(struct hlsl_ctx *ctx, struct hlsl_identifier *identifier,
+        const struct vkd3d_shader_location *loc)
+{
+    char *name;
+
+    /* For an unqualified identifier, "name" and "qualified_name" are the same string. */
+    if (!hlsl_identifier_is_qualified(identifier))
+        return identifier->qualified_name;
+
+    hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
+            "Unexpected qualified identifier '%s'.", identifier->qualified_name);
+    /* Copy the unqualified name, so that parsing can continue. */
+    name = hlsl_strdup(ctx, identifier->name);
+    hlsl_identifier_cleanup(identifier);
+    return name;
+}
+
 }
 
 %locations
@@ -7741,7 +7767,8 @@ any_identifier:
 unqualified_identifier:
       any_identifier
         {
-            $$ = $1.name;
+            if (!($$ = take_unqualified_identifier(ctx, &$1, &@1)))
+                YYABORT;
         }
 
 /* TODO: Multiple inheritance support for interfaces. */
@@ -7756,7 +7783,7 @@ base_optional:
             if ($$->class != HLSL_CLASS_STRUCT)
             {
                 hlsl_error(ctx, &@2, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
-                        "Base type \"%s\" is not a struct.", $2.name);
+                        "Base type \"%s\" is not a struct.", $2.qualified_name);
                 hlsl_identifier_cleanup(&$2);
                 YYABORT;
             }
@@ -7955,10 +7982,17 @@ func_prototype_no_attrs:
         {
             struct hlsl_scope *upper = ctx->cur_scope->upper;
             struct hlsl_scope *namespace;
-            char *func_name = $3.name;
             uint32_t modifiers = $1;
             struct hlsl_ir_var *var;
             struct hlsl_type *type;
+            char *func_name;
+
+            if (hlsl_identifier_is_qualified(&$3))
+            {
+                hlsl_fixme(ctx, &@3, "Qualified function definitions.");
+                YYABORT;
+            }
+            func_name = $3.qualified_name;
 
             if (upper->namespace)
             {
@@ -8155,14 +8189,16 @@ var_identifier:
 unqualified_var_identifier:
       var_identifier
         {
-            $$ = $1.name;
+            if (!($$ = take_unqualified_identifier(ctx, &$1, &@1)))
+                YYABORT;
         }
 
 var_modifier_identifier:
       unqualified_var_identifier
     | NAMESPACE_IDENTIFIER
         {
-            $$ = $1.name;
+            if (!($$ = take_unqualified_identifier(ctx, &$1, &@1)))
+                YYABORT;
         }
 
 colon_attributes:
@@ -8796,7 +8832,7 @@ type_no_void:
             else
             {
                 hlsl_error(ctx, &@2, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
-                        "The 'unsigned' keyword can't be used with type %s.", $2.name);
+                        "The 'unsigned' keyword can't be used with type %s.", $2.qualified_name);
                 hlsl_identifier_cleanup(&$2);
             }
 
@@ -8806,7 +8842,10 @@ type_no_void:
         {
             $$ = hlsl_get_type($2.scope, $2.name, false, true);
             if ($$->class != HLSL_CLASS_STRUCT || $$->is_typedef)
-                hlsl_error(ctx, &@1, VKD3D_SHADER_ERROR_HLSL_REDEFINED, "\"%s\" is not a structure.", $2.name);
+            {
+                hlsl_error(ctx, &@1, VKD3D_SHADER_ERROR_HLSL_REDEFINED,
+                        "\"%s\" is not a structure.", $2.qualified_name);
+            }
             hlsl_identifier_cleanup(&$2);
         }
     | KW_RENDERTARGETVIEW
@@ -9785,7 +9824,8 @@ primary_expr:
             }
             else
             {
-                hlsl_error(ctx, &@1, VKD3D_SHADER_ERROR_HLSL_NOT_DEFINED, "Variable \"%s\" is not defined.", $1.name);
+                hlsl_error(ctx, &@1, VKD3D_SHADER_ERROR_HLSL_NOT_DEFINED,
+                        "Variable \"%s\" is not defined.", $1.qualified_name);
                 $$->value = ctx->error_instr;
             }
             hlsl_identifier_cleanup(&$1);
@@ -9847,7 +9887,7 @@ primary_expr:
             {
                 struct hlsl_ir_node *constant;
 
-                if (!(constant = hlsl_new_stateblock_constant(ctx, $1.name, &@1)))
+                if (!(constant = hlsl_new_stateblock_constant(ctx, $1.qualified_name, &@1)))
                     YYABORT;
                 hlsl_identifier_cleanup(&$1);
 
@@ -9857,7 +9897,7 @@ primary_expr:
             else
             {
                 hlsl_error(ctx, &@1, VKD3D_SHADER_ERROR_HLSL_NOT_DEFINED,
-                        "Identifier \"%s\" is not declared.", $1.name);
+                        "Identifier \"%s\" is not declared.", $1.qualified_name);
                 hlsl_identifier_cleanup(&$1);
 
                 if (!($$ = make_empty_block(ctx)))

@@ -164,7 +164,7 @@ struct hlsl_ir_var *hlsl_get_var(struct hlsl_scope *scope, const char *name)
 
 void hlsl_identifier_cleanup(struct hlsl_identifier *identifier)
 {
-    vkd3d_free(identifier->name);
+    vkd3d_free(identifier->qualified_name);
 }
 
 void hlsl_free_state_block_entry(struct hlsl_state_block_entry *entry)
@@ -3443,16 +3443,21 @@ void hlsl_pop_scope(struct hlsl_ctx *ctx)
     ctx->cur_scope = prev_scope;
 }
 
-struct hlsl_scope *hlsl_get_namespace(const struct hlsl_scope *scope, const char *name)
+struct hlsl_scope *hlsl_get_namespace_n(const struct hlsl_scope *scope, const char *name, size_t len)
 {
     struct hlsl_scope *namespace;
 
     LIST_FOR_EACH_ENTRY(namespace, &scope->namespaces, struct hlsl_scope, namespace_entry)
     {
-        if (!strcmp(namespace->namespace, name))
+        if (!strncmp(namespace->namespace, name, len) && !namespace->namespace[len])
             return namespace;
     }
     return NULL;
+}
+
+struct hlsl_scope *hlsl_get_namespace(const struct hlsl_scope *scope, const char *name)
+{
+    return hlsl_get_namespace_n(scope, name, strlen(name));
 }
 
 bool hlsl_push_namespace(struct hlsl_ctx *ctx, char *name, const struct vkd3d_shader_location *loc)

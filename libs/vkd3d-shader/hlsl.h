@@ -1099,8 +1099,16 @@ struct hlsl_identifier
 {
     /* Scope in which the identifier was found, or NULL if the lexer returned NEW_IDENTIFIER. */
     struct hlsl_scope *scope;
-    char *name;
+    /* Identifier name as written, including any qualifiers, e.g. "::A::B::x". */
+    char *qualified_name;
+    /* Unqualified identifier name. This is a just pointer that points into qualified_name. */
+    const char *name;
 };
+
+static inline bool hlsl_identifier_is_qualified(const struct hlsl_identifier *identifier)
+{
+    return identifier->name != identifier->qualified_name;
+}
 
 struct hlsl_profile_info
 {
@@ -1836,6 +1844,7 @@ void hlsl_push_scope(struct hlsl_ctx *ctx);
 void hlsl_pop_scope(struct hlsl_ctx *ctx);
 
 struct hlsl_scope *hlsl_get_namespace(const struct hlsl_scope *scope, const char *name);
+struct hlsl_scope *hlsl_get_namespace_n(const struct hlsl_scope *scope, const char *name, size_t len);
 bool hlsl_push_namespace(struct hlsl_ctx *ctx, char *name, const struct vkd3d_shader_location *loc);
 
 void hlsl_identifier_cleanup(struct hlsl_identifier *identifier);
