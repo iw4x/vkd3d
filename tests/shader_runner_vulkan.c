@@ -76,6 +76,12 @@ struct vulkan_shader_runner
         VkSampler vk_sampler;
         uint32_t binding;
     } samplers[MAX_SAMPLERS];
+
+    struct
+    {
+        struct vkd3d_shader_compile_option *elements;
+        size_t count, capacity;
+    } compile_options;
 };
 
 struct physical_device_info
@@ -94,6 +100,25 @@ struct physical_device_info
 static struct vulkan_shader_runner *vulkan_shader_runner(struct shader_runner *r)
 {
     return CONTAINING_RECORD(r, struct vulkan_shader_runner, r);
+}
+
+static void vulkan_shader_runner_clear_compile_options(struct vulkan_shader_runner *runner)
+{
+    runner->compile_options.count = 0;
+}
+
+static void vulkan_shader_runner_add_compile_option(struct vulkan_shader_runner *runner,
+        enum vkd3d_shader_compile_option_name name, unsigned int value)
+{
+    struct vkd3d_shader_compile_option *option;
+
+    if (!vkd3d_array_reserve((void **)&runner->compile_options.elements, &runner->compile_options.capacity,
+            runner->compile_options.count + 1, sizeof(*runner->compile_options.elements)))
+        fatal_error("Failed to add compile option.\n");
+
+    option = &runner->compile_options.elements[runner->compile_options.count++];
+    option->name = name;
+    option->value = value;
 }
 
 static const struct format_info *get_format_info(enum DXGI_FORMAT format)
@@ -498,12 +523,35 @@ static void free_d3d_blobs(struct vulkan_shader_runner *runner)
     }
 }
 
+static void init_compile_options(struct vulkan_shader_runner *runner)
+{
+    vulkan_shader_runner_clear_compile_options(runner);
+    vulkan_shader_runner_add_compile_option(runner,
+            VKD3D_SHADER_COMPILE_OPTION_API_VERSION, VKD3D_SHADER_API_VERSION_CURRENT);
+    vulkan_shader_runner_add_compile_option(runner,
+            VKD3D_SHADER_COMPILE_OPTION_FEATURE, shader_runner_caps_get_feature_flags(&runner->caps));
+    vulkan_shader_runner_add_compile_option(runner,
+            VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV, shader_runner_caps_get_typed_uav_compile_option(&runner->caps));
+    vulkan_shader_runner_add_compile_option(runner, VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_MASK,
+            shader_runner_get_global_flags0_override_compile_option(&runner->r, true));
+    vulkan_shader_runner_add_compile_option(runner, VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_VALUE,
+            shader_runner_get_global_flags0_override_compile_option(&runner->r, false));
+    vulkan_shader_runner_add_compile_option(runner,
+            VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16, VKD3D_SHADER_DENORMAL_MODE_ANY);
+    vulkan_shader_runner_add_compile_option(runner,
+            VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32, VKD3D_SHADER_DENORMAL_MODE_ANY);
+    vulkan_shader_runner_add_compile_option(runner,
+            VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64, VKD3D_SHADER_DENORMAL_MODE_ANY);
+}
+
 static bool compile_hlsl_and_scan(struct vulkan_shader_runner *runner, enum shader_type type)
 {
     struct vkd3d_shader_parameter_info parameter_info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_PARAMETER_INFO};
     struct vkd3d_shader_compile_info info = {.type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO};
     struct vkd3d_shader_parameter1 parameters[1];
     enum vkd3d_result ret;
+
+    init_compile_options(runner);
 
     if (!(runner->d3d_blobs[type] = compile_hlsl(&runner->r, type)))
         return false;
@@ -518,6 +566,8 @@ static bool compile_hlsl_and_scan(struct vulkan_shader_runner *runner, enum shad
     else
         info.source_type = VKD3D_SHADER_SOURCE_DXBC_DXIL;
     info.target_type = VKD3D_SHADER_TARGET_SPIRV_BINARY;
+    info.options = runner->compile_options.elements;
+    info.option_count = runner->compile_options.count;
 
     parameter_info.next = &runner->signatures[type];
     parameter_info.parameter_count = ARRAY_SIZE(parameters);
@@ -560,19 +610,7 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     char *messages;
     int ret;
 
-    const struct vkd3d_shader_compile_option options[] =
-    {
-        {VKD3D_SHADER_COMPILE_OPTION_API_VERSION, VKD3D_SHADER_API_VERSION_CURRENT},
-        {VKD3D_SHADER_COMPILE_OPTION_FEATURE, shader_runner_caps_get_feature_flags(&runner->caps)},
-        {VKD3D_SHADER_COMPILE_OPTION_TYPED_UAV, shader_runner_caps_get_typed_uav_compile_option(&runner->caps)},
-        {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F16, VKD3D_SHADER_DENORMAL_MODE_ANY},
-        {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F32, VKD3D_SHADER_DENORMAL_MODE_ANY},
-        {VKD3D_SHADER_COMPILE_OPTION_DENORMAL_MODE_F64, VKD3D_SHADER_DENORMAL_MODE_ANY},
-        {VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_MASK,
-                shader_runner_get_global_flags0_override_compile_option(&runner->r, true)},
-        {VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_VALUE,
-                shader_runner_get_global_flags0_override_compile_option(&runner->r, false)},
-    };
+    init_compile_options(runner);
 
     info.next = &spirv_info;
     info.source.code = ID3D10Blob_GetBufferPointer(runner->d3d_blobs[type]);
@@ -584,9 +622,9 @@ static bool compile_d3d_code(struct vulkan_shader_runner *runner,
     else
         info.source_type = VKD3D_SHADER_SOURCE_DXBC_DXIL;
     info.target_type = VKD3D_SHADER_TARGET_SPIRV_BINARY;
+    info.options = runner->compile_options.elements;
+    info.option_count = runner->compile_options.count;
     info.log_level = VKD3D_SHADER_LOG_WARNING;
-    info.option_count = ARRAY_SIZE(options);
-    info.options = options;
 
     if (type == SHADER_TYPE_VS && info.source_type == VKD3D_SHADER_SOURCE_D3D_BYTECODE)
     {
@@ -2348,6 +2386,12 @@ out_destroy_context:
     return false;
 };
 
+static void vulkan_shader_runner_cleanup(struct vulkan_shader_runner *runner)
+{
+    free(runner->compile_options.elements);
+    vulkan_test_context_destroy(&runner->context);
+}
+
 void run_shader_tests_vulkan(void *dxc_compiler)
 {
     struct vulkan_shader_runner runner = {0};
@@ -2386,7 +2430,7 @@ void run_shader_tests_vulkan(void *dxc_compiler)
         run_shader_tests(&runner.r, &runner.caps, &vulkan_runner_ops, dxc_compiler);
     }
 
-    vulkan_test_context_destroy(&runner.context);
+    vulkan_shader_runner_cleanup(&runner);
 }
 
 #endif
