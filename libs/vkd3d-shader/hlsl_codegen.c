@@ -4164,7 +4164,8 @@ static bool vectorize_exprs(struct hlsl_ctx *ctx, struct hlsl_block *block)
                     arg_swizzle = HLSL_SWIZZLE(X, Y, Z, W);
 
                 /* Mask out the invalid components. */
-                arg_swizzle &= (1u << VKD3D_SHADER_SWIZZLE_SHIFT(arg->data_type->e.numeric.dimx)) - 1;
+                if (arg->data_type->e.numeric.dimx < 4)
+                    arg_swizzle &= (1u << VKD3D_SHADER_SWIZZLE_SHIFT(arg->data_type->e.numeric.dimx)) - 1;
                 swizzles[a] |= arg_swizzle << VKD3D_SHADER_SWIZZLE_SHIFT(component_count);
             }
 
