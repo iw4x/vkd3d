@@ -3581,130 +3581,6 @@ static enum vkd3d_result vsir_program_lower_dcl_output(struct vsir_program *prog
     return VKD3D_OK;
 }
 
-static enum vkd3d_result vsir_program_lower_d3dbc_modifiers(struct vsir_program *program,
-        struct vsir_program_iterator *it, struct vkd3d_shader_message_context *message_context)
-{
-    struct vsir_instruction *ins = vsir_program_iterator_current(it);
-    struct vsir_program_iterator new_it;
-    struct vsir_instruction *new_ins;
-    unsigned int tmp_src_id, i;
-
-    for (i = 0; i < ins->src_count; ++i)
-    {
-        bool bias = false, negate = false, x2 = false;
-        struct vsir_src_operand *src = &ins->src[i];
-
-        switch (src->modifiers)
-        {
-            case VKD3DSPSM_BIASNEG:
-                bias = true;
-                negate = true;
-                break;
-
-            case VKD3DSPSM_BIAS:
-                bias = true;
-                break;
-
-            case VKD3DSPSM_SIGN:
-                bias = true;
-                x2 = true;
-                break;
-
-            case VKD3DSPSM_SIGNNEG:
-                bias = true;
-                x2 = true;
-                negate = true;
-                break;
-
-            case VKD3DSPSM_X2:
-                x2 = true;
-                break;
-
-            case VKD3DSPSM_X2NEG:
-                x2 = true;
-                negate = true;
-                break;
-
-            case VKD3DSPSM_COMP:
-                if (!(new_ins = vsir_program_iterator_insert_before(it, &new_it, 2)))
-                    return VKD3D_ERROR_OUT_OF_MEMORY;
-                ins = vsir_program_iterator_current(it);
-
-                if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_NEG, 1, 1))
-                    goto fail;
-                new_ins->src[0] = *src;
-                new_ins->src[0].modifiers = VKD3DSPSM_NONE;
-                tmp_src_id = program->ssa_count++;
-                vsir_dst_operand_init_ssa(&new_ins->dst[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
-
-                new_ins = vsir_program_iterator_next(&new_it);
-                if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_ADD, 1, 2))
-                    goto fail;
-                vsir_src_operand_init_const_f32(&new_ins->src[0], 1.0f);
-                vsir_src_operand_init_ssa(&new_ins->src[1], tmp_src_id, src->reg.data_type, src->reg.dimension);
-                tmp_src_id = program->ssa_count++;
-                vsir_dst_operand_init_ssa(&new_ins->dst[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
-
-                vsir_src_operand_init_ssa(src, tmp_src_id, src->reg.data_type, src->reg.dimension);
-                continue;
-
-            default:
-                continue;
-        }
-
-        if (!(new_ins = vsir_program_iterator_insert_before(it, &new_it, 1 + bias + x2 + negate)))
-            return VKD3D_ERROR_OUT_OF_MEMORY;
-        ins = vsir_program_iterator_current(it);
-
-        if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_MOV, 1, 1))
-            goto fail;
-        new_ins->src[0] = *src;
-        new_ins->src[0].modifiers = VKD3DSPSM_NONE;
-        tmp_src_id = program->ssa_count++;
-        vsir_dst_operand_init_ssa(&new_ins->dst[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
-
-        if (bias)
-        {
-            new_ins = vsir_program_iterator_next(&new_it);
-            if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_ADD, 1, 2))
-                goto fail;
-            vsir_src_operand_init_ssa(&new_ins->src[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
-            vsir_src_operand_init_const_f32(&new_ins->src[1], -0.5f);
-            tmp_src_id = program->ssa_count++;
-            vsir_dst_operand_init_ssa(&new_ins->dst[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
-        }
-
-        if (x2)
-        {
-            new_ins = vsir_program_iterator_next(&new_it);
-            if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_MUL, 1, 2))
-                goto fail;
-            vsir_src_operand_init_ssa(&new_ins->src[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
-            vsir_src_operand_init_const_f32(&new_ins->src[1], 2.0f);
-            tmp_src_id = program->ssa_count++;
-            vsir_dst_operand_init_ssa(&new_ins->dst[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
-        }
-
-        if (negate)
-        {
-            new_ins = vsir_program_iterator_next(&new_it);
-            if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_NEG, 1, 1))
-                goto fail;
-            vsir_src_operand_init_ssa(&new_ins->src[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
-            tmp_src_id = program->ssa_count++;
-            vsir_dst_operand_init_ssa(&new_ins->dst[0], tmp_src_id, src->reg.data_type, src->reg.dimension);
-        }
-
-        vsir_src_operand_init_ssa(src, tmp_src_id, src->reg.data_type, src->reg.dimension);
-    }
-
-    return VKD3D_OK;
-
-fail:
-    vsir_program_iterator_nop_range(&new_it, it, &ins->location);
-    return VKD3D_ERROR_OUT_OF_MEMORY;
-}
-
 static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_program *program,
         struct vsir_transformation_context *ctx)
 {
@@ -3716,10 +3592,6 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
     for (ins = vsir_program_iterator_head(&it); ins; ins = vsir_program_iterator_next(&it))
     {
         enum vkd3d_result ret;
-
-        if ((ret = vsir_program_lower_d3dbc_modifiers(program, &it, message_context)) < 0)
-            return ret;
-        ins = vsir_program_iterator_current(&it);
 
         switch (ins->opcode)
         {
@@ -4028,38 +3900,6 @@ static enum vkd3d_result vsir_program_lower_modifiers(struct vsir_program *progr
                     new_opcodes[0] = VSIR_OP_ABS;
                     new_opcodes[1] = VSIR_OP_NEG;
                     break;
-
-                case VKD3DSPSM_DW:
-                case VKD3DSPSM_DZ:
-                    if (!(new_ins = vsir_program_iterator_insert_before(&it, &new_it, 1)))
-                        return VKD3D_ERROR_OUT_OF_MEMORY;
-                    ins = vsir_program_iterator_current(&it);
-
-                    if (!vsir_instruction_init_with_params(program, new_ins, &ins->location, VSIR_OP_DIV, 1, 2))
-                    {
-                        vsir_instruction_make_nop(new_ins);
-                        return VKD3D_ERROR_OUT_OF_MEMORY;
-                    }
-
-                    vsir_dst_operand_init_ssa_f32v4(&new_ins->dst[0], program->ssa_count);
-                    new_ins->src[0] = *src;
-                    new_ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
-                    new_ins->src[0].modifiers = VKD3DSPSM_NONE;
-                    new_ins->src[1] = new_ins->src[0];
-                    if (!vsir_operand_clone_indirect_indices(&new_ins->src[1].reg, program))
-                    {
-                        vsir_instruction_make_nop(new_ins);
-                        return VKD3D_ERROR_OUT_OF_MEMORY;
-                    }
-                    if (src->modifiers == VKD3DSPSM_DW)
-                        new_ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(W, W, W, W);
-                    else
-                        new_ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z);
-
-                    vsir_src_operand_init_ssa_f32v4(src, program->ssa_count);
-
-                    ++program->ssa_count;
-                    continue;
 
                 default:
                     vkd3d_shader_error(ctx->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,

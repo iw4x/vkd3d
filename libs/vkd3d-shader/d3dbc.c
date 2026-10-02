@@ -250,6 +250,7 @@ enum d3dbc_register_type
     D3DBC_REGISTER_MISCTYPE,
     D3DBC_REGISTER_LABEL,
     D3DBC_REGISTER_PREDICATE,
+    D3DBC_REGISTER_SSA,
 };
 
 struct d3dbc_operand
@@ -1472,6 +1473,7 @@ static void vsir_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, stru
         [D3DBC_REGISTER_MISCTYPE]     = VSIR_REGISTER_MISCTYPE,
         [D3DBC_REGISTER_LABEL]        = VSIR_REGISTER_LABEL,
         [D3DBC_REGISTER_PREDICATE]    = VSIR_REGISTER_PREDICATE,
+        [D3DBC_REGISTER_SSA]          = VSIR_REGISTER_SSA,
     };
 
     index_count = idx_count_from_reg_type(d3dbc->type);
@@ -1510,7 +1512,7 @@ static void vsir_src_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, 
         const struct d3dbc_src_operand *d3dbc, const struct d3dbc_src_operand *rel_addr)
 {
     vsir_operand_from_d3dbc(parser, &vsir->reg, &d3dbc->o, rel_addr);
-    vsir->modifiers = d3dbc->modifiers;
+    vsir->modifiers = VKD3DSPSM_NONE;
     if (vsir->reg.dimension == VSIR_DIMENSION_VEC4)
         vsir->swizzle = d3dbc->swizzle;
     else
@@ -1807,6 +1809,151 @@ static float scale_from_shift(struct vkd3d_shader_sm1_parser *parser, unsigned i
     }
 }
 
+static void d3dbc_lower_src_modifier(struct vkd3d_shader_sm1_parser *parser,
+        struct d3dbc_src_operand *src, struct d3dbc_src_operand *src_rel_addr)
+{
+    bool bias = false, negate = false, abs = false, x2 = false;
+    struct vsir_instruction *ins;
+    unsigned int src_id;
+
+    if (!src->modifiers)
+        return;
+
+    /* We can pass a count of 1 here; modifiers are not legal on sources that
+     * read multiple consecutive registers. */
+    d3dbc_scan_operand(parser, &src->o, mask_from_swizzle(src->swizzle), false, 1);
+
+    src_id = parser->program->ssa_count++;
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MOV, 1, 1)))
+        return;
+    vsir_src_operand_from_d3dbc(parser, &ins->src[0], src, src_rel_addr);
+    vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], src_id);
+
+    switch (src->modifiers)
+    {
+        case VKD3DSPSM_ABS:
+            abs = true;
+            break;
+
+        case VKD3DSPSM_ABSNEG:
+            abs = true;
+            negate = true;
+            break;
+
+        case VKD3DSPSM_BIAS:
+            bias = true;
+            break;
+
+        case VKD3DSPSM_BIASNEG:
+            bias = true;
+            negate = true;
+            break;
+
+        case VKD3DSPSM_COMP:
+            if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_NEG, 1, 1)))
+                return;
+            vsir_src_operand_init_ssa_f32v4(&ins->src[0], src_id);
+            src_id = parser->program->ssa_count++;
+            vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], src_id);
+
+            if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_ADD, 1, 2)))
+                return;
+            vsir_src_operand_init_const_f32(&ins->src[0], 1.0f);
+            vsir_src_operand_init_ssa_f32v4(&ins->src[1], src_id);
+            src_id = parser->program->ssa_count++;
+            vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], src_id);
+            break;
+
+        case VKD3DSPSM_DW:
+        case VKD3DSPSM_DZ:
+            if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_DIV, 1, 2)))
+                return;
+            vsir_src_operand_init_ssa_f32v4(&ins->src[0], src_id);
+            vsir_src_operand_init_ssa_f32v4(&ins->src[1], src_id);
+            ins->src[0].swizzle = VKD3D_SHADER_NO_SWIZZLE;
+            if (src->modifiers == VKD3DSPSM_DW)
+                ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(W, W, W, W);
+            else
+                ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z);
+            src_id = parser->program->ssa_count++;
+            vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], src_id);
+            break;
+
+        case VKD3DSPSM_NEG:
+            negate = true;
+            break;
+
+        case VKD3DSPSM_SIGN:
+            bias = true;
+            x2 = true;
+            break;
+
+        case VKD3DSPSM_SIGNNEG:
+            bias = true;
+            x2 = true;
+            negate = true;
+            break;
+
+        case VKD3DSPSM_X2:
+            x2 = true;
+            break;
+
+        case VKD3DSPSM_X2NEG:
+            x2 = true;
+            negate = true;
+            break;
+
+        default:
+            vkd3d_shader_parser_error(&parser->p, VKD3D_SHADER_ERROR_D3DBC_NOT_IMPLEMENTED,
+                    "Unhandled source modifier %#x.", src->modifiers);
+            break;
+    }
+
+    if (abs)
+    {
+        if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_ABS, 1, 1)))
+            return;
+        vsir_src_operand_init_ssa_f32v4(&ins->src[0], src_id);
+        src_id = parser->program->ssa_count++;
+        vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], src_id);
+    }
+
+    if (bias)
+    {
+        if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_ADD, 1, 2)))
+            return;
+        vsir_src_operand_init_ssa_f32v4(&ins->src[0], src_id);
+        vsir_src_operand_init_const_f32(&ins->src[1], -0.5f);
+        src_id = parser->program->ssa_count++;
+        vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], src_id);
+    }
+
+    if (x2)
+    {
+        if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MUL, 1, 2)))
+            return;
+        vsir_src_operand_init_ssa_f32v4(&ins->src[0], src_id);
+        vsir_src_operand_init_const_f32(&ins->src[1], 2.0f);
+        src_id = parser->program->ssa_count++;
+        vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], src_id);
+    }
+
+    if (negate)
+    {
+        if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_NEG, 1, 1)))
+            return;
+        vsir_src_operand_init_ssa_f32v4(&ins->src[0], src_id);
+        src_id = parser->program->ssa_count++;
+        vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], src_id);
+    }
+
+    src->o.type = D3DBC_REGISTER_SSA;
+    src->o.index = src_id;
+    src->o.has_rel_addr = false;
+    src->modifiers = VKD3DSPSM_NONE;
+    src->swizzle = VKD3D_SHADER_NO_SWIZZLE;
+}
+
 int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t config_flags,
         struct vkd3d_shader_message_context *message_context, struct vsir_program *program)
 {
@@ -1863,6 +2010,9 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
                 vkd3d_shader_parser_error(&sm1.p, VKD3D_SHADER_ERROR_D3DBC_NOT_IMPLEMENTED,
                         "Aborting due to unimplemented feature: Destination modifier %#x.", d3dbc_ins.dst[0].modifiers);
         }
+
+        for (i = 0; i < d3dbc_ins.src_count; ++i)
+            d3dbc_lower_src_modifier(&sm1, &d3dbc_ins.src[i], &d3dbc_ins.src_rel_addr[i]);
 
         if ((ret = shader_sm1_read_instruction(&sm1, &d3dbc_ins, opcode_info)))
         {
