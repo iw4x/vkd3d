@@ -208,6 +208,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/invalid.shader_test \
 	tests/hlsl/inverse-trig.shader_test \
 	tests/hlsl/is-front-face.shader_test \
+	tests/hlsl/isfinite.shader_test \
 	tests/hlsl/isinf.shader_test \
 	tests/hlsl/ldexp.shader_test \
 	tests/hlsl/length-property.shader_test \

@@ -1,0 +1,100 @@
+[pixel-shader todo(sm<6)]
+float4 v;
+
+float4 main() : sv_target
+{
+    return isfinite(1.0f / v) + 1.0f;
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 0.0, -0.0, 0.0)
+todo(sm<6 | msl) draw quad
+% On SM < 4, fxc/d3dcompiler reduces isfinite() to true, unless precise is
+% used or IEEE strictness is enabled.
+if(sm<4)  probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
+if(sm>=4) probe (0, 0) f32(2.0, 1.0, 1.0, 1.0)
+
+[pixel-shader todo(sm<6)]
+float4 v;
+
+float4 main() : sv_target
+{
+    precise float4 ret = isfinite(1.0f / v) + 1.0f;
+    return ret;
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 0.0, -0.0, 0.0)
+todo(sm<6 | msl) draw quad
+probe (0, 0) f32(2.0, 1.0, 1.0, 1.0)
+
+[require]
+options: ieee-strictness
+
+[pixel-shader todo(sm<6)]
+float4 v;
+
+float4 main() : sv_target
+{
+    return isfinite(1.0f / v) + 1.0f;
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 0.0, -0.0, 0.0)
+todo(sm<6 | msl) draw quad
+probe (0, 0) f32(2.0, 1.0, 1.0, 1.0)
+
+[require]
+shader model >= 4.0
+
+% Use asfloat() here to prevent fxc/d3dcompiler from reducing isfinite() to true.
+[pixel-shader todo(sm<6)]
+uint4 v;
+
+float4 main() : sv_target
+{
+    return isfinite(asfloat(v)) + 1.0f;
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 0.0, -1.0, 2.0)
+todo(sm<6 | msl) draw quad
+probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
+write cbv-0 (0) u32(0x7f800000, 0xff800000, 0xffc00001, 0xff800001)
+todo(sm<6 | msl) draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+write cbv-0 (0) u32(0x7fc00001, 0x7f800001, 0x7fbfffff, 0xffbfffff)
+todo(sm<6 | msl) draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+write cbv-0 (0) u32(0x00000000, 0x80000000, 0x7f7fffff, 0xff7fffff)
+todo(sm<6 | msl) draw quad
+probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
+write cbv-0 (0) u32(0x00000001, 0x80000001, 0x007fffff, 0x807fffff)
+todo(sm<6 | msl) draw quad
+probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
+
+[pixel-shader todo(sm<6)]
+int4 i;
+
+float4 main() : sv_target
+{
+    return isfinite(i);
+}
+
+[test]
+write cbv-0 (0) u32(0x00000000, 0xffffffff, 0x7fffffff, 0x80000000)
+todo(sm<6 | msl) draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+
+[pixel-shader todo(sm<6)]
+bool4 b;
+
+float4 main() : sv_target
+{
+    return isfinite(b);
+}
+
+[test]
+write cbv-0 (0) u32(0x00000000, 0x00000001, 0xffffffff, 0x00000000)
+todo(sm<6 | msl) draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
