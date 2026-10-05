@@ -7641,7 +7641,8 @@ static bool track_components_usage(struct hlsl_ctx *ctx, struct hlsl_ir_node *in
             if (load->sampler.var)
                 register_deref_usage(ctx, &load->sampler);
 
-            if (hlsl_deref_get_regset(ctx, &load->resource) == HLSL_REGSET_UAVS)
+            if (load->load_type != HLSL_RESOURCE_RESINFO
+                    && hlsl_deref_get_regset(ctx, &load->resource) == HLSL_REGSET_UAVS)
             {
                 unsigned int index;
 
@@ -13675,6 +13676,13 @@ static bool sm4_generate_vsir_instr_resinfo(struct hlsl_ctx *ctx,
     const struct hlsl_ir_node *instr = &load->node;
     struct hlsl_type *type = instr->data_type;
     struct vsir_instruction *ins;
+
+    if (resource->data_type->class == HLSL_CLASS_UAV && hlsl_version_lt(ctx, 5, 0))
+    {
+        hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INCOMPATIBLE_PROFILE,
+                "UAV resinfo require shader model 5.0 or higher.");
+        return false;
+    }
 
     if (resource->data_type->sampler_dim == HLSL_SAMPLER_DIM_BUFFER
             || resource->data_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER)

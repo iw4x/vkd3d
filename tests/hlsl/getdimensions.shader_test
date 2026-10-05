@@ -93,7 +93,7 @@ float4 main() : sv_target
 todo(glsl | msl) draw quad
 probe (0, 0) f32(2.0, 3.0, 4.0, 0.0)
 
-[pixel-shader todo]
+[pixel-shader]
 RWTexture1D<float> u;
 
 float4 main() : sv_target
@@ -104,7 +104,7 @@ float4 main() : sv_target
     return ret;
 }
 
-[pixel-shader todo]
+[pixel-shader]
 RWTexture1DArray<float> u;
 
 float4 main() : sv_target
@@ -119,7 +119,7 @@ float4 main() : sv_target
 format r32-float
 size (2d, 2, 3)
 
-[pixel-shader todo]
+[pixel-shader]
 RWTexture2D<float> u : register(u1);
 
 float4 main() : sv_target
@@ -131,14 +131,14 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+todo(glsl | msl) draw quad
 probe (0, 0) f32(2, 3, 0, 0)
 
 [uav-1]
 format r32-float
 size (2darray, 2, 3, 4)
 
-[pixel-shader todo]
+[pixel-shader]
 RWTexture2DArray<float> u : register(u1);
 
 float4 main() : sv_target
@@ -150,14 +150,14 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+todo(glsl | msl) draw quad
 probe (0, 0) f32(2, 3, 4, 0)
 
 [uav-1]
 format r32-float
 size (3d, 2, 3, 4)
 
-[pixel-shader todo]
+[pixel-shader]
 RWTexture3D<float> u : register(u1);
 
 float4 main() : sv_target
@@ -169,7 +169,7 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+todo(glsl | msl) draw quad
 probe (0, 0) f32(2, 3, 4, 0)
 
 [pixel-shader fail]
