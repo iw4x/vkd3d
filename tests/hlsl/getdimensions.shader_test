@@ -93,6 +93,107 @@ float4 main() : sv_target
 todo(glsl | msl) draw quad
 probe (0, 0) f32(2.0, 3.0, 4.0, 0.0)
 
+[pixel-shader todo]
+RWTexture1D<float> u;
+
+float4 main() : sv_target
+{
+    float4 ret = 0;
+
+    u.GetDimensions(ret.x);
+    return ret;
+}
+
+[pixel-shader todo]
+RWTexture1DArray<float> u;
+
+float4 main() : sv_target
+{
+    float4 ret = 0;
+
+    u.GetDimensions(ret.x, ret.y);
+    return ret;
+}
+
+[uav-1]
+format r32-float
+size (2d, 2, 3)
+
+[pixel-shader todo]
+RWTexture2D<float> u : register(u1);
+
+float4 main() : sv_target
+{
+    float4 ret = 0;
+
+    u.GetDimensions(ret.x, ret.y);
+    return ret;
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(2, 3, 0, 0)
+
+[uav-1]
+format r32-float
+size (2darray, 2, 3, 4)
+
+[pixel-shader todo]
+RWTexture2DArray<float> u : register(u1);
+
+float4 main() : sv_target
+{
+    float4 ret = 0;
+
+    u.GetDimensions(ret.x, ret.y, ret.z);
+    return ret;
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(2, 3, 4, 0)
+
+[uav-1]
+format r32-float
+size (3d, 2, 3, 4)
+
+[pixel-shader todo]
+RWTexture3D<float> u : register(u1);
+
+float4 main() : sv_target
+{
+    float4 ret = 0;
+
+    u.GetDimensions(ret.x, ret.y, ret.z);
+    return ret;
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(2, 3, 4, 0)
+
+[pixel-shader fail]
+RWTexture2D<float> u;
+
+float4 main() : sv_target
+{
+    float4 ret = 0;
+
+    u.GetDimensions(0, ret.x, ret.y, ret.z);
+    return ret;
+}
+
+[pixel-shader fail]
+RWTexture2DArray<float> u;
+
+float4 main() : sv_target
+{
+    float4 ret = 0;
+
+    u.GetDimensions(ret.x, ret.y);
+    return ret;
+}
+
 [require]
 shader model >= 6.2
 native-16-bit
