@@ -16,11 +16,13 @@ cp -r /usr/include/vulkan /usr/include/vk_video /usr/include/spirv vulkan-header
         SONAME_LIBVULKAN="vulkan-1.dll" CPPFLAGS="-I$PWD/vulkan-headers -DVKD3D_ABORT_ON_ERR" \
         CFLAGS="-g -O2 -Wno-array-bounds -Werror" LDFLAGS="-static-libgcc" && \
     make -j$(nproc) && \
+    make -j$(nproc) check-programs && \
     make -j$(nproc) install DESTDIR="$PWD/destdir" || \
         touch ../pipeline_failed
 
 mkdir -p ../artifacts/$COMMIT
 cp config.log ../artifacts/$COMMIT || true
+cp tests/.libs/*.exe ../artifacts/$COMMIT || true
 cp destdir/usr/local/bin/* ../artifacts/$COMMIT || true
 
 git reset --hard

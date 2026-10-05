@@ -838,3 +838,5 @@ if BUILD_DOC
 all: doxygen-doc
 CLEANFILES += $(DX_CLEANFILES)
 endif
+
+check-programs: $(check_PROGRAMS)
