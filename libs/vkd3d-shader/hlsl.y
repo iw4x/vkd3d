@@ -118,7 +118,7 @@ enum parse_assign_op
 struct parse_attribute_list
 {
     unsigned int count;
-    const struct hlsl_attribute **attrs;
+    struct hlsl_attribute **attrs;
 };
 
 struct state_block_index
@@ -7684,7 +7684,7 @@ attribute_list:
         }
     | attribute_list attribute
         {
-            const struct hlsl_attribute **new_array;
+            struct hlsl_attribute **new_array;
 
             $$ = $1;
             if (!(new_array = vkd3d_realloc($$.attrs, ($$.count + 1) * sizeof(*$$.attrs))))

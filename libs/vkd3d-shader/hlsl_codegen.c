@@ -9312,32 +9312,94 @@ struct hlsl_reg hlsl_reg_from_deref(struct hlsl_ctx *ctx, const struct hlsl_dere
     return ret;
 }
 
-static bool get_integral_argument_value(struct hlsl_ctx *ctx, const struct hlsl_attribute *attr,
-        unsigned int i, int *value)
+/* Check that an attribute's arguments are all integral scalars.
+ * This validation needs to be done before evaluate_attribute_arguments()
+ * in order to reject int1/uint1 vector types. */
+static bool validate_integral_attribute_arguments(struct hlsl_ctx *ctx, const struct hlsl_attribute *attr)
 {
-    const struct hlsl_ir_node *instr = attr->args[i].node;
-    const struct hlsl_type *type = instr->data_type;
+    unsigned int i;
 
-    if (type->class != HLSL_CLASS_SCALAR
-            || (type->e.numeric.type != HLSL_TYPE_INT && type->e.numeric.type != HLSL_TYPE_UINT))
+    for (i = 0; i < attr->args_count; ++i)
     {
-        struct vkd3d_string_buffer *string;
+        const struct hlsl_ir_node *arg = attr->args[i].node;
+        const struct hlsl_type *type;
 
-        if ((string = hlsl_type_to_string(ctx, type)))
-            hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
-                    "Unexpected type for argument %u of [%s]: expected int or uint, but got %s.",
-                    i, attr->name, string->buffer);
-        hlsl_release_string_buffer(ctx, string);
+        if (!arg)
+            return false;
+
+        type = arg->data_type;
+        if (type->class != HLSL_CLASS_SCALAR
+                || (type->e.numeric.type != HLSL_TYPE_INT && type->e.numeric.type != HLSL_TYPE_UINT))
+        {
+            struct vkd3d_string_buffer *string;
+
+            if ((string = hlsl_type_to_string(ctx, type)))
+            {
+                hlsl_error(ctx, &arg->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                        "Unexpected type for argument %u of [%s]: expected int or uint, but got %s.",
+                        i, attr->name, string->buffer);
+                hlsl_release_string_buffer(ctx, string);
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool evaluate_attribute_arguments(struct hlsl_ctx *ctx, struct hlsl_attribute *attr)
+{
+    bool all_constant = true;
+    struct hlsl_block block;
+    unsigned int i;
+
+    for (i = 0; i < attr->args_count; ++i)
+    {
+        if (!attr->args[i].node)
+            return false;
+    }
+
+    if (hlsl_block_has_side_effects(&attr->instrs))
+    {
+        hlsl_error(ctx, &attr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
+                "Expressions with side effects in [%s] initializer.", attr->name);
         return false;
     }
 
-    if (instr->type != HLSL_IR_CONSTANT)
-    {
-        hlsl_fixme(ctx, &instr->loc, "Non-constant expression in [%s] initializer.", attr->name);
+    for (i = 0; i < attr->args_count && all_constant; ++i)
+        all_constant = attr->args[i].node->type == HLSL_IR_CONSTANT;
+
+    if (all_constant)
+        return true;
+
+    if (!hlsl_clone_block(ctx, &block, &ctx->static_initializers))
         return false;
+
+    hlsl_block_add_block(&block, &attr->instrs);
+    hlsl_block_init(&attr->instrs);
+
+    hlsl_lower_index_loads(ctx, &block);
+    hlsl_run_const_passes(ctx, &block);
+
+    for (i = 0; i < attr->args_count; ++i)
+    {
+        if (attr->args[i].node->type != HLSL_IR_CONSTANT)
+        {
+            hlsl_error(ctx, &attr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
+                    "Non-constant expression in [%s] initializer.", attr->name);
+
+            for (i = 0; i < attr->args_count; ++i)
+                hlsl_src_remove(&attr->args[i]);
+            hlsl_block_cleanup(&block);
+            return false;
+        }
     }
 
-    *value = hlsl_ir_constant(instr)->value.u[0].i;
+    for (i = 0; i < attr->args_count; ++i)
+    {
+        list_remove(&attr->args[i].node->entry);
+        hlsl_block_add_instr(&attr->instrs, attr->args[i].node);
+    }
+    hlsl_block_cleanup(&block);
     return true;
 }
 
@@ -9361,7 +9423,7 @@ static const char *get_string_argument_value(struct hlsl_ctx *ctx, const struct 
     return hlsl_ir_string_constant(instr)->string;
 }
 
-static void parse_numthreads_attribute(struct hlsl_ctx *ctx, const struct hlsl_attribute *attr)
+static void parse_numthreads_attribute(struct hlsl_ctx *ctx, struct hlsl_attribute *attr)
 {
     static const unsigned int limits[3] = {1024, 1024, 64};
     unsigned int i;
@@ -9375,15 +9437,16 @@ static void parse_numthreads_attribute(struct hlsl_ctx *ctx, const struct hlsl_a
         return;
     }
 
+    if (!validate_integral_attribute_arguments(ctx, attr) || !evaluate_attribute_arguments(ctx, attr))
+        return;
+
     for (i = 0; i < attr->args_count; ++i)
     {
-        int value;
-
-        if (!get_integral_argument_value(ctx, attr, i, &value))
-            return;
+        const struct hlsl_ir_node *arg = attr->args[i].node;
+        int value = hlsl_ir_constant(arg)->value.u[0].i;
 
         if (value < 1 || value > limits[i])
-            hlsl_error(ctx, &attr->args[i].node->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_THREAD_COUNT,
+            hlsl_error(ctx, &arg->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_THREAD_COUNT,
                     "Dimension %u of the thread count must be between 1 and %u.", i, limits[i]);
 
         ctx->thread_count[i] = value;
@@ -9420,7 +9483,7 @@ static void parse_domain_attribute(struct hlsl_ctx *ctx, const struct hlsl_attri
                 value);
 }
 
-static void parse_outputcontrolpoints_attribute(struct hlsl_ctx *ctx, const struct hlsl_attribute *attr)
+static void parse_outputcontrolpoints_attribute(struct hlsl_ctx *ctx, struct hlsl_attribute *attr)
 {
     int value;
 
@@ -9431,8 +9494,10 @@ static void parse_outputcontrolpoints_attribute(struct hlsl_ctx *ctx, const stru
         return;
     }
 
-    if (!get_integral_argument_value(ctx, attr, 0, &value))
+    if (!validate_integral_attribute_arguments(ctx, attr) || !evaluate_attribute_arguments(ctx, attr))
         return;
+
+    value = hlsl_ir_constant(attr->args[0].node)->value.u[0].i;
 
     if (value < 0 || value > 32)
         hlsl_error(ctx, &attr->args[0].node->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_CONTROL_POINT_COUNT,
@@ -9532,7 +9597,7 @@ static void parse_patchconstantfunc_attribute(struct hlsl_ctx *ctx, const struct
                 "Patch constant function \"%s\" is not defined.", name);
 }
 
-static void parse_maxvertexcount_attribute(struct hlsl_ctx *ctx, const struct hlsl_attribute *attr)
+static void parse_maxvertexcount_attribute(struct hlsl_ctx *ctx, struct hlsl_attribute *attr)
 {
     int value;
 
@@ -9543,8 +9608,10 @@ static void parse_maxvertexcount_attribute(struct hlsl_ctx *ctx, const struct hl
         return;
     }
 
-    if (!get_integral_argument_value(ctx, attr, 0, &value))
+    if (!validate_integral_attribute_arguments(ctx, attr) || !evaluate_attribute_arguments(ctx, attr))
         return;
+
+    value = hlsl_ir_constant(attr->args[0].node)->value.u[0].i;
 
     if (value < 1 || value > 1024)
         hlsl_error(ctx, &attr->args[0].node->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_MAX_VERTEX_COUNT,
@@ -9560,7 +9627,7 @@ static void parse_entry_function_attributes(struct hlsl_ctx *ctx, struct hlsl_ir
 
     for (i = 0; i < entry_func->attr_count; ++i)
     {
-        const struct hlsl_attribute *attr = entry_func->attrs[i];
+        struct hlsl_attribute *attr = entry_func->attrs[i];
 
         if (!strcmp(attr->name, "numthreads") && profile->type == VKD3D_SHADER_TYPE_COMPUTE)
             parse_numthreads_attribute(ctx, attr);

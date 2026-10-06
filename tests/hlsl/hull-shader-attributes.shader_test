@@ -483,7 +483,7 @@ float4 main() : POSITION
 
 % Expressions in outputcontrolpoints.
 
-[hull-shader todo]
+[hull-shader]
 static const int x = 3, y = 2;
 
 struct patch_constant_data
@@ -506,7 +506,7 @@ float4 main() : POSITION
     return 0;
 }
 
-[hull-shader fail(sm>=6) todo]
+[hull-shader fail(sm>=6)]
 static int x = 3, y = 2;
 
 struct patch_constant_data
@@ -529,7 +529,7 @@ float4 main() : POSITION
     return 0;
 }
 
-[hull-shader fail todo]
+[hull-shader fail]
 uniform int x, y;
 
 struct patch_constant_data
@@ -552,7 +552,7 @@ float4 main() : POSITION
     return 0;
 }
 
-[hull-shader fail todo]
+[hull-shader fail]
 static int x = 3;
 
 struct patch_constant_data

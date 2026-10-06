@@ -428,7 +428,7 @@ void cs2()
 ComputeShader c = CompileShader( cs_5_0, cs() );
 ComputeShader c2 = CompileShader( cs_5_0, cs2() );
 
-[effect todo]
+[effect]
 static const int x = 1, y = x + 1;
 
     [numthreads(y, y, x)]

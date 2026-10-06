@@ -38,32 +38,32 @@ void main() {}
     [numthreads(1, 1, 0)]
 void main() {}
 
-[compute shader fail todo]
+[compute shader fail]
 
     [numthreads(-1, 1, 1)]
 void main() {}
 
-[compute shader fail todo]
+[compute shader fail]
 
     [numthreads(1, -1, 1)]
 void main() {}
 
-[compute shader fail todo]
+[compute shader fail]
 
     [numthreads(1, 1, -1)]
 void main() {}
 
-[compute shader fail todo]
+[compute shader fail]
 
     [numthreads(1, -1, -1)]
 void main() {}
 
-[compute shader todo]
+[compute shader]
 
     [numthreads(uint(1), 1, 1)]
 void main() {}
 
-[compute shader todo]
+[compute shader]
 
     [numthreads(int(1), 1, 1)]
 void main() {}
@@ -78,12 +78,12 @@ void main() {}
     [numthreads(uint1(1), 1, 1)]
 void main() {}
 
-[compute shader todo]
+[compute shader]
 
     [numthreads(int(1), 1, 1)]
 void main() {}
 
-[compute shader todo]
+[compute shader]
 
     [numthreads(1 + 1, 1, 1)]
 void main() {}
@@ -123,25 +123,25 @@ void main();
     [numthreads(1, 1, 1)]
 void main() {}
 
-[compute-shader todo]
+[compute-shader]
 static const int x = 3, y = 2;
 
     [numthreads(x * y, x + y, x - y)]
 void main() {}
 
-[compute-shader fail(sm>=6) todo]
+[compute-shader fail(sm>=6)]
 static int x = 3, y = 2;
 
     [numthreads(x * y, x + y, x - y)]
 void main() {}
 
-[compute-shader fail todo]
+[compute-shader fail]
 uniform int x, y;
 
     [numthreads(x * y, x + y, x - y)]
 void main() {}
 
-[compute shader fail todo]
+[compute shader fail]
 
 /* Expressions with side effects are forbidden in attributes (but not if the
  * attribute is ignored). */
@@ -151,14 +151,14 @@ static int x = 1;
     [numthreads(x++, 1, 1)]
 void main() {}
 
-[compute shader fail todo]
+[compute shader fail]
 
 static int x = 1;
 
     [numthreads(++x, 1, 1)]
 void main() {}
 
-[compute shader fail todo]
+[compute shader fail]
 
 static int x = 1;
 
@@ -250,7 +250,7 @@ size (2d, 7, 6)
 0.0 0.0 0.0 0.0 0.0 0.0 0.0
 0.0 0.0 0.0 0.0 0.0 0.0 0.0
 
-[compute-shader todo]
+[compute-shader]
 static const int x = 3, y = 2;
 RWTexture2D<float> u;
 
@@ -261,7 +261,7 @@ void main(uint3 id : SV_DispatchThreadID)
 }
 
 [test]
-todo(sm<6) dispatch 1 1 1
-todo(sm<6) probe uav-0 (5, 4) f32(2.0)
+dispatch 1 1 1
+probe uav-0 (5, 4) f32(2.0)
 probe uav-0 (6, 4) f32(0.0)
 probe uav-0 (5, 5) f32(0.0)

@@ -402,6 +402,8 @@ struct hlsl_attribute
     struct hlsl_block instrs;
     struct vkd3d_shader_location loc;
     unsigned int args_count;
+    /* Argument nodes in instrs. They are set to NULL if they cannot be
+     * reduced to constants after evaluation. */
     struct hlsl_src args[];
 };
 
@@ -657,7 +659,7 @@ struct hlsl_ir_function_decl
     /* Array of attributes (like numthreads) specified just before the function declaration.
      * Not to be confused with the function parameters! */
     unsigned int attr_count;
-    const struct hlsl_attribute *const *attrs;
+    struct hlsl_attribute *const *attrs;
 
     bool early_depth_test;
 
