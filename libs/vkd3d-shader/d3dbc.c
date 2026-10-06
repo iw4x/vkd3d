@@ -1485,7 +1485,7 @@ static void vsir_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, stru
             if (!(vsir->idx[0].rel_addr = vsir_program_get_src_operands(parser->program, 1)))
             {
                 vkd3d_shader_parser_error(&parser->p, VKD3D_SHADER_ERROR_D3DBC_OUT_OF_MEMORY, "Out of memory.");
-                parser->abort = true;
+                parser->p.status = VKD3D_ERROR_OUT_OF_MEMORY;
                 return;
             }
 
@@ -1536,9 +1536,13 @@ static struct vsir_instruction *d3dbc_append_instruction(struct vkd3d_shader_sm1
     struct vsir_instruction *ins;
 
     if (!(ins = vsir_program_append(parser->program)))
+    {
+        parser->p.status = VKD3D_ERROR_OUT_OF_MEMORY;
         return NULL;
+    }
     if (!vsir_instruction_init_with_params(parser->program, ins, &parser->p.location, opcode, dst_count, src_count))
     {
+        parser->p.status = VKD3D_ERROR_OUT_OF_MEMORY;
         vsir_instruction_init(ins, &parser->p.location, VSIR_OP_NOP);
         return NULL;
     }
