@@ -480,3 +480,97 @@ float4 main() : POSITION
 {
     return 0;
 }
+
+% Expressions in outputcontrolpoints.
+
+[hull-shader todo]
+static const int x = 3, y = 2;
+
+struct patch_constant_data
+{
+    float edges[2] : SV_TessFactor;
+};
+
+patch_constant_data patch_constant()
+{
+    return (patch_constant_data)0;
+}
+
+    [domain("isoline")]
+    [outputcontrolpoints(x * y)]
+    [partitioning("integer")]
+    [outputtopology("point")]
+    [patchconstantfunc("patch_constant")]
+float4 main() : POSITION
+{
+    return 0;
+}
+
+[hull-shader fail(sm>=6) todo]
+static int x = 3, y = 2;
+
+struct patch_constant_data
+{
+    float edges[2] : SV_TessFactor;
+};
+
+patch_constant_data patch_constant()
+{
+    return (patch_constant_data)0;
+}
+
+    [domain("isoline")]
+    [outputcontrolpoints(x * y)]
+    [partitioning("integer")]
+    [outputtopology("point")]
+    [patchconstantfunc("patch_constant")]
+float4 main() : POSITION
+{
+    return 0;
+}
+
+[hull-shader fail todo]
+uniform int x, y;
+
+struct patch_constant_data
+{
+    float edges[2] : SV_TessFactor;
+};
+
+patch_constant_data patch_constant()
+{
+    return (patch_constant_data)0;
+}
+
+    [domain("isoline")]
+    [outputcontrolpoints(x * y)]
+    [partitioning("integer")]
+    [outputtopology("point")]
+    [patchconstantfunc("patch_constant")]
+float4 main() : POSITION
+{
+    return 0;
+}
+
+[hull-shader fail todo]
+static int x = 3;
+
+struct patch_constant_data
+{
+    float edges[2] : SV_TessFactor;
+};
+
+patch_constant_data patch_constant()
+{
+    return (patch_constant_data)0;
+}
+
+    [domain("isoline")]
+    [outputcontrolpoints((x = 2))]
+    [partitioning("integer")]
+    [outputtopology("point")]
+    [patchconstantfunc("patch_constant")]
+float4 main() : POSITION
+{
+    return 0;
+}

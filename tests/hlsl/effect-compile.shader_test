@@ -428,6 +428,27 @@ void cs2()
 ComputeShader c = CompileShader( cs_5_0, cs() );
 ComputeShader c2 = CompileShader( cs_5_0, cs2() );
 
+[effect todo]
+static const int x = 1, y = x + 1;
+
+    [numthreads(y, y, x)]
+void cs()
+{
+}
+
+technique11 t0
+{
+    pass p0
+    {
+        SetComputeShader( CompileShader( cs_5_0, cs() ) );
+    }
+
+    pass p1
+    {
+        SetComputeShader( CompileShader( cs_5_0, cs() ) );
+    }
+}
+
 [effect]
 struct gs_data
 {

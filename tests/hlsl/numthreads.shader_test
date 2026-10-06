@@ -93,12 +93,6 @@ void main() {}
     [numthreads("1", 1, 1)]
 void main() {}
 
-[compute shader todo fail(sm>=6)]
-static int x = 1;
-
-    [numthreads(x, 1, 1)]
-void main() {}
-
 [compute shader fail]
 
 void main() {}
@@ -127,6 +121,24 @@ void main();
 void main();
 
     [numthreads(1, 1, 1)]
+void main() {}
+
+[compute-shader todo]
+static const int x = 3, y = 2;
+
+    [numthreads(x * y, x + y, x - y)]
+void main() {}
+
+[compute-shader fail(sm>=6) todo]
+static int x = 3, y = 2;
+
+    [numthreads(x * y, x + y, x - y)]
+void main() {}
+
+[compute-shader fail todo]
+uniform int x, y;
+
+    [numthreads(x * y, x + y, x - y)]
 void main() {}
 
 [compute shader fail todo]
@@ -226,3 +238,30 @@ if(sm<6) probe uav-0 (1, 0) f32(2.0)
 probe uav-0 (1, 1) f32(1.0)
 if(sm>=6) probe uav-0 (0, 1) f32(2.0)
 if(sm>=6) probe uav-0 (1, 0) f32(1.0)
+
+[uav-0]
+format r32-float
+size (2d, 7, 6)
+
+0.0 0.0 0.0 0.0 0.0 0.0 0.0
+0.0 0.0 0.0 0.0 0.0 0.0 0.0
+0.0 0.0 0.0 0.0 0.0 0.0 0.0
+0.0 0.0 0.0 0.0 0.0 0.0 0.0
+0.0 0.0 0.0 0.0 0.0 0.0 0.0
+0.0 0.0 0.0 0.0 0.0 0.0 0.0
+
+[compute-shader todo]
+static const int x = 3, y = 2;
+RWTexture2D<float> u;
+
+    [numthreads(x * y, x + y, x - y)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    u[id.xy] = 2.0;
+}
+
+[test]
+todo(sm<6) dispatch 1 1 1
+todo(sm<6) probe uav-0 (5, 4) f32(2.0)
+probe uav-0 (6, 4) f32(0.0)
+probe uav-0 (5, 5) f32(0.0)

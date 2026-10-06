@@ -732,3 +732,61 @@ void main(point gs_data vin[1], inout PointStream<gs_data> vout1, inout PointStr
     vout1.Append(vin[0]);
     vout2.Append((gs_data2)0);
 }
+
+% Expressions in maxvertexcount.
+
+[geometry-shader todo]
+static const int x = 3, y = 2;
+
+struct gs_data
+{
+    float4 pos : SV_POSITION;
+};
+
+    [maxvertexcount(x * y)]
+void main(point gs_data vin[1], inout PointStream<gs_data> vout)
+{
+    vout.Append(vin[0]);
+}
+
+[geometry-shader todo]
+static int x = 3, y = 2;
+
+struct gs_data
+{
+    float4 pos : SV_POSITION;
+};
+
+    [maxvertexcount(x * y)]
+void main(point gs_data vin[1], inout PointStream<gs_data> vout)
+{
+    vout.Append(vin[0]);
+}
+
+[geometry-shader fail todo]
+uniform int x, y;
+
+struct gs_data
+{
+    float4 pos : SV_POSITION;
+};
+
+    [maxvertexcount(x * y)]
+void main(point gs_data vin[1], inout PointStream<gs_data> vout)
+{
+    vout.Append(vin[0]);
+}
+
+[geometry-shader fail todo]
+static int x = 3;
+
+struct gs_data
+{
+    float4 pos : SV_POSITION;
+};
+
+    [maxvertexcount((x = 2))]
+void main(point gs_data vin[1], inout PointStream<gs_data> vout)
+{
+    vout.Append(vin[0]);
+}
