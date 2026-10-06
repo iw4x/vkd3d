@@ -16526,6 +16526,74 @@ static struct hlsl_ir_node *lower_find_msb(struct hlsl_ctx *ctx, struct hlsl_ir_
     return hlsl_block_add_simple_load(ctx, block, func->return_var, &node->loc);
 }
 
+static struct hlsl_ir_node *lower_isfinite(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, struct hlsl_block *block)
+{
+    struct hlsl_ir_function_decl *func;
+    struct hlsl_ir_node *call, *rhs;
+    unsigned int component_count;
+    struct hlsl_ir_expr *expr;
+    const char *template;
+    char *body;
+
+    static const char template_int[] =
+        "typedef bool%u boolX;\n"
+        "typedef float%u floatX;\n"
+        "boolX isfinite(floatX x)\n"
+        "{\n"
+        "    return true;\n"
+        "}";
+
+    static const char template_sm2[] =
+        "typedef bool%u boolX;\n"
+        "typedef float%u floatX;\n"
+        "boolX isfinite(floatX x)\n"
+        "{\n"
+        "    floatX v = x - x;\n"
+        "    v = v * v;\n"
+        "    return v <= 0;\n"
+        "}\n";
+
+    static const char template_sm4[] =
+        "typedef bool%u boolX;\n"
+        "typedef float%u floatX;\n"
+        "boolX isfinite(floatX x)\n"
+        "{\n"
+        "    return (asuint(x) & 0x7f800000) != 0x7f800000;\n"
+        "}\n";
+
+    if (node->type != HLSL_IR_EXPR)
+        return NULL;
+
+    expr = hlsl_ir_expr(node);
+    if (expr->op != HLSL_OP1_ISFINITE)
+        return NULL;
+
+    rhs = expr->operands[0].node;
+
+    if (hlsl_type_is_integer(rhs->data_type))
+        template = template_int;
+    else if (hlsl_version_lt(ctx, 4, 0))
+        template = template_sm2;
+    else
+        template = template_sm4;
+
+    component_count = hlsl_type_component_count(rhs->data_type);
+    if (!(body = hlsl_sprintf_alloc(ctx, template, component_count, component_count)))
+        return NULL;
+    func = hlsl_compile_internal_function(ctx, "isfinite", body);
+    vkd3d_free(body);
+    if (!func)
+        return NULL;
+
+    hlsl_block_add_simple_store(ctx, block, func->parameters.vars[0], rhs);
+
+    if (!(call = hlsl_new_call(ctx, func, &node->loc)))
+        return NULL;
+    hlsl_block_add_instr(block, call);
+
+    return hlsl_block_add_simple_load(ctx, block, func->return_var, &node->loc);
+}
+
 static struct hlsl_ir_node *lower_isinf(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, struct hlsl_block *block)
 {
     struct hlsl_ir_function_decl *func;
@@ -16650,6 +16718,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct vsir_program *pr
         replace_ir(ctx, lower_find_msb, body);
     }
 
+    replace_ir(ctx, lower_isfinite, body);
     replace_ir(ctx, lower_isinf, body);
 
     lower_return(ctx, entry_func, body, false);
