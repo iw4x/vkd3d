@@ -5208,50 +5208,54 @@ cpp_quote("#ifndef D3D12_IGNORE_SDK_LAYERS")
 cpp_quote("#include \"vkd3d_d3d12sdklayers.h\"")
 cpp_quote("#endif")
 
-typedef HRESULT (__stdcall *PFN_D3D12_CREATE_ROOT_SIGNATURE_DESERIALIZER)(
-        const void *data, SIZE_T data_size, REFIID iid, void **deserializer);
+cpp_quote("#ifndef VKD3D_D3D12_NO_PROTOTYPES")
 
 [local] HRESULT __stdcall D3D12CreateRootSignatureDeserializer(
-        const void *data, SIZE_T data_size, REFIID iid, void **deserializer);
-
-typedef HRESULT (__stdcall *PFN_D3D12_CREATE_VERSIONED_ROOT_SIGNATURE_DESERIALIZER)(
         const void *data, SIZE_T data_size, REFIID iid, void **deserializer);
 
 [local] HRESULT __stdcall D3D12CreateVersionedRootSignatureDeserializer(
         const void *data, SIZE_T data_size, REFIID iid, void **deserializer);
 
-typedef HRESULT (__stdcall *PFN_D3D12_SERIALIZE_ROOT_SIGNATURE)(
-        const D3D12_ROOT_SIGNATURE_DESC *root_signature_desc,
-        D3D_ROOT_SIGNATURE_VERSION version, ID3DBlob **blob, ID3DBlob **error_blob);
-
 [local] HRESULT __stdcall D3D12SerializeRootSignature(
         const D3D12_ROOT_SIGNATURE_DESC *root_signature_desc,
         D3D_ROOT_SIGNATURE_VERSION version, ID3DBlob **blob, ID3DBlob **error_blob);
-
-typedef HRESULT (__stdcall *PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE)(
-        const D3D12_VERSIONED_ROOT_SIGNATURE_DESC *desc, ID3DBlob **blob, ID3DBlob **error_blob);
 
 [local] HRESULT __stdcall D3D12SerializeVersionedRootSignature(
         const D3D12_VERSIONED_ROOT_SIGNATURE_DESC *root_signature_desc,
         ID3DBlob **blob, ID3DBlob **error_blob);
 
-typedef HRESULT (__stdcall *PFN_D3D12_CREATE_DEVICE)(IUnknown *adapter,
-        D3D_FEATURE_LEVEL minimum_feature_level, REFIID iid, void **device);
-
 [local] HRESULT __stdcall D3D12CreateDevice(IUnknown *adapter,
         D3D_FEATURE_LEVEL minimum_feature_level, REFIID iid, void **device);
-
-typedef HRESULT (__stdcall *PFN_D3D12_GET_DEBUG_INTERFACE)(REFIID iid, void **debug);
 
 [local] HRESULT __stdcall D3D12GetDebugInterface(REFIID iid, void **debug);
 
 [local] HRESULT __stdcall D3D12EnableExperimentalFeatures(UINT feature_count,
         const IID *iids, void *configurations, UINT *configurations_sizes);
 
+[local] HRESULT __stdcall D3D12GetInterface(REFCLSID clsid, REFIID iid, void **debug);
+
+cpp_quote("#endif /* VKD3D_D3D12_NO_PROTOTYPES */")
+
+typedef HRESULT (__stdcall *PFN_D3D12_CREATE_ROOT_SIGNATURE_DESERIALIZER)(
+        const void *data, SIZE_T data_size, REFIID iid, void **deserializer);
+
+typedef HRESULT (__stdcall *PFN_D3D12_CREATE_VERSIONED_ROOT_SIGNATURE_DESERIALIZER)(
+        const void *data, SIZE_T data_size, REFIID iid, void **deserializer);
+
+typedef HRESULT (__stdcall *PFN_D3D12_SERIALIZE_ROOT_SIGNATURE)(
+        const D3D12_ROOT_SIGNATURE_DESC *root_signature_desc,
+        D3D_ROOT_SIGNATURE_VERSION version, ID3DBlob **blob, ID3DBlob **error_blob);
+
+typedef HRESULT (__stdcall *PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE)(
+        const D3D12_VERSIONED_ROOT_SIGNATURE_DESC *desc, ID3DBlob **blob, ID3DBlob **error_blob);
+
+typedef HRESULT (__stdcall *PFN_D3D12_CREATE_DEVICE)(IUnknown *adapter,
+        D3D_FEATURE_LEVEL minimum_feature_level, REFIID iid, void **device);
+
+typedef HRESULT (__stdcall *PFN_D3D12_GET_DEBUG_INTERFACE)(REFIID iid, void **debug);
+
 cpp_quote("static const UUID D3D12ExperimentalShaderModels = { 0x76f5573e, 0xf13a, 0x40f5, { 0xb2, 0x97, 0x81, 0xce, 0x9e, 0x18, 0x93, 0x3f } };")
 cpp_quote("static const UUID D3D12TiledResourceTier4 = { 0xc9c4725f, 0xa81a, 0x4f56, { 0x8c, 0x5b, 0xc5, 0x10, 0x39, 0xd6, 0x94, 0xfb } };")
 cpp_quote("static const UUID D3D12MetaCommand = { 0xc734c97e, 0x8077, 0x48c8, { 0x9f, 0xdc, 0xd9, 0xd1, 0xdd, 0x31, 0xdd, 0x77 } };")
 
 typedef HRESULT (__stdcall *PFN_D3D12_GET_INTERFACE)(REFCLSID clsid, REFIID iid, void **debug);
-
-[local] HRESULT __stdcall D3D12GetInterface(REFCLSID clsid, REFIID iid, void **debug);

@@ -19,6 +19,7 @@
 #ifndef __VKD3D_UTILS_H
 #define __VKD3D_UTILS_H
 
+#define VKD3D_D3D12_NO_PROTOTYPES
 # include <vkd3d.h>
 #ifndef VKD3D_UTILS_NO_WIN32_TYPES
 #endif /* VKD3D_UTILS_NO_WIN32_TYPES */
