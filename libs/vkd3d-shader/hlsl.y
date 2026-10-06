@@ -544,46 +544,6 @@ static void check_loop_attributes(struct hlsl_ctx *ctx, const struct parse_attri
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX, "Unroll attribute can't be used with 'fastopt' attribute.");
 }
 
-static bool has_side_effects(const struct hlsl_block *block)
-{
-    struct hlsl_ir_node *node;
-    struct hlsl_ir_var *var;
-
-    LIST_FOR_EACH_ENTRY(node, &block->instrs, struct hlsl_ir_node, entry)
-    {
-        switch (node->type)
-        {
-            case HLSL_IR_COMPILE:
-            case HLSL_IR_CONSTANT:
-            case HLSL_IR_EXPR:
-            case HLSL_IR_SAMPLER_STATE:
-            case HLSL_IR_STRING_CONSTANT:
-            case HLSL_IR_SWIZZLE:
-            case HLSL_IR_INDEX:
-            case HLSL_IR_LOAD:
-                break;
-            case HLSL_IR_STORE:
-                var = hlsl_ir_store(node)->lhs.var;
-                if (var->is_synthetic)
-                    break;
-                return true;
-            case HLSL_IR_CALL:
-            case HLSL_IR_IF:
-            case HLSL_IR_INTERLOCKED:
-            case HLSL_IR_LOOP:
-            case HLSL_IR_JUMP:
-            case HLSL_IR_RESOURCE_LOAD:
-            case HLSL_IR_RESOURCE_STORE:
-            case HLSL_IR_SWITCH:
-            case HLSL_IR_STATEBLOCK_CONSTANT:
-            case HLSL_IR_SYNC:
-                return true;
-        }
-    }
-
-    return false;
-}
-
 static bool is_compile_time_const(const struct hlsl_block *block, bool default_values)
 {
     struct hlsl_ir_node *node;
@@ -723,7 +683,7 @@ static struct hlsl_block *create_loop(struct hlsl_ctx *ctx, enum hlsl_loop_type 
             {
                 struct hlsl_block expr;
 
-                if (has_side_effects(&attr->instrs))
+                if (hlsl_block_has_side_effects(&attr->instrs))
                 {
                     hlsl_error(ctx, &attr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
                             "Unroll limit expressions cannot have side effects.");
