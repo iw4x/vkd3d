@@ -4325,6 +4325,16 @@ static bool intrinsic_isinf(struct hlsl_ctx *ctx,
     return !!add_expr(ctx, params->instrs, HLSL_OP1_ISINF, args, bool_type, loc);
 }
 
+static bool intrinsic_isnan(struct hlsl_ctx *ctx,
+        const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
+{
+    struct hlsl_type *bool_type = hlsl_change_base_type(ctx, params->args[0]->data_type, HLSL_TYPE_BOOL);
+    struct hlsl_ir_node *args[HLSL_MAX_OPERANDS] = {0};
+
+    args[0] = params->args[0];
+    return !!add_expr(ctx, params->instrs, HLSL_OP1_ISNAN, args, bool_type, loc);
+}
+
 static bool intrinsic_ldexp(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
@@ -5713,6 +5723,7 @@ intrinsic_functions[] =
     {"fwidth",                              1, true,  intrinsic_fwidth},
     {"isfinite",                            1, true,  intrinsic_isfinite},
     {"isinf",                               1, true,  intrinsic_isinf},
+    {"isnan",                               1, true,  intrinsic_isnan},
     {"ldexp",                               2, true,  intrinsic_ldexp},
     {"length",                              1, true,  intrinsic_length},
     {"lerp",                                3, true,  intrinsic_lerp},

@@ -12816,6 +12816,12 @@ static bool sm4_generate_vsir_instr_expr(struct hlsl_ctx *ctx,
             generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_FRC, 0, 0, true);
             return true;
 
+        case HLSL_OP1_ISNAN:
+            VKD3D_ASSERT(dst_type->e.numeric.type == HLSL_TYPE_BOOL);
+            VKD3D_ASSERT(type_is_float(expr->operands[0].node->data_type));
+            generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_ISNAN, 0, 0, true);
+            return true;
+
         case HLSL_OP1_LOG2:
             VKD3D_ASSERT(type_is_float(dst_type));
             generate_vsir_instr_expr_single_instr_op(ctx, program, expr, VSIR_OP_LOG, 0, 0, true);
@@ -16701,6 +16707,34 @@ static struct hlsl_ir_node *lower_isinf(struct hlsl_ctx *ctx, struct hlsl_ir_nod
     return hlsl_block_add_simple_load(ctx, block, func->return_var, &node->loc);
 }
 
+static struct hlsl_ir_node *lower_isnan(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, struct hlsl_block *block)
+{
+    struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS] = {0};
+    struct hlsl_constant_value false_value = {0};
+    struct hlsl_type *float_type;
+    struct hlsl_ir_expr *expr;
+    struct hlsl_ir_node *arg;
+
+    if (node->type != HLSL_IR_EXPR)
+        return NULL;
+
+    expr = hlsl_ir_expr(node);
+    if (expr->op != HLSL_OP1_ISNAN)
+        return NULL;
+
+    arg = expr->operands[0].node;
+
+    if (hlsl_version_lt(ctx, 4, 0) || hlsl_type_is_integer(arg->data_type))
+        return hlsl_block_add_constant(ctx, block, node->data_type, &false_value, &node->loc);
+
+    if (type_is_float(arg->data_type))
+        return NULL;
+
+    float_type = hlsl_change_base_type(ctx, arg->data_type, HLSL_TYPE_FLOAT);
+    operands[0] = hlsl_block_add_cast(ctx, block, arg, float_type, &node->loc);
+    return hlsl_block_add_expr(ctx, block, HLSL_OP1_ISNAN, operands, node->data_type, &node->loc);
+}
+
 static void process_entry_function(struct hlsl_ctx *ctx, struct vsir_program *program,
         struct list *semantic_vars, struct hlsl_block *body,
         const struct hlsl_block *global_uniform_block, struct hlsl_ir_function_decl *entry_func)
@@ -16747,6 +16781,7 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct vsir_program *pr
 
     replace_ir(ctx, lower_isfinite, body);
     replace_ir(ctx, lower_isinf, body);
+    replace_ir(ctx, lower_isnan, body);
 
     lower_return(ctx, entry_func, body, false);
 

@@ -783,6 +783,7 @@ enum hlsl_ir_expr_op
     HLSL_OP1_FRACT,
     HLSL_OP1_ISFINITE,
     HLSL_OP1_ISINF,
+    HLSL_OP1_ISNAN,
     HLSL_OP1_LOG2,
     HLSL_OP1_LOGIC_NOT,
     HLSL_OP1_MIPS,
