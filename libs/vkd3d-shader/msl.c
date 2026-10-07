@@ -1622,6 +1622,10 @@ static void msl_handle_instruction(struct msl_generator *gen, const struct vsir_
             /* Negate to convert from MSL 0/1 bool to vsir 0/-1 bool. */
             msl_intrinsic(gen, ins, "-isinf");
             break;
+        case VSIR_OP_ISNAN:
+            /* Negate to convert from MSL 0/1 bool to vsir 0/-1 bool. */
+            msl_intrinsic(gen, ins, "-isnan");
+            break;
         case VSIR_OP_ITOF:
         case VSIR_OP_UTOF:
             msl_cast(gen, ins, "float");
