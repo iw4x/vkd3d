@@ -295,6 +295,9 @@ static bool run_tests_for_directory(const char *commit_dir)
     return ret;
 }
 
+/* Do not trigger -Wmissing-prototypes. */
+int wmain(int argc, WCHAR **wargv);
+
 int wmain(int argc, WCHAR **wargv)
 {
     char commit_num[16], commit_hash[16], commit_dir[16];

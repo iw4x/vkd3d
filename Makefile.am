@@ -596,6 +596,13 @@ tests_vkd3d_shader_api_CFLAGS = $(TEST_CFLAGS) @OPENGL_CFLAGS@
 tests_vkd3d_shader_api_LDADD = $(TEST_LDADD) libvkd3d-shader.la @OPENGL_LIBS@ @DL_LIBS@
 SHADER_TEST_LOG_COMPILER = tests/shader_runner$(EXEEXT)
 SHADER_TEST_LOG_DRIVER = $(srcdir)/tests/test-driver.sh
+if BUILD_DRIVER
+check_PROGRAMS += tests/driver
+tests_driver_CPPFLAGS = $(AM_CPPFLAGS) -D__USE_MINGW_ANSI_STDIO=0
+tests_driver_CFLAGS = $(AM_CFLAGS) -municode
+tests_driver_SOURCES = tests/driver.c
+tests_driver_LDADD =
+endif
 endif
 
 EXTRA_DIST += $(vkd3d_shader_tests)
