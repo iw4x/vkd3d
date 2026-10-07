@@ -505,7 +505,7 @@ float4 main() : sv_target1
 }
 
 % Object types
-[pixel shader fail]
+[pixel shader fail(sm<6)]
 RWTexture1D<Texture2D> u;
 
 float4 main() : sv_target1
@@ -513,7 +513,7 @@ float4 main() : sv_target1
     return 0;
 }
 
-[pixel shader fail]
+[pixel shader fail(sm<6)]
 RasterizerOrderedTexture1D<Texture2D> u;
 
 float4 main() : sv_target1
@@ -521,7 +521,7 @@ float4 main() : sv_target1
     return 0;
 }
 
-[pixel shader fail]
+[pixel shader fail(sm<6)]
 RWTexture1DArray<Texture2D> u;
 
 float4 main() : sv_target1
@@ -529,7 +529,7 @@ float4 main() : sv_target1
     return 0;
 }
 
-[pixel shader fail]
+[pixel shader fail(sm<6)]
 RasterizerOrderedTexture1DArray<Texture2D> u;
 
 float4 main() : sv_target1
@@ -537,7 +537,7 @@ float4 main() : sv_target1
     return 0;
 }
 
-[pixel shader fail]
+[pixel shader fail(sm<6)]
 RWTexture2D<Texture2D> u;
 
 float4 main() : sv_target1
@@ -545,7 +545,7 @@ float4 main() : sv_target1
     return 0;
 }
 
-[pixel shader fail]
+[pixel shader fail(sm<6)]
 RasterizerOrderedTexture2D<Texture2D> u;
 
 float4 main() : sv_target1
@@ -553,7 +553,7 @@ float4 main() : sv_target1
     return 0;
 }
 
-[pixel shader fail]
+[pixel shader fail(sm<6)]
 RWTexture2DArray<Texture2D> u;
 
 float4 main() : sv_target1
@@ -561,7 +561,7 @@ float4 main() : sv_target1
     return 0;
 }
 
-[pixel shader fail]
+[pixel shader fail(sm<6)]
 RasterizerOrderedTexture2DArray<Texture2D> u;
 
 float4 main() : sv_target1
@@ -569,7 +569,7 @@ float4 main() : sv_target1
     return 0;
 }
 
-[pixel shader fail]
+[pixel shader fail(sm<6)]
 RWTexture3D<Texture2D> u;
 
 float4 main() : sv_target1
@@ -577,7 +577,7 @@ float4 main() : sv_target1
     return 0;
 }
 
-[pixel shader fail]
+[pixel shader fail(sm<6)]
 RasterizerOrderedTexture3D<Texture2D> u;
 
 float4 main() : sv_target1

@@ -70,7 +70,7 @@ RUN export DEBIAN_FRONTEND=noninteractive; \
     rm -fr * && \
 
     apt-get clean && \
-    curl -L -s https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2502/linux_dxc_2025_02_20.x86_64.tar.gz | tar zx -C /usr/local ./lib/libdxcompiler.so ./lib/libdxil.so && \
+    curl -L -s https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2609/linux_dxc_2026_09_28.x86_x64.tar.gz | tar zx -C /usr/local ./lib/libdxcompiler.so ./lib/libdxil.so && \
     groupadd host-render -g 800 && \
     useradd -m gitlab -G host-render
 

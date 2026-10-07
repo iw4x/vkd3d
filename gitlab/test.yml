@@ -12,7 +12,7 @@
     - 'Expand-Archive -Path "warp.zip" -DestinationPath ".\warp"'
     - 'Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Microsoft.Direct3D.D3D12/1.619.5" -OutFile ".\agility.zip"'
     - 'Expand-Archive -Path "agility.zip" -DestinationPath ".\agility"'
-    - 'Invoke-WebRequest -Uri "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2502/dxc_2025_02_20.zip" -OutFile ".\dxc.zip"'
+    - 'Invoke-WebRequest -Uri "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2609/dxc_2026_09_29.zip" -OutFile ".\dxc.zip"'
     - 'Expand-Archive -Path "dxc.zip" -DestinationPath ".\dxc"'
     - git rebase $CI_MERGE_REQUEST_DIFF_BASE_SHA --exec './artifacts/driver.cross64.exe $(git cherry $CI_MERGE_REQUEST_DIFF_BASE_SHA HEAD^ | wc -l) $(git rev-parse --short HEAD)'
     - if (Test-Path "pipeline_failed") { exit 1 }

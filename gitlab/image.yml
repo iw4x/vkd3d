@@ -41,13 +41,13 @@ image-mac:
     - mkdir image/dxc
     - mkdir image/moltenvk
 
-    - git clone --recursive --branch v1.8.2502 https://github.com/microsoft/DirectXShaderCompiler.git
+    - git clone --recursive --branch v1.9.2609 https://github.com/microsoft/DirectXShaderCompiler.git
     - cd DirectXShaderCompiler
-    # Include a fix for CMake 4+.
-    - git cherry-pick 3035d316c35289b68e8fc9d8cf21d86a204fb0e2
     - mkdir build
     - cd build
-    - cmake .. -C ../cmake/caches/PredefinedParams.cmake -D CMAKE_BUILD_TYPE=Release
+    # HLSL_DISABLE_SOURCE_GENERATION is required because otherwise clang-format verification fails.
+    # See https://github.com/microsoft/DirectXShaderCompiler/issues/6728
+    - cmake .. -C ../cmake/caches/PredefinedParams.cmake -D CMAKE_BUILD_TYPE=Release -D HLSL_DISABLE_SOURCE_GENERATION=ON
     - make -j$(sysctl -n hw.ncpu)
     - cd ../..
     - cp DirectXShaderCompiler/build/lib/libdxcompiler.dylib DirectXShaderCompiler/build/lib/libdxil.dylib image/dxc
