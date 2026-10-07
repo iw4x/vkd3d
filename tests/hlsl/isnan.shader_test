@@ -9,7 +9,8 @@
 % unless the argument is a compile-time constant, but it does simplify
 % (x == x) and (x != x) to true/false.
 
-% In shader model <6 uniform loads are assumed to never be NaN.
+% In shader model <6 uniform loads are assumed to never be NaN, unless precise
+% is used in shader model 4+.
 [pixel-shader todo]
 float4 a;
 
@@ -23,6 +24,23 @@ write cbv-0 (0) f32(inf, nan, 1.0, 0.0)
 todo(sm<6) draw quad
 if(sm<6) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 if(sm>=6) probe (0, 0) f32(0.0, 10.0, 0.0, 0.0)
+
+[pixel-shader todo(sm<6)]
+float4 a;
+
+float4 main() : sv_target
+{
+    // isnan() is not simplified for SM>=4, and (a != a) is not simplified for any SM.
+    precise float4 ret = 10 * isnan(a) + (a != a);
+    return ret;
+}
+
+[test]
+write cbv-0 (0) f32(inf, nan, 1.0, 0.0)
+todo(sm<6 | msl) draw quad
+% inf != inf for SM < 4.
+if(sm<4) probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
+if(sm>=4) probe (0, 0) f32(0.0, 11.0, 0.0, 0.0)
 
 [pixel-shader todo]
 float4 a, b;
