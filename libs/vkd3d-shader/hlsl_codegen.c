@@ -1530,6 +1530,12 @@ static struct hlsl_ir_node *lower_index_load(struct hlsl_ctx *ctx, struct hlsl_i
 
     val = index->val.node;
 
+    if (hlsl_index_is_mips_slice(index))
+    {
+        hlsl_fixme(ctx, &instr->loc, "Texture .mips[][] operator.");
+        return NULL;
+    }
+
     if (hlsl_index_is_resource_access(index))
     {
         unsigned int dim_count = hlsl_sampler_dim_count(val->data_type->sampler_dim);
@@ -3487,6 +3493,7 @@ static bool copy_propagation_transform_load(struct hlsl_ctx *ctx,
              * solve that problem for us, since we may be called on a partial
              * block, but DCE deletes dead stores, so it needs to be able to
              * see the whole program. */
+        case HLSL_CLASS_MIPS:
         case HLSL_CLASS_ERROR:
             return false;
 
@@ -11917,6 +11924,7 @@ D3DXPARAMETER_CLASS hlsl_sm1_class(const struct hlsl_type *type)
         case HLSL_CLASS_GEOMETRY_SHADER:
         case HLSL_CLASS_BLEND_STATE:
         case HLSL_CLASS_STREAM_OUTPUT:
+        case HLSL_CLASS_MIPS:
         case HLSL_CLASS_NULL:
             break;
     }
@@ -12033,6 +12041,7 @@ D3DXPARAMETER_TYPE hlsl_sm1_base_type(const struct hlsl_type *type,
         case HLSL_CLASS_GEOMETRY_SHADER:
         case HLSL_CLASS_BLEND_STATE:
         case HLSL_CLASS_STREAM_OUTPUT:
+        case HLSL_CLASS_MIPS:
         case HLSL_CLASS_NULL:
             break;
     }
@@ -15181,6 +15190,7 @@ static D3D_SHADER_VARIABLE_CLASS sm4_class(const struct hlsl_type *type)
         case HLSL_CLASS_GEOMETRY_SHADER:
         case HLSL_CLASS_BLEND_STATE:
         case HLSL_CLASS_STREAM_OUTPUT:
+        case HLSL_CLASS_MIPS:
         case HLSL_CLASS_NULL:
             break;
     }

@@ -349,6 +349,7 @@ bool hlsl_type_is_shader(const struct hlsl_type *type)
         case HLSL_CLASS_CONSTANT_BUFFER:
         case HLSL_CLASS_BLEND_STATE:
         case HLSL_CLASS_STREAM_OUTPUT:
+        case HLSL_CLASS_MIPS:
         case HLSL_CLASS_VOID:
         case HLSL_CLASS_NULL:
             return false;
@@ -608,6 +609,7 @@ static void hlsl_type_calculate_reg_size(struct hlsl_ctx *ctx, struct hlsl_type 
         case HLSL_CLASS_HULL_SHADER:
         case HLSL_CLASS_GEOMETRY_SHADER:
         case HLSL_CLASS_BLEND_STATE:
+        case HLSL_CLASS_MIPS:
         case HLSL_CLASS_NULL:
             break;
     }
@@ -690,6 +692,7 @@ static bool type_is_single_component(const struct hlsl_type *type)
         case HLSL_CLASS_GEOMETRY_SHADER:
         case HLSL_CLASS_BLEND_STATE:
         case HLSL_CLASS_STREAM_OUTPUT:
+        case HLSL_CLASS_MIPS:
         case HLSL_CLASS_NULL:
             return true;
 
@@ -860,6 +863,7 @@ unsigned int hlsl_type_get_component_offset(struct hlsl_ctx *ctx, struct hlsl_ty
             case HLSL_CLASS_VOID:
             case HLSL_CLASS_SCALAR:
             case HLSL_CLASS_CONSTANT_BUFFER:
+            case HLSL_CLASS_MIPS:
             case HLSL_CLASS_NULL:
                 vkd3d_unreachable();
         }
@@ -1092,6 +1096,26 @@ struct hlsl_type *hlsl_new_array_type(struct hlsl_ctx *ctx, struct hlsl_type *ba
     return type;
 }
 
+struct hlsl_type *hlsl_new_mips_type(struct hlsl_ctx *ctx, struct hlsl_type *resource_type,
+        enum hlsl_mips_type mips_type)
+{
+    struct hlsl_type *type;
+
+    if (!(type = hlsl_alloc(ctx, sizeof(*type))))
+        return NULL;
+
+    type->class = HLSL_CLASS_MIPS;
+    type->modifiers = HLSL_MODIFIER_CONST;
+    type->e.mips.type = resource_type;
+    type->e.mips.mips_type = mips_type;
+    type->sampler_dim = resource_type->sampler_dim;
+
+    list_add_tail(&ctx->types, &type->entry);
+    type->type_id = ctx->type_count++;
+
+    return type;
+}
+
 struct hlsl_type *hlsl_new_stream_output_type(struct hlsl_ctx *ctx,
         enum hlsl_so_object_type so_type, struct hlsl_type *data_type)
 {
@@ -1293,6 +1317,7 @@ unsigned int hlsl_type_component_count(const struct hlsl_type *type)
         case HLSL_CLASS_GEOMETRY_SHADER:
         case HLSL_CLASS_BLEND_STATE:
         case HLSL_CLASS_STREAM_OUTPUT:
+        case HLSL_CLASS_MIPS:
         case HLSL_CLASS_NULL:
             return 1;
 
@@ -1376,6 +1401,10 @@ bool hlsl_types_are_equal(const struct hlsl_type *t1, const struct hlsl_type *t2
             if (t1->e.so.so_type != t2->e.so.so_type)
                 return false;
             return hlsl_types_are_equal(t1->e.so.type, t2->e.so.type);
+
+        case HLSL_CLASS_MIPS:
+            return t1->e.mips.mips_type == t2->e.mips.mips_type
+                    && hlsl_types_are_equal(t1->e.mips.type, t2->e.mips.type);
 
         case HLSL_CLASS_DEPTH_STENCIL_STATE:
         case HLSL_CLASS_DEPTH_STENCIL_VIEW:
@@ -1491,6 +1520,10 @@ struct hlsl_type *hlsl_type_clone(struct hlsl_ctx *ctx, struct hlsl_type *old,
 
         case HLSL_CLASS_STREAM_OUTPUT:
             type->e.so.so_type = old->e.so.so_type;
+            break;
+
+        case HLSL_CLASS_MIPS:
+            type->e.mips = old->e.mips;
             break;
 
         default:
@@ -2575,6 +2608,13 @@ bool hlsl_index_is_noncontiguous(struct hlsl_ir_index *index)
     return type->class == HLSL_CLASS_MATRIX && !hlsl_type_is_row_major(type);
 }
 
+bool hlsl_index_is_mips_slice(struct hlsl_ir_index *index)
+{
+    const struct hlsl_type *type = index->node.data_type;
+
+    return type->class == HLSL_CLASS_MIPS && type->e.mips.mips_type == HLSL_MIPS_SLICE;
+}
+
 bool hlsl_index_is_resource_access(struct hlsl_ir_index *index)
 {
     const struct hlsl_type *type = index->val.node->data_type;
@@ -2610,15 +2650,30 @@ static struct hlsl_ir_node *hlsl_new_index(struct hlsl_ctx *ctx, struct hlsl_ir_
     struct hlsl_type *type = val->data_type;
     struct hlsl_ir_index *index;
 
+    switch (type->class)
+    {
+        case HLSL_CLASS_TEXTURE:
+        case HLSL_CLASS_UAV:
+            type = type->e.resource.format;
+            break;
+
+        case HLSL_CLASS_MATRIX:
+            type = hlsl_get_vector_type(ctx, type->e.numeric.type, type->e.numeric.dimx);
+            break;
+
+        case HLSL_CLASS_MIPS:
+            VKD3D_ASSERT(type->e.mips.mips_type == HLSL_MIPS_PROPERTY);
+            if (!(type = hlsl_new_mips_type(ctx, type->e.mips.type, HLSL_MIPS_SLICE)))
+                return NULL;
+            break;
+
+        default:
+            type = hlsl_get_element_type_from_path_index(ctx, type, idx);
+            break;
+    }
+
     if (!(index = hlsl_alloc(ctx, sizeof(*index))))
         return NULL;
-
-    if (type->class == HLSL_CLASS_TEXTURE || type->class == HLSL_CLASS_UAV)
-        type = type->e.resource.format;
-    else if (type->class == HLSL_CLASS_MATRIX)
-        type = hlsl_get_vector_type(ctx, type->e.numeric.type, type->e.numeric.dimx);
-    else
-        type = hlsl_get_element_type_from_path_index(ctx, type, idx);
 
     init_node(&index->node, HLSL_IR_INDEX, type, loc);
     hlsl_src_from_node(&index->val, val);
@@ -3534,6 +3589,14 @@ static void hlsl_dump_type(struct vkd3d_string_buffer *buffer, const struct hlsl
             vkd3d_string_buffer_printf(buffer, ">");
             return;
 
+        case HLSL_CLASS_MIPS:
+            hlsl_dump_type(buffer, type->e.mips.type);
+            if (type->e.mips.mips_type == HLSL_MIPS_PROPERTY)
+                vkd3d_string_buffer_printf(buffer, "::mips_type");
+            else
+                vkd3d_string_buffer_printf(buffer, "::mips_slice_type");
+            return;
+
         case HLSL_CLASS_DEPTH_STENCIL_STATE:
         case HLSL_CLASS_DEPTH_STENCIL_VIEW:
         case HLSL_CLASS_EFFECT_GROUP:
@@ -3904,6 +3967,7 @@ const char *debug_hlsl_expr_op(enum hlsl_ir_expr_op op)
         [HLSL_OP1_ISINF]        = "isinf",
         [HLSL_OP1_LOG2]         = "log2",
         [HLSL_OP1_LOGIC_NOT]    = "!",
+        [HLSL_OP1_MIPS]         = "mips",
         [HLSL_OP1_NEG]          = "-",
         [HLSL_OP1_NOISE]        = "noise",
         [HLSL_OP1_RCP]          = "rcp",

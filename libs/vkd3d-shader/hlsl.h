@@ -90,6 +90,7 @@ enum hlsl_type_class
     HLSL_CLASS_CONSTANT_BUFFER,
     HLSL_CLASS_BLEND_STATE,
     HLSL_CLASS_STREAM_OUTPUT,
+    HLSL_CLASS_MIPS,
     HLSL_CLASS_VOID,
     HLSL_CLASS_NULL,
     HLSL_CLASS_ERROR,
@@ -151,6 +152,12 @@ enum hlsl_array_type
     HLSL_ARRAY_GENERIC,
     HLSL_ARRAY_PATCH_INPUT,
     HLSL_ARRAY_PATCH_OUTPUT,
+};
+
+enum hlsl_mips_type
+{
+    HLSL_MIPS_PROPERTY,
+    HLSL_MIPS_SLICE,
 };
 
 /* An HLSL source-level data type, including anonymous structs and typedefs. */
@@ -222,6 +229,12 @@ struct hlsl_type
             struct hlsl_type *type;
             enum hlsl_so_object_type so_type;
         } so;
+        /* Additional information if type is HLSL_CLASS_MIPS. */
+        struct
+        {
+            struct hlsl_type *type;
+            enum hlsl_mips_type mips_type;
+        } mips;
     } e;
 
     /* Number of numeric register components used by one value of this type, for each regset.
@@ -772,6 +785,7 @@ enum hlsl_ir_expr_op
     HLSL_OP1_ISINF,
     HLSL_OP1_LOG2,
     HLSL_OP1_LOGIC_NOT,
+    HLSL_OP1_MIPS,
     HLSL_OP1_NOISE,
     HLSL_OP1_NEG,
     HLSL_OP1_RCP,
@@ -1744,6 +1758,8 @@ struct hlsl_ir_function_decl *hlsl_new_func_decl(struct hlsl_ctx *ctx, uint32_t 
 struct hlsl_ir_node *hlsl_new_if(struct hlsl_ctx *ctx, struct hlsl_ir_node *condition, struct hlsl_block *then_block,
         struct hlsl_block *else_block, enum hlsl_if_flatten_type flatten_type, bool is_loop_condition,
         const struct vkd3d_shader_location *loc);
+struct hlsl_type *hlsl_new_mips_type(struct hlsl_ctx *ctx, struct hlsl_type *resource_type,
+        enum hlsl_mips_type mips_type);
 struct hlsl_type *hlsl_new_stream_output_type(struct hlsl_ctx *ctx,
         enum hlsl_so_object_type so_type, struct hlsl_type *type);
 struct hlsl_ir_node *hlsl_new_ternary_expr(struct hlsl_ctx *ctx, enum hlsl_ir_expr_op op,
@@ -1758,6 +1774,7 @@ struct hlsl_ir_node *hlsl_add_load_component(struct hlsl_ctx *ctx, struct hlsl_b
         struct hlsl_ir_node *var_instr, unsigned int comp, const struct vkd3d_shader_location *loc);
 
 bool hlsl_index_is_noncontiguous(struct hlsl_ir_index *index);
+bool hlsl_index_is_mips_slice(struct hlsl_ir_index *index);
 bool hlsl_index_is_resource_access(struct hlsl_ir_index *index);
 struct hlsl_ir_index *hlsl_index_chain_find_resource_access(struct hlsl_ir_index *index);
 bool hlsl_index_chain_has_tgsm_access(struct hlsl_ir_index *index);

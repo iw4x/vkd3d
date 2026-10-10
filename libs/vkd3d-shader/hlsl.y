@@ -937,6 +937,13 @@ static bool add_array_access(struct hlsl_ctx *ctx, struct hlsl_block *block, str
         return true;
     }
 
+    if (expr_type->class == HLSL_CLASS_MIPS && expr_type->e.mips.mips_type == HLSL_MIPS_SLICE)
+    {
+        hlsl_fixme(ctx, loc, "Texture .mips[][] operator.");
+        block->value = ctx->error_instr;
+        return true;
+    }
+
     if ((expr_type->class == HLSL_CLASS_TEXTURE || expr_type->class == HLSL_CLASS_UAV)
             && expr_type->sampler_dim != HLSL_SAMPLER_DIM_GENERIC)
     {
@@ -967,7 +974,8 @@ static bool add_array_access(struct hlsl_ctx *ctx, struct hlsl_block *block, str
 
     index = hlsl_block_add_cast(ctx, block, index, hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT), &index->loc);
 
-    if (expr_type->class != HLSL_CLASS_ARRAY && expr_type->class != HLSL_CLASS_VECTOR && expr_type->class != HLSL_CLASS_MATRIX)
+    if (expr_type->class != HLSL_CLASS_ARRAY && expr_type->class != HLSL_CLASS_VECTOR
+            && expr_type->class != HLSL_CLASS_MATRIX && expr_type->class != HLSL_CLASS_MIPS)
     {
         if (expr_type->class == HLSL_CLASS_SCALAR)
             hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_INDEX, "Scalar expressions cannot be array-indexed.");
@@ -6864,6 +6872,38 @@ static bool add_object_property_access(struct hlsl_ctx *ctx,
         load_params.format = hlsl_get_vector_type(ctx, HLSL_TYPE_UINT, sampler_dim);
         hlsl_block_add_resource_load(ctx, block, &load_params, loc);
 
+        return true;
+    }
+
+    if (!strcmp(name, "mips") && object_type->class == HLSL_CLASS_TEXTURE)
+    {
+        struct hlsl_ir_node *operands[HLSL_MAX_OPERANDS] = {object};
+        struct hlsl_type *type;
+
+        switch (object_type->sampler_dim)
+        {
+            case HLSL_SAMPLER_DIM_1D:
+            case HLSL_SAMPLER_DIM_1DARRAY:
+            case HLSL_SAMPLER_DIM_2D:
+            case HLSL_SAMPLER_DIM_2DARRAY:
+            case HLSL_SAMPLER_DIM_3D:
+                break;
+
+            default:
+                return false;
+        }
+
+        if (hlsl_version_lt(ctx, 4, 0))
+        {
+            hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INCOMPATIBLE_PROFILE,
+                    "'mips' property can only be used on profiles 4.0 or higher.");
+            block->value = ctx->error_instr;
+            return true;
+        }
+
+        if (!(type = hlsl_new_mips_type(ctx, object->data_type, HLSL_MIPS_PROPERTY)))
+            return false;
+        hlsl_block_add_expr(ctx, block, HLSL_OP1_MIPS, operands, type, loc);
         return true;
     }
 

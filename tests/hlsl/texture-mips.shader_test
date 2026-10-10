@@ -111,7 +111,7 @@ float4 main() : sv_target
     return t.mips[int2(0, 0)][uint2(0, 0)];
 }
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 Texture2D t;
 
 float4 main() : sv_target
@@ -138,7 +138,7 @@ float4 main() : sv_target
     return float4(a.mips[3][11], b.mips[3][int2(11, 22)], 0, 0);
 }
 
-[pixel-shader fail(sm<6)]
+[pixel-shader fail(sm<6) todo(sm<6)]
 Texture1D t;
 
 float4 main() : sv_target
@@ -233,7 +233,7 @@ shader model >= 4.0
 % DXC segfaults when compiling an unused mip slice.
 shader model < 6.0
 
-[pixel-shader fail]
+[pixel-shader fail todo(sm<6)]
 Texture2DArray<int2> t : register(t0);
 
 float4 main() : sv_target
