@@ -1,0 +1,255 @@
+[require]
+shader model >= 4.0
+
+[srv-0]
+size (2d, 2, 2)
+levels 2
+
+1.0 0.0 1.0 0.0     0.0 1.0 0.0 0.0
+0.0 0.0 0.0 1.0     1.0 1.0 0.0 0.0
+
+0.0 0.0 1.0 0.0
+
+[pixel-shader todo(sm<6)]
+Texture2D t;
+uniform uint level;
+
+float4 main() : sv_target
+{
+    return t.mips[level][uint2(0, 0)];
+}
+
+[test]
+write cbv-0 (0) u32(0)
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 0.0, 1.0, 0.0)
+write cbv-0 (0) u32(1)
+todo(sm<6) draw quad
+probe (0, 0) f32(0.0, 0.0, 1.0, 0.0)
+
+[pixel-shader todo(sm<6)]
+Texture2D t;
+uniform uint level;
+
+float4 main() : sv_target
+{
+    return ((t.mips)[level])[uint2(0, 0)];
+}
+
+[test]
+write cbv-0 (0) u32(1)
+todo(sm<6) draw quad
+probe (0, 0) f32(0.0, 0.0, 1.0, 0.0)
+
+[pixel-shader todo(sm<6)]
+Texture2D t;
+static float4 x = t.mips[1][uint2(0, 0)];
+
+float4 main() : sv_target
+{
+    return x;
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(0.0, 0.0, 1.0, 0.0)
+
+[pixel-shader todo(sm<6)]
+Texture2D t;
+
+Texture2D f()
+{
+    return t;
+}
+
+float4 main() : sv_target
+{
+    return f().mips[1][uint2(0, 0)];
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(0.0, 0.0, 1.0, 0.0)
+
+% Fractional mip and coordinate arguments truncate like array indices.
+[pixel-shader todo(sm<6)]
+Texture2D t;
+uniform float level;
+uniform float2 pos;
+
+float4 main() : sv_target
+{
+    return t.mips[level][pos];
+}
+
+[test]
+write cbv-0 (0) f32(0.5, 0.5, 0.5, 0.0)
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 0.0, 1.0, 0.0)
+write cbv-0 (0) f32(0.75, 0.0, 0.0, 0.0)
+todo(sm<6) draw quad
+probe (0, 0) f32(1.0, 0.0, 1.0, 0.0)
+write cbv-0 (0) f32(0.0, 0.75, 1.25, 0.0)
+todo(sm<6) draw quad
+probe (0, 0) f32(0.0, 0.0, 0.0, 1.0)
+write cbv-0 (0) f32(0.0, 1.25, 0.75, 0.0)
+todo(sm<6) draw quad
+probe (0, 0) f32(0.0, 1.0, 0.0, 0.0)
+write cbv-0 (0) f32(1.5, 0.5, 0.5, 0.0)
+todo(sm<6) draw quad
+probe (0, 0) f32(0.0, 0.0, 1.0, 0.0)
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(0.0, 0.0, 1.0, 0.0)
+
+[pixel-shader fail]
+Texture2D t;
+
+float4 main() : sv_target
+{
+    return t.mips[int2(0, 0)][uint2(0, 0)];
+}
+
+[pixel-shader fail]
+Texture2D t;
+
+float4 main() : sv_target
+{
+    t.mips[0][uint2(0, 0)] = 1;
+    return 0;
+}
+
+% SM6 accepts single-component vectors for the mip argument.
+[pixel-shader fail(sm<6)]
+Texture2D t;
+
+float4 main() : sv_target
+{
+    return t.mips[int1(1)][int2(0, 0)];
+}
+
+[pixel-shader todo(sm<6)]
+Texture1D<float> a;
+Texture1DArray<float> b;
+
+float4 main() : sv_target
+{
+    return float4(a.mips[3][11], b.mips[3][int2(11, 22)], 0, 0);
+}
+
+[pixel-shader fail(sm<6)]
+Texture1D t;
+
+float4 main() : sv_target
+{
+    return t.mips[0][int1(0)];
+}
+
+[pixel-shader fail]
+TextureCube t;
+
+float4 main() : sv_target
+{
+    return t.mips[0][uint3(0, 0, 0)];
+}
+
+[srv-0]
+format r32g32-sint
+size (2darray, 2, 2, 2)
+levels 2
+
+10 11    12 13
+14 15    16 17
+20 21    22 23
+24 25    26 27
+
+30 31
+40 41
+
+[srv-1]
+format r32-uint
+size (3d, 2, 2, 4)
+levels 2
+
+60 61    62 63
+64 65    66 67
+70 71    72 73
+74 75    76 77
+
+80 81
+
+[pixel-shader todo(sm<6)]
+Texture2DArray<int2> a : register(t0);
+Texture3D<uint> b : register(t1);
+uniform uint level;
+uniform uint3 pos;
+
+float4 main() : sv_target
+{
+    return float4(a.mips[level][pos], b.mips[level][pos], 0);
+}
+
+[test]
+write cbv-0 (0) u32(0, 0, 0, 1)
+todo(sm<6 | vulkan & mvk<1.4.0) draw quad
+probe (0, 0) f32(20.0, 21.0, 64.0, 0.0)
+write cbv-0 (0) u32(1, 0, 0, 1)
+todo(sm<6 | vulkan & mvk<1.4.0) draw quad
+probe (0, 0) f32(40.0, 41.0, 81.0, 0.0)
+write cbv-0 (0) u32(1, 0, 0, 0)
+todo(sm<6 | vulkan & mvk<1.4.0) draw quad
+probe (0, 0) f32(30.0, 31.0, 80.0, 0.0)
+
+% Unused mips property.
+[pixel-shader todo(sm<6)]
+Texture2DArray<int2> t : register(t0);
+
+float4 main() : sv_target
+{
+    t.mips;
+    return float4(t.mips[1][uint3(0, 0, 0)], 0, 0);
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(30.0, 31.0, 0.0, 0.0)
+
+[pixel-shader todo(sm<6)]
+Texture2DArray<int2> t : register(t0);
+
+float4 main() : sv_target
+{
+    t.mips[0][uint3(0, 0, 1)];
+    return float4(t.mips[1][uint3(0, 0, 0)], 0, 0);
+}
+
+[test]
+todo(sm<6) draw quad
+probe (0, 0) f32(30.0, 31.0, 0.0, 0.0)
+
+[require]
+shader model >= 4.0
+% DXC segfaults when compiling an unused mip slice.
+shader model < 6.0
+
+[pixel-shader fail]
+Texture2DArray<int2> t : register(t0);
+
+float4 main() : sv_target
+{
+    t.mips[0];
+    return float4(t.mips[1][uint3(0, 0, 0)], 0, 0);
+}
+
+% UAVs don't support the mips operator.
+[require]
+shader model >= 5.0
+
+[pixel-shader fail]
+RWTexture2D<float4> t;
+
+float4 main() : sv_target
+{
+    return t.mips[0][uint2(0, 0)];
+}
