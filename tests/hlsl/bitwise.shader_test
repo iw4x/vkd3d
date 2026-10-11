@@ -452,3 +452,32 @@ probe (0, 0) u32(0, 63, 0, 0xffffffff)
 uniform 0 uint64_t2 0xcccccccccccccccc 0xcccccccccccccccc
 todo draw quad
 probe (0, 0) u32(2, 63, 2, 61)
+
+[pixel-shader fail]
+float4 main() : sv_target
+{
+    uint a[2] = {1, 2};
+
+    ~a;
+    return 0;
+}
+
+[pixel-shader fail]
+struct S { uint x; };
+
+float4 main() : sv_target
+{
+    S s = {1};
+
+    ~s;
+    return 0;
+}
+
+[pixel-shader fail]
+sampler2D s : register(s0);
+
+float4 main() : sv_target
+{
+    ~s;
+    return 0;
+}

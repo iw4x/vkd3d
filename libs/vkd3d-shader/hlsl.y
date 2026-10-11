@@ -1665,6 +1665,14 @@ static struct hlsl_ir_node *add_unary_arithmetic_expr(struct hlsl_ctx *ctx, stru
     if (arg->data_type->class == HLSL_CLASS_ERROR)
         return arg;
 
+    if (!hlsl_is_numeric_type(arg->data_type))
+    {
+        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                "Unary arithmetic expression operand must be numeric.");
+        block->value = ctx->error_instr;
+        return block->value;
+    }
+
     return add_expr(ctx, block, op, args, arg->data_type, loc);
 }
 
@@ -1687,6 +1695,14 @@ static struct hlsl_ir_node *add_unary_logical_expr(struct hlsl_ctx *ctx, struct 
 
     if (arg->data_type->class == HLSL_CLASS_ERROR)
         return arg;
+
+    if (!hlsl_is_numeric_type(arg->data_type))
+    {
+        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                "Unary logical expression operand must be numeric.");
+        block->value = ctx->error_instr;
+        return block->value;
+    }
 
     bool_type = hlsl_change_base_type(ctx, arg->data_type, HLSL_TYPE_BOOL);
     args[0] = add_implicit_conversion(ctx, block, arg, bool_type, loc);

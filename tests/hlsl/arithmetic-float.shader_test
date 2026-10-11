@@ -76,3 +76,32 @@ float4 main() : SV_TARGET
 draw quad
 if(sm<2)  probe (0, 0) f32(0, 0, 0, 0)
 if(sm>=4) probe (0, 0) f32(inf, inf, inf, inf)
+
+[pixel-shader fail]
+float4 main() : SV_TARGET
+{
+    float a[2] = {1, 2};
+
+    -a;
+    return 0;
+}
+
+[pixel-shader fail]
+struct S { float x; };
+
+float4 main() : SV_TARGET
+{
+    S s = {1};
+
+    -s;
+    return 0;
+}
+
+[pixel-shader fail]
+sampler2D s : register(s0);
+
+float4 main() : SV_TARGET
+{
+    -s;
+    return 0;
+}
