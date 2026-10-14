@@ -8782,37 +8782,40 @@ static void validate_buffer_offsets(struct hlsl_ctx *ctx)
     struct hlsl_ir_var *var1, *var2;
     struct hlsl_buffer *buffer;
 
-    LIST_FOR_EACH_ENTRY(var1, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
+    if (!ctx->compile_info.allow_packoffset_overlap)
     {
-        if (!var1->is_uniform || hlsl_type_is_resource(var1->data_type))
-            continue;
-
-        buffer = var1->buffer;
-        if (!buffer->used_size)
-            continue;
-
-        LIST_FOR_EACH_ENTRY(var2, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
+        LIST_FOR_EACH_ENTRY(var1, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
         {
-            unsigned int var1_reg_size, var2_reg_size;
-
-            if (!var2->is_uniform || hlsl_type_is_resource(var2->data_type))
+            if (!var1->is_uniform || hlsl_type_is_resource(var1->data_type))
                 continue;
 
-            if (var1 == var2 || var1->buffer != var2->buffer)
+            buffer = var1->buffer;
+            if (!buffer->used_size)
                 continue;
 
-            /* This is to avoid reporting the error twice for the same pair of overlapping variables. */
-            if (strcmp(var1->name, var2->name) >= 0)
-                continue;
+            LIST_FOR_EACH_ENTRY(var2, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
+            {
+                unsigned int var1_reg_size, var2_reg_size;
 
-            var1_reg_size = var1->data_type->reg_size[HLSL_REGSET_NUMERIC];
-            var2_reg_size = var2->data_type->reg_size[HLSL_REGSET_NUMERIC];
+                if (!var2->is_uniform || hlsl_type_is_resource(var2->data_type))
+                    continue;
 
-            if (var1->buffer_offset < var2->buffer_offset + var2_reg_size
-                    && var2->buffer_offset < var1->buffer_offset + var1_reg_size)
-                hlsl_error(ctx, &buffer->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
-                        "Invalid packoffset() reservation: Variables %s and %s overlap.",
-                        var1->name, var2->name);
+                if (var1 == var2 || var1->buffer != var2->buffer)
+                    continue;
+
+                /* This is to avoid reporting the error twice for the same pair of overlapping variables. */
+                if (strcmp(var1->name, var2->name) >= 0)
+                    continue;
+
+                var1_reg_size = var1->data_type->reg_size[HLSL_REGSET_NUMERIC];
+                var2_reg_size = var2->data_type->reg_size[HLSL_REGSET_NUMERIC];
+
+                if (var1->buffer_offset < var2->buffer_offset + var2_reg_size
+                        && var2->buffer_offset < var1->buffer_offset + var1_reg_size)
+                    hlsl_error(ctx, &buffer->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
+                            "Invalid packoffset() reservation: Variables %s and %s overlap.",
+                            var1->name, var2->name);
+            }
         }
     }
 

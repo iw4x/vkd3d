@@ -886,6 +886,8 @@ done:
         vsir->const_global_uniforms = true;
     if (compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_ALLOW_HALF_GLOBALS)
         vsir->allow_half_globals = true;
+    if (compatibility_flags & VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_ALLOW_PACKOFFSET_OVERLAP)
+        vsir->allow_packoffset_overlap = true;
 
     if (features & VKD3D_SHADER_COMPILE_OPTION_FEATURE_INT64)
         vsir->feature_int64 = true;

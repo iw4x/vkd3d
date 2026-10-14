@@ -1704,6 +1704,7 @@ struct vsir_compile_info
     uint32_t double_as_float_alias : 1;
     uint32_t const_global_uniforms : 1;
     uint32_t allow_half_globals : 1;
+    uint32_t allow_packoffset_overlap : 1;
     uint32_t fragment_origin_lower_left : 1;
     uint32_t feature_int64 : 1;
     uint32_t feature_float64 : 1;

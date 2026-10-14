@@ -71,6 +71,7 @@ enum
     OPTION_ENTRY,
     OPTION_FRAGMENT_COORDINATE_ORIGIN,
     OPTION_ALLOW_HALF_GLOBALS,
+    OPTION_ALLOW_PACKOFFSET_OVERLAP,
     OPTION_IEEE_754_FP,
     OPTION_INCLUDE_EMPTY_BUFFERS,
     OPTION_MATRIX_STORAGE_ORDER,
@@ -201,14 +202,17 @@ static void print_usage(const char *program_name)
         "                        with shader model 1-3 target profiles.\n"
         "  --allow-half-globals  Allow half globals in shader model 1-5 target profiles,\n"
         "                        by handling them as floats.\n"
+        "  --allow-packoffset-overlap\n"
+        "                        Allow the 'packoffset' keyword to specify overlapping\n"
+        "                        offsets.\n"
         "  -b <type>             Specify the target type. Use --print-target-types to\n"
         "                        list the valid and default target types for a given\n"
         "                        source type.\n"
         "  --buffer-uav=<type>   Specify the buffer type to use for buffer UAV bindings.\n"
         "                        Valid values are 'buffer-texture' (default) and\n"
         "                        'storage-buffer'.\n"
-        "  --child-effect        Compile effect as a child effect. This option is only meaningful\n"
-        "                        for fx_2_0 and fx_4_0/fx_4_1 profiles.\n"
+        "  --child-effect        Compile the effect as a child effect. This option is\n"
+        "                        only meaningful for fx_2_0 and fx_4_0/fx_4_1 profiles.\n"
         "  -e, --entry=<name>    Use <name> as the entry point (default is \"main\").\n"
         "  -E                    Preprocess the source code instead of compiling it.\n"
         "  --formatting=<flags>  Specify the formatting options for text output.\n"
@@ -225,9 +229,9 @@ static void print_usage(const char *program_name)
         "  --fx-include-empty-buffers\n"
         "                        Write empty constant buffers descriptions. This option\n"
         "                        is only meaningful for fx_4_0 and fx_4_1 profiles.\n"
-        "  --ieee-754-fp         When compiling HLSL sources, enforce IEEE 754 floating-point\n"
-        "                        rules, avoiding optimizations that might disregard NaN or\n"
-        "                        Infinity values.\n"
+        "  --ieee-754-fp         When compiling HLSL sources, enforce IEEE 754\n"
+        "                        floating-point rules, avoiding optimizations that might\n"
+        "                        disregard NaN or Infinity values.\n"
         "  --matrix-storage-order=<order>\n"
         "                        Specify the default matrix storage order. Valid values\n"
         "                        are 'column' (default) and 'row'.\n"
@@ -499,6 +503,7 @@ static bool parse_command_line(int argc, char **argv, struct options *options)
         {"help",                       no_argument,       NULL, OPTION_HELP},
         {"alias-double-as-float",      no_argument,       NULL, OPTION_ALIAS_DOUBLE_AS_FLOAT},
         {"allow-half-globals",         no_argument,       NULL, OPTION_ALLOW_HALF_GLOBALS},
+        {"allow-packoffset-overlap",   no_argument,       NULL, OPTION_ALLOW_PACKOFFSET_OVERLAP},
         {"buffer-uav",                 required_argument, NULL, OPTION_BUFFER_UAV},
         {"child-effect",               no_argument,       NULL, OPTION_CHILD_EFFECT},
         {"entry",                      required_argument, NULL, OPTION_ENTRY},
@@ -622,6 +627,10 @@ static bool parse_command_line(int argc, char **argv, struct options *options)
 
             case OPTION_ALLOW_HALF_GLOBALS:
                 compat_options |= VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_ALLOW_HALF_GLOBALS;
+                break;
+
+            case OPTION_ALLOW_PACKOFFSET_OVERLAP:
+                compat_options |= VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_ALLOW_PACKOFFSET_OVERLAP;
                 break;
 
             case OPTION_STRIP_DEBUG:

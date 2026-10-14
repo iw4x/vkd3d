@@ -674,12 +674,9 @@ static void test_packoffset_overlap(void)
     blob = errors = (ID3D10Blob *)0xdeadbeef;
     hr = D3DCompile2VKD3D(source, sizeof(source), NULL, NULL, NULL,
             "main", "vs_4_0", 0, 0, 0, NULL, 0, &blob, &errors, 36);
-    todo ok(hr == S_OK, "Got hr %#x.\n", hr);
-    todo ok(!errors, "Got errors %p.\n", errors);
-    if (errors)
-        ID3D10Blob_Release(errors);
-    if (hr == S_OK)
-        ID3D10Blob_Release(blob);
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+    ok(!errors, "Got errors %p.\n", errors);
+    ID3D10Blob_Release(blob);
 
     blob = errors = (ID3D10Blob *)0xdeadbeef;
     hr = D3DCompile2VKD3D(source, sizeof(source), NULL, NULL, NULL,
