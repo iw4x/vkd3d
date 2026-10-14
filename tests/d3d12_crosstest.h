@@ -111,6 +111,9 @@ static struct d3d10
     HRESULT (WINAPI *D3D10PreprocessShader)(const void *data, SIZE_T size,
             const char *filename, const D3D_SHADER_MACRO *macros, ID3DInclude *include,
             ID3DBlob **preprocessed_blob, ID3DBlob **messages_blob);
+    HRESULT (WINAPI *D3D10CompileShader)(const void *data, SIZE_T data_size, const char *filename,
+            const D3D_SHADER_MACRO *macros, ID3DInclude *include, const char *entrypoint,
+            const char *profile, UINT flags, UINT effect_flags, ID3DBlob **shader, ID3DBlob **error_messages);
     HRESULT (WINAPI *D3D10ReflectShader)(const void *data, SIZE_T data_size, ID3D10ShaderReflection **reflection);
 } d3d10;
 
@@ -120,6 +123,9 @@ static struct d3dcompiler
     HRESULT (WINAPI *D3DPreprocess)(const void *data, SIZE_T size, const char *filename,
             const D3D_SHADER_MACRO *macros, ID3DInclude *include,
             ID3DBlob **preprocessed_blob, ID3DBlob **messages_blob);
+    HRESULT (WINAPI *D3DCompile)(const void *data, SIZE_T data_size, const char *filename,
+            const D3D_SHADER_MACRO *macros, ID3DInclude *include, const char *entrypoint,
+            const char *profile, UINT flags, UINT effect_flags, ID3DBlob **shader, ID3DBlob **error_messages);
     HRESULT (WINAPI *D3DReflect)(const void *data, SIZE_T data_size, REFIID iid, void **reflection);
     HRESULT (WINAPI *D3DReflectCode)(REFIID iid, const void *data, SIZE_T data_size, void **reflection);
 } d3dcompilers[47 - 33 + 1];
@@ -135,6 +141,8 @@ static inline bool load_d3d10(void)
         goto fail;
 
     if (!(d3d10.D3D10PreprocessShader = (void *)GetProcAddress(module, "D3D10PreprocessShader")))
+        goto fail;
+    if (!(d3d10.D3D10CompileShader = (void *)GetProcAddress(module, "D3D10CompileShader")))
         goto fail;
     if (!(d3d10.D3D10ReflectShader = (void *)GetProcAddress(module, "D3D10ReflectShader")))
         goto fail;
@@ -167,12 +175,16 @@ static inline bool load_d3dcompiler(unsigned int version)
     {
         if (!(d3dcompiler->D3DPreprocess = (void *)GetProcAddress(module, "D3DPreprocessFromMemory")))
             goto fail;
+        if (!(d3dcompiler->D3DCompile = (void *)GetProcAddress(module, "D3DCompileFromMemory")))
+            goto fail;
         if (!(d3dcompiler->D3DReflectCode = (void *)GetProcAddress(module, "D3DReflectCode")))
             goto fail;
     }
     else
     {
         if (!(d3dcompiler->D3DPreprocess = (void *)GetProcAddress(module, "D3DPreprocess")))
+            goto fail;
+        if (!(d3dcompiler->D3DCompile = (void *)GetProcAddress(module, "D3DCompile")))
             goto fail;
         if (!(d3dcompiler->D3DReflect = (void *)GetProcAddress(module, "D3DReflect")))
             goto fail;
@@ -195,6 +207,20 @@ static inline HRESULT WINAPI D3DPreprocessVKD3D(const void *data, SIZE_T size, c
 
     return d3dcompilers[compiler_version - 33].D3DPreprocess(data, size,
             filename, macros, include, preprocessed_blob, messages_blob);
+}
+
+static inline HRESULT WINAPI D3DCompile2VKD3D(const void *data, SIZE_T data_size, const char *filename,
+        const D3D_SHADER_MACRO *defines, ID3DInclude *include, const char *entrypoint,
+        const char *target, UINT flags, UINT effect_flags, UINT secondary_flags,
+        const void *secondary_data, SIZE_T secondary_data_size, ID3DBlob **shader,
+        ID3DBlob **error_messages, unsigned int compiler_version)
+{
+    if (!compiler_version)
+        return d3d10.D3D10CompileShader(data, data_size, filename, defines, include,
+                entrypoint, target, flags, effect_flags, shader, error_messages);
+
+    return d3dcompilers[compiler_version - 33].D3DCompile(data, data_size, filename, defines,
+            include, entrypoint, target, flags, effect_flags, shader, error_messages);
 }
 
 static inline HRESULT WINAPI D3DReflectVKD3D(const void *data, SIZE_T data_size,

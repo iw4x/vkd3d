@@ -652,6 +652,44 @@ static ID3D10Blob *compile_shader_(const char *file, unsigned int line,
     return blob;
 }
 
+static void test_packoffset_overlap(void)
+{
+    ID3D10Blob *blob, *errors;
+    HRESULT hr;
+
+    static const char source[] =
+        "cbuffer cb0\n"
+        "{\n"
+        "   float4 first : packoffset(c25);\n"
+        "   float4 second : packoffset(c25);\n"
+        "}\n"
+        "float4 main() : POSITION\n"
+        "{\n"
+        "   return first + second;\n"
+        "}\n";
+
+    if (!load_d3dcompiler(36) || !load_d3dcompiler(37))
+        return;
+
+    blob = errors = (ID3D10Blob *)0xdeadbeef;
+    hr = D3DCompile2VKD3D(source, sizeof(source), NULL, NULL, NULL,
+            "main", "vs_4_0", 0, 0, 0, NULL, 0, &blob, &errors, 36);
+    todo ok(hr == S_OK, "Got hr %#x.\n", hr);
+    todo ok(!errors, "Got errors %p.\n", errors);
+    if (errors)
+        ID3D10Blob_Release(errors);
+    if (hr == S_OK)
+        ID3D10Blob_Release(blob);
+
+    blob = errors = (ID3D10Blob *)0xdeadbeef;
+    hr = D3DCompile2VKD3D(source, sizeof(source), NULL, NULL, NULL,
+            "main", "vs_4_0", 0, 0, 0, NULL, 0, &blob, &errors, 37);
+    ok(hr == E_FAIL, "Got hr %#x.\n", hr);
+    todo ok(!blob, "Got blob %p.\n", blob);
+    ok(errors, "Got errors %p.\n", errors);
+    ID3D10Blob_Release(errors);
+}
+
 static void test_thread_id(void)
 {
     struct d3d12_resource_readback rb, rb_threadid;
@@ -5303,6 +5341,7 @@ START_TEST(hlsl_d3d12)
     init_adapter_info();
 
     run_test(test_preprocess);
+    run_test(test_packoffset_overlap);
     run_test(test_thread_id);
     run_test(test_create_blob);
     run_test(test_get_blob_part);
