@@ -1463,6 +1463,36 @@ static struct hlsl_ir_node *lower_matrix_swizzles(struct hlsl_ctx *ctx,
     return hlsl_block_add_simple_load(ctx, block, var, &instr->loc);
 }
 
+static struct hlsl_ir_node *validate_mips_slices(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
+{
+    /* .mips[mip] is invalid regardless of whether or not it is used. */
+    if (instr->data_type && instr->data_type->class == HLSL_CLASS_MIPS
+            && instr->data_type->e.mips.mips_type == HLSL_MIPS_SLICE)
+        hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
+                ".mips can only be used in a two-element indexing expression .mips[mip][pos].");
+    return NULL;
+}
+
+static struct hlsl_ir_node *validate_mips_properties(struct hlsl_ctx *ctx,
+        struct hlsl_ir_node *instr, struct hlsl_block *block)
+{
+    /* .mips is invalid only if it is used. */
+    if (instr->data_type && instr->data_type->class == HLSL_CLASS_MIPS
+            && instr->data_type->e.mips.mips_type == HLSL_MIPS_PROPERTY && !list_empty(&instr->uses))
+        hlsl_error(ctx, &instr->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
+                ".mips can only be used in a two-element indexing expression .mips[mip][pos].");
+    return NULL;
+}
+
+static void validate_mips_access(struct hlsl_ctx *ctx, struct hlsl_block *block)
+{
+    /* Here we check for invalid uses of .mips in two passes, so that an invalid
+     * .mips[mip] slice would not cause two errors to be generated. */
+    replace_ir(ctx, validate_mips_slices, block);
+    replace_ir(ctx, validate_mips_properties, block);
+}
+
 /* Usually when INDEX nodes are constructed, it's a direct variable load
  * followed by the INDEX. As described below in lower_index_load(), we know in
  * that case that the variable in question is unmodified and we can convert the
@@ -1508,10 +1538,7 @@ static struct hlsl_ir_node *lower_index_load(struct hlsl_ctx *ctx, struct hlsl_i
     val = index->val.node;
 
     if (hlsl_index_is_mips_slice(index))
-    {
-        hlsl_fixme(ctx, &instr->loc, "Texture .mips[][] operator.");
         return NULL;
-    }
 
     if (hlsl_index_is_resource_access(index))
     {
@@ -16786,6 +16813,8 @@ static void process_entry_function(struct hlsl_ctx *ctx, struct vsir_program *pr
     lower_return(ctx, entry_func, body, false);
 
     while (hlsl_transform_ir(ctx, lower_calls, body, NULL));
+
+    validate_mips_access(ctx, body);
 
     replace_ir(ctx, lower_complex_casts, body);
     replace_ir(ctx, lower_matrix_swizzles, body);

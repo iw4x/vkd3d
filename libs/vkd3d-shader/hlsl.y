@@ -939,8 +939,53 @@ static bool add_array_access(struct hlsl_ctx *ctx, struct hlsl_block *block, str
 
     if (expr_type->class == HLSL_CLASS_MIPS && expr_type->e.mips.mips_type == HLSL_MIPS_SLICE)
     {
-        hlsl_fixme(ctx, loc, "Texture .mips[][] operator.");
-        block->value = ctx->error_instr;
+        unsigned int dim_count = hlsl_sampler_dim_count(expr_type->e.mips.type->sampler_dim);
+        struct hlsl_resource_load_params params = {.type = HLSL_RESOURCE_LOAD};
+        struct hlsl_ir_node *mips_property, *mip, *coords;
+        struct vkd3d_string_buffer *string;
+
+        if (dim_count == 1 && index_type->class != HLSL_CLASS_SCALAR)
+        {
+            if ((string = hlsl_type_to_string(ctx, expr_type)))
+                hlsl_error(ctx, &index->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                        "Texture mip index of type '%s' must be a scalar.", string->buffer);
+            hlsl_release_string_buffer(ctx, string);
+            return false;
+        }
+        if (dim_count > 1 && (index_type->class != HLSL_CLASS_VECTOR || index_type->e.numeric.dimx != dim_count))
+        {
+            if ((string = hlsl_type_to_string(ctx, expr_type)))
+                hlsl_error(ctx, &index->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                        "Texture mip index of type '%s' must be a vec%u.", string->buffer, dim_count);
+            hlsl_release_string_buffer(ctx, string);
+            return false;
+        }
+
+        mips_property = array->type == HLSL_IR_INDEX ? hlsl_ir_index(array)->val.node : NULL;
+        if (!mips_property || mips_property->type != HLSL_IR_EXPR || hlsl_ir_expr(mips_property)->op != HLSL_OP1_MIPS)
+        {
+            hlsl_error(ctx, &array->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX,
+                    ".mips can only be used in a two-element indexing expression .mips[mip][pos].");
+            return false;
+        }
+
+        mip = hlsl_ir_index(array)->idx.node;
+
+        coords = add_implicit_conversion(ctx, block, index,
+                hlsl_get_vector_type(ctx, HLSL_TYPE_UINT, dim_count), &index->loc);
+        coords = hlsl_block_add_mipmap_level(ctx, block, coords, mip, loc);
+
+        params.resource = hlsl_ir_expr(mips_property)->operands[0].node;
+        params.coords = coords;
+        params.format = expr_type->e.mips.type->e.resource.format;
+        hlsl_block_add_resource_load(ctx, block, &params, loc);
+
+        /* Remove the consumed mips slice, so that validate_mips_access() won't flag it as invalid. */
+        if (list_empty(&array->uses))
+        {
+            list_remove(&array->entry);
+            hlsl_free_instr(array);
+        }
         return true;
     }
 
