@@ -1353,29 +1353,6 @@ static bool lower_calls(struct hlsl_ctx *ctx, struct hlsl_ir_node *instr, void *
     return true;
 }
 
-static struct hlsl_ir_node *add_zero_mipmap_level(struct hlsl_ctx *ctx, struct hlsl_block *block,
-        struct hlsl_ir_node *index, const struct vkd3d_shader_location *loc)
-{
-    unsigned int dim_count = index->data_type->e.numeric.dimx;
-    struct hlsl_deref coords_deref;
-    struct hlsl_ir_var *coords;
-    struct hlsl_ir_node *zero;
-
-    VKD3D_ASSERT(dim_count < 4);
-
-    if (!(coords = hlsl_new_synthetic_var(ctx, "coords",
-            hlsl_get_vector_type(ctx, HLSL_TYPE_UINT, dim_count + 1), loc)))
-        return NULL;
-
-    hlsl_deref_init_simple(&coords_deref, coords);
-    hlsl_block_add_store_index(ctx, block, &coords_deref, NULL, index, (1u << dim_count) - 1, loc);
-
-    zero = hlsl_block_add_uint_constant(ctx, block, 0, loc);
-    hlsl_block_add_store_index(ctx, block, &coords_deref, NULL, zero, 1u << dim_count, loc);
-
-    return hlsl_block_add_simple_load(ctx, block, coords, loc);
-}
-
 static struct hlsl_ir_node *lower_complex_casts(struct hlsl_ctx *ctx,
         struct hlsl_ir_node *instr, struct hlsl_block *block)
 {
@@ -1539,15 +1516,15 @@ static struct hlsl_ir_node *lower_index_load(struct hlsl_ctx *ctx, struct hlsl_i
     if (hlsl_index_is_resource_access(index))
     {
         unsigned int dim_count = hlsl_sampler_dim_count(val->data_type->sampler_dim);
-        struct hlsl_ir_node *coords = index->idx.node;
+        struct hlsl_ir_node *coords = index->idx.node, *zero_mip;
         struct hlsl_resource_load_params params = {0};
 
         VKD3D_ASSERT(coords->data_type->class == HLSL_CLASS_VECTOR);
         VKD3D_ASSERT(coords->data_type->e.numeric.type == HLSL_TYPE_UINT);
         VKD3D_ASSERT(coords->data_type->e.numeric.dimx == dim_count);
 
-        if (!(coords = add_zero_mipmap_level(ctx, block, coords, &instr->loc)))
-            return NULL;
+        zero_mip = hlsl_block_add_uint_constant(ctx, block, 0, &instr->loc);
+        coords = hlsl_block_add_mipmap_level(ctx, block, coords, zero_mip, &instr->loc);
 
         params.type = HLSL_RESOURCE_LOAD;
         params.resource = val;

@@ -2248,6 +2248,29 @@ struct hlsl_ir_node *hlsl_block_add_load_component(struct hlsl_ctx *ctx, struct 
     return &load->node;
 }
 
+struct hlsl_ir_node *hlsl_block_add_mipmap_level(struct hlsl_ctx *ctx, struct hlsl_block *block,
+        struct hlsl_ir_node *index, struct hlsl_ir_node *mip, const struct vkd3d_shader_location *loc)
+{
+    unsigned int dim_count = index->data_type->e.numeric.dimx;
+    struct hlsl_deref coords_deref;
+    struct hlsl_ir_var *coords;
+
+    VKD3D_ASSERT(dim_count < 4);
+
+    if (!(coords = hlsl_new_synthetic_var(ctx, "coords",
+            hlsl_get_vector_type(ctx, HLSL_TYPE_UINT, dim_count + 1), loc)))
+    {
+        block->value = ctx->error_instr;
+        return ctx->error_instr;
+    }
+
+    hlsl_deref_init_simple(&coords_deref, coords);
+    hlsl_block_add_store_index(ctx, block, &coords_deref, NULL, index, (1u << dim_count) - 1, loc);
+    hlsl_block_add_store_index(ctx, block, &coords_deref, NULL, mip, 1u << dim_count, loc);
+
+    return hlsl_block_add_simple_load(ctx, block, coords, loc);
+}
+
 static struct hlsl_ir_resource_load *hlsl_new_resource_load(struct hlsl_ctx *ctx,
         const struct hlsl_resource_load_params *params, const struct vkd3d_shader_location *loc)
 {
