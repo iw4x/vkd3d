@@ -2006,6 +2006,61 @@ static enum vkd3d_result d3dbc_read_texm3xntex(struct vkd3d_shader_sm1_parser *p
     return VKD3D_OK;
 }
 
+static enum vkd3d_result d3dbc_read_texm3x3(struct vkd3d_shader_sm1_parser *parser,
+        const struct d3dbc_instruction *d3dbc_ins)
+{
+    struct vkd3d_shader_sm1_texmpad_state *texmpad_state;
+    struct vsir_instruction *ins;
+    enum vkd3d_result res;
+    uint32_t texmk_id;
+    unsigned int i;
+
+    /* texm3x3 DST, SRC
+     *      ->
+     * dp3 srTEXM3x3(k++), DST, SRC
+     * mov DST.x srTEXM3x3(0)
+     * mov DST.y srTEXM3x3(1)
+     * mov DST.z srTEXM3x3(2)
+     * mov DST.w 1.0f
+     *
+     * where srTEXM3x3(k) is an SSA scalar reserved for the the previous
+     * texm3x3pad instructions.
+     */
+    texmpad_state = &parser->texm3x3pad_state;
+
+    if (texmpad_state->components_read != 2)
+    {
+        vkd3d_shader_parser_error(&parser->p, VKD3D_SHADER_ERROR_D3DBC_INVALID_INSTRUCTION_SEQUENCE,
+                "Invalid number of %s instructions before %s. Found %u, expected %u.\n",
+                "texm3x3pad", "texm3x3", texmpad_state->components_read, 2);
+        return VKD3D_ERROR_INVALID_SHADER;
+    }
+
+    if ((res = d3dbc_read_texm3xnpad(parser, d3dbc_ins, 3)) < 0)
+        return res;
+
+    for (i = 0; i < 3; ++i)
+    {
+        texmk_id = texmpad_state->ssa_ids[i];
+        if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MOV, 1, 1)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
+        ins->dst[0].write_mask = (1u << i);
+        vsir_src_operand_init_ssa_f32(&ins->src[0], texmk_id);
+    }
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MOV, 1, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
+    ins->dst[0].write_mask = VKD3DSP_WRITEMASK_3;
+    vsir_src_operand_init_const_f32(&ins->src[0], 1.0);
+
+    /* Reset for next instructions. */
+    texmpad_state->components_read = 0;
+
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result d3dbc_read_nrm(struct vkd3d_shader_sm1_parser *parser,
         const struct d3dbc_instruction *d3dbc_ins)
 {
@@ -2275,6 +2330,9 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
         case VKD3D_SM1_OP_TEXM3x3PAD:
             return d3dbc_read_texm3xnpad(parser, d3dbc_ins, 3);
 
+        case VKD3D_SM1_OP_TEXM3x3:
+            return d3dbc_read_texm3x3(parser, d3dbc_ins);
+
         case VKD3D_SM1_OP_TEXM3x3TEX:
             return d3dbc_read_texm3xntex(parser, d3dbc_ins, 3, "texm3x3tex", "texm3x3pad");
 
@@ -2329,7 +2387,6 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
         case VKD3D_SM1_OP_SGN:
         case VKD3D_SM1_OP_TEXDP3:
         case VKD3D_SM1_OP_TEXM3x2DEPTH:
-        case VKD3D_SM1_OP_TEXM3x3:
         case VKD3D_SM1_OP_TEXM3x3DIFF:
             vkd3d_shader_error(parser->p.message_context, &parser->p.location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
                     "Unhandled instruction %#x.\n", d3dbc_ins->opcode);
