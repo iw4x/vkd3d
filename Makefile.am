@@ -72,6 +72,7 @@ vkd3d_shader_tests = \
 	tests/d3dbc/rep.shader_test \
 	tests/d3dbc/sub.shader_test \
 	tests/d3dbc/texdepth.shader_test \
+	tests/d3dbc/texm3.shader_test \
 	tests/d3dbc/texreg.shader_test \
 	tests/hlsl/abs.shader_test \
 	tests/hlsl/all.shader_test \
