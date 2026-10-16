@@ -57,7 +57,7 @@ ffff0103                     % ps_1_3
 0000ffff                     % end
 
 [test]
-todo draw quad
+draw quad
 probe (320, 120) f32(0.0, 1.0, 0.3, 1.0)
 probe (480, 120) f32(0.0, 0.0, 0.3, 1.0)
 probe (320, 240) f32(1.0, 1.0, 0.3, 1.0)
@@ -73,7 +73,7 @@ ffff0103                     % ps_1_3
 0000ffff                     % end
 
 [test]
-todo draw quad
+draw quad
 probe (320, 120) f32(0.0, 1.0, 0.0, 0.4)
 probe (480, 120) f32(0.0, 0.0, 1.0, 0.4)
 probe (320, 240) f32(1.0, 1.0, 0.0, 0.4)
