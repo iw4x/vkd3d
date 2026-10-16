@@ -455,9 +455,7 @@ const char *vsir_opcode_get_name(enum vsir_opcode op, const char *error)
         [VSIR_OP_TEXLD                           ] = "texld",
         [VSIR_OP_TEXLDD                          ] = "texldd",
         [VSIR_OP_TEXLDL                          ] = "texldl",
-        [VSIR_OP_TEXM3x2TEX                      ] = "texm3x2tex",
         [VSIR_OP_TEXM3x3SPEC                     ] = "texm3x3spec",
-        [VSIR_OP_TEXM3x3TEX                      ] = "texm3x3tex",
         [VSIR_OP_TEXM3x3VSPEC                    ] = "texm3x3vspec",
         [VSIR_OP_TEXREG2AR                       ] = "texreg2ar",
         [VSIR_OP_TEXREG2GB                       ] = "texreg2gb",
@@ -3079,9 +3077,7 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 break;
 
             case VSIR_OP_TEXDP3TEX:
-            case VSIR_OP_TEXM3x2TEX:
             case VSIR_OP_TEXM3x3SPEC:
-            case VSIR_OP_TEXM3x3TEX:
             case VSIR_OP_TEXM3x3VSPEC:
                 vkd3d_shader_error(ctx->message_context, &ins->location, VKD3D_SHADER_ERROR_VSIR_NOT_IMPLEMENTED,
                         "Aborting due to unimplemented feature: Combined sampler instruction \"%s\" (%#x).",
@@ -10861,9 +10857,7 @@ static bool vsir_src_is_masked(enum vsir_opcode opcode, unsigned int src_idx)
         case VSIR_OP_TEXLD:
         case VSIR_OP_TEXLDD:
         case VSIR_OP_TEXLDL:
-        case VSIR_OP_TEXM3x2TEX:
         case VSIR_OP_TEXM3x3SPEC:
-        case VSIR_OP_TEXM3x3TEX:
         case VSIR_OP_TEXM3x3VSPEC:
         case VSIR_OP_TEXREG2AR:
         case VSIR_OP_TEXREG2GB:
@@ -11010,9 +11004,7 @@ static void liveness_track_dst(struct liveness_tracker *tracker, struct vsir_dst
         case VSIR_OP_TEXLD:
         case VSIR_OP_TEXLDD:
         case VSIR_OP_TEXLDL:
-        case VSIR_OP_TEXM3x2TEX:
         case VSIR_OP_TEXM3x3SPEC:
-        case VSIR_OP_TEXM3x3TEX:
         case VSIR_OP_TEXM3x3VSPEC:
         case VSIR_OP_TEXREG2AR:
         case VSIR_OP_TEXREG2GB:
@@ -15276,9 +15268,7 @@ static bool vsir_instruction_has_side_effects(const struct vsir_instruction *ins
         case VSIR_OP_TEXLD:
         case VSIR_OP_TEXLDD:
         case VSIR_OP_TEXLDL:
-        case VSIR_OP_TEXM3x2TEX:
         case VSIR_OP_TEXM3x3SPEC:
-        case VSIR_OP_TEXM3x3TEX:
         case VSIR_OP_TEXM3x3VSPEC:
         case VSIR_OP_TEXREG2AR:
         case VSIR_OP_TEXREG2GB:
