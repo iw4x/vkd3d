@@ -2125,14 +2125,6 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
             read_f32(&line, &f);
             uniform_buffer_write(u, offset, 1, &f);
         }
-        else if (match_string(line, "double2", &line))
-        {
-            struct dvec2 v;
-
-            read_f64(&line, &v.x);
-            read_f64(&line, &v.y);
-            uniform_buffer_write(u, offset, 4, &v);
-        }
         else if (match_string(line, "int4", &line))
         {
             struct ivec4 v;

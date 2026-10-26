@@ -218,11 +218,11 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 double2 7.5 -2.5
+write cbv-0 (0) f64(7.5, -2.5)
 todo(sm<6) draw quad
-probe (0, 0) rgba (5.0, 10.0, -18.75, -3.0)
+probe (0, 0) f32(5.0, 10.0, -18.75, -3.0)
 
-[pixel shader todo]
+[pixel-shader todo]
 uniform double2 a;
 
 float4 main() : SV_TARGET
@@ -233,12 +233,12 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 double2 3.0e-300 2.5e300
+write cbv-0 (0) f64(3.0e-300, 2.5e300)
 todo(sm<6) draw quad
-probe (0, 0) rgba (7.5, 7.5, 7.5, 7.5)
+probe (0, 0) f32(7.5, 7.5, 7.5, 7.5)
 
 % Note: DXC does not support modulo on doubles.
-[pixel shader todo]
+[pixel-shader todo]
 uniform double2 a;
 
 float4 main() : SV_TARGET
@@ -249,11 +249,11 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 double2 1.5e300 2.0e299
+write cbv-0 (0) f64(1.5e300, 2.0e299)
 todo(sm<6) draw quad
-probe (0, 0) rgba (7.5, 7.5, 7.5, 7.5)
+probe (0, 0) f32(7.5, 7.5, 7.5, 7.5)
 
-[pixel shader todo]
+[pixel-shader todo]
 uniform double2 a, b, c;
 
 float4 main() : sv_target
@@ -262,15 +262,15 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 double2 1.00000007 -42.1
-uniform 4 double2 1.625 -5.0
-uniform 8 double2 1.00000007 -1.0
+write cbv-0 (0) f64(1.00000007, -42.1)
+write cbv-0 (4) f64(1.625, -5.0)
+write cbv-0 (8) f64(1.00000007, -1.0)
 todo(sm<6) draw quad
-probe (0, 0) rgba (2.62500024, 209.5, 0.0, 0.0)
+probe (0, 0) f32(2.62500024, 209.5, 0.0, 0.0)
 
-
-% Test result when instructions might be removed because they are identities such as (+0) or (*1).
-[pixel shader]
+% Test result when instructions might be removed because they are identities
+% such as (+0) or (*1).
+[pixel-shader]
 float4 a;
 
 float4 main() : sv_target
@@ -303,31 +303,31 @@ bool4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 double2 1.0 3.0
-uniform 4 double2 2.0 4.0
-uniform 8 double2 5.0 7.0
-uniform 12 double2 6.0 8.0
+write cbv-0 (0) f64(1.0, 3.0)
+write cbv-0 (4) f64(2.0, 4.0)
+write cbv-0 (8) f64(5.0, 7.0)
+write cbv-0 (12) f64(6.0, 8.0)
 todo(sm<6) draw quad
 if(sm<6) probe (0, 0) u32(0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff)
 if(sm>=6) probe (0, 0) u32(1, 1, 1, 1)
 
-uniform 0 double2 1.0 4.0
-uniform 4 double2 2.0 3.0
-uniform 8 double2 5.0 8.0
-uniform 12 double2 6.0 7.0
+write cbv-0 (0) f64(1.0, 4.0)
+write cbv-0 (4) f64(2.0, 3.0)
+write cbv-0 (8) f64(5.0, 8.0)
+write cbv-0 (12) f64(6.0, 7.0)
 todo(sm<6) draw quad
 if(sm<6) probe (0, 0) u32(0xffffffff, 0xffffffff, 0, 0)
 if(sm>=6) probe (0, 0) u32(1, 1, 0, 0)
 
-uniform 0 double2 1.0 4.0
-uniform 4 double2 2.0 3.0
-uniform 8 double2 6.0 7.0
-uniform 12 double2 5.0 8.0
+write cbv-0 (0) f64(1.0, 4.0)
+write cbv-0 (4) f64(2.0, 3.0)
+write cbv-0 (8) f64(6.0, 7.0)
+write cbv-0 (12) f64(5.0, 8.0)
 todo(sm<6) draw quad
 if(sm<6) probe (0, 0) u32(0xffffffff, 0, 0xffffffff, 0)
 if(sm>=6) probe (0, 0) u32(1, 0, 1, 0)
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-float
 size (2d, 640, 480)
 

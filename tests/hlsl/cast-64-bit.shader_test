@@ -13,13 +13,12 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 double2 -4.5 8.5
-uniform 4 float4 -2.25 4.25 0.0 0.0
+write cbv-0 (0) f64(-4.5, 8.5)
+write cbv-0 (4) f32(-2.25, 4.25, 0.0, 0.0)
 todo(sm<6) draw quad
-probe (0, 0) rgba (-4.5, 8.5, 2.0, 2.0)
+probe (0, 0) f32(-4.5, 8.5, 2.0, 2.0)
 
-
-[pixel shader todo]
+[pixel-shader todo]
 uniform double2 d;
 
 uint4 main() : sv_target
@@ -31,12 +30,11 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 double2 -4.5 8.500003814697266
+write cbv-0 (0) f64(-4.5, 8.500003814697266)
 todo(sm<6) draw quad
 probe (0, 0) u32(0, 0xc0120000, 0x80000000, 0x40210000)
 
-
-[pixel shader todo]
+[pixel-shader todo]
 uniform uint4 u;
 
 float4 main() : sv_target
@@ -171,14 +169,14 @@ int4 main() : sv_target
 }
 
 [test]
-uniform 0 double2 0.5 1.0
+write cbv-0 (0) f64(0.5, 1.0)
 todo(sm<6) draw quad
 probe (0, 0) i32(0, 2, 0, 1)
-uniform 0 double2 -0.5 -1.0
+write cbv-0 (0) f64(-0.5, -1.0)
 todo(sm<6) draw quad
 probe (0, 0) i32(0, -2, 0, -1)
 
-[pixel shader todo]
+[pixel-shader todo]
 uniform double2 d;
 
 uint4 main() : sv_target
@@ -188,11 +186,11 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 double2 0.5 1.0
+write cbv-0 (0) f64(0.5, 1.0)
 todo(sm<6) draw quad
 probe (0, 0) u32(0, 2, 0, 1)
 
-[pixel shader todo]
+[pixel-shader todo]
 uniform min16uint u[2];
 
 uint4 main() : sv_target
@@ -243,14 +241,14 @@ int4 main() : sv_target
 }
 
 [test]
-uniform 0 double2 0.5 1.0
+write cbv-0 (0) f64(0.5, 1.0)
 draw quad
 probe (0, 0) i32(0, 2, 0, 1)
-uniform 0 double2 -0.5 -1.0
+write cbv-0 (0) f64(-0.5, -1.0)
 draw quad
 probe (0, 0) i32(0, -2, 0, -1)
 
-[pixel shader]
+[pixel-shader]
 uniform double2 d;
 
 uint4 main() : sv_target
@@ -260,11 +258,11 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 double2 0.5 1.0
+write cbv-0 (0) f64(0.5, 1.0)
 todo draw quad
 probe (0, 0) u32(0, 2, 0, 1)
 
-[pixel shader]
+[pixel-shader]
 uniform uint16_t2 u;
 
 uint4 main() : sv_target
