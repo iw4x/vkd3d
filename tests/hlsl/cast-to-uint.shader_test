@@ -21,15 +21,14 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 2.6
-uniform 1 int 2
-uniform 2 int -2
-uniform 3 float -3.6
+write cbv-0 (0) f32( 2.6)
+write cbv-0 (1) i32( 2)
+write cbv-0 (2) i32(-2)
+write cbv-0 (3) f32(-3.6)
 draw quad
-probe (0, 0) rgba (0.5, 0.5, 0.5, 0.5)
+probe (0, 0) f32(0.5, 0.5, 0.5, 0.5)
 
-
-[pixel shader]
+[pixel-shader]
 float4 main() : sv_target
 {
     float f = 2.6;

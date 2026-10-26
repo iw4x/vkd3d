@@ -83,7 +83,7 @@ void main(float4 pos : POSITION, out vertex vertex)
 }
 
 [test]
-uniform 0 int 0
+write cbv-0 (0) i32(0)
 clear rtv-0 f32(0.0, 0.0, 0.0, 1.0)
 todo(glsl | msl) draw quad
 probe (160, 120) f32(1.0, 1.0, 1.0, 1.0)
@@ -106,7 +106,7 @@ void main(float4 pos : POSITION, out vertex vertex)
 }
 
 [test]
-uniform 0 int 1
+write cbv-0 (0) i32(1)
 clear rtv-0 f32(0.0, 0.0, 0.0, 1.0)
 todo(glsl | msl) draw quad
 winbug(sm>=6 & nvidia) probe (160, 120) f32(0.0, 0.0, 0.0, 1.0)
@@ -132,14 +132,14 @@ void main(float4 pos : POSITION, out vertex vertex)
 }
 
 [test]
-uniform 0 int 0
+write cbv-0 (0) i32(0)
 clear rtv-0 f32(0.0, 0.0, 0.0, 1.0)
 todo(msl) draw quad
 winbug(sm>=6) probe (160, 120) f32(1.0, 1.0, 1.0, 1.0)
 winbug(sm>=6) probe (160, 360) f32(0.0, 0.0, 0.0, 1.0)
 winbug(sm>=6) probe (480, 120) f32(1.0, 1.0, 1.0, 1.0)
 winbug(sm>=6) probe (480, 360) f32(0.0, 0.0, 0.0, 1.0)
-uniform 0 int 1
+write cbv-0 (0) i32(1)
 clear rtv-0 f32(0.0, 0.0, 0.0, 1.0)
 todo(msl) draw quad
 winbug(sm>=6) probe (160, 120) f32(0.0, 0.0, 0.0, 1.0)

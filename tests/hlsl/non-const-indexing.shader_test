@@ -261,21 +261,20 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 int 0
-uniform 1 int 0
+write cbv-0 (0) i32(0)
+write cbv-0 (1) i32(0)
 draw quad
-probe (0, 0) rgba (100, 6, 7, 8)
-uniform 0 int 2
-uniform 1 int 2
+probe (0, 0) f32(100, 6, 7, 8)
+write cbv-0 (0) i32(2)
+write cbv-0 (1) i32(2)
 draw quad
-probe (0, 0) rgba (5, 6, 100, 8)
-uniform 0 int 1
-uniform 1 int 3
+probe (0, 0) f32(5, 6, 100, 8)
+write cbv-0 (0) i32(1)
+write cbv-0 (1) i32(3)
 draw quad
-probe (0, 0) rgba (5, 6, 7, 4)
+probe (0, 0) f32(5, 6, 7, 4)
 
-
-[pixel shader]
+[pixel-shader]
 float a, b, c, d;
 float e, f, g, h;
 int i, j;
@@ -296,15 +295,14 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float4 1 2 3 4
-uniform 4 float4 5 6 7 8
-uniform 8 int 3
-uniform 9 int 4
+write cbv-0 (0) f32(1, 2, 3, 4)
+write cbv-0 (4) f32(5, 6, 7, 8)
+write cbv-0 (8) i32(3)
+write cbv-0 (9) i32(4)
 draw quad
-probe (0, 0) rgba (1126, 3344, 5566, 3788)
+probe (0, 0) f32(1126, 3344, 5566, 3788)
 
-
-[pixel shader]
+[pixel-shader]
 uint i, j;
 
 float4 main() : sv_target

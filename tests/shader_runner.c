@@ -2124,13 +2124,6 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
             read_uint4(&line, &v);
             uniform_buffer_write(u, offset, 4, &v);
         }
-        else if (match_string(line, "int", &line))
-        {
-            int i;
-
-            read_int(&line, &i, true);
-            uniform_buffer_write(u, offset, 1, &i);
-        }
         else if (match_string(line, "uint", &line))
         {
             unsigned int v;
