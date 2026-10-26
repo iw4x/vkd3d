@@ -117,6 +117,6 @@ int4 main() : sv_target
 }
 
 [test]
-uniform 0 int4 -1 -2 0 0
+write cbv-0 (0) i32(-1, -2, 0, 0)
 todo(sm<6 | msl) draw quad
 probe (0, 0) i32(-1, -2, -1, -2)

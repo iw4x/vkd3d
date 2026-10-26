@@ -86,13 +86,13 @@ float4 main() : sv_target
 }
 
 [test]
-if(sm<4)  uniform 0 float4 -2 0 1 -3000000
-if(sm>=4) uniform 0 int4 -2 0 1 -3000000
+if(sm<4)  write cbv-0 (0) f32(-2, 0, 1, -3000000)
+if(sm>=4) write cbv-0 (0) i32(-2, 0, 1, -3000000)
 draw quad
 probe (0, 0) f32(-1.0, 0.0, 1.0, -3000000.0) 4
 
 % An explicit cast gets applied right before assignment, as if it was on the lhs.
-[pixel shader fail(sm>=6)]
+[pixel-shader fail(sm>=6)]
 void fun(out float4 f)
 {
     f = float4(1.4, 2.6, 3.9, 4.3);
