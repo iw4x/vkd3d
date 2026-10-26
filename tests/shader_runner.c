@@ -1253,12 +1253,6 @@ static void read_f64(const char **line, double *d)
     *line = rest;
 }
 
-static void read_int64_t2(const char **line, struct i64vec2 *v)
-{
-    read_int64(line, &v->x, true);
-    read_int64(line, &v->y, true);
-}
-
 static bool parse_resource_reference(const char **const line, enum resource_type *type, unsigned int *slot)
 {
     int len;
@@ -2166,13 +2160,6 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
 
             read_uint(&line, &v, true);
             uniform_buffer_write(u, offset, 1, &v);
-        }
-        else if (match_string(line, "int64_t2", &line))
-        {
-            struct i64vec2 v;
-
-            read_int64_t2(&line, &v);
-            uniform_buffer_write(u, offset, 4, &v);
         }
         else
         {
