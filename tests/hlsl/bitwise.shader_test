@@ -388,12 +388,12 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 uint64_t2 0xffffffffffffffff 1
-uniform 4 uint4 34 66 0 0
+write cbv-0 (0) u64(0xffffffffffffffff, 1)
+write cbv-0 (4) u32(34, 66, 0, 0)
 draw quad
-probe (0, 0) rgba (9.223372036e18, 1.0, 1073741823.0, 4.611686018e18) 1
+probe (0, 0) f32(9.223372036e18, 1.0, 1073741823.0, 4.611686018e18) 1
 
-[pixel shader]
+[pixel-shader]
 uint64_t2 a;
 uint2 s;
 
@@ -408,12 +408,12 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 uint64_t2 0x83 1
-uniform 4 uint4 34 66 0 0
+write cbv-0 (0) u64(0x83, 1)
+write cbv-0 (4) u32(34, 66, 0, 0)
 draw quad
-probe (0, 0) rgba (262.0, 9.223372036e18, 2250562863104.0, 524.0) 1
+probe (0, 0) f32(262.0, 9.223372036e18, 2250562863104.0, 524.0) 1
 
-[pixel shader]
+[pixel-shader]
 uint64_t2 a;
 
 float4 main() : sv_target
@@ -425,11 +425,11 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 uint64_t2 0x300000000 0x500000000
+write cbv-0 (0) u64(0x300000000, 0x500000000)
 draw quad
-probe (0, 0) rgba (25769803776.0, 4294967296.0, 30064771072.0, 1.844674404e19) 1
+probe (0, 0) f32(25769803776.0, 4294967296.0, 30064771072.0, 1.844674404e19) 1
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-uint
 size (2d, 640, 480)
 
@@ -443,13 +443,13 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint64_t2 0 0
+write cbv-0 (0) u64(0, 0)
 todo draw quad
 probe (0, 0) u32(0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff)
-uniform 0 int64_t2 -1 -1
+write cbv-0 (0) i64(-1, -1)
 todo draw quad
 probe (0, 0) u32(0, 63, 0, 0xffffffff)
-uniform 0 uint64_t2 0xcccccccccccccccc 0xcccccccccccccccc
+write cbv-0 (0) u64(0xcccccccccccccccc, 0xcccccccccccccccc)
 todo draw quad
 probe (0, 0) u32(2, 63, 2, 61)
 

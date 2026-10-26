@@ -327,14 +327,14 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 uint64_t2 42000000000 5000000000
+write cbv-0 (0) u64(42000000000, 5000000000)
 draw quad
 probe (0, 0) f32(0.0, 0.0, 1.0, 1.0)
-uniform 0 uint64_t2 42000000000 42000000000
+write cbv-0 (0) u64(42000000000, 42000000000)
 draw quad
 probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
 
-[pixel shader]
+[pixel-shader]
 uniform uint64_t2 a;
 
 float4 main() : SV_TARGET
@@ -345,14 +345,14 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 uint64_t2 42000000000 5000000000
+write cbv-0 (0) u64(42000000000, 5000000000)
 draw quad
 probe (0, 0) f32(0.0, 1.0, 1.0, 0.0)
-uniform 0 uint64_t2 42000000000 42000000000
+write cbv-0 (0) u64(42000000000, 42000000000)
 draw quad
 probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 
-[pixel shader]
+[pixel-shader]
 uniform uint64_t2 a;
 
 float4 main() : SV_TARGET
@@ -363,9 +363,9 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 uint64_t2 42000000000 5000000000
+write cbv-0 (0) u64(42000000000, 5000000000)
 draw quad
 probe (0, 0) f32(0.0, 1.0, 1.0, 0.0)
-uniform 0 uint64_t2 42000000000 42000000000
+write cbv-0 (0) u64(42000000000, 42000000000)
 draw quad
 probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
