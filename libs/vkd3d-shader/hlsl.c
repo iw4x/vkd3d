@@ -3416,7 +3416,6 @@ void hlsl_push_scope(struct hlsl_ctx *ctx)
     if (!(new_scope = hlsl_new_scope(ctx, ctx->cur_scope)))
         return;
 
-    TRACE("Pushing a new scope.\n");
     ctx->cur_scope = new_scope;
 }
 
@@ -3425,7 +3424,6 @@ void hlsl_pop_scope(struct hlsl_ctx *ctx)
     struct hlsl_scope *prev_scope = ctx->cur_scope->upper;
 
     VKD3D_ASSERT(prev_scope);
-    TRACE("Popping current scope.\n");
     ctx->cur_scope = prev_scope;
 }
 
