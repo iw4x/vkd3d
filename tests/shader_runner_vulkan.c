@@ -2247,6 +2247,7 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
     ret_features = &device_info.features2.features;
 
     runner->caps.tags[SHADER_RUNNER_TAG_VULKAN].present = true;
+    runner->caps.tags[SHADER_RUNNER_TAG_SPIRV].present = true;
 
     runner->caps.tags[SHADER_RUNNER_TAG_MVK].present = get_mvk_driver_version(&device_info.properties2.properties,
             &device_info.driver_properties, &runner->caps.tags[SHADER_RUNNER_TAG_MVK].major,

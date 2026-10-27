@@ -217,6 +217,7 @@ static const char * const shader_runner_tag_names[SHADER_RUNNER_TAG_COUNT] =
     [SHADER_RUNNER_TAG_OPENGL]   = "opengl",
     [SHADER_RUNNER_TAG_RADEONSI] = "radeonsi",
     [SHADER_RUNNER_TAG_RADV]     = "radv",
+    [SHADER_RUNNER_TAG_SPIRV]    = "spirv",
     [SHADER_RUNNER_TAG_VULKAN]   = "vulkan",
     [SHADER_RUNNER_TAG_WARP]     = "warp",
     [SHADER_RUNNER_TAG_WINDOWS]  = "windows",

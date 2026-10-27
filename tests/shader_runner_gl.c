@@ -402,6 +402,8 @@ static bool gl_runner_init(struct gl_runner *runner, enum shading_language langu
 
         if (runner->language == GLSL)
             runner->caps.tags[SHADER_RUNNER_TAG_GLSL].present = true;
+        else if (runner->language == SPIR_V)
+            runner->caps.tags[SHADER_RUNNER_TAG_SPIRV].present = true;
 
         if (strncmp((const char *)glGetString(GL_RENDERER), "llvmpipe ", 9) == 0)
             runner->caps.tags[SHADER_RUNNER_TAG_LLVMPIPE].present = true;
