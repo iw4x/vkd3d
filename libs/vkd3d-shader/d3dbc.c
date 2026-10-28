@@ -2427,6 +2427,11 @@ static bool shader_sm1_is_end(struct vkd3d_shader_sm1_parser *sm1)
     return false;
 }
 
+static void shader_sm1_cleanup(struct vkd3d_shader_sm1_parser *parser)
+{
+    vkd3d_free(parser->defs);
+}
+
 static enum vkd3d_result shader_sm1_init(struct vkd3d_shader_sm1_parser *sm1, struct vsir_program *program,
         const struct vkd3d_shader_compile_info *compile_info, struct vkd3d_shader_message_context *message_context)
 {
@@ -2711,6 +2716,7 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
         if (!d3dbc_parse_instruction(&sm1, &d3dbc_ins, &opcode_info))
         {
             WARN("Encountered unrecognised or invalid instruction.\n");
+            shader_sm1_cleanup(&sm1);
             vsir_program_cleanup(program);
             return VKD3D_ERROR_INVALID_SHADER;
         }
@@ -2750,6 +2756,7 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
 
         if ((ret = shader_sm1_read_instruction(&sm1, &d3dbc_ins, opcode_info)))
         {
+            shader_sm1_cleanup(&sm1);
             vsir_program_cleanup(program);
             return ret;
         }
@@ -2802,6 +2809,7 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
 
     if (ret >= 0 && sm1.p.status < 0)
         ret = sm1.p.status;
+    shader_sm1_cleanup(&sm1);
 
     if (ret < 0)
     {
