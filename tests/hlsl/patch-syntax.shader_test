@@ -9,12 +9,11 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 float 1
-uniform 1 float 2
+write cbv-0 (0) f32(1, 2)
 draw quad
-probe (0, 0) rgba(1.0, 1.0, 1.0, 1.0)
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 
-[pixel shader]
+[pixel-shader]
 OutputPatch<float, 2> patch;
 
 float4 main() : SV_TARGET
@@ -23,13 +22,12 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 float 1
-uniform 1 float 2
+write cbv-0 (0) f32(1, 2)
 draw quad
-probe (0, 0) rgba(1.0, 1.0, 1.0, 1.0)
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 
 % Assigning a patch with an array is not allowed in SM6.
-[pixel shader fail(sm>=6)]
+[pixel-shader fail(sm>=6)]
 float data[2];
 
 float4 main() : SV_TARGET
@@ -39,12 +37,11 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 float 1
-uniform 1 float 2
+write cbv-0 (0) f32(1, 2)
 draw quad
-probe (0, 0) rgba(1.0, 1.0, 1.0, 1.0)
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 
-[pixel shader fail]
+[pixel-shader fail]
 float data[2];
 
 float4 main() : SV_TARGET
@@ -79,12 +76,11 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 float 1
-uniform 1 float 2
+write cbv-0 (0) f32(1, 2)
 draw quad
-probe (0, 0) rgba(1.0, 1.0, 1.0, 1.0)
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 
-[pixel shader fail]
+[pixel-shader fail]
 float data[2];
 
 float4 main() : SV_TARGET

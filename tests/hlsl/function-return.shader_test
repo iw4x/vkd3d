@@ -78,20 +78,20 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 0.1
+write cbv-0 (0) f32(0.1)
 draw quad
 probe (0, 0) f32(0.3, 0.2, 0.6, 0.3) 1
-uniform 0 float 0.4
+write cbv-0 (0) f32(0.4)
 draw quad
 probe (0, 0) f32(0.6, 0.5, 0.6, 0.3) 1
-uniform 0 float 0.6
+write cbv-0 (0) f32(0.6)
 draw quad
 probe (0, 0) f32(0.6, 0.5, 0.4, 0.5) 1
-uniform 0 float 0.8
+write cbv-0 (0) f32(0.8)
 draw quad
 probe (0, 0) f32(0.8, 0.7, 0.4, 0.5) 1
 
-[pixel shader]
+[pixel-shader]
 uniform float f;
 
 float func(out float o)
@@ -133,17 +133,17 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 0.1
+write cbv-0 (0) f32(0.1)
 todo(msl & sm>=6) draw quad
 probe (0, 0) f32(0.2, 0.1, 0.2, 0.1) 1
-uniform 0 float 0.5
+write cbv-0 (0) f32(0.5)
 todo(msl & sm>=6) draw quad
 probe (0, 0) f32(0.5, 0.4, 1.0, 0.9) 1
-uniform 0 float 0.9
+write cbv-0 (0) f32(0.9)
 todo(msl & sm>=6) draw quad
 probe (0, 0) f32(1.0, 0.9, 1.0, 0.6) 1
 
-[pixel shader]
+[pixel-shader]
 float func(out float o)
 {
     o = 0.1;
@@ -234,27 +234,27 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 0.0
+write cbv-0 (0) f32(0.0)
 draw quad
 probe (0, 0) f32(0.3, 0.2, 0.3, 0.3) 1
 
-uniform 0 float 0.1
+write cbv-0 (0) f32(0.1)
 draw quad
 probe (0, 0) f32(0.3, 0.3, 0.3, 0.3) 1
 
-uniform 0 float 0.3
+write cbv-0 (0) f32(0.3)
 draw quad
 probe (0, 0) f32(0.3, 0.5, 0.3, 0.3) 1
 
-uniform 0 float 0.7
+write cbv-0 (0) f32(0.7)
 draw quad
 probe (0, 0) f32(0.3, 0.9, 0.7, 0.6) 1
 
-uniform 0 float 0.9
+write cbv-0 (0) f32(0.9)
 draw quad
 probe (0, 0) f32(0.4, 0.1, 0.7, 0.6) 1
 
-[pixel shader]
+[pixel-shader]
 
 uniform float4 f[3];
 

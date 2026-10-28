@@ -274,18 +274,17 @@ float4 main() : sv_target
 //
 
 [test]
-uniform 0 float 0
-uniform 4 float 1
-uniform 8 float 2
-uniform 12 float 3
-uniform 16 float 4
-uniform 20 float 5
-uniform 24 float 6
+write cbv-0  (0) f32(0)
+write cbv-0  (4) f32(1)
+write cbv-0  (8) f32(2)
+write cbv-0 (12) f32(3)
+write cbv-0 (16) f32(4)
+write cbv-0 (20) f32(5)
+write cbv-0 (24) f32(6)
 draw quad
-probe (0, 0) rgba (1, 6, 0, 0)
+probe (0, 0) f32(1, 6, 0, 0)
 
-
-[pixel shader]
+[pixel-shader]
 // If there is a register reservation, the whole variable size is reserved.
 float4x4 a : register(c1);
 float b[4];
@@ -303,19 +302,19 @@ float4 main() : sv_target
 //
 
 [test]
-uniform 0 float 0
-uniform 4 float 1
-uniform 8 float 2
-uniform 12 float 3
-uniform 16 float 4
-uniform 20 float 5
-uniform 24 float 6
+write cbv-0  (0) f32(0)
+write cbv-0  (4) f32(1)
+write cbv-0  (8) f32(2)
+write cbv-0 (12) f32(3)
+write cbv-0 (16) f32(4)
+write cbv-0 (20) f32(5)
+write cbv-0 (24) f32(6)
 draw quad
-probe (0, 0) rgba (1, 6, 0, 0)
+probe (0, 0) f32(1, 6, 0, 0)
 
-
-[pixel shader]
-// If there is a register reservation, the whole variable size is reserved, even if unused.
+[pixel-shader]
+// If there is a register reservation, the whole variable size is reserved,
+// even if unused.
 float4x4 unused : register(c1);
 float b[4];
 
@@ -331,18 +330,17 @@ float4 main() : sv_target
 //
 
 [test]
-uniform 0 float 0
-uniform 4 float 1
-uniform 8 float 2
-uniform 12 float 3
-uniform 16 float 4
-uniform 20 float 5
-uniform 24 float 6
+write cbv-0  (0) f32(0)
+write cbv-0  (4) f32(1)
+write cbv-0  (8) f32(2)
+write cbv-0 (12) f32(3)
+write cbv-0 (16) f32(4)
+write cbv-0 (20) f32(5)
+write cbv-0 (24) f32(6)
 draw quad
-probe (0, 0) rgba (0, 6, 0, 0)
+probe (0, 0) f32(0, 6, 0, 0)
 
-
-[pixel shader]
+[pixel-shader]
 float unused[2] : register(c2); // will create a gap in c0.
 float size3[3]; // cannot be placed in c0.
 float size2[2]; // can be placed in c0.
@@ -364,18 +362,17 @@ float4 main() : sv_target
 //   size2        c0       2
 //   size3        c4       3
 [test]
-uniform 0 float 0
-uniform 4 float 1
-uniform 8 float 2
-uniform 12 float 3
-uniform 16 float 4
-uniform 20 float 5
-uniform 24 float 6
+write cbv-0  (0) f32(0)
+write cbv-0  (4) f32(1)
+write cbv-0  (8) f32(2)
+write cbv-0 (12) f32(3)
+write cbv-0 (16) f32(4)
+write cbv-0 (20) f32(5)
+write cbv-0 (24) f32(6)
 draw quad
-probe (0, 0) rgba (6, 1, 0, 0)
+probe (0, 0) f32 (6, 1, 0, 0)
 
-
-[pixel shader]
+[pixel-shader]
 // Relative addressing extends the allocation size only up to the array's size.
 float idx;
 
@@ -399,19 +396,19 @@ float4 main() : sv_target
 //
 
 [test]
-uniform 0 float 0
-uniform 4 float 1
-uniform 8 float 2
-uniform 12 float 3
-uniform 16 float 4
-uniform 20 float 3
+write cbv-0  (0) f32(0)
+write cbv-0  (4) f32(1)
+write cbv-0  (8) f32(2)
+write cbv-0 (12) f32(3)
+write cbv-0 (16) f32(4)
+write cbv-0 (20) f32(3)
 draw quad
-probe (0, 0) rgba (3, 3, 3, 3)
-uniform 20 float 1
+probe (0, 0) f32(3, 3, 3, 3)
+write cbv-0 (20) f32(1)
 draw quad
-probe (0, 0) rgba (1, 1, 1, 1)
+probe (0, 0) f32(1, 1, 1, 1)
 
-[pixel shader]
+[pixel-shader]
 float xs[2][2];
 float idx;
 
@@ -430,17 +427,17 @@ float4 main() : sv_target
 
 
 [test]
-uniform 0 float 0
-uniform 4 float 1
-uniform 8 float 2
-uniform 12 float 0
+write cbv-0  (0) f32(0)
+write cbv-0  (4) f32(1)
+write cbv-0  (8) f32(2)
+write cbv-0 (12) f32(0)
 draw quad
-probe (0, 0) rgba(1, 1, 1, 1)
-uniform 12 float 1
+probe (0, 0) f32(1, 1, 1, 1)
+write cbv-0 (12) f32(1)
 draw quad
-probe (0, 0) rgba(2, 2, 2, 2)
+probe (0, 0) f32(2, 2, 2, 2)
 
-[vertex shader]
+[vertex-shader]
 float xs[2][2];
 float idx;
 
@@ -465,13 +462,13 @@ float4 main(float t : texcoord) : sv_target
 }
 
 [test]
-uniform 0 float 0
-uniform 4 float 1
-uniform 8 float 2
-uniform 12 float 3
-uniform 16 float 0
+write cbv-0  (0) f32(0)
+write cbv-0  (4) f32(1)
+write cbv-0  (8) f32(2)
+write cbv-0 (12) f32(3)
+write cbv-0 (16) f32(0)
 draw quad
-probe (0, 0) rgba(1, 1, 1, 1)
-uniform 16 float 1
+probe (0, 0) f32(1, 1, 1, 1)
+write cbv-0 (16) f32(1)
 draw quad
-probe (0, 0) rgba(2, 2, 2, 2)
+probe (0, 0) f32(2, 2, 2, 2)

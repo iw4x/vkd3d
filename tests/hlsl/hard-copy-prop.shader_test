@@ -16,14 +16,14 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 0.0
+write cbv-0 (0) f32(0.0)
 draw quad
 probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
-uniform 0 float 1.0
+write cbv-0 (0) f32(1.0)
 draw quad
 probe (0, 0) f32(-2.0, -2.0, -2.0, -2.0)
 
-[pixel shader]
+[pixel-shader]
 float cond;
 
 float4 main() : sv_target
@@ -41,14 +41,14 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 0.0
+write cbv-0 (0) f32(0.0)
 draw quad
 probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
-uniform 0 float 1.0
+write cbv-0 (0) f32(1.0)
 draw quad
 probe (0, 0) f32(20.0, 20.0, 20.0, 20.0)
 
-[pixel shader]
+[pixel-shader]
 float cond;
 
 float4 main() : sv_target
@@ -66,14 +66,14 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 0.0
+write cbv-0 (0) f32(0.0)
 draw quad
 probe (0, 0) f32(1.0, 4.0, 0.0, 0.0)
-uniform 0 float 1.0
+write cbv-0 (0) f32(1.0)
 draw quad
 probe (0, 0) f32(1.0, 40.0, 0.0, 0.0)
 
-[pixel shader]
+[pixel-shader]
 float x[6];
 float y[3];
 uint4 i;
@@ -217,7 +217,7 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 11.0
+write cbv-0 (0) f32(11.0)
 draw quad
 probe (0, 0) f32(1, 2, 3, 5)
 
@@ -225,7 +225,7 @@ probe (0, 0) f32(1, 2, 3, 5)
 shader model < 5.1
 options: backcompat
 
-[pixel shader]
+[pixel-shader]
 sampler s;
 Texture2D t1, t2;
 

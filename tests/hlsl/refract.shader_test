@@ -9,16 +9,16 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float4 0.5 -0.1 0.2 0.3
-uniform 4 float4 0.6 0.4 -0.3 1.0
-uniform 8 float 0.2
+write cbv-0 (0) f32(0.5, -0.1,  0.2, 0.3)
+write cbv-0 (4) f32(0.6,  0.4, -0.3, 1.0)
+write cbv-0 (8) f32(0.2)
 draw quad
-probe (0, 0) rgba (-0.550931, -0.453954, 0.3654653, -1.0248856) 32
-uniform 8 float 100.0
+probe (0, 0) f32(-0.550931, -0.453954, 0.3654653, -1.0248856) 32
+write cbv-0 (8) f32(100.0)
 draw quad
-probe (0, 0) rgba (0.0, 0.0, 0.0, 0.0)
+probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
-[pixel shader]
+[pixel-shader]
 float4 r;
 float4 n;
 float i;
@@ -31,16 +31,16 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float4 0.5 -0.1 0.2 0.3
-uniform 4 float4 0.6 0.4 -0.3 1.0
-uniform 8 float 0.2
+write cbv-0 (0) f32(0.5, -0.1,  0.2, 0.3)
+write cbv-0 (4) f32(0.6,  0.4, -0.3, 1.0)
+write cbv-0 (8) f32(0.2)
 draw quad
 probe (0, 0) f32(-0.519904912, -0.4332699, 0.0, 0.0) 32
-uniform 8 float 100.0
+write cbv-0 (8) f32(100.0)
 draw quad
 probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
-[pixel shader]
+[pixel-shader]
 float4 r;
 float4 n;
 float i;
@@ -52,16 +52,16 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float4 0.5 -0.1 0.2 0.3
-uniform 4 float4 0.6 0.4 -0.3 1.0
-uniform 8 float 0.2
+write cbv-0 (0) f32(0.5, -0.1,  0.2, 0.3)
+write cbv-0 (4) f32(0.6,  0.4, -0.3, 1.0)
+write cbv-0 (8) f32(0.2)
 draw quad
 probe (0, 0) f32(-0.519904912, -0.4332699, 0.0, 0.0) 32
-uniform 8 float 100.0
+write cbv-0 (8) f32(100.0)
 draw quad
 probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
-[pixel shader]
+[pixel-shader]
 float4 r;
 float4 n;
 float i;
@@ -73,16 +73,16 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float4 0.5 -0.1 0.2 0.3
-uniform 4 float4 0.6 0.4 -0.3 1.0
-uniform 8 float 0.2
+write cbv-0 (0) f32(0.5, -0.1,  0.2, 0.3)
+write cbv-0 (4) f32(0.6,  0.4, -0.3, 1.0)
+write cbv-0 (8) f32(0.2)
 draw quad
 probe (0, 0) f32(-0.519904912, -0.4332699, 0.0, 0.0) 32
-uniform 8 float 100.0
+write cbv-0 (8) f32(100.0)
 draw quad
 probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
-[pixel shader]
+[pixel-shader]
 float4 r;
 float4 n;
 float i;
@@ -95,16 +95,16 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float4 0.5 -0.1 0.2 0.3
-uniform 4 float4 0.6 0.4 -0.3 1.0
-uniform 8 float 0.2
+write cbv-0 (0) f32(0.5, -0.1,  0.2, 0.3)
+write cbv-0 (4) f32(0.6,  0.4, -0.3, 1.0)
+write cbv-0 (8) f32(0.2)
 draw quad
-probe (0, 0) rgba (-0.524978, 0.0, 0.0, 0.0) 32
-uniform 8 float 100.0
+probe (0, 0) f32(-0.524978, 0.0, 0.0, 0.0) 32
+write cbv-0 (8) f32(100.0)
 draw quad
-probe (0, 0) rgba (0.0, 0.0, 0.0, 0.0)
+probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
-[pixel shader]
+[pixel-shader]
 float4 r;
 float4 n;
 float i;
@@ -115,16 +115,16 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float4 0.5 -0.1 0.2 0.3
-uniform 4 float4 0.6 0.4 -0.3 1.0
-uniform 8 float 0.2
+write cbv-0 (0) f32(0.5, -0.1,  0.2, 0.3)
+write cbv-0 (4) f32(0.6,  0.4, -0.3, 1.0)
+write cbv-0 (8) f32(0.2)
 draw quad
-probe (0, 0) rgba (-0.5562381, -0.6762381, -0.6162381, -0.5962381) 32
-uniform 8 float 100.0
+probe (0, 0) f32(-0.5562381, -0.6762381, -0.6162381, -0.5962381) 32
+write cbv-0 (8) f32(100.0)
 draw quad
-probe (0, 0) rgba (0.0, 0.0, 0.0, 0.0)
+probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
-[pixel shader fail(sm>=6)]
+[pixel-shader fail(sm>=6)]
 float4 r;
 float4 n;
 float4 i;
@@ -135,16 +135,16 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float4 0.5 -0.1 0.2 0.3
-uniform 4 float4 0.6 0.4 -0.3 1.0
-uniform 8 float4 0.2 0.3 0.4 0.5
+write cbv-0 (0) f32(0.5, -0.1,  0.2, 0.3)
+write cbv-0 (4) f32(0.6,  0.4, -0.3, 1.0)
+write cbv-0 (8) f32(0.2,  0.3,  0.4, 0.5)
 if(sm<6) draw quad
-if(sm<6) probe (0,0) rgba (-0.550931, -0.453954, 0.3654653, -1.0248856) 32
-uniform 8 float 100.0
+if(sm<6) probe (0,0) f32(-0.550931, -0.453954, 0.3654653, -1.0248856) 32
+write cbv-0 (8) f32(100.0)
 if(sm<6) draw quad
-if(sm<6) probe (0,0) rgba (0.0, 0.0, 0.0, 0.0)
+if(sm<6) probe (0,0) f32(0.0, 0.0, 0.0, 0.0)
 
-[pixel shader fail]
+[pixel-shader fail]
 float4x1 r;
 float4 n;
 float i;

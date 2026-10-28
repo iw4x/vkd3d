@@ -116,13 +116,11 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 0.5
-uniform 1 float 0.00000007
+write cbv-0 (0) f32(0.5, 0.00000007)
 draw quad
-probe (0, 0) rgba (0.0, 0.0, 1.0, 1.0)
+probe (0, 0) f32(0.0, 0.0, 1.0, 1.0)
 
-
-[pixel shader]
+[pixel-shader]
 Texture2D<float> t : register(t0);
 SamplerComparisonState s : register(s0);
 
@@ -139,6 +137,6 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 0.5
+write cbv-0 (0) f32(0.5)
 draw quad
-probe (0, 0) rgba (0.0, 0.0, 1.0, 1.0)
+probe (0, 0) f32(0.0, 0.0, 1.0, 1.0)

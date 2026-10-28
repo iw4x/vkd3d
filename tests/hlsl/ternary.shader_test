@@ -232,11 +232,11 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float -1.0
+write cbv-0 (0) f32(-1.0)
 draw quad
 probe (0, 0) f32(0.0, 1.0, 0.0, 0.0)
 
-[pixel shader]
+[pixel-shader]
 uniform bool cond;
 uniform float4 a, b;
 
@@ -289,11 +289,11 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 1.0
+write cbv-0 (0) f32(1.0)
 draw quad
 probe (0, 0) f32(0.0, 1.0, 2.0, 2.0)
 
-[pixel shader]
+[pixel-shader]
 uniform float4 a;
 
 float4 main() : sv_target

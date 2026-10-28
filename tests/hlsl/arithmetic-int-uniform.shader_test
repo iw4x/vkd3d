@@ -132,12 +132,12 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 10.0
+write cbv-0 (0) f32(10.0)
 draw quad
 if(sm<4) probe (0, 0) f32(6, 6, -6, -6)
 if(sm>=4) bug(mvk<1.2.11 | nvidia) probe (0, 0) f32(7, 7, -7, -7)
 
-[pixel shader]
+[pixel-shader]
 float f;
 
 float4 main() : sv_target
@@ -149,12 +149,12 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 999.0
+write cbv-0 (0) f32(999.0)
 draw quad
 if(sm<4) probe (0, 0) f32(16798, -16798, -16798, 16798)
 if(sm>=4) probe (0, 0) f32(16799, -16799, -16799, 16799)
 
-[pixel shader]
+[pixel-shader]
 float f;
 
 float4 main() : sv_target
@@ -166,7 +166,7 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 999.0
+write cbv-0 (0) f32(999.0)
 draw quad
 probe (0, 0) f32(16798, -16798, -16798, 16798)
 

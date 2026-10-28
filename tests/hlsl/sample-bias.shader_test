@@ -174,15 +174,15 @@ float4 main(float2 coord : texcoord) : sv_target
 }
 
 [test]
-uniform 0 float 7.9
+write cbv-0 (0) f32(7.9)
 draw quad
 probe (0, 0) f32(10.0, 0.0, 10.0, 0.0)
 
-uniform 0 float 8.4
+write cbv-0 (0) f32(8.4)
 draw quad
 probe (0, 0) f32(4.0, 0.0, 10.0, 0.0)
 
-uniform 0 float 8.9
+write cbv-0 (0) f32(8.9)
 draw quad
 probe (0, 0) f32(0.0, 0.0, 10.0, 0.0)
 
@@ -202,14 +202,14 @@ float4 main(float2 coord : texcoord) : sv_target
 }
 
 [test]
-uniform 0 float 7.9
+write cbv-0 (0) f32(7.9)
 draw quad
 probe (0, 0) f32(10.0, 0.0, 10.0, 0.0)
 
-uniform 0 float 8.4
+write cbv-0 (0) f32(8.4)
 draw quad
 probe (0, 0) f32(4.0, 0.0, 10.0, 0.0)
 
-uniform 0 float 8.9
+write cbv-0 (0) f32(8.9)
 draw quad
 probe (0, 0) f32(0.0, 0.0, 10.0, 0.0)

@@ -119,11 +119,11 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 2
+write cbv-0 (0) f32(2)
 draw quad
 probe (0, 0) f32(8, 9, 10, 11)
 
-[pixel shader]
+[pixel-shader]
 uniform float i;
 
 float4 main() : sv_target
@@ -134,6 +134,6 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 3
+write cbv-0 (0) f32(3)
 draw quad
 probe (0, 0) f32(12, 13, 14, 15)

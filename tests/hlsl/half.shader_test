@@ -118,7 +118,7 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float 10.0
+write cbv-0 (0) f32(10.0)
 draw quad
 probe (0, 0) f32(10.0, 10.0, 10.0, 10.0)
 
