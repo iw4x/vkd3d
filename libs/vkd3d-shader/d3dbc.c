@@ -3195,6 +3195,7 @@ enum vkd3d_result d3dbc_disassemble(const struct vkd3d_shader_compile_info *comp
 
         if (!d3dbc_parse_instruction(&sm1, &ins, &opcode_info))
         {
+            vkd3d_string_buffer_cleanup(&buffer);
             shader_sm1_cleanup(&sm1);
             return VKD3D_ERROR_INVALID_SHADER;
         }
