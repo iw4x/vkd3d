@@ -108,25 +108,25 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0  float 1.0
-uniform 4  float 2.0
-uniform 8  float 3.0
-uniform 12 float 4.0
-uniform 16 float 5.0
-uniform 20 float 6.0
-uniform 24 float -1.0
-uniform 28 float -2.0
-uniform 32 float -3.0
-if(sm<4)  uniform 36 float4 0 1 2 0
-if(sm>=4) uniform 36 uint4  0 1 2 0
+write cbv-0  (0) f32( 1.0)
+write cbv-0  (4) f32( 2.0)
+write cbv-0  (8) f32( 3.0)
+write cbv-0 (12) f32( 4.0)
+write cbv-0 (16) f32( 5.0)
+write cbv-0 (20) f32( 6.0)
+write cbv-0 (24) f32(-1.0)
+write cbv-0 (28) f32(-2.0)
+write cbv-0 (32) f32(-3.0)
+if(sm<4)  write cbv-0 (36) f32(0, 1, 2, 0)
+if(sm>=4) write cbv-0 (36) u32(0, 1, 2, 0)
 draw quad
-probe (0, 0) rgba(1.0, 4.0, -1.0, 2.0)
-if(sm<4)  uniform 36 float4 2 0 1 1
-if(sm>=4) uniform 36 uint4  2 0 1 1
+probe (0, 0) f32(1.0, 4.0, -1.0, 2.0)
+if(sm<4)  write cbv-0 (36) f32(2, 0, 1, 1)
+if(sm>=4) write cbv-0 (36) u32(2, 0, 1, 1)
 draw quad
-probe (0, 0) rgba(3.0, 2.0, -2.0, 6.0)
+probe (0, 0) f32(3.0, 2.0, -2.0, 6.0)
 
-[pixel shader]
+[pixel-shader]
 float x[4];
 uint4 i;
 
@@ -143,22 +143,22 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0  float 1.0
-uniform 4  float 2.0
-uniform 8  float 3.0
-uniform 12 float 4.0
-if(sm<4)  uniform 16 float4 0 1 0 0
-if(sm>=4) uniform 16 uint4  0 1 0 0
+write cbv-0  (0) f32(1.0)
+write cbv-0  (4) f32(2.0)
+write cbv-0  (8) f32(3.0)
+write cbv-0 (12) f32(4.0)
+if(sm<4)  write cbv-0 (16) f32(0, 1, 0, 0)
+if(sm>=4) write cbv-0 (16) u32(0, 1, 0, 0)
 draw quad
-probe (0, 0) rgba(3.0, 3.0, 3.0, 3.0)
-if(sm<4)  uniform 16 float4 1 1 0 0
-if(sm>=4) uniform 16 uint4  1 1 0 0
+probe (0, 0) f32(3.0, 3.0, 3.0, 3.0)
+if(sm<4)  write cbv-0 (16) f32(1, 1, 0, 0)
+if(sm>=4) write cbv-0 (16) u32(1, 1, 0, 0)
 draw quad
-probe (0, 0) rgba(4.0, 4.0, 4.0, 4.0)
+probe (0, 0) f32(4.0, 4.0, 4.0, 4.0)
 
 % Copy-prop is currently unable to propagate the following,
 % as structs don't yet support dynamic indexing.
-[pixel shader]
+[pixel-shader]
 struct s
 {
     float4 a, b;
@@ -174,22 +174,21 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 float4 2.0 2.0 2.0 2.0
-uniform 4 float4 3.0 3.0 3.0 3.0
-if(sm<4)  uniform 8 float4 0 0 0 0
-if(sm>=4) uniform 8 uint4  0 0 0 0
+write cbv-0 (0) f32(2.0, 2.0, 2.0, 2.0)
+write cbv-0 (4) f32(3.0, 3.0, 3.0, 3.0)
+if(sm<4)  write cbv-0 (8) f32(0, 0, 0, 0)
+if(sm>=4) write cbv-0 (8) u32(0, 0, 0, 0)
 draw quad
-probe (0, 0) rgba(2.0, 2.0, 2.0, 2.0)
-if(sm<4)  uniform 8 float4 1 0 0 0
-if(sm>=4) uniform 8 uint4  1 0 0 0
+probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
+if(sm<4)  write cbv-0 (8) f32(1, 0, 0, 0)
+if(sm>=4) write cbv-0 (8) u32(1, 0, 0, 0)
 draw quad
-probe (0, 0) rgba(3.0, 3.0, 3.0, 3.0)
+probe (0, 0) f32(3.0, 3.0, 3.0, 3.0)
 
 % OOB indexes are illegal, but sm < 6 allows them in dead code.
 % We need copy-prop to know if the code is dead.
 % This means copy-prop needs to be able to handle OOB indexes.
-[pixel shader fail(sm>=6)]
-
+[pixel-shader fail(sm>=6)]
 float4 main() : sv_target
 {
     static float4 arr[4];

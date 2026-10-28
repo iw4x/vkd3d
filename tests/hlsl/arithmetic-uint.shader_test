@@ -66,30 +66,30 @@ void main(out uint4 dst : sv_target)
 }
 
 [test]
-uniform 0 uint4 0 0 1 0
+write cbv-0 (0) u32(0, 0, 1, 0)
 draw quad
 % Integer division by zero is undefined for shader model 6 targets.
 if(sm<6) probe (0, 0) u32(0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff)
-uniform 0 uint4 1 1 7 1
+write cbv-0 (0) u32(1, 1, 7, 1)
 draw quad
 probe (0, 0) u32(1, 7, 0, 0)
-uniform 0 uint4 7 2 7 3
+write cbv-0 (0) u32(7, 2, 7, 3)
 draw quad
 probe (0, 0) u32(3, 2, 1, 1)
-uniform 0 uint4 7 4 7 5
+write cbv-0 (0) u32(7, 4, 7, 5)
 draw quad
 probe (0, 0) u32(1, 1, 3, 2)
-uniform 0 uint4 7 6 7 7
+write cbv-0 (0) u32(7, 6, 7, 7)
 draw quad
 probe (0, 0) u32(1, 1, 1, 0)
 
 % Test expression normalization and simplification.
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-float
 size (2d, 640, 480)
 
-[pixel shader]
+[pixel-shader]
 uniform uint4 x;
 
 float4 main() : SV_TARGET
@@ -98,13 +98,13 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 uint4 0 1 2 3
+write cbv-0 (0) u32(0, 1, 2, 3)
 draw quad
-probe (0, 0) rgba (1.0, 7.0, 13.0, 19.0)
+probe (0, 0) f32(1.0, 7.0, 13.0, 19.0)
 
 % Test collecting terms with constant coefficients.
 
-[pixel shader]
+[pixel-shader]
 uniform uint x;
 
 float4 main() : SV_TARGET
@@ -153,7 +153,7 @@ uint4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 uint4 0xccaa5533 7 1 2
+write cbv-0 (0) u32(0xccaa5533, 7, 1, 2)
 draw quad
 probe (0, 0) u32(0xff77, 0xf, 0x407f, 0x9)
 
@@ -253,14 +253,14 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint4 0 0 0 0
+write cbv-0 (0) u32(0, 0, 0, 0)
 draw quad
 probe (0, 0) u32(0x7fff, 0xffff, 0, 0)
-uniform 0 uint4 0xffff0001 0 0 0
+write cbv-0 (0) u32(0xffff0001, 0, 0, 0)
 draw quad
 probe (0, 0) u32(0x8000, 0xfffe, 0, 0)
 
-[pixel shader]
+[pixel-shader]
 uniform uint16_t4 u;
 uniform uint i;
 
@@ -271,14 +271,14 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint4 0xfffe0002 0 2 0
+write cbv-0 (0) u32(0xfffe0002, 0, 2, 0)
 draw quad
 probe (0, 0) u32(0x8001, 0xfffd, 0, 0)
-uniform 0 uint4 0 0 0 0
+write cbv-0 (0) u32(0, 0, 0, 0)
 draw quad
 probe (0, 0) u32(1, 2, 0, 0)
 
-[pixel shader]
+[pixel-shader]
 uniform uint16_t4 u;
 
 uint4 main() : sv_target

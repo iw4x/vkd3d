@@ -1193,14 +1193,6 @@ static void read_f32(const char **line, float *f)
     *line = rest;
 }
 
-static void read_uint4(const char **line, struct uvec4 *v)
-{
-    read_uint(line, &v->x, true);
-    read_uint(line, &v->y, true);
-    read_uint(line, &v->z, true);
-    read_uint(line, &v->w, true);
-}
-
 static void read_int64(const char **line, int64_t *i, bool is_uniform)
 {
     char *rest;
@@ -2117,13 +2109,6 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
 
             read_f32(&line, &f);
             uniform_buffer_write(u, offset, 1, &f);
-        }
-        else if (match_string(line, "uint4", &line))
-        {
-            struct uvec4 v;
-
-            read_uint4(&line, &v);
-            uniform_buffer_write(u, offset, 4, &v);
         }
         else if (match_string(line, "uint", &line))
         {

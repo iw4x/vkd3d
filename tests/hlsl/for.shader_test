@@ -53,17 +53,16 @@ float4 main(float tex : texcoord) : sv_target
 }
 
 [test]
-uniform 0 uint4 10 0 0 0
+write cbv-0 (0) u32(10, 0, 0, 0)
 draw quad
-probe (  0, 0, 159, 480) rgba (10.0, 35.0, 0.0, 0.0)
-probe (161, 0, 479, 480) rgba (10.0, 38.0, 0.0, 0.0)
-probe (481, 0, 640, 480) rgba ( 5.0, 10.0, 0.0, 0.0)
-
+probe (  0, 0, 159, 480) f32(10.0, 35.0, 0.0, 0.0)
+probe (161, 0, 479, 480) f32(10.0, 38.0, 0.0, 0.0)
+probe (481, 0, 640, 480) f32( 5.0, 10.0, 0.0, 0.0)
 
 [require]
-% Reset requirements
+% Reset requirements.
 
-[pixel shader]
+[pixel-shader]
 float4 main(float tex : texcoord) : sv_target
 {
     int i;

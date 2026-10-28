@@ -97,12 +97,12 @@ float4 main() : sv_target
 }
 
 [test]
-if(sm<4)  uniform 0 float4 0.0 1.0 0.0 3.0
-if(sm<4)  uniform 4 float4 1.0 2.0 3.0 4.0
-if(sm<4)  uniform 8 float4 5.0 6.0 7.0 8.0
-if(sm>=4) uniform 0 uint4 0 1 0 3
-if(sm>=4) uniform 4 uint4 1 2 3 4
-if(sm>=4) uniform 8 uint4 5 6 7 8
+if(sm<4)  write cbv-0 (0) f32(0.0, 1.0, 0.0, 3.0)
+if(sm<4)  write cbv-0 (4) f32(1.0, 2.0, 3.0, 4.0)
+if(sm<4)  write cbv-0 (8) f32(5.0, 6.0, 7.0, 8.0)
+if(sm>=4) write cbv-0 (0) u32(0, 1, 0, 3)
+if(sm>=4) write cbv-0 (4) u32(1, 2, 3, 4)
+if(sm>=4) write cbv-0 (8) u32(5, 6, 7, 8)
 draw quad
 probe (0, 0) f32(5.0, 2.0, 7.0, 4.0)
 

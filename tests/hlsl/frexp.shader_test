@@ -46,17 +46,17 @@ todo(sm<4) draw quad
 if(sm>=4) probe (0, 0) f32(129, 0.5, 0, 0)
 
 % NaN, with a well defined mantissa (pi / 4)
-uniform 0 uint4 0x7fc90fdb 0 0 0
+write cbv-0 (0) u32(0x7fc90fdb, 0, 0, 0)
 todo(sm<4) draw quad
-if(sm<4) probe (0, 0) f32(NAN, NAN, 0, 0)
+if(sm<4)  probe (0, 0) f32(NAN, NAN, 0, 0)
 if(sm>=4) probe (0, 0) f32(129, 0.785398185, 0, 0)
 
 % Subnormals.
-uniform 0 uint4 0x0007ffff 0 0 0
+write cbv-0 (0) u32(0x0007ffff, 0, 0, 0)
 todo(sm<4) draw quad
 bug(llvmpipe & llvm>=16) probe (0, 0) f32(0, 0, 0, 0)
 
-[pixel shader]
+[pixel-shader]
 float4 main() : sv_target
 {
     int arg = 7604;
