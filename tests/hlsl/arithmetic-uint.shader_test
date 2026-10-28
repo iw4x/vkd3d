@@ -118,11 +118,11 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 uint 7
+write cbv-0 (0) u32(7)
 draw quad
-probe (0, 0) rgba(38.0, 5.0, 7.0, 0.0)
+probe (0, 0) f32(38.0, 5.0, 7.0, 0.0)
 
-[pixel shader]
+[pixel-shader]
 uniform uint x;
 
 float4 main() : SV_TARGET
@@ -133,11 +133,11 @@ float4 main() : SV_TARGET
 }
 
 [test]
-uniform 0 uint 7
+write cbv-0 (0) u32(7)
 draw quad
 probe (0, 0) f32(7.0, 0.0, 0.0, 0.0)
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-uint
 size (2d, 640, 480)
 
@@ -170,16 +170,16 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint 0
-uniform 4 uint 0
+write cbv-0 (0) u32(0)
+write cbv-0 (4) u32(0)
 todo(msl & sm>=6) draw quad
 probe (0, 0) u32(0xfff, 0x7ff, 0, 0)
-uniform 0 uint 1
-uniform 4 uint 0xfff
+write cbv-0 (0) u32(1)
+write cbv-0 (4) u32(0xfff)
 todo(msl & sm>=6) draw quad
 probe (0, 0) u32(0x1000, 0x17fe, 0, 0)
 
-[pixel shader]
+[pixel-shader]
 uniform min16uint u[2];
 uniform uint i;
 
@@ -190,22 +190,22 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint 2
-uniform 4 uint 0xffe
-% i is allocated differently between SM4-5 and SM6
-uniform 5 uint 2
-uniform 8 uint 2
+write cbv-0 (0) u32(2)
+write cbv-0 (4) u32(0xffe)
+% i is allocated differently between SM4-5 and SM6.
+write cbv-0 (5) u32(2)
+write cbv-0 (8) u32(2)
 todo(msl & sm>=6) draw quad
-% In D3D12 with SM5 all reads to the array return 0
+% In d3d12 with SM5 all reads to the array return 0.
 if(sm>=6 | !d3d12) probe (0, 0) u32(0x801, 0x1ffd, 0, 0)
-uniform 0 uint 0
-uniform 4 uint 0
-uniform 5 uint 0
-uniform 8 uint 0
+write cbv-0 (0) u32(0)
+write cbv-0 (4) u32(0)
+write cbv-0 (5) u32(0)
+write cbv-0 (8) u32(0)
 todo(msl & sm>=6) draw quad
 if(sm>=6 | !d3d12) probe (0, 0) u32(1, 2, 0, 0)
 
-[pixel shader]
+[pixel-shader]
 uniform min16uint u[4];
 
 uint4 main() : sv_target
@@ -215,14 +215,14 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint 7
-uniform 4 uint 9
-uniform 8 uint 0xff9
-uniform 12 uint 0xff7
+write cbv-0  (0) u32(7)
+write cbv-0  (4) u32(9)
+write cbv-0  (8) u32(0xff9)
+write cbv-0 (12) u32(0xff7)
 todo(msl & sm>=6) draw quad
 probe (0, 0) u32(21, 45, 0x2feb, 0x4fd3)
 
-[pixel shader]
+[pixel-shader]
 uniform min16uint u[4];
 
 uint4 main() : sv_target
@@ -232,10 +232,10 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint 0xfffe
-uniform 4 uint 0xb
-uniform 8 uint 0xffff
-uniform 12 uint 0xffff
+write cbv-0  (0) u32(0xfffe)
+write cbv-0  (4) u32(0xb)
+write cbv-0  (8) u32(0xffff)
+write cbv-0 (12) u32(0xffff)
 todo(msl & sm>=6) draw quad
 probe (0, 0) u32(0x10, 2, 0x10, 0x3333)
 
@@ -288,12 +288,11 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint 0x90007
-uniform 1 uint 0xfff7fff9
+write cbv-0 (0) u16(0x7, 0x9, 0xfff9, 0xfff7)
 draw quad
 probe (0, 0) u32(21, 45, 0xffeb, 0xffd3)
 
-[pixel shader]
+[pixel-shader]
 uniform uint16_t4 u;
 
 uint4 main() : sv_target
@@ -303,8 +302,7 @@ uint4 main() : sv_target
 }
 
 [test]
-uniform 0 uint 0x000bfffe
-uniform 1 uint 0xffffffff
+write cbv-0 (0) u16(0xfffe, 0xb, 0xffff, 0xffff)
 draw quad
 probe (0, 0) u32(0, 2, 1, 0x3333)
 

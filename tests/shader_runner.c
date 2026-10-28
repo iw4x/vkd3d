@@ -2110,13 +2110,6 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
             read_f32(&line, &f);
             uniform_buffer_write(u, offset, 1, &f);
         }
-        else if (match_string(line, "uint", &line))
-        {
-            unsigned int v;
-
-            read_uint(&line, &v, true);
-            uniform_buffer_write(u, offset, 1, &v);
-        }
         else
         {
             fatal_error("Unknown uniform type '%s'.\n", line);

@@ -347,18 +347,18 @@ float4 main() : sv_target
 }
 
 [test]
-if(sm<6) uniform 0 float 0
-if(sm<6) uniform 4 float 0
-if(sm<6) uniform 8 float 2.75
-if(sm<6) uniform 12 float 2.75
-if(sm>=6) uniform 0 uint 0
-if(sm>=6) uniform 4 uint 0
-if(sm>=6) uniform 8 uint 0x4180
-if(sm>=6) uniform 12 uint 0x4180
+if(sm<6)  write cbv-0  (0) f32(0)
+if(sm<6)  write cbv-0  (4) f32(0)
+if(sm<6)  write cbv-0  (8) f32(2.75)
+if(sm<6)  write cbv-0 (12) f32(2.75)
+if(sm>=6) write cbv-0  (0) u32(0)
+if(sm>=6) write cbv-0  (4) u32(0)
+if(sm>=6) write cbv-0  (8) u32(0x4180)
+if(sm>=6) write cbv-0 (12) u32(0x4180)
 todo(msl & sm>=6) draw quad
-todo(sm>=6) probe (0, 0) rgba(-1.5, 65.0, 1.25, 67.75)
+todo(sm>=6) probe (0, 0) f32(-1.5, 65.0, 1.25, 67.75)
 
-[pixel shader]
+[pixel-shader]
 uniform min16float u[2];
 uniform uint i;
 
@@ -369,24 +369,24 @@ float4 main() : sv_target
 }
 
 [test]
-if(sm<6) uniform 0 float 0.25
-if(sm<6) uniform 4 float 3.0
-if(sm>=6) uniform 0 uint 0x3400
-if(sm>=6) uniform 4 uint 0x4200
-% i is allocated differently between SM4-5 and SM6
-uniform 5 uint 2
-uniform 8 uint 2
+if(sm<6)  write cbv-0 (0) f32(0.25)
+if(sm<6)  write cbv-0 (4) f32(3.0)
+if(sm>=6) write cbv-0 (0) u32(0x3400)
+if(sm>=6) write cbv-0 (4) u32(0x4200)
+% i is allocated differently between SM4-5 and SM6.
+write cbv-0 (5) u32(2)
+write cbv-0 (8) u32(2)
 todo(sm>=6) draw quad
 % With the NVIDIA d3d11 driver `arr[x]' seems to evaluate to `arr[0]' independently of x.
 if(!d3d11 | !nvidia) probe (0, 0) f32(10.25, 3.5, 0.0, 0.0)
-uniform 0 uint 0
-uniform 4 uint 0
-uniform 5 uint 0
-uniform 8 uint 0
+write cbv-0 (0) u32(0)
+write cbv-0 (4) u32(0)
+write cbv-0 (5) u32(0)
+write cbv-0 (8) u32(0)
 todo(sm>=6) draw quad
 if(!d3d11 | !nvidia) probe (0, 0) f32(1.0, 2.0, 0, 0)
 
-[pixel shader]
+[pixel-shader]
 uniform min16float u[4];
 
 float4 main() : sv_target
@@ -396,18 +396,18 @@ float4 main() : sv_target
 }
 
 [test]
-if(sm<6) uniform 0 float -2.5
-if(sm<6) uniform 4 float 3.5
-if(sm<6) uniform 8 float 0.5
-if(sm<6) uniform 12 float -4.5
-if(sm>=6) uniform 0 uint 0xc100
-if(sm>=6) uniform 4 uint 0x4300
-if(sm>=6) uniform 8 uint 0x3800
-if(sm>=6) uniform 12 uint 0xc480
+if(sm<6)  write cbv-0  (0) f32(-2.5)
+if(sm<6)  write cbv-0  (4) f32( 3.5)
+if(sm<6)  write cbv-0  (8) f32( 0.5)
+if(sm<6)  write cbv-0 (12) f32(-4.5)
+if(sm>=6) write cbv-0  (0) u32(0xc100)
+if(sm>=6) write cbv-0  (4) u32(0x4300)
+if(sm>=6) write cbv-0  (8) u32(0x3800)
+if(sm>=6) write cbv-0 (12) u32(0xc480)
 todo(msl & sm>=6) draw quad
-todo(sm>=6) probe (0, 0) rgba(3.75, 19.25, -0.75, -24.75)
+todo(sm>=6) probe (0, 0) f32(3.75, 19.25, -0.75, -24.75)
 
-[pixel shader]
+[pixel-shader]
 uniform min16float u[4];
 
 float4 main() : sv_target
@@ -417,18 +417,17 @@ float4 main() : sv_target
 }
 
 [test]
-if(sm<6) uniform 0 float 3.25
-if(sm<6) uniform 4 float -1023.5
-if(sm<6) uniform 8 float -7.5
-if(sm<6) uniform 12 float 0.125
-if(sm>=6) uniform 0 uint 0x4280
-if(sm>=6) uniform 4 uint 0xe3ff
-if(sm>=6) uniform 8 uint 0xc780
-if(sm>=6) uniform 12 uint 0x3000
+if(sm<6)  write cbv-0  (0) f32(    3.25)
+if(sm<6)  write cbv-0  (4) f32(-1023.5)
+if(sm<6)  write cbv-0  (8) f32(   -7.5)
+if(sm<6)  write cbv-0 (12) f32(    0.125)
+if(sm>=6) write cbv-0  (0) u32(0x4280)
+if(sm>=6) write cbv-0  (4) u32(0xe3ff)
+if(sm>=6) write cbv-0  (8) u32(0xc780)
+if(sm>=6) write cbv-0 (12) u32(0x3000)
 todo(msl & sm>=6) draw quad
 % The computation is potentially done in f16, but ULPs are relative to the f32 result.
-todo(sm>=6) probe (0, 0) rgba (0.004962, 2047.0, -0.011451, -0.25) 8192
-
+todo(sm>=6) probe (0, 0) f32(0.004962, 2047.0, -0.011451, -0.25) 8192
 
 [require]
 shader model >= 6.2
@@ -444,12 +443,11 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 uint 0
-uniform 1 uint 0x41804180  % 2.75 2.75
+write cbv-0 (0) u16(0, 0, 0x4180, 0x4180) % f16(0, 0, 2.75 2.75)
 draw quad
-probe (0, 0) rgba(-1.5, 65504.0, 1.25, 65504.0)
+probe (0, 0) f32(-1.5, 65504.0, 1.25, 65504.0)
 
-[pixel shader]
+[pixel-shader]
 uniform half4 u;
 
 float4 main() : sv_target
@@ -473,8 +471,7 @@ float4 main() : sv_target
 }
 
 [test]
-uniform 0 uint 0x4280e3ff  % -1023.5 3.25
-uniform 1 uint 0xc7803000  % 0.125 -7.5
+write cbv-0 (0) u16(0xe3ff, 0x4280, 0x3000, 0xc780)     % f16(-1023.5, 3.25, 0.125 -7.5)
 draw quad
 % The computation is done in f16, but ULPs are relative to the f32 result.
 probe (0, 0) f32(-5.1171875, -6.5, 6.25133514e-4, 15.0) 16384
@@ -618,11 +615,11 @@ float4 main() : SV_Target
 
 [test]
 denorm preserve
-uniform 0 uint 0x5640068d    % half2 1e-4 100.0
+write cbv-0 (0) u16(0x068d, 0x5640) % f16(1e-4, 100.0)
 draw quad
 probe (0, 0) f32(9.99569893e-005, 1.01327896e-006, 9.99450684e-003, 1.01327896e-006)
 
 denorm ftz
-uniform 0 uint 0x5640068d    % half2 1e-4 100.0
+write cbv-0 (0) u16(0x068d, 0x5640) % f16(1e-4, 100.0)
 draw quad
 probe (0, 0) f32(9.99569893e-005, 1.01327896e-006, 9.99450684e-003, 1.01327896e-006)
