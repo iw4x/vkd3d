@@ -18,7 +18,7 @@ void main(uint id : SV_VertexID, out data output)
     output.zero = float3(0.0, 0.0, 0.0);
 }
 
-[hull shader]
+[hull-shader]
 struct vsdata
 {
     float4 position : SV_Position;

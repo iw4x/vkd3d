@@ -5,7 +5,7 @@ shader model >= 5.0
 %% For SM < 6, the last declaration that is defined is picked.
 %% For SM >= 6, the last valid declaration is picked, even if it is not defined.
 
-[hull shader]
+[hull-shader]
 struct patch_constant_data
 {
     float edges[2] : SV_TessFactor;
@@ -32,7 +32,7 @@ float4 main() : POSITION
     return 0;
 }
 
-[hull shader fail(sm>=6)]
+[hull-shader fail(sm>=6)]
 struct patch_constant_data
 {
     float edges[2] : SV_TessFactor;
@@ -58,7 +58,7 @@ float4 main() : POSITION
     return 0;
 }
 
-[hull shader]
+[hull-shader]
 struct patch_constant_data
 {
     float edges[2] : SV_TessFactor;
@@ -84,7 +84,7 @@ float4 main() : POSITION
     return 0;
 }
 
-[hull shader fail]
+[hull-shader fail]
 struct patch_constant_data
 {
     float edges[2] : SV_TessFactor;
@@ -113,7 +113,7 @@ float4 main() : POSITION
 
 %% Test uniform input parameters.
 
-[hull shader fail(sm>=6)]
+[hull-shader fail(sm>=6)]
 // SM6 requires all function paramaters to have semantics.
 
 struct patch_constant_data
@@ -140,7 +140,7 @@ float4 main(uniform float4 b) : POSITION
 }
 
 % Patch constant function can't have uniform parameters.
-[hull shader fail]
+[hull-shader fail]
 struct patch_constant_data
 {
     float edges[2] : SV_TessFactor;
@@ -165,7 +165,7 @@ float4 main(uniform float4 b) : POSITION
 }
 
 % Output parameters are not supported in control point functions for SM < 6.
-[hull shader fail(sm<6)]
+[hull-shader fail(sm<6)]
 struct data
 {
     float4 val : VAL;

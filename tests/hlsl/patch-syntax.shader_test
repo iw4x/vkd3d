@@ -118,7 +118,7 @@ float4 main(InputPatch<data, 2> patch) : SV_TARGET
     return 0;
 }
 
-[hull shader]
+[hull-shader]
 struct data
 {
     float4 val : VAL;
@@ -144,7 +144,7 @@ float4 main(InputPatch<data, 2> patch) : POSITION
     return 0;
 }
 
-[hull shader]
+[hull-shader]
 struct data
 {
     float4 val : VAL;
@@ -212,7 +212,7 @@ float4 main(OutputPatch<data, 2> patch) : SV_TARGET
     return 0;
 }
 
-[hull shader fail]
+[hull-shader fail]
 struct data
 {
     float4 val : VAL;
@@ -238,7 +238,7 @@ float4 main(OutputPatch<data, 2> patch) : POSITION
     return patch[0].val;
 }
 
-[hull shader]
+[hull-shader]
 struct data
 {
     float4 val : VAL;
@@ -300,7 +300,7 @@ void main(OutputPatch<data, 2> patch, inout PointStream<data> vout)
 
 % Patch parameters can't have more than 32 control points.
 
-[hull shader]
+[hull-shader]
 struct data
 {
     float4 val : VAL;
@@ -326,7 +326,7 @@ float4 main(InputPatch<data, 32> patch) : POSITION
     return 0;
 }
 
-[hull shader fail]
+[hull-shader fail]
 struct data
 {
     float4 val : VAL;
@@ -397,7 +397,7 @@ float4 main() : SV_TARGET
 
 % Multiple patch parameters are not allowed.
 
-[hull shader fail]
+[hull-shader fail]
 struct data
 {
     float4 val : VAL;
@@ -442,7 +442,7 @@ float4 main(OutputPatch<data, 2> patch, patch_constant_data input, OutputPatch<d
 
 % InputPatch types must match between the main function and the patch constant function of a hull shader.
 
-[hull shader fail]
+[hull-shader fail]
 struct data
 {
     float4 val : VAL;
@@ -473,7 +473,7 @@ float4 main(InputPatch<data, 2> patch) : POSITION
     return 0;
 }
 
-[hull shader fail]
+[hull-shader fail]
 struct data
 {
     float4 val : VAL;
@@ -502,7 +502,7 @@ float4 main(InputPatch<data, 2> patch) : POSITION
 % The type of a OutputPatch parameters in a hull shader patch constant function must match
 % the output type of the shader's main function.
 
-[hull shader fail]
+[hull-shader fail]
 struct data
 {
     float4 val : VAL;
@@ -533,7 +533,7 @@ out_data main()
     return (out_data)0;
 }
 
-[hull shader fail]
+[hull-shader fail]
 struct out_data
 {
     float outval : OUTVAL;

@@ -20,7 +20,7 @@ void main(uint id : SV_VertexID, out data output)
     output.b = 0.0;
 }
 
-[hull shader]
+[hull-shader]
 struct data
 {
     float4 position : SV_Position;
@@ -100,7 +100,7 @@ if(!llvmpipe) todo(glsl | mvk & vulkan) draw 3 control point patch list 3
 if(!llvmpipe) todo(mvk) probe (0, 0, 640, 480) rgba(0.0, 1.0, 0.0, 1.0)
 
 % Passthrough hull shader control point function.
-[hull shader]
+[hull-shader]
 struct data
 {
     float4 position : SV_Position;
@@ -140,7 +140,7 @@ shader model >= 5.0
 shader model < 5.1
 tessellation-shader
 
-[hull shader dxbc-tpf-hex]
+[hull-shader dxbc-tpf-hex]
 % As above, but with some DCL_INDEXRANGE instructions that skip a signature
 % element (i.e., it has "dcl_indexrange o0.z 3" at some point, but o1.z does
 % not exist). This must be kept in compiled form rather than source code
@@ -296,7 +296,7 @@ if(!llvmpipe) todo(mvk) probe (0, 0, 640, 480) rgba(0.0, 1.0, 0.0, 1.0)
 shader model >= 5.0
 tessellation-shader
 
-[hull shader]
+[hull-shader]
 uniform uint foo;
 
 struct data
