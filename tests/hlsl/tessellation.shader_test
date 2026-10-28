@@ -51,7 +51,7 @@ data main(InputPatch<data, 3> input, uint i : SV_OutputControlPointID)
     return input[i];
 }
 
-[domain shader]
+[domain-shader]
 struct data
 {
     float4 position : SV_Position;
@@ -256,7 +256,7 @@ tessellation-shader
 06000036 00902042 0010000a 00000000 00004001 00000000           % mov o[r0.x + 0].z, l(0)
 0100003e                                                        % ret
 
-[domain shader]
+[domain-shader]
 struct data
 {
     float4 position : SV_Position;
@@ -337,7 +337,7 @@ data main(InputPatch<data, 3> input, uint i : SV_OutputControlPointID)
     return input[i];
 }
 
-[domain shader]
+[domain-shader]
 struct data
 {
     float4 position : SV_Position;

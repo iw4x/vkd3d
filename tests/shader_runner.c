@@ -3354,8 +3354,7 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_HS;
             }
-            else if (match_string(line, "[domain-shader", &line)
-                    || match_string(line, "[domain shader", &line))
+            else if (match_string(line, "[domain-shader", &line))
             {
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_DS;

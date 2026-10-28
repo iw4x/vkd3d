@@ -62,7 +62,7 @@ data main(InputPatch<vsdata, 3> input, uint i : SV_OutputControlPointID)
     return o;
 }
 
-[domain shader]
+[domain-shader]
 struct hsdata
 {
     float4 position : SV_Position;

@@ -170,7 +170,7 @@ float4 main(InputPatch<data, 2> patch) : POSITION
     return 0;
 }
 
-[domain shader fail(sm<6)]
+[domain-shader fail(sm<6)]
 struct data
 {
     float4 val : VAL;
@@ -269,7 +269,7 @@ out_data main()
     return (out_data)0;
 }
 
-[domain shader]
+[domain-shader]
 struct data
 {
     float4 val : VAL;
@@ -352,7 +352,7 @@ float4 main(InputPatch<data, 33> patch) : POSITION
     return 0;
 }
 
-[domain shader]
+[domain-shader]
 struct data
 {
     float4 val : VAL;
@@ -369,7 +369,7 @@ float4 main(patch_constant_data input, OutputPatch<data, 32> patch) : POSITION
     return 0;
 }
 
-[domain shader fail]
+[domain-shader fail]
 struct data
 {
     float4 val : VAL;
@@ -423,7 +423,7 @@ float4 main(InputPatch<data, 2> patch, uint i : SV_OutputControlPointID, InputPa
     return 0;
 }
 
-[domain shader fail]
+[domain-shader fail]
 struct data
 {
     float4 val : VAL;
