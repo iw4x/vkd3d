@@ -340,6 +340,13 @@ struct vkd3d_shader_sm1_parser
     } *defs;
     size_t def_count, defs_capacity;
 
+    /* Index of the next temporary register to be allocated for internal use. */
+    uint32_t internal_temp_id;
+
+    /* Temporary registers representing aL, indexed by loop depth. */
+    uint32_t *aL_ids;
+    size_t aL_count, aL_ids_capacity;
+
     uint16_t texture_descriptors;
 
     struct
@@ -1538,6 +1545,20 @@ static void vsir_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, stru
             return vsir_const_operand_from_d3dbc(parser, vsir, d3dbc, rel_addr,
                     VKD3D_SHADER_D3DBC_INT_CONSTANT_REGISTER, VSIR_DATA_U32, VSIR_DIMENSION_VEC4);
 
+        case D3DBC_REGISTER_LOOP:
+            if (parser->aL_count)
+            {
+                vsir_operand_init(vsir, VSIR_REGISTER_TEMP, VSIR_DATA_U32, 1);
+                vsir->idx[0].offset = parser->aL_ids[parser->aL_count - 1];
+            }
+            else
+            {
+                vkd3d_shader_parser_error(&parser->p, VKD3D_SHADER_ERROR_D3DBC_INVALID_REGISTER_TYPE,
+                        "aL cannot be used outside of a loop.");
+                vsir_operand_init(vsir, VSIR_REGISTER_NULL, VSIR_DATA_UNUSED, 0);
+            }
+            return;
+
         default:
             break;
     }
@@ -1840,6 +1861,75 @@ static void d3dbc_record_def(struct vkd3d_shader_sm1_parser *parser,
     def->set = set;
     def->index = ins->dst[0].o.index;
     def->value = ins->immconst;
+}
+
+static enum vkd3d_result d3dbc_read_loop(struct vkd3d_shader_sm1_parser *parser,
+        const struct d3dbc_instruction *d3dbc_ins)
+{
+    struct d3dbc_src_operand constants = d3dbc_ins->src[1];
+    uint32_t iter_id, aL_id, neg_id;
+    struct vsir_instruction *ins;
+
+    /* loop aL, i#
+     *  ->
+     * mov rITER.x, i#.x
+     * ineg srNEG, i#.z
+     * iadd rVAL.x, i#.y, srNEG
+     * loop
+     *     breakp_z rITER.x
+     *     iadd rITER.x, rITER.x, -1
+     *     iadd rVAL.x, rVAL.x, i#.z
+     */
+
+    if (!vkd3d_array_reserve((void **)&parser->aL_ids, &parser->aL_ids_capacity,
+            parser->aL_count + 1, sizeof(*parser->aL_ids)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    parser->aL_ids[parser->aL_count++] = aL_id = parser->internal_temp_id++;
+    iter_id = parser->internal_temp_id++;
+    parser->program->temp_count = parser->internal_temp_id;
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MOV, 1, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_operand_init_temp_u32(&ins->dst[0], iter_id);
+    constants.swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[0], &constants, &d3dbc_ins->src_rel_addr[1]);
+
+    neg_id = parser->program->ssa_count++;
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_INEG, 1, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_operand_init_ssa_scalar(&ins->dst[0], neg_id, VSIR_DATA_U32);
+    constants.swizzle = VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[0], &constants, &d3dbc_ins->src_rel_addr[1]);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_IADD, 1, 2)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_operand_init_temp_u32(&ins->dst[0], aL_id);
+    constants.swizzle = VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[0], &constants, &d3dbc_ins->src_rel_addr[1]);
+    vsir_src_operand_init_ssa_scalar(&ins->src[1], neg_id, VSIR_DATA_U32);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_LOOP, 0, 0)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_BREAKP, 0, 1)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    ins->flags = VKD3D_SHADER_CONDITIONAL_OP_Z;
+    vsir_src_operand_init_temp_u32(&ins->src[0], iter_id);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_IADD, 1, 2)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_operand_init_temp_u32(&ins->dst[0], iter_id);
+    vsir_src_operand_init_temp_u32(&ins->src[0], iter_id);
+    vsir_src_operand_init_const_u32(&ins->src[1], -1);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_IADD, 1, 2)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_operand_init_temp_u32(&ins->dst[0], aL_id);
+    vsir_src_operand_init_temp_u32(&ins->src[0], aL_id);
+    constants.swizzle = VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[1], &constants, &d3dbc_ins->src_rel_addr[1]);
+
+    return VKD3D_OK;
 }
 
 static enum vkd3d_result d3dbc_read_lrp(struct vkd3d_shader_sm1_parser *parser,
@@ -2315,6 +2405,9 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
             d3dbc_record_def(parser, d3dbc_ins, VKD3D_SHADER_D3DBC_INT_CONSTANT_REGISTER);
             break;
 
+        case VKD3D_SM1_OP_LOOP:
+            return d3dbc_read_loop(parser, d3dbc_ins);
+
         case VKD3D_SM1_OP_LRP:
             return d3dbc_read_lrp(parser, d3dbc_ins);
 
@@ -2389,6 +2482,9 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
                     "Unhandled instruction %#x.\n", d3dbc_ins->opcode);
             return VKD3D_ERROR_NOT_IMPLEMENTED;
 
+        case VKD3D_SM1_OP_ENDLOOP:
+            --parser->aL_count;
+            /* fall through */
         default:
             if (!(ins = d3dbc_append_instruction(parser, opcode_info->vsir_opcode,
                     d3dbc_ins->dst_count, d3dbc_ins->src_count)))
@@ -2489,6 +2585,9 @@ static enum vkd3d_result shader_sm1_init(struct vkd3d_shader_sm1_parser *sm1, st
     sm1->program = program;
     sm1->ptr = sm1->start;
     sm1->version = version;
+
+    /* Legal d3dbc programs can use a maximum of 32 registers. */
+    sm1->internal_temp_id = 32;
 
     if (!program)
         return VKD3D_OK;
@@ -2709,6 +2808,7 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
         const struct vkd3d_sm1_opcode_info *opcode_info;
         struct d3dbc_instruction d3dbc_ins;
         struct d3dbc_dst_operand orig_dst;
+        uint32_t dst_temp_id = ~0u;
 
         if (!d3dbc_parse_instruction(&sm1, &d3dbc_ins, &opcode_info))
         {
@@ -2731,14 +2831,14 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
                 /* Don't forget to scan the original. */
                 d3dbc_scan_operand(&sm1, &orig_dst.o, orig_dst.write_mask, false, 1);
 
-                /* Replace the output with a temporary, r32, which is outside
-                 * the range of legal temps for any d3dbc program.
+                /* Replace the output with a temporary.
                  * We will insert VSIR_OP_SATURATE and/or shift after
                  * translating the instruction. */
+                dst_temp_id = sm1.internal_temp_id++;
                 d3dbc_ins.dst[0].modifiers &= ~VKD3DSPDM_SATURATE;
                 d3dbc_ins.dst[0].shift = 0;
                 d3dbc_ins.dst[0].o.type = D3DBC_REGISTER_TEMP;
-                d3dbc_ins.dst[0].o.index = 32;
+                d3dbc_ins.dst[0].o.index = dst_temp_id;
                 d3dbc_ins.dst[0].o.has_rel_addr = false;
             }
 
@@ -2765,10 +2865,10 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
             if (!(ins = d3dbc_append_instruction(&sm1, VSIR_OP_MUL, 1, 2)))
                 break;
             if (orig_dst.modifiers & VKD3DSPDM_SATURATE)
-                vsir_dst_operand_init_temp_f32v4(&ins->dst[0], 32);
+                vsir_dst_operand_init_temp_f32v4(&ins->dst[0], dst_temp_id);
             else
                 vsir_dst_operand_from_d3dbc(&sm1, &ins->dst[0], &orig_dst, &d3dbc_ins.dst_rel_addr[0]);
-            vsir_src_operand_init_temp_f32v4(&ins->src[0], 32);
+            vsir_src_operand_init_temp_f32v4(&ins->src[0], dst_temp_id);
             vsir_src_operand_init_const_f32(&ins->src[1], scale_from_shift(&sm1, orig_dst.shift));
         }
 
@@ -2779,7 +2879,7 @@ int d3dbc_parse(const struct vkd3d_shader_compile_info *compile_info, uint64_t c
             if (!(ins = d3dbc_append_instruction(&sm1, VSIR_OP_SATURATE, 1, 1)))
                 break;
             vsir_dst_operand_from_d3dbc(&sm1, &ins->dst[0], &orig_dst, &d3dbc_ins.dst_rel_addr[0]);
-            vsir_src_operand_init_temp_f32v4(&ins->src[0], 32);
+            vsir_src_operand_init_temp_f32v4(&ins->src[0], dst_temp_id);
         }
     }
 

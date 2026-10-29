@@ -1139,7 +1139,10 @@ void vsir_dst_operand_init_ssa(struct vsir_dst_operand *dst, unsigned int idx,
 void vsir_dst_operand_init_ssa_bool(struct vsir_dst_operand *dst, unsigned int idx);
 void vsir_dst_operand_init_ssa_f32(struct vsir_dst_operand *dst, unsigned int idx);
 void vsir_dst_operand_init_ssa_f32v4(struct vsir_dst_operand *dst, unsigned int idx);
+void vsir_dst_operand_init_ssa_scalar(struct vsir_dst_operand *dst,
+        unsigned int idx, enum vsir_data_type data_type);
 void vsir_dst_operand_init_temp_f32v4(struct vsir_dst_operand *dst, unsigned int idx);
+void vsir_dst_operand_init_temp_u32(struct vsir_dst_operand *dst, unsigned int idx);
 
 /* This structure is used by vsir_src_operand_compare(); changes to the
  * structure should be reflected by the comparison function as well. */
@@ -1156,6 +1159,7 @@ struct vsir_src_operand
 void vsir_src_operand_init(struct vsir_src_operand *src, enum vsir_register_type reg_type,
         enum vsir_data_type data_type, unsigned int idx_count);
 void vsir_src_operand_init_const_f32(struct vsir_src_operand *src, float value);
+void vsir_src_operand_init_const_u32(struct vsir_src_operand *src, uint32_t value);
 void vsir_src_operand_init_label(struct vsir_src_operand *src, unsigned int label_id);
 void vsir_src_operand_init_parameter(struct vsir_src_operand *src, uint32_t idx, enum vsir_data_type type);
 void vsir_src_operand_init_parameter_vec4(struct vsir_src_operand *src, uint32_t idx, enum vsir_data_type type);
@@ -1166,7 +1170,10 @@ void vsir_src_operand_init_ssa(struct vsir_src_operand *src, unsigned int idx,
 void vsir_src_operand_init_ssa_bool(struct vsir_src_operand *src, unsigned int idx);
 void vsir_src_operand_init_ssa_f32(struct vsir_src_operand *src, unsigned int idx);
 void vsir_src_operand_init_ssa_f32v4(struct vsir_src_operand *src, unsigned int idx);
+void vsir_src_operand_init_ssa_scalar(struct vsir_src_operand *src,
+        unsigned int idx, enum vsir_data_type data_type);
 void vsir_src_operand_init_temp_f32v4(struct vsir_src_operand *src, unsigned int idx);
+void vsir_src_operand_init_temp_u32(struct vsir_src_operand *src, unsigned int idx);
 
 struct vkd3d_shader_index_range
 {
