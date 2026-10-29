@@ -2659,6 +2659,9 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
         return;
     }
 
+    if (modifiers & HLSL_STORAGE_GROUPSHARED)
+        modifiers &= ~HLSL_STORAGE_STATIC;
+
     if (ctx->cur_scope == ctx->globals
             && !(modifiers & (HLSL_STORAGE_STATIC | HLSL_STORAGE_GROUPSHARED)))
         modifiers |= HLSL_STORAGE_UNIFORM;

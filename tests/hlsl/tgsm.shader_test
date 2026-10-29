@@ -72,6 +72,18 @@ void main(uint local_idx : SV_GroupIndex)
 {
 }
 
+% The 'static' attribute is ignored on groupshared variables.
+[compute-shader fail(sm<6) todo(sm<6)]
+RWByteAddressBuffer u : register(u0);
+static groupshared uint m[4];
+
+    [numthreads(4, 1, 1)]
+void main(uint local_idx : SV_GroupIndex)
+{
+    // m is not initialized here; whereas static variables should be zero-initialized.
+    u.Store(4 * local_idx, m[local_idx]);
+}
+
 % The 'groupshared' attribute is ignored in non-compute shaders,
 % and the declared variable is considered static.
 
