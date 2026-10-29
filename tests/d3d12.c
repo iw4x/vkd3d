@@ -535,6 +535,33 @@ static bool is_shader_load_format_supported(ID3D12Device *device, DXGI_FORMAT fo
     return support.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_LOAD;
 }
 
+static bool is_resource_format_supported(ID3D12Device *device, const D3D12_RESOURCE_DESC *desc)
+{
+    D3D12_FEATURE_DATA_FORMAT_SUPPORT support = {.Format = desc->Format};
+    HRESULT hr;
+
+    hr = ID3D12Device_CheckFeatureSupport(device, D3D12_FEATURE_FORMAT_SUPPORT, &support, sizeof(support));
+    ok(hr == S_OK, "Got hr %#x.\n", hr);
+
+    switch (desc->Dimension)
+    {
+        case D3D12_RESOURCE_DIMENSION_BUFFER:
+            return support.Support1 & D3D12_FORMAT_SUPPORT1_BUFFER;
+
+        case D3D12_RESOURCE_DIMENSION_TEXTURE1D:
+            return support.Support1 & D3D12_FORMAT_SUPPORT1_TEXTURE1D;
+
+        case D3D12_RESOURCE_DIMENSION_TEXTURE2D:
+            return support.Support1 & D3D12_FORMAT_SUPPORT1_TEXTURE2D;
+
+        case D3D12_RESOURCE_DIMENSION_TEXTURE3D:
+            return support.Support1 & D3D12_FORMAT_SUPPORT1_TEXTURE3D;
+
+        default:
+            return false;
+    }
+}
+
 static bool are_unaligned_block_textures_supported(ID3D12Device *device)
 {
     D3D12_FEATURE_DATA_D3D12_OPTIONS8 options;
@@ -2606,6 +2633,12 @@ static void test_resource_alignment_case(ID3D12Device *device, ID3D12Heap *heap,
     HRESULT hr, expected_hr;
     ID3D12Device4 *device4;
     bool is_ms, is_small;
+
+    if (!is_resource_format_supported(device, desc))
+    {
+        skip("Texture format unsupported, skipping.\n");
+        return;
+    }
 
     if (FAILED(hr = ID3D12Device_QueryInterface(device, &IID_ID3D12Device4, (void **)&device4)))
         device4 = NULL;
