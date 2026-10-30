@@ -53,7 +53,7 @@ float4 main() : sv_target
 }
 
 [test]
-write cbv-f32 (0) f32(0.1, -4.2, 2.5, 4.2)
+write cbv-f32 (0) f32(0.1, -4.2, 2.5, 4.4)
 write cbv-f32 (4) f32(-0.5, 3.0, 1.6, 1.4)
 todo(sm<6) draw quad
-bug(mvk=1.4) probe (0, 0) f32(10, -120, 90, 0)
+bug(mvk=1.4) probe (0, 0) f32(10, -120, 90, 20)
