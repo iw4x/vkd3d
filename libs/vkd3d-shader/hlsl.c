@@ -1526,6 +1526,7 @@ struct hlsl_type *hlsl_type_clone(struct hlsl_ctx *ctx, struct hlsl_type *old,
             type->e.resource.rasteriser_ordered = old->e.resource.rasteriser_ordered;
             /* fall through */
         case HLSL_CLASS_TEXTURE:
+        case HLSL_CLASS_CONSTANT_BUFFER:
             type->e.resource.format = old->e.resource.format;
             break;
 
