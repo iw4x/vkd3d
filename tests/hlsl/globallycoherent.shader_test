@@ -1,0 +1,131 @@
+[require]
+shader model >= 5.0
+
+[pixel-shader todo(sm<6)]
+typedef globallycoherent RWBuffer<float> T;
+
+struct S
+{
+    globallycoherent RWBuffer<float> u;
+};
+
+T b;
+globallycoherent RWBuffer<float> a[2];
+S s;
+
+float4 main() : sv_target
+{
+    b[0] = 1;
+    a[1][0] = 2;
+    s.u[0] = 3;
+    return 0;
+}
+
+[pixel-shader]
+float4 main() : sv_target
+{
+    float globallycoherent = 1;
+    return globallycoherent;
+}
+
+[pixel-shader todo(sm<6)]
+RWBuffer<float4> u;
+
+float4 f(globallycoherent RWBuffer<float4> b)
+{
+    return b[0];
+}
+
+float4 main() : sv_target
+{
+    globallycoherent RWBuffer<float4> a = u;
+    return f(u) + a[1];
+}
+
+% globallycoherent is only allowed on UAVs.
+
+[pixel-shader fail]
+globallycoherent Texture2D t;
+
+float4 main() : sv_target
+{
+    return t.Load(0);
+}
+
+[pixel-shader fail]
+globallycoherent float4 x;
+
+float4 main() : sv_target
+{
+    return x;
+}
+
+[pixel-shader fail(sm<6)]
+struct S
+{
+    globallycoherent float4 x;
+};
+
+S s;
+
+float4 main() : sv_target
+{
+    return s.x;
+}
+
+% SM < 6 silently ignores globallycoherent on the following; SM6 rejects them.
+
+[pixel-shader fail(sm>=6) todo(sm<6)]
+static globallycoherent float4 x = 1;
+
+float4 main() : sv_target
+{
+    return x;
+}
+
+[pixel-shader fail(sm>=6) todo(sm<6)]
+float4 main() : sv_target
+{
+    globallycoherent float4 x = 1;
+    return x;
+}
+
+[pixel-shader fail(sm>=6) todo(sm<6)]
+float4 f(globallycoherent float x)
+{
+    return x;
+}
+
+float4 main() : sv_target
+{
+    return f(1);
+}
+
+[pixel-shader fail(sm>=6) todo(sm<6)]
+struct S
+{
+    float4 x;
+};
+
+globallycoherent S s;
+
+float4 main() : sv_target
+{
+    return s.x;
+}
+
+[require]
+shader model >= 5.1
+
+[pixel-shader fail]
+struct S
+{
+    float4 x;
+};
+
+globallycoherent ConstantBuffer<S> c;
+
+float4 main() : sv_target
+{
+    return c.x;
+}

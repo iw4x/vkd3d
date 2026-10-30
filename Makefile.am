@@ -187,6 +187,7 @@ vkd3d_shader_tests = \
 	tests/hlsl/geometry.shader_test \
 	tests/hlsl/get-sample-pos.shader_test \
 	tests/hlsl/getdimensions.shader_test \
+	tests/hlsl/globallycoherent.shader_test \
 	tests/hlsl/half.shader_test \
 	tests/hlsl/hard-copy-prop.shader_test \
 	tests/hlsl/hull-shader-attributes.shader_test \
