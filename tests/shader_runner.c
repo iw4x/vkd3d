@@ -3371,8 +3371,7 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_MS;
             }
-            else if (!strcmp(line, "[input-layout]\n")
-                    || !strcmp(line, "[input layout]\n"))
+            else if (!strcmp(line, "[input-layout]\n"))
             {
                 state = STATE_INPUT_LAYOUT;
 

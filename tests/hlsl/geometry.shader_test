@@ -2,7 +2,7 @@
 shader model >= 4.0
 geometry-shader
 
-[input layout]
+[input-layout]
 0 r32g32b32a32-float SV_POSITION
 0 r32g32b32a32-float COLOR
 

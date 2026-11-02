@@ -5,7 +5,7 @@ shader model < 4.0
 format r32g32b32a32-float
 size (2dms, 4, 640, 480)
 
-[input layout]
+[input-layout]
 0 r32g32-float POSITION
 
 % The pixels in the second leftmost column lose two of their samples on the left, in addition to the center.

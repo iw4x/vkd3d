@@ -4,7 +4,7 @@
  1.0 -1.0 0.7 1.2
  1.0  1.0 0.7 2.0
 
-[input layout]
+[input-layout]
 0 r32g32b32a32-float POSITION
 
 [vertex-shader]

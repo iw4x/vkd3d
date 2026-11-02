@@ -32,7 +32,7 @@ probe (0, 0) rgba (0.1, 0.2, 0, 1)
 [require]
 fog
 
-[input layout]
+[input-layout]
 0 r32g32b32a32-float position
 
 [vb 0]

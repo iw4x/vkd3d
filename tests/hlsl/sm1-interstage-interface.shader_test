@@ -1,7 +1,7 @@
 [require]
 shader model < 4.0
 
-[input layout]
+[input-layout]
 0 r32g32-float POSITION
 0 r32g32-float TEXCOORD 0
 0 r32-float COLOR 1
