@@ -6,7 +6,7 @@
 shader model >= 4.0
 shader model < 5.0
 
-[compute shader fail todo]
+[compute-shader fail todo]
 RWByteAddressBuffer u : register(u0);
 groupshared uint m;
 
@@ -19,7 +19,7 @@ void main(uint local_idx : SV_GroupIndex)
     u.Store(4 * local_idx, m);
 }
 
-[compute shader fail todo]
+[compute-shader fail todo]
 RWByteAddressBuffer u : register(u0);
 groupshared uint m[1];
 
@@ -32,7 +32,7 @@ void main(uint local_idx : SV_GroupIndex)
     u.Store(4 * local_idx, m[0]);
 }
 
-[compute shader notimpl todo]
+[compute-shader notimpl todo]
 RWByteAddressBuffer u : register(u0);
 groupshared uint m[4];
 
@@ -49,7 +49,7 @@ void main(uint local_idx : SV_GroupIndex)
 shader model >= 4.0
 
 % The type of a groupshared variable must not contain objects.
-[compute shader fail(sm<6)]
+[compute-shader fail(sm<6)]
 struct data
 {
     Texture2D tex;
@@ -64,7 +64,7 @@ void main(uint local_idx : SV_GroupIndex)
 }
 
 % The 'groupshared' and 'uniform' attributes cannot be used together.
-[compute shader fail(sm<6)]
+[compute-shader fail(sm<6)]
 uniform groupshared uint m[4];
 
     [numthreads(4, 1, 1)]
@@ -109,7 +109,7 @@ size (raw_buffer, 4)
 
 0 0 0 0
 
-[compute shader]
+[compute-shader]
 RWByteAddressBuffer u : register(u0);
 groupshared uint m[4];
 
@@ -128,7 +128,7 @@ probe uav-0 (1) u32(0xcafef00d)
 probe uav-0 (2) u32(0xcafef00d)
 probe uav-0 (3) u32(0xcafef00d)
 
-[compute shader]
+[compute-shader]
 RWByteAddressBuffer u : register(u0);
 groupshared uint m[4][2];
 
@@ -159,7 +159,7 @@ size (raw_buffer, 4)
 
 1 0 0 0
 
-[compute shader]
+[compute-shader]
 RWByteAddressBuffer u : register(u1);
 groupshared uint m;
 
@@ -189,7 +189,7 @@ size (raw_buffer, 4)
 
 1 0 0 0
 
-[compute shader]
+[compute-shader]
 RWByteAddressBuffer u : register(u1);
 groupshared int m;
 
@@ -218,7 +218,7 @@ size (raw_buffer, 8)
 
 1 0 0 0 2 0 0 0
 
-[compute shader]
+[compute-shader]
 RWByteAddressBuffer u : register(u1);
 groupshared uint4 m;
 
@@ -252,7 +252,7 @@ size (raw_buffer, 8)
 
 1 0 2 0 3 0 4 0
 
-[compute shader]
+[compute-shader]
 RWByteAddressBuffer u : register(u1);
 groupshared uint4x4 m;
 
@@ -298,7 +298,7 @@ size (buffer, 8)
 
 1 1 1 1 0 0 0 0
 
-[compute shader]
+[compute-shader]
 uniform uint idx;
 
 #define GROUP_SIZE 4
@@ -371,7 +371,7 @@ size (buffer, 8)
 
 1 1 1 1 0 0 0 0
 
-[compute shader]
+[compute-shader]
 uniform uint idx;
 
 #define GROUP_SIZE 4
@@ -429,7 +429,7 @@ size (raw_buffer, 1)
 
 0
 
-[compute shader]
+[compute-shader]
 RWByteAddressBuffer u : register(u1);
 groupshared uint m;
 
@@ -457,7 +457,7 @@ size (raw_buffer, 8)
 0xf000f 0xf000f 0xf000f 0xf000f
 0xf000f 0xf000f 0xf000f 0xf000f
 
-[compute shader]
+[compute-shader]
 RWByteAddressBuffer u : register(u0);
 groupshared min16uint m[4];
 
@@ -493,7 +493,7 @@ size (raw_buffer, 8)
 0xf000f 0xf000f 0xf000f 0xf000f
 0xf000f 0xf000f 0xf000f 0xf000f
 
-[compute shader]
+[compute-shader]
 RWByteAddressBuffer u : register(u0);
 groupshared uint4x2 m;
 
@@ -525,7 +525,7 @@ size (raw_buffer, 8)
 0xf000f 0xf000f 0xf000f 0xf000f
 0xf000f 0xf000f 0xf000f 0xf000f
 
-[compute shader]
+[compute-shader]
 RWByteAddressBuffer u : register(u0);
 groupshared min16uint m;
 
@@ -570,7 +570,7 @@ size (raw_buffer, 4)
 
 0xf000f 0xf000f 0xf000f 0xf000f
 
-[compute shader]
+[compute-shader]
 RWByteAddressBuffer u : register(u1);
 groupshared uint16_t m[4];
 

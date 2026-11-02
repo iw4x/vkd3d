@@ -11,7 +11,7 @@ size (buffer, 11)
 
 0xd 5 6 0x10 4 4 7 2 0 5 0
 
-[compute shader fail(sm<5)]
+[compute-shader fail(sm<5)]
 RWBuffer<uint> u : register(u1);
 
 uniform uint4 v;
@@ -68,7 +68,7 @@ size (buffer, 2)
 
 -3 1
 
-[compute shader fail(sm<5)]
+[compute-shader fail(sm<5)]
 RWBuffer<int> u : register(u2);
 
 uniform int4 i;
@@ -97,7 +97,7 @@ size (2d, 11, 1)
 
 0xd 5 6 0x10 4 4 7 2 0 5 0
 
-[compute shader fail(sm<5)]
+[compute-shader fail(sm<5)]
 RWTexture2D<uint> u : register(u1);
 
 uniform uint4 v;
@@ -134,7 +134,7 @@ probe uav-1 (8) u32(1)
 probe uav-1 (9) u32(3)
 probe uav-1 (10) u32(1)
 
-[compute shader fail(sm<5)]
+[compute-shader fail(sm<5)]
 RWTexture2D<int> u : register(u2);
 
 uniform int4 i;
@@ -175,7 +175,7 @@ size (buffer, 3)
 % Floating point values are always converted to signed integers.
 % However, for SM6, the value field is converted to the destination type instead.
 
-[compute shader fail(sm<5)]
+[compute-shader fail(sm<5)]
 RWBuffer<uint> u : register(u1);
 RWBuffer<int> s : register(u2);
 
@@ -221,7 +221,7 @@ size (buffer, 5)
 
 % The value fields of other Interlocked functions are always uint.
 
-[compute shader fail(sm<5)]
+[compute-shader fail(sm<5)]
 RWBuffer<uint> u : register(u1);
 RWBuffer<int> s : register(u2);
 
@@ -263,7 +263,7 @@ probe uav-2 (4) i32(-1)
 
 % Interlocked* functions return void.
 
-[compute shader fail]
+[compute-shader fail]
 RWBuffer<uint> u : register(u1);
 
     [numthreads(3, 1, 1)]
@@ -272,7 +272,7 @@ void main()
     uint err = InterlockedAdd(u[0], 1);
 }
 
-[compute shader fail]
+[compute-shader fail]
 RWBuffer<uint> u : register(u1);
 
     [numthreads(3, 1, 1)]
@@ -282,7 +282,7 @@ void main()
     uint err = InterlockedAdd(u[0], 1, old);
 }
 
-[compute shader fail]
+[compute-shader fail]
 RWBuffer<uint> u : register(u1);
 
     [numthreads(3, 1, 1)]
@@ -291,7 +291,7 @@ void main()
     uint err = InterlockedCompareStore(u[0], 0, 1);
 }
 
-[compute shader fail]
+[compute-shader fail]
 RWBuffer<uint> u : register(u1);
 
     [numthreads(3, 1, 1)]
@@ -304,7 +304,7 @@ void main()
 
 % The underlying type of the destination parameter must be a scalar integer.
 
-[compute shader fail]
+[compute-shader fail]
 RWBuffer<uint1> u : register(u1);
 
     [numthreads(3, 1, 1)]
@@ -313,7 +313,7 @@ void main()
     InterlockedAdd(u[0], 1);
 }
 
-[compute shader fail]
+[compute-shader fail]
 RWBuffer<int1> u : register(u1);
 
     [numthreads(3, 1, 1)]
@@ -322,7 +322,7 @@ void main()
     InterlockedAdd(u[0], 1);
 }
 
-[compute shader fail]
+[compute-shader fail]
 RWBuffer<float> u : register(u1);
 
     [numthreads(3, 1, 1)]
@@ -333,7 +333,7 @@ void main()
 
 % Non-structured UAV targets must have scalar type.
 
-[compute shader fail]
+[compute-shader fail]
 RWBuffer<int4> u : register(u1);
 
      [numthreads(3, 1, 1)]
@@ -350,7 +350,7 @@ size (buffer, 2)
 0 0 0 0
 0 0 0 0
 
-[compute shader fail(sm<5)]
+[compute-shader fail(sm<5)]
 struct apple
 {
     int2 a, b;

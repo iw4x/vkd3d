@@ -3,7 +3,7 @@ shader model >= 4.0
 
 % These are just parsing tests.
 
-[compute shader]
+[compute-shader]
     [numthreads(768, 1, 1)]
 void main(uint local_idx : SV_GroupIndex, uint group_id : SV_GroupID)
 {
@@ -69,7 +69,7 @@ size (buffer, 3)
 0.1 0.2 0.3 0.4
 0.1 0.2 0.3 0.4
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u : register(u2);
 
     [numthreads(1024, 1, 1)]
@@ -132,7 +132,7 @@ size (buffer, 1024)
 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 
-[compute shader]
+[compute-shader]
 RWBuffer<uint> u : register(u3);
 
     [numthreads(1024, 1, 1)]

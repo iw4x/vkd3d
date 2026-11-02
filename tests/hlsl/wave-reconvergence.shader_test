@@ -32,7 +32,7 @@ size (buffer, 20)
 0 0 0 0 0
 0 0 0 0 0
 
-[compute shader]
+[compute-shader]
 RWBuffer<uint> u0 : register(u0);
 RWBuffer<uint> u1 : register(u1);
 RWBuffer<uint> u2 : register(u2);
@@ -100,7 +100,7 @@ size (buffer, 20)
 0 0 0 0 0
 0 0 0 0 0
 
-[compute shader]
+[compute-shader]
 RWBuffer<uint> u0 : register(u0);
 RWBuffer<uint> u1 : register(u1);
 RWBuffer<uint> u2 : register(u2);

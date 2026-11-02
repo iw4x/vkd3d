@@ -235,7 +235,7 @@ format r32g32b32a32-float
 size (buffer, 1)
 0 0 0 0
 
-[compute shader]
+[compute-shader]
 uniform half4 h;
 RWBuffer<float4> u : register(u1);
 
@@ -285,7 +285,7 @@ format r32g32b32a32-uint
 size (buffer, 1)
 0 0 0 0
 
-[compute shader]
+[compute-shader]
 uniform uint16_t4 h;
 RWBuffer<uint16_t4> u : register(u1);
 
@@ -307,7 +307,7 @@ format r32g32b32a32-sint
 size (buffer, 1)
 0 0 0 0
 
-[compute shader]
+[compute-shader]
 uniform int16_t4 h;
 RWBuffer<int16_t4> u : register(u1);
 

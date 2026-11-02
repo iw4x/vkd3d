@@ -3216,8 +3216,7 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
             block_start_line_number = line_number;
             update_line_number_context(testname, line_number, runner->shader_model);
 
-            if (match_string(line, "[compute-shader", &line)
-                    || match_string(line, "[compute shader", &line))
+            if (match_string(line, "[compute-shader", &line))
             {
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_CS;

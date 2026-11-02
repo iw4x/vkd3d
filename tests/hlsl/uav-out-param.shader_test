@@ -7,8 +7,7 @@ size (2d, 1, 1)
 
 0.1 0.2 0.3 0.4
 
-[compute shader]
-
+[compute-shader]
 RWTexture2D<float4> u;
 
 void func(out float4 f)
@@ -35,8 +34,7 @@ size (2d, 1, 1)
 
 0.1
 
-[compute shader]
-
+[compute-shader]
 RWTexture2D<float> u;
 
 void func(inout float f)

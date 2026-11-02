@@ -26,7 +26,7 @@ size (buffer, 8)
 0 0 0 0
 0 0 0 0
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<uint4> u1;
 
@@ -44,7 +44,7 @@ probe uav-1 (1) u32(1, 0, 0, 1)
 probe uav-1 (2) u32(1, 0, 0, 1)
 probe uav-1 (3) u32(1, 0, 0, 1)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<uint4> u1;
 
@@ -69,7 +69,7 @@ probe uav-1 (5) u32(0, 1, 0, 0)
 probe uav-1 (6) u32(0, 1, 0, 0)
 probe uav-1 (7) u32(0, 1, 0, 0)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<uint4> u1;
 
@@ -97,7 +97,7 @@ size (buffer, 8)
 0 0 0 0
 0 0 0 0
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<float4> u1;
 
@@ -120,7 +120,7 @@ probe uav-1 (5) f32(7.0, 2.5, 8.5, 5.0)
 probe uav-1 (6) f32(7.0, 2.5, 8.5, 5.0)
 probe uav-1 (7) f32(7.0, 2.5, 8.5, 5.0)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<float4> u1;
 
@@ -137,7 +137,7 @@ probe uav-1 (1) f32(14.0, 4.5, 16.5, 10.0)
 probe uav-1 (2) f32(14.0, 4.5, 16.5, 10.0)
 probe uav-1 (3) f32(14.0, 4.5, 16.5, 10.0)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<float4> u1;
 
@@ -154,7 +154,7 @@ probe uav-1 (1) f32(150.0625, 1.5, 288.0, 39.0625)
 probe uav-1 (2) f32(150.0625, 1.5, 288.0, 39.0625)
 probe uav-1 (3) f32(150.0625, 1.5, 288.0, 39.0625)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<float4> u1;
 
@@ -171,7 +171,7 @@ probe uav-1 (1) f32(3.5, 1.0, 4.0, 2.5)
 probe uav-1 (2) f32(3.5, 1.0, 4.0, 2.5)
 probe uav-1 (3) f32(3.5, 1.0, 4.0, 2.5)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<float4> u1;
 
@@ -188,7 +188,7 @@ probe uav-1 (1) f32(3.5, 1.5, 4.5, 2.5)
 probe uav-1 (2) f32(3.5, 1.5, 4.5, 2.5)
 probe uav-1 (3) f32(3.5, 1.5, 4.5, 2.5)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<float4> u1;
 
@@ -205,7 +205,7 @@ probe uav-1 (1) f32(3.5, 1.0, 4.0, 2.5)
 probe uav-1 (2) f32(7.0, 2.0, 8.0, 5.0)
 probe uav-1 (3) f32(10.5, 3.5, 12.0, 7.5)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<float4> u1;
 
@@ -233,7 +233,7 @@ size (buffer, 4)
  0.0 -0.0 0.0 0.0
  0.0 -0.0 0.0 0.0
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 
     [numthreads(4, 1, 1)]
@@ -247,7 +247,7 @@ void main(uint id : SV_GroupIndex)
 [test]
 dispatch 1 1 1
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<uint4> u1;
 
@@ -282,7 +282,7 @@ size (buffer, 4)
 0.75 1.00 0.50 0.25
 1.00 0.75 0.25 0.50
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<float4> u1;
 
@@ -301,7 +301,7 @@ probe uav-1 (1) f32(0.25, 0.5, 0.75, 1.0)
 probe uav-1 (2) f32(1.0, 0.75, 0.25, 0.5)
 probe uav-1 (3) f32(0.75, 1.0, 0.5, 0.25)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float4> u0;
 RWBuffer<float4> u1;
 
@@ -1111,7 +1111,7 @@ size (buffer, 16)
 0 0 0 0 0 0 0 0
 0 0 0 0 0 0 0 0
 
-[compute shader]
+[compute-shader]
 RWBuffer<float2> u0;
 RWBuffer<uint4> u1;
 
@@ -1130,7 +1130,7 @@ probe uav-1 (1) u32(1, 0, 0, 0)
 probe uav-1 (2) u32(1, 0, 0, 0)
 probe uav-1 (3) u32(1, 0, 0, 0)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float2> u0;
 RWBuffer<double2> u1;
 
@@ -1153,7 +1153,7 @@ probe uav-1 (5) f64(7.0, 2.5)
 probe uav-1 (6) f64(7.0, 2.5)
 probe uav-1 (7) f64(7.0, 2.5)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float2> u0;
 RWBuffer<double2> u1;
 
@@ -1171,7 +1171,7 @@ probe uav-1 (1) f64(14.0, 4.5)
 probe uav-1 (2) f64(14.0, 4.5)
 probe uav-1 (3) f64(14.0, 4.5)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float2> u0;
 RWBuffer<double2> u1;
 
@@ -1189,7 +1189,7 @@ probe uav-1 (1) f64(150.0625, 1.5)
 probe uav-1 (2) f64(150.0625, 1.5)
 probe uav-1 (3) f64(150.0625, 1.5)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float2> u0;
 RWBuffer<double2> u1;
 
@@ -1207,7 +1207,7 @@ probe uav-1 (1) f64(3.5, 1.0)
 probe uav-1 (2) f64(3.5, 1.0)
 probe uav-1 (3) f64(3.5, 1.0)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float2> u0;
 RWBuffer<double2> u1;
 
@@ -1225,7 +1225,7 @@ probe uav-1 (1) f64(3.5, 1.5)
 probe uav-1 (2) f64(3.5, 1.5)
 probe uav-1 (3) f64(3.5, 1.5)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float2> u0;
 RWBuffer<double2> u1;
 
@@ -1243,7 +1243,7 @@ probe uav-1 (1) f64(3.5, 1.0)
 probe uav-1 (2) f64(7.0, 2.0)
 probe uav-1 (3) f64(10.5, 3.5)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float2> u0;
 RWBuffer<double2> u1;
 
@@ -1270,7 +1270,7 @@ size (buffer, 4)
 0.75 1.00 0.50 0.25
 1.00 0.75 0.25 0.50
 
-[compute shader]
+[compute-shader]
 RWBuffer<float2> u0;
 RWBuffer<double2> u1;
 
@@ -1289,7 +1289,7 @@ probe uav-1 (1) f64(0.25, 0.5)
 probe uav-1 (2) f64(1.0, 0.75)
 probe uav-1 (3) f64(0.75, 1.0)
 
-[compute shader]
+[compute-shader]
 RWBuffer<float2> u0;
 RWBuffer<double2> u1;
 

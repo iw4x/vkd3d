@@ -98,7 +98,7 @@ u[1:6], space 3, uav 0
 
 % This is the shader from test_resource_arrays() in tests/d3d12.c. Once the
 % todo here is fixed, that test can be removed.
-[compute shader todo(sm<6)]
+[compute-shader todo(sm<6)]
 cbuffer cb : register(b0)
 {
     uint2 c[6];

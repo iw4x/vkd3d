@@ -203,7 +203,7 @@ format r32-uint
 size (buffer, 4)
 0 0 0 0
 
-[compute shader]
+[compute-shader]
 RWBuffer<uint16_t> u : register(u0);
 
     [numthreads(1, 1, 1)]
@@ -224,7 +224,7 @@ size (buffer, 2)
 
 0 0 0
 
-[compute shader]
+[compute-shader]
 struct foo
 {
     uint16_t count;
@@ -254,7 +254,7 @@ size (buffer, 2)
 
 0 0 0 0
 
-[compute shader]
+[compute-shader]
 struct foo
 {
     uint16_t count;
@@ -284,7 +284,7 @@ size (buffer, 2)
 
 0 0 0 0
 
-[compute shader]
+[compute-shader]
 struct foo
 {
     uint16_t count;
