@@ -3368,6 +3368,7 @@ struct d3dbc_compiler
     struct vsir_program *program;
     struct vkd3d_bytecode_buffer buffer;
     struct vkd3d_shader_message_context *message_context;
+    struct vkd3d_shader_location null_location;
     bool failed;
 
     struct
@@ -3910,7 +3911,6 @@ static void d3dbc_write_semantic_dcl(struct d3dbc_compiler *compiler,
         const struct vsir_signature_element *element, bool output)
 {
     const struct vkd3d_shader_version *version = &compiler->program->shader_version;
-    static const struct vkd3d_shader_location location;
     struct d3dbc_instruction ins = {0};
     struct vsir_dst_operand reg = {0};
     bool ret;
@@ -3940,7 +3940,7 @@ static void d3dbc_write_semantic_dcl(struct d3dbc_compiler *compiler,
     if (element->interpolation_mode == VKD3DSIM_LINEAR_CENTROID)
         reg.modifiers |= VKD3DSPDM_MSAMPCENTROID;
     d3dbc_dst_operand_from_vsir(compiler, &ins.dst[0], &ins.dst_rel_addr[0], &reg);
-    d3dbc_write_instruction(compiler, &ins, &location);
+    d3dbc_write_instruction(compiler, &ins, &compiler->null_location);
 }
 
 static void d3dbc_write_semantic_dcls(struct d3dbc_compiler *compiler)
@@ -3990,8 +3990,8 @@ int d3dbc_compile(struct vsir_program *program, uint64_t config_flags,
         struct vkd3d_shader_code *out, struct vkd3d_shader_message_context *message_context)
 {
     const struct vkd3d_shader_version *version = &program->shader_version;
-    struct d3dbc_compiler compiler = {0};
-    struct vkd3d_bytecode_buffer *buffer = &compiler.buffer;
+    struct vkd3d_bytecode_buffer *buffer;
+    struct d3dbc_compiler compiler;
     int result;
 
     if ((result = vsir_program_optimize(program, config_flags, compile_info, message_context)))
@@ -4000,8 +4000,14 @@ int d3dbc_compile(struct vsir_program *program, uint64_t config_flags,
     if ((result = vsir_program_allocate_temp_registers(program, config_flags, compile_info, message_context)) < 0)
         return result;
 
-    compiler.program = program;
-    compiler.message_context = message_context;
+    compiler = (struct d3dbc_compiler)
+    {
+        .program = program,
+        .message_context = message_context,
+        .null_location = {.source_name = compile_info->source_name},
+    };
+    buffer = &compiler.buffer;
+
     switch (version->type)
     {
         case VKD3D_SHADER_TYPE_VERTEX:
