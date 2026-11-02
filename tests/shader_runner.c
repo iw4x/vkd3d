@@ -3358,8 +3358,7 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_DS;
             }
-            else if (match_string(line, "[geometry-shader", &line)
-                    || match_string(line, "[geometry shader", &line))
+            else if (match_string(line, "[geometry-shader", &line))
             {
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_GS;

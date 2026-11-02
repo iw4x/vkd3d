@@ -15,7 +15,7 @@ void main(out struct vs_data vs_output)
     vs_output.color = float4(0.0, 0.0, 1.0, 1.0);
 }
 
-[geometry shader]
+[geometry-shader]
 struct gs_data
 {
     float4 pos : SV_Position;

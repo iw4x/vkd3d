@@ -546,7 +546,7 @@ geometry-shader
 
 % Let clip and cull distances go through a geometry shader.
 
-[geometry shader]
+[geometry-shader]
 struct vs_out
 {
     float4 position : SV_Position;
@@ -605,7 +605,7 @@ void main(uint id : SV_VertexID, out vs_out o)
     o.id = id;
 }
 
-[geometry shader]
+[geometry-shader]
 struct vs_out
 {
     float4 position : SV_Position;
@@ -665,7 +665,7 @@ todo(opengl) probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
 % the test points; first we check that we're drawing properly disabling all
 % clipping and culling.
 
-[geometry shader]
+[geometry-shader]
 struct vs_out
 {
     float4 position : SV_Position;
@@ -736,7 +736,7 @@ probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % Then we add clipping and culling: at first only a few distances.
 
-[geometry shader]
+[geometry-shader]
 struct vs_out
 {
     float4 position : SV_Position;
@@ -809,7 +809,7 @@ probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % Then enough to get rid of nearly all test points.
 
-[geometry shader]
+[geometry-shader]
 struct vs_out
 {
     float4 position : SV_Position;

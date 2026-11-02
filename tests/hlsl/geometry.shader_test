@@ -22,7 +22,7 @@ void main(in struct vs_data vs_input, out struct vs_data vs_output)
     vs_output.color = vs_input.color;
 }
 
-[geometry shader]
+[geometry-shader]
 struct gs_data
 {
     float4 pos : SV_POSITION;
@@ -371,7 +371,7 @@ probe rtv-0 (630, 470) f32(0.0, 0.0, 0.0, 1.0)
 shader model >= 5.0
 geometry-shader
 
-[geometry shader todo]
+[geometry-shader todo]
 struct gs_data
 {
     float4 pos : SV_POSITION;
