@@ -132,7 +132,7 @@ shader model >= 3.0
 [input-layout]
 0 r32g32-float POSITION
 
-[vb 0]
+[vb-0]
 -1.0 -1.0
 -1.0 3.0
 3.0 -1.0

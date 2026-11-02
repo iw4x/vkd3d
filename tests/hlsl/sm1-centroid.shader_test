@@ -8,9 +8,10 @@ size (2dms, 4, 640, 480)
 [input-layout]
 0 r32g32-float POSITION
 
-% The pixels in the second leftmost column lose two of their samples on the left, in addition to the center.
+% The pixels in the second leftmost column lose two of their samples on the
+% left, in addition to the center.
 % x = (1 + 0.1 - 320) / 320 = -0.9965625.
-[vb 0]
+[vb-0]
 -0.9965625 1.0
 3.0 1.0
 -0.9965625-3.0

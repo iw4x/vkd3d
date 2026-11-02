@@ -1,7 +1,7 @@
 [input-layout]
 0 r32g32-float position
 
-[vb 0]
+[vb-0]
 -2.0 -2.0
  2.0 -2.0
 -2.0  2.0

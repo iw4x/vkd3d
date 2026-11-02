@@ -6,7 +6,7 @@ geometry-shader
 0 r32g32b32a32-float SV_POSITION
 0 r32g32b32a32-float COLOR
 
-[vb 0]
+[vb-0]
 0.0 0.0 1.0 1.0   0.0 1.0 1.0 1.0
 
 [vertex-shader]

@@ -35,7 +35,7 @@ fog
 [input-layout]
 0 r32g32b32a32-float position
 
-[vb 0]
+[vb-0]
 -1.0 -1.0 0.2 1.0
 -1.0  1.0 0.2 1.0
  1.0 -1.0 0.6 1.0
@@ -125,7 +125,7 @@ probe (480, 360) rgba (0.0, 0.4, 1.0, 1.0) 64
 % Z or pixel Z (i.e. whether perspective division is applied, as well as things
 % like depth bias) so we want W to be flat 1.0 for the Z tests.
 
-[vb 0]
+[vb-0]
 -2.0  0.0 0.2 0.5
  0.0  2.0 0.2 0.5
  0.0  0.0 0.2 0.5
