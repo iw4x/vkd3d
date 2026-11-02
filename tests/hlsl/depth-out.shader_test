@@ -36,7 +36,7 @@ probe dsv (0,0) f32(0.5)
 format r32g32b32a32-float
 size (2d, 640, 480)
 
-[vertex shader]
+[vertex-shader]
 float2 depth;
 
 void main(float4 in_position : POSITION, out float4 out_position : SV_Position)

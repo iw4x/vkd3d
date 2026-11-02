@@ -11,7 +11,7 @@ levels 2
 
 0.0 0.0 1.0 0.0
 
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : position, out float2 tex : texcoord, out float4 out_pos : sv_position)
 {
     tex = pos.xy;

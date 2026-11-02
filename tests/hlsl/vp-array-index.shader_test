@@ -6,7 +6,7 @@ rt-vp-array-index
 format r32g32b32a32-float
 size (2d, 640, 480)
 
-[vertex shader]
+[vertex-shader]
 float4 main(in uint vertex_id : SV_VertexID, in uint instance_id : SV_InstanceID,
         out uint viewport : SV_ViewportArrayIndex) : SV_Position
 {

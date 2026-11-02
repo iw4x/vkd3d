@@ -1,7 +1,7 @@
 [require]
 shader model = 3.0
 
-[vertex shader d3dbc-hex]
+[vertex-shader d3dbc-hex]
 fffe0300                                                % vs_3_0
 05000051 a00f0000 00000000 3f800000 3e99999a 3f000000   % def c0, 0.0, 1.0, 0.3, 0.5
 0200001f 80000000 900f0000                              % dcl_position v0

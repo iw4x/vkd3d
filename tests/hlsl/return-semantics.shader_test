@@ -3,7 +3,7 @@ shader model >= 4.0
 
 % The return semantic gets allocated before other output semantics.
 
-[vertex shader]
+[vertex-shader]
 // Output signature:
 // Name                 Index   Mask Register SysValue  Format   Used
 // -------------------- ----- ------ -------- -------- ------- ------

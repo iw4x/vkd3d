@@ -8,7 +8,7 @@ shader model = 3.0
 % shaders, v# and o# I/O registers in vs_3_0 shaders, and v# input registers
 % in ps_3_0 shaders.
 
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : POSITION, out float4 col[4] : COLOR,
         out float4 tex[2] : TEXCOORD, out float4 out_pos : SV_POSITION)
 {
@@ -131,7 +131,7 @@ probe (320, 240) f32(246, 246, 246, 246)
 [require]
 shader model = 2.0
 
-[vertex shader d3dbc-hex]
+[vertex-shader d3dbc-hex]
 fffe0200                                                % vs_2_0
 05000051 a00f0008 3c23d70a 00000000 00000000 00000000   % def c8, 0.01, 0, 0, 0
 0200001f 80000000 900f0000                              % dcl_position v0

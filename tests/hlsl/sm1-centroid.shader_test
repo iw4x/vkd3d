@@ -15,7 +15,7 @@ size (2dms, 4, 640, 480)
 3.0 1.0
 -0.9965625-3.0
 
-[vertex shader]
+[vertex-shader]
 void main(float2 pos : POSITION, out float4 out_pos : SV_Position, out float2 t : TEXCOORD0)
 {
     out_pos = float4(pos, 0.0f, 1.0f);

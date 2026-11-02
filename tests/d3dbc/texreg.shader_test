@@ -22,7 +22,7 @@ size (2d, 3, 3)
 0.0 0.5 0.4 1.0     0.5 0.5 0.5 1.0      1.0 0.5 0.6 1.0
 0.0 1.0 0.7 1.0     0.5 1.0 0.8 1.0      1.0 1.0 0.9 1.0
 
-[vertex shader d3dbc-hex]
+[vertex-shader d3dbc-hex]
 fffe0101                     % vs_1_1
 0000001f 80000000 900f0000   % dcl_position v0
 00000001 e00f0000 90e40000   % mov oT0, v0

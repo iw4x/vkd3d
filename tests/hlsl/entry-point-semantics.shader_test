@@ -1,7 +1,7 @@
 % Test how semantics are determined when spread across the entry point's
 % definition and its declarations.
 
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : position, out float tex : texcoord, out float4 out_pos : sv_position)
 {
     tex = 0.2;
@@ -62,8 +62,7 @@ float4 main(float tex : bogus) : bogus;
 draw quad
 probe (0, 0) rgba (0.2, 0.2, 0.2, 0.2)
 
-
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : position, out float4 tex[4] : texcoord, out float4 out_pos : sv_position)
 {
     tex[0] = float4(10.0, 11.0, 12.0, 13.0);
@@ -182,8 +181,7 @@ float4 main(in banana bans[2]) : sv_target
     return 0.0;
 }
 
-
-[vertex shader fail]
+[vertex-shader fail]
 struct apple
 {
     float2 miss; // missing semantic.
@@ -200,8 +198,7 @@ void main(out banana bans[2])
     return 0.0;
 }
 
-
-[vertex shader]
+[vertex-shader]
 struct apple
 {
     float4 tex[2] : TEXCOORD0;
@@ -224,9 +221,8 @@ float4 main(in float4 tex0 : TEXCOORD0, in float4 tex1 : TEXCOORD1) : sv_target
 todo(msl & sm>=6) draw quad
 probe (0, 0) rgba (1.0, 2.0, 10.0, 20.0)
 
-
 % Output semantics cannot be mapped to more than one value.
-[vertex shader fail]
+[vertex-shader fail]
 struct apple
 {
     float2 tex : TEXCOORD0;
@@ -239,8 +235,7 @@ void main(float4 pos : position, out apple apls[2], out float4 out_pos : sv_posi
     out_pos = pos;
 }
 
-
-[vertex shader fail]
+[vertex-shader fail]
 struct apple
 {
     float2 f : SEMANTIC;
@@ -253,9 +248,8 @@ void main(float4 pos : position, out apple a, out apple b, out float4 out_pos : 
     out_pos = pos;
 }
 
-
 % Semantic names are case-insensitive.
-[vertex shader fail]
+[vertex-shader fail]
 void main(float4 pos : position, out float2 a : sem0, out float2 b : SEM, out float4 out_pos : sv_position)
 {
     a = float2(1, 2);
@@ -263,8 +257,7 @@ void main(float4 pos : position, out float2 a : sem0, out float2 b : SEM, out fl
     out_pos = pos;
 }
 
-
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : position, out float4 tex[4] : texcoord, out float4 out_pos : sv_position)
 {
     tex[0] = float4(10.0, 11.0, 12.0, 13.0);

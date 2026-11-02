@@ -4,7 +4,7 @@ test-shader-models (2.0 3.0 4.0 6.0)
 % In shader model 2.0, COLOR semantics get clamped to the [0, 1] range when
 % passed from the vertex shader to the pixel shader.
 
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : POSITION,
         out float4 c : COLOR,
         out float4 out_pos : SV_POSITION)
@@ -25,7 +25,7 @@ if(sm<3) probe (0, 0) f32(0.0, 0.1, 0.1, 0.0)
 if(sm>=3) probe (0, 0) f32(-0.2, 0.1, 0.2, -0.1)
 
 % This also happens for COLOR1.
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : POSITION,
         out float4 c[2] : COLOR,
         out float4 out_pos : SV_POSITION)
@@ -47,7 +47,7 @@ if(sm<3) probe (0, 0) f32(0.0, 0.1, 0.1, 0.0)
 if(sm>=3) probe (0, 0) f32(-0.2, 0.1, 0.2, -0.1)
 
 % The clamping doesn't happen for TEXCOORD.
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : POSITION,
         out float4 t : TEXCOORD,
         out float4 out_pos : SV_POSITION)
@@ -71,7 +71,7 @@ probe (0, 0) f32(-0.2, 0.1, 0.2, -0.1)
 [require]
 shader model < 4.0
 
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : POSITION, out float4 out_pos : POSITION)
 {
     out_pos = pos;
@@ -91,7 +91,7 @@ probe (0, 0) f32(-2, 1, 2, -1)
 shader model < 3.0
 
 % Verify that the same behavior happens in shader model 1.
-[vertex shader d3dbc-hex]
+[vertex-shader d3dbc-hex]
 fffe0101                                              % vs_1_1
 00000051 a00f0000 c0000000 3f800000 40000000 bf800000 % def c0, -2, 1, 2, -1
 0000001f 80000000 900f0000                            % dcl_position v0

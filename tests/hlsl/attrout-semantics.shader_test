@@ -15,7 +15,7 @@ float4 main(float psize : PSIZE) : sv_target
     return 0;
 }
 
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : position, out float fog : fog, out float4 out_pos : sv_position)
 {
     fog = 1.0;
@@ -44,7 +44,7 @@ float4 main(float fog : FOG) : sv_target
 draw quad
 probe (0, 0) f32(1, 1, 1, 1)
 
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : position, out float psize : psize, out float4 out_pos : sv_position)
 {
     psize = 1.0;

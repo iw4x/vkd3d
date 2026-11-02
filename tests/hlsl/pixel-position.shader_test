@@ -7,7 +7,7 @@
 [input layout]
 0 r32g32b32a32-float POSITION
 
-[vertex shader]
+[vertex-shader]
 float4 main(float4 pos : POSITION) : sv_position
 {
     return pos;

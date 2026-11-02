@@ -12,7 +12,7 @@ size (2d, 4, 4)
 .00 .50 .00 1.0  .25 .50 .00 1.0  .50 .50 .00 1.0  .75 .50 .00 1.0
 .00 .75 .00 1.0  .25 .75 .00 1.0  .50 .75 .00 1.0  .75 .75 .00 1.0
 
-[vertex shader]
+[vertex-shader]
 void main(float4 p : POSITION, out float2 t : TEXCOORD, out float4 position : SV_Position)
 {
     t.x = (p.x + 1.0) / 2.0;

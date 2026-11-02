@@ -9,7 +9,7 @@ shader model >= 4.0
 1.0 0.0 0.0 1.0
 0.0 0.0 1.0 1.0
 
-[vertex shader]
+[vertex-shader]
 void main(uint id : sv_vertexid, nointerpolation inout float4 t : texcoord, out float4 pos : sv_position)
 {
     float2 coords = float2((id << 1) & 2, id & 2);
@@ -26,7 +26,7 @@ float4 main(nointerpolation float4 t : texcoord) : sv_target
 draw triangle list 3
 probe (0, 0, 640, 480) rgba (0.0, 1.0, 0.0, 1.0)
 
-[vertex shader]
+[vertex-shader]
 struct ps_input
 {
     nointerpolation float4 t : texcoord;
@@ -53,7 +53,7 @@ float4 main(ps_input input) : sv_target
 draw triangle list 3
 probe (0, 0, 640, 480) rgba (0.0, 1.0, 0.0, 1.0)
 
-[vertex shader]
+[vertex-shader]
 struct ps_input
 {
     nointerpolation float4 t : texcoord;
@@ -80,7 +80,7 @@ float4 main(nointerpolation ps_input input) : sv_target
 draw triangle list 3
 probe (0, 0, 640, 480) rgba (0.0, 1.0, 0.0, 1.0)
 
-[vertex shader]
+[vertex-shader]
 struct ps_input
 {
     nointerpolation float4 t : texcoord;
@@ -107,7 +107,7 @@ float4 main(centroid ps_input input) : sv_target
 draw triangle list 3
 probe (0, 0, 640, 480) rgba (0.0, 1.0, 0.0, 1.0)
 
-[vertex shader]
+[vertex-shader]
 struct ps_input
 {
     nointerpolation float4 t : texcoord;
@@ -150,7 +150,7 @@ probe (320,240) rgba (0.250390589, 0.499088615, 0.250520796, 1.0) 4
 shader model >= 4.0
 
 
-[vertex shader fail todo]
+[vertex-shader fail todo]
 struct ps_input
 {
     nointerpolation centroid float4 t : texcoord;
@@ -162,7 +162,7 @@ void main(uint id : sv_vertexid, inout ps_input input, out float4 pos : sv_posit
     pos = float4(coords * float2(2, -2) + float2(-1, 1), 0, 1);
 }
 
-[vertex shader]
+[vertex-shader]
 struct ps_input
 {
     nointerpolation float4 t : texcoord;

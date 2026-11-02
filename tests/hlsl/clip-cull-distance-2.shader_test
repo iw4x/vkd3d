@@ -15,7 +15,7 @@
 [require]
 shader model >= 4.0
 
-[vertex shader]
+[vertex-shader]
 struct vertex
 {
     float4 pos : SV_POSITION;
@@ -68,7 +68,7 @@ float4 main() : SV_TARGET
     return float4(1.0, 1.0, 1.0, 1.0);
 }
 
-[vertex shader]
+[vertex-shader]
 struct vertex
 {
     float4 pos : SV_POSITION;
@@ -91,7 +91,7 @@ winbug(sm>=6 & warp) probe (160, 360) f32(0.0, 0.0, 0.0, 1.0)
 probe (480, 120) f32(1.0, 1.0, 1.0, 1.0)
 winbug(sm>=6 & warp) probe (480, 360) f32(0.0, 0.0, 0.0, 1.0)
 
-[vertex shader]
+[vertex-shader]
 struct vertex
 {
     float4 pos : SV_POSITION;
@@ -114,7 +114,7 @@ winbug(sm>=6 & nvidia) probe (160, 360) f32(0.0, 0.0, 0.0, 1.0)
 probe (480, 120) f32(1.0, 1.0, 1.0, 1.0)
 probe (480, 360) f32(1.0, 1.0, 1.0, 1.0)
 
-[vertex shader todo fail(sm<6)]
+[vertex-shader todo fail(sm<6)]
 unsigned int i;
 
 struct vertex

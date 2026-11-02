@@ -21,8 +21,7 @@ shader model < 4.0
 2.0   6.0
 2.0   6.0
 
-[vertex shader]
-
+[vertex-shader]
 struct vertex
 {
     float4 position : POSITION;

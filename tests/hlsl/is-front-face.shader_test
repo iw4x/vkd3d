@@ -10,7 +10,7 @@
 -2.0  2.0
  2.0  2.0
 
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : position, out uint a : TEXCOORD, out float4 opos : sv_position)
 {
     a = 2;

@@ -6,7 +6,7 @@ rt-vp-array-index
 format r32g32b32a32-float
 size (2darray, 640, 480, 4)
 
-[vertex shader]
+[vertex-shader]
 uint layer_offset;
 
 void main(float4 position : POSITION,

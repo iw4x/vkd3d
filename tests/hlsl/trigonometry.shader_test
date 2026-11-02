@@ -2,7 +2,7 @@
 % The sincos instruction has different semantics in SM2 and SM3. Test both versions.
 test-shader-models (2.0 3.0)
 
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : position, out float tex : texcoord, out float4 out_pos : sv_position)
 {
     tex = (pos.x + 1) * 320;

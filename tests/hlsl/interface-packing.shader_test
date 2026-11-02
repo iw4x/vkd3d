@@ -1,4 +1,4 @@
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : POSITION, out float2 color_xy : COLOR0,
         out float2 color_zw : COLOR1, out float4 position : SV_POSITION)
 {
@@ -25,7 +25,7 @@ shader model < 6.0
 
 [input layout]
 
-[vertex shader]
+[vertex-shader]
 // Rules:
 // 1. Arrays always start on .x
 // 2. When placing a scalar or vector, search through the allocated slots for space *vertically*
@@ -137,7 +137,7 @@ shader model >= 3.0
 -1.0 3.0
 3.0 -1.0
 
-[vertex shader]
+[vertex-shader]
 void main(float2 in_pos : POSITION, out float4 pos : SV_Position, out float4 color : COLOR)
 {
     pos = float4(in_pos, 0.0f, 1.0f);
@@ -193,7 +193,7 @@ shader model >= 4.0
 
 [input layout]
 
-[vertex shader]
+[vertex-shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},

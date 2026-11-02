@@ -2,7 +2,7 @@
 shader model >= 4.0
 geometry-shader
 
-[vertex shader]
+[vertex-shader]
 struct vs_data
 {
     float4 pos : SV_Position;

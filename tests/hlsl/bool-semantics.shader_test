@@ -12,8 +12,7 @@ format r32-uint
 0 1 0x80000000 0xffffffff    2 -2
 0 1 0x80000000 0xffffffff    2  2
 
-[vertex shader]
-
+[vertex-shader]
 struct input
 {
     bool4 apple : apple;

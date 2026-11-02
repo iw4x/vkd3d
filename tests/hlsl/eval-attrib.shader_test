@@ -13,7 +13,7 @@ shader model >= 5.0
 format r32g32b32a32-float
 size (2dms, 4, 640, 480)
 
-[vertex shader]
+[vertex-shader]
 % The pixels in the leftmost column lose their leftmost sample.
 static const float epsilon = 0.25f * 2.0f / 640.0f;
 static const float2 vertices[3] =

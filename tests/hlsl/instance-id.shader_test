@@ -1,7 +1,7 @@
 [require]
 shader model >= 4.0
 
-[vertex shader]
+[vertex-shader]
 struct vs_in
 {
     uint instance_id : SV_InstanceId;
@@ -53,7 +53,7 @@ probe rtv-0 (160, 360) f32(0.0, 1.0, 0.0, 1.0)
 % from other APIs, like Metal and Vulkan, so it's useful to check we're
 % offsetting properly.
 
-[vertex shader]
+[vertex-shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},

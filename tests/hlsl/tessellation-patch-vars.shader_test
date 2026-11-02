@@ -2,7 +2,7 @@
 shader model >= 5.0
 tessellation-shader
 
-[vertex shader]
+[vertex-shader]
 struct data
 {
     float4 position : SV_Position;

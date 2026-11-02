@@ -13,7 +13,7 @@ uniform 0 float4 10.3 -11.6 12.8 13.1
 draw quad
 probe (0, 0) f32(10, -11, 12, 0)
 
-[vertex shader]
+[vertex-shader]
 uniform float4 f;
 
 void main(float4 pos : position, out float4 t1 : TEXCOORD1, out float4 out_pos : sv_position)

@@ -96,8 +96,8 @@ float4 technIque10;
 [effect]
 float4 technIque11;
 
-% Regular shaders with technique blocks
-[vertex shader]
+% Regular shaders with technique blocks.
+[vertex-shader]
 float4 main() : sv_position
 {
     return 0;

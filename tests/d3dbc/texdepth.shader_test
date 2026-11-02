@@ -8,7 +8,7 @@ size (2d, 64, 64)
 [dsv]
 size (2d, 64, 64)
 
-[vertex shader]
+[vertex-shader]
 void main(float4 p : POSITION, out float4 t : TEXCOORD, out float4 position : SV_Position)
 {
     position = p;

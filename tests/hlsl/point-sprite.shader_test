@@ -13,7 +13,7 @@ size (2d, 2, 2)
 1.0 1.0 0.0 1.0     0.0 1.0 1.0 1.0
 1.0 0.0 0.0 1.0     1.0 0.0 1.0 1.0
 
-[vertex shader]
+[vertex-shader]
 void main(out float2 t : texcoord, out float4 out_pos : sv_position)
 {
     t = float2(1, 1);

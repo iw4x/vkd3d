@@ -7,7 +7,7 @@
 [require]
 shader model < 4.0
 
-[vertex shader]
+[vertex-shader]
 void main(inout float4 pos : position, out float alpha : texcoord)
 {
     alpha = pos.x;

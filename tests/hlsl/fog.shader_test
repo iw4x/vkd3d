@@ -1,7 +1,7 @@
 [require]
 shader model < 3.0
 
-[vertex shader fail]
+[vertex-shader fail]
 void main(float4 pos : position, out float2 fog : fog, out float4 out_pos : sv_position)
 {
     fog = 0.5;
@@ -11,7 +11,7 @@ void main(float4 pos : position, out float2 fog : fog, out float4 out_pos : sv_p
 [require]
 shader model >= 3.0
 
-[vertex shader]
+[vertex-shader]
 void main(float4 pos : position, out float2 fog : fog, out float4 out_pos : sv_position)
 {
     fog = float2(0.1, 0.2);
@@ -41,7 +41,7 @@ fog
  1.0 -1.0 0.6 1.0
  1.0  1.0 0.6 1.0
 
-[vertex shader]
+[vertex-shader]
 float4 main(float4 pos : position, out float fog : fog) : sv_position
 {
     fog = 0.2;
@@ -95,7 +95,7 @@ probe (480, 360) rgba (0.0, 0.63212056, 1.0, 1.0) 64
 
 % Test a VS that doesn't write fog, but does write specular.
 
-[vertex shader]
+[vertex-shader]
 float4 main(float4 pos : position, out float4 specular : color1) : sv_position
 {
     specular = float4(0, 0, 0, 0.3);

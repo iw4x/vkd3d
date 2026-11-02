@@ -14,8 +14,8 @@ float4 main(in float4 res : COLOR1) : sv_target
 }
 
 
-% Check that -0.0f is not less than 0.0f
-[vertex shader]
+% Check that -0.0f is not less than 0.0f.
+[vertex-shader]
 float a;
 
 void main(out float4 res : COLOR1, in float4 pos : position, out float4 out_pos : sv_position)
@@ -85,7 +85,7 @@ probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 % The ternary operator works differently in sm6. See sm6-ternary.shader_test.
 shader model < 6.0
 
-[vertex shader]
+[vertex-shader]
 int a, b, c;
 
 void main(out float4 res : COLOR1, in float4 pos : position, out float4 out_pos : sv_position)

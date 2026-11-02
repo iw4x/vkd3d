@@ -47,7 +47,7 @@ cull-distance
 format r32g32b32a32-float
 size (2d, 640, 480)
 
-[vertex shader]
+[vertex-shader]
 struct vertex
 {
     float4 position : SV_POSITION;
@@ -91,7 +91,7 @@ shader model < 4.1
 cull-distance
 
 % Same as previous vertex shader, but already compiled with FXC.
-[vertex shader dxbc-tpf-hex]
+[vertex-shader dxbc-tpf-hex]
 43425844 0ec8a95b 7857d61f 02c08472 6edf4bf9 00000001 00000170  % DXBC header
 00000003 0000002c 00000060 000000e4                             %
 4e475349 0000002c 00000001 00000008                             % .input
@@ -139,7 +139,7 @@ shader model >= 4.0
 cull-distance
 
 % Test clip/cull distance inputs.
-[vertex shader]
+[vertex-shader]
 struct vertex_data
 {
     float4 position : SV_POSITION;
@@ -185,7 +185,7 @@ probe rtv-0 (480, 120) f32(0.0, 0.0, 0.0, 1.0)
 probe rtv-0 (480, 240) f32(0.0, 0.0, 0.0, 1.0)
 probe rtv-0 (480, 360) f32(0.0, 0.0, 0.0, 1.0)
 
-[vertex shader fail(sm<6)]
+[vertex-shader fail(sm<6)]
 struct vertex_data
 {
     float4 position : SV_POSITION;   // o0.xyzw
@@ -258,7 +258,7 @@ shader model >= 4.0
 format r32g32b32a32-float
 size (2d, 640, 480)
 
-[vertex shader]
+[vertex-shader]
 struct input
 {
     float4 position : POSITION;
@@ -336,7 +336,7 @@ probe rtv-0 (320, 360) f32(1.0, 1.0, 1.0, 1.0)
 
 % A single clip distance.
 
-[vertex shader]
+[vertex-shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},
@@ -372,7 +372,7 @@ probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % A single clip distance, disguised as an array.
 
-[vertex shader]
+[vertex-shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},
@@ -408,7 +408,7 @@ probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % Two clip distances.
 
-[vertex shader]
+[vertex-shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},
@@ -445,7 +445,7 @@ probe rtv-0 (480, 360) f32(0.0, 1.0, 0.0, 1.0)
 
 % Five clip distances.
 
-[vertex shader]
+[vertex-shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},
@@ -492,7 +492,7 @@ cull-distance
 % they do not leave the only triangle entirely on one side. (Also, they
 % coincide with other clip distances.)
 
-[vertex shader]
+[vertex-shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},
@@ -584,7 +584,7 @@ todo(opengl) probe rtv-0 (480, 360) f32(1.0, 1.0, 0.0, 1.0)
 
 % Generate clip and cull distances in the geometry shader.
 
-[vertex shader]
+[vertex-shader]
 static const float2 vertices[3] =
 {
     {-1.0f,  1.0f},
