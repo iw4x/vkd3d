@@ -51,6 +51,25 @@ write cbv-i32 (0) i32(3, 3, -1, 0)
 draw quad
 probe (320, 240) f32(432, 432, 432, 432)
 
+% As above, but define i0 in the shader.
+[pixel-shader d3dbc-hex]
+ffff0300                                                % ps_3_0
+05000051 a00f0000 00000000 00000000 41200000 00000000   % def c0, 0, 0, 10, 0
+05000030 f00f0000 00000003 00000001 00000001 00000000   % defi i0, 3, 1, 1, 0
+0200001f 8000000a 900f0000                              % dcl_color v0
+0200001f 8001000a 900f0001                              % dcl_color1 v1
+0200001f 8002000a 900f0002                              % dcl_color2 v2
+0200001f 8003000a 900f0003                              % dcl_color3 v3
+02000001 800f0000 a0000000                              % mov r0, c0.x
+0200001b f0e40800 f0e40000                              % loop aL, i0
+05000004 800f0000 80e40000 a0aa0000 90e42000 f0e40800   %   mad r0, r0, c0.z, v0[aL]
+0000001d                                                % endloop
+02000001 800f0800 80e40000                              % mov oC0, r0
+0000ffff                                                % end
+
+[test]
+draw quad
+probe (320, 240) f32(234, 234, 234, 234)
 
 % Test that aL refers to the immediate enclosing loop when nesting.
 [pixel shader d3dbc-hex]
