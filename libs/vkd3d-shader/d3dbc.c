@@ -3619,6 +3619,8 @@ static bool d3dbc_const_allocator_allocate_register(struct d3dbc_const_allocator
             reg = &allocator->regs[allocator->reg_count++];
             reg->index = index;
             reg->uniform = false;
+            reg->allocated_mask = 0;
+            memset(reg->value, 0, sizeof(reg->value));
         }
 
         for (unsigned int j = 0; j < component_count; ++j)
