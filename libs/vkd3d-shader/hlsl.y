@@ -5325,12 +5325,38 @@ static bool intrinsic_GetRenderTargetSampleCount(struct hlsl_ctx *ctx,
     return true;
 }
 
+static void check_interlocked_dst_type(struct hlsl_ctx *ctx, const char *name, const struct hlsl_type *type,
+        enum hlsl_interlocked_op op, const struct vkd3d_shader_location *loc)
+{
+    struct vkd3d_string_buffer *string;
+
+    if (type->class == HLSL_CLASS_SCALAR && !type->is_minimum_precision)
+    {
+        if (type->e.numeric.type == HLSL_TYPE_INT || type->e.numeric.type == HLSL_TYPE_UINT)
+            return;
+
+        /* InterlockedExchange() also allows float/half destinations,
+         * but not double destinations. */
+        if (op == HLSL_INTERLOCKED_EXCH
+                && (type->e.numeric.type == HLSL_TYPE_FLOAT || type->e.numeric.type == HLSL_TYPE_HALF))
+            return;
+    }
+
+    if ((string = hlsl_type_to_string(ctx, type)))
+    {
+        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                "Unexpected type for argument 0 of '%s': expected %s, but got '%s'.", name,
+                op == HLSL_INTERLOCKED_EXCH ? "'uint', 'int', 'float', or 'half'" : "'uint' or 'int'",
+                string->buffer);
+        hlsl_release_string_buffer(ctx, string);
+    }
+}
+
 static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op op,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc, const char *name)
 {
     struct hlsl_ir_node *interlocked, *lhs, *val, *cmp_val = NULL, *orig_val = NULL;
     struct hlsl_type *lhs_type, *val_type, *ret_type = NULL;
-    struct vkd3d_string_buffer *string;
     unsigned int writemask, component;
     struct hlsl_deref dst_deref;
     bool matrix_writemask;
@@ -5351,6 +5377,8 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
     lhs = params->args[0];
     lhs_type = lhs->data_type;
 
+    check_interlocked_dst_type(ctx, name, lhs_type, op, loc);
+
     if (op == HLSL_INTERLOCKED_CMP_EXCH)
     {
         cmp_val = params->args[1];
@@ -5367,19 +5395,6 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
 
     if (orig_val)
         ret_type = lhs_type;
-
-    if (lhs_type->class != HLSL_CLASS_SCALAR || (lhs_type->e.numeric.type != HLSL_TYPE_UINT
-            && lhs_type->e.numeric.type != HLSL_TYPE_INT))
-    {
-        if ((string = hlsl_type_to_string(ctx, lhs_type)))
-        {
-            hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
-                    "Unexpected type for argument 0 of '%s': expected 'uint' or 'int', but got '%s'.",
-                    name, string->buffer);
-            hlsl_release_string_buffer(ctx, string);
-        }
-        return false;
-    }
 
     /* Interlocked*() functions always take uint for the value parameters,
      * except for InterlockedMax()/InterlockedMin(). */
@@ -5410,8 +5425,6 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
         return false;
 
     VKD3D_ASSERT(writemask);
-    /* The writemask should be single component. */
-    VKD3D_ASSERT(!(writemask & (writemask - 1)));
 
     component = vkd3d_log2i(writemask);
     if (matrix_writemask)

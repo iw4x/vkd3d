@@ -302,7 +302,7 @@ size (buffer, 3)
 % For SM6, the new value is cast to the destination type, and the old value to
 % the out argument type.
 
-[compute-shader fail(sm<5) todo(sm>=5)]
+[compute-shader fail(sm<5)]
 RWStructuredBuffer<float> f : register(u1);
 RWBuffer<uint> u : register(u2);
 RWBuffer<int> s : register(u3);
@@ -336,7 +336,7 @@ void main()
 }
 
 [test]
-todo(sm<6 | glsl | msl | vulkan & mvk<1.4.0) dispatch 1 1 1
+todo(glsl | msl | vulkan & mvk<1.4.0) dispatch 1 1 1
 probe uav-1 (2) f32(2.0)
 probe uav-3 (2) i32(-2)
 if(sm<6)  probe uav-1 (0) f32(4.0)
@@ -439,7 +439,7 @@ void main()
     InterlockedAdd(u[0], 1);
 }
 
-[compute-shader fail todo(sm>=5)]
+[compute-shader fail]
 RWBuffer<min16int> u : register(u1);
 
     [numthreads(3, 1, 1)]
@@ -451,7 +451,7 @@ void main()
 % InterlockedExchange() allows float and half UAV destinations, but not double.
 % For SM6, half destinations are not allowed either.
 
-[compute-shader fail(sm<5) todo(sm>=5)]
+[compute-shader fail(sm<5)]
 RWBuffer<float> u : register(u1);
 
     [numthreads(3, 1, 1)]
@@ -461,7 +461,7 @@ void main()
     InterlockedExchange(u[0], (float)1.0, x);
 }
 
-[compute-shader fail(sm<5 | sm>=6) todo(sm>=5)]
+[compute-shader fail(sm<5 | sm>=6)]
 RWBuffer<half> u : register(u1);
 
     [numthreads(3, 1, 1)]
