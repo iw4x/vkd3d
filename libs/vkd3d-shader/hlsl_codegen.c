@@ -14615,8 +14615,13 @@ static void sm4_generate_vsir_add_dcl_texture(struct hlsl_ctx *ctx,
         vsir_dst_operand_init(&vsir_resource->reg,
                 uav ? VSIR_REGISTER_UAV : VSIR_REGISTER_RESOURCE, VSIR_DATA_UNUSED, 0);
 
-        if (uav && component_type->e.resource.rasteriser_ordered)
-            ins->flags = VKD3DSUF_RASTERISER_ORDERED_VIEW;
+        if (uav)
+        {
+            if (component_type->e.resource.rasteriser_ordered)
+                ins->flags |= VKD3DSUF_RASTERISER_ORDERED_VIEW;
+            if (component_type->modifiers & HLSL_MODIFIER_GLOBALLYCOHERENT)
+                ins->flags |= VKD3DSUF_GLOBALLY_COHERENT;
+        }
 
         multisampled = component_type->sampler_dim == HLSL_SAMPLER_DIM_2DMS
                 || component_type->sampler_dim == HLSL_SAMPLER_DIM_2DMSARRAY;
@@ -14877,8 +14882,13 @@ static void generate_vsir_descriptors_for_var(struct hlsl_ctx *ctx, struct vsir_
                     || component_type->sampler_dim == HLSL_SAMPLER_DIM_2DMSARRAY)
                 d->sample_count = component_type->sample_count;
 
-            if (type == VKD3D_SHADER_DESCRIPTOR_TYPE_UAV && component_type->e.resource.rasteriser_ordered)
-                d->uav_flags |= VKD3DSUF_RASTERISER_ORDERED_VIEW;
+            if (type == VKD3D_SHADER_DESCRIPTOR_TYPE_UAV)
+            {
+                if (component_type->e.resource.rasteriser_ordered)
+                    d->uav_flags |= VKD3DSUF_RASTERISER_ORDERED_VIEW;
+                if (component_type->modifiers & HLSL_MODIFIER_GLOBALLYCOHERENT)
+                    d->uav_flags |= VKD3DSUF_GLOBALLY_COHERENT;
+            }
 
             if (var->objects_usage[r][regset_offset].uav_read)
                 d->flags |= VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_UAV_READ;
