@@ -2371,47 +2371,6 @@ fail:
     return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
-static enum vkd3d_result vsir_program_lower_texld_sm1(struct vsir_program *program,
-        struct vsir_instruction *ins, struct vkd3d_shader_message_context *message_context)
-{
-    unsigned int idx = ins->dst[0].reg.idx[0].offset;
-    const struct vsir_descriptor *sampler;
-    struct vsir_src_operand *srcs;
-
-    /* texld DST, t# -> sample DST, t#, resource#, sampler# */
-
-    if (!(srcs = vsir_program_get_src_operands(program, 4)))
-        return VKD3D_ERROR_OUT_OF_MEMORY;
-
-    /* Note we run before I/O normalization. */
-    srcs[0] = ins->src[0];
-    vsir_src_operand_init_resource(&srcs[1], idx, idx);
-    vsir_src_operand_init_sampler(&srcs[2], idx, idx);
-
-    sampler = vkd3d_shader_find_descriptor(&program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, idx);
-    if (sampler->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE)
-    {
-        enum vkd3d_shader_swizzle_component ref = vsir_swizzle_get_component(srcs[0].swizzle, 2);
-
-        ins->opcode = VSIR_OP_SAMPLE_C;
-        ins->src = srcs;
-        ins->src_count = 4;
-
-        srcs[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
-
-        srcs[3] = srcs[0];
-        srcs[3].swizzle = vkd3d_shader_create_swizzle(ref, ref, ref, ref);
-    }
-    else
-    {
-        ins->opcode = VSIR_OP_SAMPLE;
-        ins->src = srcs;
-        ins->src_count = 3;
-    }
-
-    return VKD3D_OK;
-}
-
 static enum vkd3d_result vsir_program_lower_texldp(struct vsir_program *program,
         struct vsir_program_iterator *it, unsigned int *tmp_idx)
 {
@@ -2902,9 +2861,7 @@ static enum vkd3d_result vsir_program_lower_d3dbc_instructions(struct vsir_progr
                 break;
 
             case VSIR_OP_TEXLD:
-                if (program->shader_version.major == 1)
-                    ret = vsir_program_lower_texld_sm1(program, ins, message_context);
-                else if (ins->flags == VKD3DSI_TEXLD_PROJECT)
+                if (ins->flags == VKD3DSI_TEXLD_PROJECT)
                     ret = vsir_program_lower_texldp(program, &it, &tmp_idx);
                 else
                     ret = vsir_program_lower_texld(program, ins, message_context);

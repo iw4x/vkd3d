@@ -1740,6 +1740,39 @@ static bool is_texture_projected(struct vkd3d_shader_sm1_parser *parser, unsigne
     return parameter->u.immediate_constant.u.u32 & (1u << index);
 }
 
+static enum vkd3d_result d3dbc_read_texld_sm1(struct vkd3d_shader_sm1_parser *parser,
+        const struct d3dbc_instruction *d3dbc_ins)
+{
+    unsigned int idx = d3dbc_ins->dst[0].o.index;
+    const struct vsir_descriptor *descriptor;
+    struct vsir_instruction *ins;
+
+    /* texld DST#, SRC -> sample DST#, SRC, resource#, sampler# */
+
+    descriptor = vkd3d_shader_find_descriptor(&parser->program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, idx);
+    if (descriptor->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE)
+    {
+        if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_SAMPLE_C, 1, 4)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+        vsir_src_operand_from_d3dbc_swizzled(parser, &ins->src[3], &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0],
+                VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z));
+    }
+    else
+    {
+        if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_SAMPLE, 1, 3)))
+            return VKD3D_ERROR_OUT_OF_MEMORY;
+    }
+
+    vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[0], &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0]);
+    vsir_src_operand_init_resource(&ins->src[1], idx, idx);
+    vsir_src_operand_init_sampler(&ins->src[2], idx, idx);
+
+    if (descriptor->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE)
+        ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result d3dbc_read_texbem(struct vkd3d_shader_sm1_parser *parser,
         const struct d3dbc_instruction *d3dbc_ins)
 {
@@ -2329,6 +2362,22 @@ static enum vkd3d_result d3dbc_read_texdepth(struct vkd3d_shader_sm1_parser *par
     return VKD3D_OK;
 }
 
+static enum vkd3d_result d3dbc_read_simple_instruction(struct vkd3d_shader_sm1_parser *parser,
+        const struct d3dbc_instruction *d3dbc_ins, enum vsir_opcode vsir_opcode)
+{
+    struct vsir_instruction *ins;
+
+    if (!(ins = d3dbc_append_instruction(parser, vsir_opcode, d3dbc_ins->dst_count, d3dbc_ins->src_count)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+
+    if (d3dbc_ins->dst_count)
+        vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
+    for (unsigned int i = 0; i < d3dbc_ins->src_count; ++i)
+        vsir_src_operand_from_d3dbc(parser, &ins->src[i], &d3dbc_ins->src[i], &d3dbc_ins->src_rel_addr[i]);
+    ins->flags = d3dbc_ins->flags;
+    return VKD3D_OK;
+}
+
 static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_parser *parser,
         const struct d3dbc_instruction *d3dbc_ins, const struct vkd3d_sm1_opcode_info *opcode_info)
 {
@@ -2453,6 +2502,12 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
         case VKD3D_SM1_OP_POW:
             return d3dbc_read_pow(parser, d3dbc_ins);
 
+        case VKD3D_SM1_OP_TEX:
+            if (program->shader_version.major == 1 && program->shader_version.minor == 4)
+                return d3dbc_read_texld_sm1(parser, d3dbc_ins);
+            else
+                return d3dbc_read_simple_instruction(parser, d3dbc_ins, opcode_info->vsir_opcode);
+
         case VKD3D_SM1_OP_TEXBEM:
         case VKD3D_SM1_OP_TEXBEML:
             return d3dbc_read_texbem(parser, d3dbc_ins);
@@ -2490,20 +2545,10 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
 
         case VKD3D_SM1_OP_ENDLOOP:
             --parser->aL_count;
-            /* fall through */
+            return d3dbc_read_simple_instruction(parser, d3dbc_ins, VSIR_OP_ENDLOOP);
+
         default:
-            if (!(ins = d3dbc_append_instruction(parser, opcode_info->vsir_opcode,
-                    d3dbc_ins->dst_count, d3dbc_ins->src_count)))
-                return VKD3D_ERROR_OUT_OF_MEMORY;
-
-            if (d3dbc_ins->dst_count)
-                vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
-            for (i = 0; i < d3dbc_ins->src_count; ++i)
-            {
-                vsir_src_operand_from_d3dbc(parser, &ins->src[i], &d3dbc_ins->src[i], &d3dbc_ins->src_rel_addr[i]);
-            }
-
-            ins->flags = d3dbc_ins->flags;
+            return d3dbc_read_simple_instruction(parser, d3dbc_ins, opcode_info->vsir_opcode);
     }
     return VKD3D_OK;
 }
