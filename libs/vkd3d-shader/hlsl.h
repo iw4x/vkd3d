@@ -212,13 +212,13 @@ struct hlsl_type
             unsigned int elements_count;
             enum hlsl_array_type array_type;
         } array;
-        /* Additional information if the class is HLSL_CLASS_TEXTURE or
-         * HLSL_CLASS_UAV. */
+        /* Additional information if type is HLSL_CLASS_TEXTURE, HLSL_CLASS_UAV,
+         * or HLSL_CLASS_CONSTANT_BUFFER. */
         struct
         {
             /* Format of the data contained within the type. */
             struct hlsl_type *format;
-            /* The type is a rasteriser-ordered view. */
+            /* The type is a rasteriser-ordered view. Only used for HLSL_CLASS_UAV. */
             bool rasteriser_ordered;
         } resource;
         /* Additional field to distinguish object types. Currently used only for technique types. */
