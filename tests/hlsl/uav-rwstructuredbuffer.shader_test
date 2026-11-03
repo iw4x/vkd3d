@@ -43,7 +43,7 @@ size (buffer, 2)
 
 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8
 
-[pixel-shader todo]
+[pixel-shader]
 struct s
 {
     float3 a;
@@ -69,7 +69,7 @@ float4 main() : sv_target1
 }
 
 [test]
-todo(msl | sm<6) draw quad
+todo(msl) draw quad
 probe uav-2 (0) f32(11.1, 12.2, 13.3, 14.4)
 probe uav-2 (1) f32(15.5, 16.6, 17.7, 18.8)
 

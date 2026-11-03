@@ -3782,6 +3782,8 @@ struct vkd3d_string_buffer *hlsl_modifiers_to_string(struct hlsl_ctx *ctx, uint3
         vkd3d_string_buffer_printf(string, "row_major ");
     if (modifiers & HLSL_MODIFIER_COLUMN_MAJOR)
         vkd3d_string_buffer_printf(string, "column_major ");
+    if (modifiers & HLSL_MODIFIER_GLOBALLYCOHERENT)
+        vkd3d_string_buffer_printf(string, "globallycoherent ");
     if (modifiers & HLSL_PRIMITIVE_POINT)
         vkd3d_string_buffer_printf(string, "point ");
     if (modifiers & HLSL_PRIMITIVE_LINE)

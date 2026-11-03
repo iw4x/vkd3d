@@ -1070,6 +1070,9 @@ static struct hlsl_type *apply_type_modifiers(struct hlsl_ctx *ctx, struct hlsl_
                 "'row_major' and 'column_major' modifiers are only allowed for matrices.");
     }
 
+    if (type->class == HLSL_CLASS_STRUCT)
+        *modifiers &= ~HLSL_MODIFIER_GLOBALLYCOHERENT;
+
     if (!default_majority && !(*modifiers & HLSL_TYPE_MODIFIERS_MASK))
         return type;
 
@@ -2534,6 +2537,25 @@ static void validate_groupshared_var(struct hlsl_ctx *ctx, const struct hlsl_ir_
     }
 }
 
+static void check_invalid_globallycoherent(struct hlsl_ctx *ctx, const struct hlsl_type *type,
+        const struct vkd3d_shader_location *loc)
+{
+    if (type->class == HLSL_CLASS_ARRAY)
+    {
+        check_invalid_globallycoherent(ctx, type->e.array.type, loc);
+    }
+    else if (type->class == HLSL_CLASS_STRUCT)
+    {
+        for (unsigned int i = 0; i < type->e.record.field_count; ++i)
+            check_invalid_globallycoherent(ctx, type->e.record.fields[i].type, loc);
+    }
+    else if (type->class != HLSL_CLASS_UAV && (type->modifiers & HLSL_MODIFIER_GLOBALLYCOHERENT))
+    {
+        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_MODIFIER,
+                "globallycoherent can only be used with UAVs.");
+    }
+}
+
 static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
 {
     bool nonlocal = ctx->cur_scope == ctx->globals || ctx->cur_scope->namespace;
@@ -2728,6 +2750,9 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
         if (stream_output)
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_MISPLACED_STREAM_OUTPUT,
                     "Stream output object '%s' is not allowed in the global scope.", var->name);
+
+        if (!(modifiers & HLSL_STORAGE_STATIC))
+            check_invalid_globallycoherent(ctx, basic_type, &var->loc);
 
         if ((ctx->profile->major_version < 5 || ctx->profile->type == VKD3D_SHADER_TYPE_EFFECT)
                 && (var->storage_modifiers & HLSL_STORAGE_UNIFORM))
@@ -9442,6 +9467,8 @@ var_modifiers:
                 $$ = add_modifiers(ctx, $2, HLSL_MODIFIER_PRECISE, &@1);
             else if (!strcmp($1, "single"))
                 $$ = add_modifiers(ctx, $2, HLSL_MODIFIER_SINGLE, &@1);
+            else if (!strcmp($1, "globallycoherent"))
+                $$ = add_modifiers(ctx, $2, HLSL_MODIFIER_GLOBALLYCOHERENT, &@1);
             else
                 hlsl_error(ctx, &@1, VKD3D_SHADER_ERROR_HLSL_UNKNOWN_MODIFIER,
                         "Unknown modifier %s.", debugstr_a($1));

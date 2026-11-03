@@ -1,7 +1,7 @@
 [require]
 shader model >= 5.0
 
-[pixel-shader todo(sm<6)]
+[pixel-shader]
 typedef globallycoherent RWBuffer<float> T;
 
 struct S
@@ -28,7 +28,7 @@ float4 main() : sv_target
     return globallycoherent;
 }
 
-[pixel-shader todo(sm<6)]
+[pixel-shader]
 RWBuffer<float4> u;
 
 float4 f(globallycoherent RWBuffer<float4> b)
@@ -75,7 +75,7 @@ float4 main() : sv_target
 
 % SM < 6 silently ignores globallycoherent on the following; SM6 rejects them.
 
-[pixel-shader fail(sm>=6) todo(sm<6)]
+[pixel-shader fail(sm>=6)]
 static globallycoherent float4 x = 1;
 
 float4 main() : sv_target
@@ -83,14 +83,14 @@ float4 main() : sv_target
     return x;
 }
 
-[pixel-shader fail(sm>=6) todo(sm<6)]
+[pixel-shader fail(sm>=6)]
 float4 main() : sv_target
 {
     globallycoherent float4 x = 1;
     return x;
 }
 
-[pixel-shader fail(sm>=6) todo(sm<6)]
+[pixel-shader fail(sm>=6)]
 float4 f(globallycoherent float x)
 {
     return x;
@@ -101,7 +101,7 @@ float4 main() : sv_target
     return f(1);
 }
 
-[pixel-shader fail(sm>=6) todo(sm<6)]
+[pixel-shader fail(sm>=6)]
 struct S
 {
     float4 x;
