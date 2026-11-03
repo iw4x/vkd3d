@@ -1372,6 +1372,7 @@ void vsir_dst_operand_init_temp_f32v4(struct vsir_dst_operand *dst, unsigned int
     vsir_dst_operand_init(dst, VSIR_REGISTER_TEMP, VSIR_DATA_F32, 1);
     dst->reg.idx[0].offset = idx;
     dst->reg.dimension = VSIR_DIMENSION_VEC4;
+    dst->write_mask = VKD3DSP_WRITEMASK_ALL;
 }
 
 void vsir_dst_operand_init_temp_u32(struct vsir_dst_operand *dst, unsigned int idx)
