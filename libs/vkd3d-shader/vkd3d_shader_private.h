@@ -2236,6 +2236,18 @@ static inline uint32_t vsir_swizzle_from_writemask(unsigned int writemask)
     return swizzles[writemask & 0xf];
 }
 
+static inline uint32_t vsir_combine_swizzles(uint32_t first, uint32_t second)
+{
+    uint32_t ret = 0;
+
+    for (unsigned int i = 0; i < VKD3D_VEC4_SIZE; ++i)
+    {
+        unsigned int s = vsir_swizzle_get_component(second, i);
+        vsir_swizzle_set_component(&ret, i, vsir_swizzle_get_component(first, s));
+    }
+    return ret;
+}
+
 uint32_t vsir_map_swizzle(uint32_t swizzle, unsigned int writemask);
 
 struct vkd3d_struct

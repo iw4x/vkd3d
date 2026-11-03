@@ -1620,6 +1620,16 @@ static void vsir_src_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, 
     }
 }
 
+/* This helper exists partially to make sure that IMMCONST is handled correctly.
+ * It is illegal to put a swizzle on an IMMCONST. */
+static void vsir_src_operand_from_d3dbc_swizzled(struct vkd3d_shader_sm1_parser *parser, struct vsir_src_operand *vsir,
+        const struct d3dbc_src_operand *d3dbc, const struct d3dbc_src_operand *rel_addr, uint32_t swizzle)
+{
+    struct d3dbc_src_operand swizzled = *d3dbc;
+    swizzled.swizzle = vsir_combine_swizzles(d3dbc->swizzle, swizzle);
+    vsir_src_operand_from_d3dbc(parser, vsir, &swizzled, rel_addr);
+}
+
 static void vsir_dst_operand_from_d3dbc(struct vkd3d_shader_sm1_parser *parser, struct vsir_dst_operand *vsir,
         const struct d3dbc_dst_operand *d3dbc, const struct d3dbc_src_operand *rel_addr)
 {
@@ -1656,8 +1666,6 @@ static struct vsir_instruction *generate_bump_coords(struct vkd3d_shader_sm1_par
         unsigned int idx, const struct vsir_src_operand *coords,
         const struct d3dbc_src_operand *perturbation, const struct d3dbc_src_operand *perturbation_rel_addr)
 {
-    enum vkd3d_shader_swizzle_component x = vsir_swizzle_get_component(perturbation->swizzle, 0);
-    enum vkd3d_shader_swizzle_component y = vsir_swizzle_get_component(perturbation->swizzle, 1);
     unsigned int temp_id = parser->program->ssa_count++;
     struct vsir_instruction *ins;
 
@@ -1670,15 +1678,15 @@ static struct vsir_instruction *generate_bump_coords(struct vkd3d_shader_sm1_par
         return NULL;
     vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], temp_id);
     ins->dst[0].write_mask = 0x3;
-    vsir_src_operand_from_d3dbc(parser, &ins->src[0], perturbation, perturbation_rel_addr);
-    ins->src[0].swizzle = vkd3d_shader_create_swizzle(x, x, x, x);
+    vsir_src_operand_from_d3dbc_swizzled(parser, &ins->src[0],
+            perturbation, perturbation_rel_addr, VKD3D_SHADER_SWIZZLE(X, X, X, X));
     vsir_src_operand_init_parameter_vec4(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_0 + idx, VSIR_DATA_F32);
     ins->src[2] = *coords;
 
     if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MAD, 1, 3)))
         return NULL;
-    vsir_src_operand_from_d3dbc(parser, &ins->src[0], perturbation, perturbation_rel_addr);
-    ins->src[0].swizzle = vkd3d_shader_create_swizzle(y, y, y, y);
+    vsir_src_operand_from_d3dbc_swizzled(parser, &ins->src[0],
+            perturbation, perturbation_rel_addr, VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y));
     vsir_src_operand_init_parameter_vec4(&ins->src[1], VKD3D_SHADER_PARAMETER_NAME_BUMP_MATRIX_0 + idx, VSIR_DATA_F32);
     ins->src[1].swizzle = VKD3D_SHADER_SWIZZLE(Z, W, W, W);
     vsir_src_operand_init_ssa_f32v4(&ins->src[2], temp_id);
@@ -1816,7 +1824,6 @@ static enum vkd3d_result d3dbc_read_texbem(struct vkd3d_shader_sm1_parser *parse
 
     if (is_texbeml)
     {
-        enum vkd3d_shader_swizzle_component z = vsir_swizzle_get_component(d3dbc_ins->src[0].swizzle, 2);
         unsigned int luminance_id = program->ssa_count++;
         unsigned int sample_id = program->ssa_count++;
 
@@ -1826,8 +1833,8 @@ static enum vkd3d_result d3dbc_read_texbem(struct vkd3d_shader_sm1_parser *parse
             return VKD3D_ERROR_OUT_OF_MEMORY;
         vsir_dst_operand_init_ssa_f32v4(&ins->dst[0], luminance_id);
         ins->dst[0].write_mask = 0x1;
-        vsir_src_operand_from_d3dbc(parser, &ins->src[0], &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0]);
-        ins->src[0].swizzle = vkd3d_shader_create_swizzle(z, z, z, z);
+        vsir_src_operand_from_d3dbc_swizzled(parser, &ins->src[0],
+                &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0], VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z));
         vsir_src_operand_init_parameter(&ins->src[1],
                 VKD3D_SHADER_PARAMETER_NAME_BUMP_LUMINANCE_SCALE_0 + idx, VSIR_DATA_F32);
         vsir_src_operand_init_parameter(&ins->src[2],
@@ -1866,7 +1873,6 @@ static void d3dbc_record_def(struct vkd3d_shader_sm1_parser *parser,
 static enum vkd3d_result d3dbc_read_loop(struct vkd3d_shader_sm1_parser *parser,
         const struct d3dbc_instruction *d3dbc_ins)
 {
-    struct d3dbc_src_operand constants = d3dbc_ins->src[1];
     uint32_t iter_id, aL_id, neg_id;
     struct vsir_instruction *ins;
 
@@ -1891,21 +1897,21 @@ static enum vkd3d_result d3dbc_read_loop(struct vkd3d_shader_sm1_parser *parser,
     if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MOV, 1, 1)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
     vsir_dst_operand_init_temp_u32(&ins->dst[0], iter_id);
-    constants.swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
-    vsir_src_operand_from_d3dbc(parser, &ins->src[0], &constants, &d3dbc_ins->src_rel_addr[1]);
+    vsir_src_operand_from_d3dbc_swizzled(parser, &ins->src[0],
+            &d3dbc_ins->src[1], &d3dbc_ins->src_rel_addr[1], VKD3D_SHADER_SWIZZLE(X, X, X, X));
 
     neg_id = parser->program->ssa_count++;
     if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_INEG, 1, 1)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
     vsir_dst_operand_init_ssa_scalar(&ins->dst[0], neg_id, VSIR_DATA_U32);
-    constants.swizzle = VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z);
-    vsir_src_operand_from_d3dbc(parser, &ins->src[0], &constants, &d3dbc_ins->src_rel_addr[1]);
+    vsir_src_operand_from_d3dbc_swizzled(parser, &ins->src[0],
+            &d3dbc_ins->src[1], &d3dbc_ins->src_rel_addr[1], VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z));
 
     if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_IADD, 1, 2)))
         return VKD3D_ERROR_OUT_OF_MEMORY;
     vsir_dst_operand_init_temp_u32(&ins->dst[0], aL_id);
-    constants.swizzle = VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y);
-    vsir_src_operand_from_d3dbc(parser, &ins->src[0], &constants, &d3dbc_ins->src_rel_addr[1]);
+    vsir_src_operand_from_d3dbc_swizzled(parser, &ins->src[0],
+            &d3dbc_ins->src[1], &d3dbc_ins->src_rel_addr[1], VKD3D_SHADER_SWIZZLE(Y, Y, Y, Y));
     vsir_src_operand_init_ssa_scalar(&ins->src[1], neg_id, VSIR_DATA_U32);
 
     if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_LOOP, 0, 0)))
@@ -1926,8 +1932,8 @@ static enum vkd3d_result d3dbc_read_loop(struct vkd3d_shader_sm1_parser *parser,
         return VKD3D_ERROR_OUT_OF_MEMORY;
     vsir_dst_operand_init_temp_u32(&ins->dst[0], aL_id);
     vsir_src_operand_init_temp_u32(&ins->src[0], aL_id);
-    constants.swizzle = VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z);
-    vsir_src_operand_from_d3dbc(parser, &ins->src[1], &constants, &d3dbc_ins->src_rel_addr[1]);
+    vsir_src_operand_from_d3dbc_swizzled(parser, &ins->src[1],
+            &d3dbc_ins->src[1], &d3dbc_ins->src_rel_addr[1], VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z));
 
     return VKD3D_OK;
 }

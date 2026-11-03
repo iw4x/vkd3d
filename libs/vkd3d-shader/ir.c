@@ -1145,18 +1145,6 @@ static unsigned int vsir_combine_write_masks(unsigned int first, unsigned int se
     return ret;
 }
 
-static uint32_t vsir_combine_swizzles(uint32_t first, uint32_t second)
-{
-    uint32_t ret = 0;
-
-    for (unsigned int i = 0; i < VKD3D_VEC4_SIZE; ++i)
-    {
-        unsigned int s = vsir_swizzle_get_component(second, i);
-        vsir_swizzle_set_component(&ret, i, vsir_swizzle_get_component(first, s));
-    }
-    return ret;
-}
-
 void vsir_operand_init(struct vsir_operand *reg, enum vsir_register_type reg_type,
         enum vsir_data_type data_type, unsigned int idx_count)
 {
