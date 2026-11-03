@@ -5398,17 +5398,21 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
 
     /* Interlocked*() functions always take uint for the value parameters,
      * except for InterlockedMax()/InterlockedMin(). */
-    if (op == HLSL_INTERLOCKED_MAX || op == HLSL_INTERLOCKED_MIN)
+    if (op == HLSL_INTERLOCKED_UMAX || op == HLSL_INTERLOCKED_UMIN)
     {
-        enum hlsl_base_type val_base_type = val->data_type->e.numeric.type;
-
-        /* Floating values are always cast to signed integers. */
-        if (val_base_type == HLSL_TYPE_FLOAT || val_base_type == HLSL_TYPE_HALF || val_base_type == HLSL_TYPE_DOUBLE)
-            val_type = hlsl_get_scalar_type(ctx, HLSL_TYPE_INT);
-        else if (val_base_type != lhs_type->e.numeric.type)
+        if (val->data_type->e.numeric.type == HLSL_TYPE_UINT)
+        {
             val_type = hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT);
+        }
         else
-            val_type = hlsl_get_scalar_type(ctx, val_base_type);
+        {
+            /* For InterlockedMax/Min, values other than uint are always cast to
+             * int first, but the interlocked operation itself is signed only if
+             * the destination type is int as well. */
+            val_type = hlsl_get_scalar_type(ctx, HLSL_TYPE_INT);
+            if (lhs_type->e.numeric.type == HLSL_TYPE_INT)
+                op = op == HLSL_INTERLOCKED_UMAX ? HLSL_INTERLOCKED_IMAX : HLSL_INTERLOCKED_IMIN;
+        }
     }
     else
     {
@@ -5514,13 +5518,13 @@ static bool intrinsic_InterlockedExchange(struct hlsl_ctx *ctx,
 static bool intrinsic_InterlockedMax(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_MAX, params, loc, "InterlockedMax");
+    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_UMAX, params, loc, "InterlockedMax");
 }
 
 static bool intrinsic_InterlockedMin(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_MIN, params, loc, "InterlockedMin");
+    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_UMIN, params, loc, "InterlockedMin");
 }
 
 static bool intrinsic_InterlockedOr(struct hlsl_ctx *ctx,

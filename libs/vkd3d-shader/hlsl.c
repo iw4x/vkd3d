@@ -4323,9 +4323,11 @@ static void dump_ir_interlocked(struct vkd3d_string_buffer *buffer, const struct
         [HLSL_INTERLOCKED_AND] = "and",
         [HLSL_INTERLOCKED_CMP_EXCH] = "cmp_exch",
         [HLSL_INTERLOCKED_EXCH] = "exch",
-        [HLSL_INTERLOCKED_MAX] = "max",
-        [HLSL_INTERLOCKED_MIN] = "min",
+        [HLSL_INTERLOCKED_IMAX] = "imax",
+        [HLSL_INTERLOCKED_IMIN] = "imin",
         [HLSL_INTERLOCKED_OR] = "or",
+        [HLSL_INTERLOCKED_UMAX] = "umax",
+        [HLSL_INTERLOCKED_UMIN] = "umin",
         [HLSL_INTERLOCKED_XOR] = "xor",
     };
 

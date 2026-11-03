@@ -13821,9 +13821,11 @@ static bool sm4_generate_vsir_instr_interlocked(struct hlsl_ctx *ctx,
         [HLSL_INTERLOCKED_ADD] = VSIR_OP_ATOMIC_IADD,
         [HLSL_INTERLOCKED_AND] = VSIR_OP_ATOMIC_AND,
         [HLSL_INTERLOCKED_CMP_EXCH] = VSIR_OP_ATOMIC_CMP_STORE,
-        [HLSL_INTERLOCKED_MAX] = VSIR_OP_ATOMIC_UMAX,
-        [HLSL_INTERLOCKED_MIN] = VSIR_OP_ATOMIC_UMIN,
+        [HLSL_INTERLOCKED_IMAX] = VSIR_OP_ATOMIC_IMAX,
+        [HLSL_INTERLOCKED_IMIN] = VSIR_OP_ATOMIC_IMIN,
         [HLSL_INTERLOCKED_OR] = VSIR_OP_ATOMIC_OR,
+        [HLSL_INTERLOCKED_UMAX] = VSIR_OP_ATOMIC_UMAX,
+        [HLSL_INTERLOCKED_UMIN] = VSIR_OP_ATOMIC_UMIN,
         [HLSL_INTERLOCKED_XOR] = VSIR_OP_ATOMIC_XOR,
     };
 
@@ -13833,9 +13835,11 @@ static bool sm4_generate_vsir_instr_interlocked(struct hlsl_ctx *ctx,
         [HLSL_INTERLOCKED_AND] = VSIR_OP_IMM_ATOMIC_AND,
         [HLSL_INTERLOCKED_CMP_EXCH] = VSIR_OP_IMM_ATOMIC_CMP_EXCH,
         [HLSL_INTERLOCKED_EXCH] = VSIR_OP_IMM_ATOMIC_EXCH,
-        [HLSL_INTERLOCKED_MAX] = VSIR_OP_IMM_ATOMIC_UMAX,
-        [HLSL_INTERLOCKED_MIN] = VSIR_OP_IMM_ATOMIC_UMIN,
+        [HLSL_INTERLOCKED_IMAX] = VSIR_OP_IMM_ATOMIC_IMAX,
+        [HLSL_INTERLOCKED_IMIN] = VSIR_OP_IMM_ATOMIC_IMIN,
         [HLSL_INTERLOCKED_OR] = VSIR_OP_IMM_ATOMIC_OR,
+        [HLSL_INTERLOCKED_UMAX] = VSIR_OP_IMM_ATOMIC_UMAX,
+        [HLSL_INTERLOCKED_UMIN] = VSIR_OP_IMM_ATOMIC_UMIN,
         [HLSL_INTERLOCKED_XOR] = VSIR_OP_IMM_ATOMIC_XOR,
     };
 
@@ -13855,18 +13859,6 @@ static bool sm4_generate_vsir_instr_interlocked(struct hlsl_ctx *ctx,
     }
 
     opcode = is_imm ? imm_opcodes[interlocked->op] : opcodes[interlocked->op];
-
-    if (value->data_type->e.numeric.type == HLSL_TYPE_INT)
-    {
-        if (opcode == VSIR_OP_ATOMIC_UMAX)
-            opcode = VSIR_OP_ATOMIC_IMAX;
-        else if (opcode == VSIR_OP_ATOMIC_UMIN)
-            opcode = VSIR_OP_ATOMIC_IMIN;
-        else if (opcode == VSIR_OP_IMM_ATOMIC_UMAX)
-            opcode = VSIR_OP_IMM_ATOMIC_IMAX;
-        else if (opcode == VSIR_OP_IMM_ATOMIC_UMIN)
-            opcode = VSIR_OP_IMM_ATOMIC_IMIN;
-    }
 
     if (!(ins = generate_vsir_add_program_instruction(ctx, program, &instr->loc, opcode,
             is_imm ? 2 : 1, cmp_value ? 3 : 2)))
