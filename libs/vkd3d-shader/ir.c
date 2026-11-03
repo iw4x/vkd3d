@@ -1759,6 +1759,22 @@ fail:
     return VKD3D_ERROR_OUT_OF_MEMORY;
 }
 
+static void vsir_src_operand_apply_swizzle(struct vsir_src_operand *src, uint32_t swizzle)
+{
+    if (src->reg.type == VSIR_REGISTER_IMMCONST)
+    {
+        union vsir_immediate_constant c = src->reg.u;
+
+        for (unsigned int i = 0; i < 4; ++i)
+            src->reg.u.immconst_u32[i] = c.immconst_u32[vsir_swizzle_get_component(swizzle, i)];
+    }
+    else
+    {
+        VKD3D_ASSERT(src->reg.type != VSIR_REGISTER_IMMCONST64);
+        src->swizzle = vsir_combine_swizzles(src->swizzle, swizzle);
+    }
+}
+
 static enum vkd3d_result vsir_program_lower_texkill(struct vsir_program *program,
         struct vsir_program_iterator *it, unsigned int *tmp_idx)
 {
@@ -2162,7 +2178,7 @@ static enum vkd3d_result vsir_program_lower_sm1_sincos(struct vsir_program *prog
         struct vsir_program_iterator *it)
 {
     struct vsir_instruction *ins, *mov, *sincos;
-    unsigned int s, count;
+    unsigned int count;
 
     sincos = vsir_program_iterator_current(it);
     count = 1 + vkd3d_popcount(sincos->dst[0].write_mask & (VKD3DSP_WRITEMASK_0 | VKD3DSP_WRITEMASK_1));
@@ -2177,10 +2193,7 @@ static enum vkd3d_result vsir_program_lower_sm1_sincos(struct vsir_program *prog
         return VKD3D_ERROR_OUT_OF_MEMORY;
 
     mov->src[0] = sincos->src[0];
-
-    /* Set the source swizzle to replicate the first component. */
-    s = vsir_swizzle_get_component(sincos->src->swizzle, 0);
-    mov->src[0].swizzle = vkd3d_shader_create_swizzle(s, s, s, s);
+    vsir_src_operand_apply_swizzle(&mov->src[0], VKD3D_SHADER_SWIZZLE(X, X, X, X));
 
     vsir_dst_operand_init_ssa_scalar(&mov->dst[0], program->ssa_count, sincos->src[0].reg.data_type);
 
@@ -2376,11 +2389,8 @@ static enum vkd3d_result vsir_program_lower_texldp(struct vsir_program *program,
 {
     struct vsir_instruction *div_ins, *tex, *tex_ins;
     struct vsir_program_iterator it2;
-    unsigned int w_comp;
 
     tex = vsir_program_iterator_current(it);
-
-    w_comp = vsir_swizzle_get_component(tex->src[0].swizzle, 3);
 
     if (!vsir_program_iterator_insert_after(it, 2))
         return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -2406,7 +2416,7 @@ static enum vkd3d_result vsir_program_lower_texldp(struct vsir_program *program,
     div_ins->src[0] = tex->src[0];
 
     div_ins->src[1] = tex->src[0];
-    div_ins->src[1].swizzle = vkd3d_shader_create_swizzle(w_comp, w_comp, w_comp, w_comp);
+    vsir_src_operand_apply_swizzle(&div_ins->src[1], VKD3D_SHADER_SWIZZLE(W, W, W, W));
 
     if (!vsir_instruction_init_with_params(program, tex_ins, &tex->location, VSIR_OP_TEXLD, 1, 2))
         return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -2443,8 +2453,6 @@ static enum vkd3d_result vsir_program_lower_texld(struct vsir_program *program,
     sampler = vkd3d_shader_find_descriptor(&program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, idx);
     if (sampler->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE)
     {
-        enum vkd3d_shader_swizzle_component ref = vsir_swizzle_get_component(srcs[0].swizzle, 2);
-
         tex->opcode = VSIR_OP_SAMPLE_C;
         tex->src = srcs;
         tex->src_count = 4;
@@ -2452,7 +2460,7 @@ static enum vkd3d_result vsir_program_lower_texld(struct vsir_program *program,
         srcs[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
 
         srcs[3] = srcs[0];
-        srcs[3].swizzle = vkd3d_shader_create_swizzle(ref, ref, ref, ref);
+        vsir_src_operand_apply_swizzle(&srcs[3], VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z));
     }
     else if (!tex->flags)
     {
@@ -2462,14 +2470,12 @@ static enum vkd3d_result vsir_program_lower_texld(struct vsir_program *program,
     }
     else if (tex->flags == VKD3DSI_TEXLD_BIAS)
     {
-        enum vkd3d_shader_swizzle_component w = vsir_swizzle_get_component(srcs[0].swizzle, 3);
-
         tex->opcode = VSIR_OP_SAMPLE_B;
         tex->src = srcs;
         tex->src_count = 4;
 
         srcs[3] = tex->src[0];
-        srcs[3].swizzle = vkd3d_shader_create_swizzle(w, w, w, w);
+        vsir_src_operand_apply_swizzle(&srcs[3], VKD3D_SHADER_SWIZZLE(W, W, W, W));
     }
     else
     {
@@ -2508,7 +2514,6 @@ static enum vkd3d_result vsir_program_lower_texldd(struct vsir_program *program,
 static enum vkd3d_result vsir_program_lower_texldl(struct vsir_program *program, struct vsir_instruction *texldl)
 {
     unsigned int idx = texldl->src[1].reg.idx[0].offset;
-    enum vkd3d_shader_swizzle_component w;
     struct vsir_src_operand *srcs;
 
     VKD3D_ASSERT(texldl->src[1].reg.idx_count == 1);
@@ -2525,9 +2530,8 @@ static enum vkd3d_result vsir_program_lower_texldl(struct vsir_program *program,
     texldl->src = srcs;
     texldl->src_count = 4;
 
-    w = vsir_swizzle_get_component(srcs[0].swizzle, 3);
     srcs[3] = texldl->src[0];
-    srcs[3].swizzle = vkd3d_shader_create_swizzle(w, w, w, w);
+    vsir_src_operand_apply_swizzle(&srcs[3], VKD3D_SHADER_SWIZZLE(W, W, W, W));
 
     return VKD3D_OK;
 }
