@@ -5325,6 +5325,15 @@ static bool intrinsic_GetRenderTargetSampleCount(struct hlsl_ctx *ctx,
     return true;
 }
 
+static struct hlsl_type *get_interlocked_exchange_type(struct hlsl_ctx *ctx, const struct hlsl_type *type)
+{
+    if (!type->is_minimum_precision
+            && (type->e.numeric.type == HLSL_TYPE_INT || type->e.numeric.type == HLSL_TYPE_UINT))
+        return hlsl_get_scalar_type(ctx, type->e.numeric.type);
+
+    return hlsl_get_scalar_type(ctx, HLSL_TYPE_FLOAT);
+}
+
 static void check_interlocked_dst_type(struct hlsl_ctx *ctx, const char *name, const struct hlsl_type *type,
         enum hlsl_interlocked_op op, const struct vkd3d_shader_location *loc)
 {
@@ -5394,7 +5403,13 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
     }
 
     if (orig_val)
-        ret_type = lhs_type;
+    {
+        /* Other than InterlockedExchange(), the original value is returned as int. */
+        if (op == HLSL_INTERLOCKED_EXCH)
+            ret_type = get_interlocked_exchange_type(ctx, orig_val->data_type);
+        else
+            ret_type = hlsl_get_scalar_type(ctx, HLSL_TYPE_INT);
+    }
 
     /* Interlocked*() functions always take uint for the value parameters,
      * except for InterlockedMax()/InterlockedMin(). */
@@ -5413,6 +5428,10 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
             if (lhs_type->e.numeric.type == HLSL_TYPE_INT)
                 op = op == HLSL_INTERLOCKED_UMAX ? HLSL_INTERLOCKED_IMAX : HLSL_INTERLOCKED_IMIN;
         }
+    }
+    else if (op == HLSL_INTERLOCKED_EXCH)
+    {
+        val_type = get_interlocked_exchange_type(ctx, val->data_type);
     }
     else
     {
