@@ -28,42 +28,42 @@ options: unbounded-descriptor-arrays
 descriptor-indexing
 descriptors
 
-[srv 0]
+[srv-0]
 format r32-uint
 size (buffer, 4)
 0x1
 
-[srv 1]
+[srv-1]
 format r32-uint
 size (buffer, 4)
 0x4
 
-[srv 2]
+[srv-2]
 format r32-uint
 size (buffer, 4)
 0x9
 
-[srv 3]
+[srv-3]
 format r32-uint
 size (buffer, 4)
 0x10
 
-[srv 4]
+[srv-4]
 format r32-uint
 size (buffer, 4)
 0x19
 
-[srv 5]
+[srv-5]
 format r32-uint
 size (buffer, 4)
 0x24
 
-[srv 6]
+[srv-6]
 format r32-uint
 size (buffer, 4)
 0x31
 
-[srv 7]
+[srv-7]
 format r32-uint
 size (buffer, 4)
 0x40

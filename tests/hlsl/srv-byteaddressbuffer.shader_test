@@ -5,13 +5,13 @@ shader model >= 4.0
 format r32g32b32a32-uint
 size (2d, 32, 32)
 
-[srv 0]
+[srv-0]
 format r32-typeless
 size (raw_buffer, 4)
 
 1 2 3 4
 
-[pixel shader]
+[pixel-shader]
 ByteAddressBuffer t;
 uint offset;
 uint count;
@@ -59,13 +59,13 @@ probe (0, 0) u32(0x2, 0x3, 0x4, 0x0)
 [require]
 shader model >= 5.1
 
-[srv 1]
+[srv-1]
 format r32-typeless
 size (raw_buffer, 4)
 
 4 3 2 1
 
-[pixel shader]
+[pixel-shader]
 ByteAddressBuffer t : register(t1);
 
 uint4 main() : sv_target

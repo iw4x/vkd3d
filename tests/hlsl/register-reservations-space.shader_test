@@ -5,19 +5,19 @@
 [require]
 shader model >= 5.1
 
-[srv 0]
+[srv-0]
 size (2d, 1, 1)
 0.0 0.0 0.0 99.0
 
-[srv 1]
+[srv-1]
 size (2d, 1, 1)
 1.0 1.0 1.0 99.0
 
-[srv 2]
+[srv-2]
 size (2d, 1, 1)
 2.0 2.0 2.0 99.0
 
-[pixel shader]
+[pixel-shader]
 Texture2D tex1 : register(t1, space0);
 
 float4 main() : sv_target

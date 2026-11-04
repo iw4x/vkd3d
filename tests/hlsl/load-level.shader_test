@@ -1,7 +1,7 @@
 [require]
 shader model >= 4.0
 
-[srv 0]
+[srv-0]
 size (2d, 2, 2)
 levels 2
 

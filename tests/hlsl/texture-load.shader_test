@@ -1,12 +1,12 @@
 [require]
 shader model >= 4.0
 
-[srv 0]
+[srv-0]
 size (2d, 2, 2)
 0.1 0.2 0.3 0.4     0.5 0.7 0.6 0.8
 0.6 0.5 0.2 0.1     0.8 0.0 0.7 1.0
 
-[pixel shader]
+[pixel-shader]
 Texture2D t;
 
 float4 main(float4 pos : sv_position) : sv_target
@@ -155,11 +155,11 @@ shader model >= 4.1
 format r32g32b32a32-float
 size (2dms, 4, 64, 64)
 
-[srv 0]
+[srv-0]
 format r32g32b32a32-float
 size (2dms, 4, 64, 64)
 
-[pixel shader]
+[pixel-shader]
 float4 main(uint id : sv_sampleindex) : sv_target
 {
     return float4(1u << id, 0.25f, 0.5f, 1.0f);

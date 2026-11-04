@@ -1,14 +1,13 @@
 [require]
 shader model >= 4.0
 
-[srv 0]
+[srv-0]
 size (2d, 3, 3)
 0.0 0.0 0.0 1.0     1.0 0.0 0.0 1.0     2.0 0.0 0.0 1.0
 0.0 1.0 0.0 1.0     1.0 1.0 0.0 1.0     2.0 1.0 0.0 1.0
 0.0 2.0 0.0 1.0     1.0 2.0 0.0 1.0     2.0 2.0 0.0 1.0
 
-
-[pixel shader]
+[pixel-shader]
 Texture2D t;
 
 float4 main(float4 pos : sv_position) : sv_target

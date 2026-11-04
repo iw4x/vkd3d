@@ -492,14 +492,14 @@ shader model < 6.0
 filter point point point
 address clamp clamp clamp
 
-[srv 0]
+[srv-0]
 size (2d, 4, 4)
 0.0 0.0 0.0 1.0     1.0 0.0 0.0 1.0     2.0 0.0 0.0 1.0     3.0 0.0 0.0 1.0
 0.0 1.0 0.0 1.0     1.0 1.0 0.0 1.0     2.0 1.0 0.0 1.0     3.0 1.0 0.0 1.0
 0.0 2.0 0.0 1.0     1.0 2.0 0.0 1.0     2.0 2.0 0.0 1.0     3.0 2.0 0.0 1.0
 0.0 3.0 0.0 1.0     1.0 3.0 0.0 1.0     2.0 3.0 0.0 1.0     3.0 3.0 0.0 1.0
 
-[pixel shader fail(sm<3) todo(sm<4)]
+[pixel-shader fail(sm<3) todo(sm<4)]
 sampler sam;
 
 int2 limit; // In SM3, this gets i0.x and i1.x as integer, and c0.xy as float.

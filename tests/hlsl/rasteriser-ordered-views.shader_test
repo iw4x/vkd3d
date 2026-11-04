@@ -6,7 +6,7 @@ format r32-uint uav-load
 format r32-uint
 size (2d, 640, 480)
 
-[srv 0]
+[srv-0]
 format r32g32b32a32-uint
 size (2d, 1, 1)
 0 0 0 0

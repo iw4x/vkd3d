@@ -3281,8 +3281,7 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 current_resource.desc.texel_size = 4;
                 current_resource.desc.level_count = 1;
             }
-            else if (sscanf(line, "[srv-%u]\n", &index)
-                    || sscanf(line, "[srv %u]\n", &index))
+            else if (sscanf(line, "[srv-%u]\n", &index))
             {
                 state = STATE_RESOURCE;
 

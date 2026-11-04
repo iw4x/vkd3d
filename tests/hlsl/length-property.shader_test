@@ -20,13 +20,13 @@ float4 main() : sv_target
     return le1.xxxx + le2.xyxy + le3.xyxy + le4.xyxy + le5.xyzx + le6.xyzx + le7.xyzx;
 }
 
-[srv 0]
+[srv-0]
 size (2d, 2, 3)
 0.0 0.0 0.0 0.0  0.0 0.0 0.0 0.0
 0.0 0.0 0.0 0.0  0.0 0.0 0.0 0.0
 0.0 0.0 0.0 0.0  0.0 0.0 0.0 0.0
 
-[pixel shader fail(sm<4 | sm>=6)]
+[pixel-shader fail(sm<4 | sm>=6)]
 Texture2D t;
 
 float4 main() : sv_target
@@ -90,12 +90,12 @@ float4 main() : sv_target
     return le1.xxxx + le2.xyxy + le3.xyxy + le4.xyzx + le5.xyzx;
 }
 
-[srv 0]
+[srv-0]
 format r32-float
 size (buffer, 3)
 0.0 0.0 0.0
 
-[pixel shader fail(sm>=6) todo]
+[pixel-shader fail(sm>=6) todo]
 Buffer<float> buff;
 
 float4 main() : sv_target
@@ -142,14 +142,14 @@ float4 main() : sv_target
 
 [test]
 todo draw quad
-probe (0, 0) rgba(5, 0, 0, 0)
+probe (0, 0) f32(5, 0, 0, 0)
 
-[srv 0]
+[srv-0]
 format r32-float
 size (buffer, 4)
 0.0 0.0 0.0 0.0
 
-[pixel shader fail(sm>=6) todo]
+[pixel-shader fail(sm>=6) todo]
 StructuredBuffer<float> buff;
 
 float4 main() : sv_target

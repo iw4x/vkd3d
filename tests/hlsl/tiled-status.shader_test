@@ -4,14 +4,14 @@
 [require]
 shader model >= 5.0
 
-[srv 0]
+[srv-0]
 size (2d, 2, 2)
 0.1 0.2 0.3 0.4     0.5 0.7 0.6 0.8
 0.6 0.5 0.2 0.1     0.8 0.0 0.7 1.0
 
 % Load from a 2D texture.
 
-[pixel shader todo]
+[pixel-shader todo]
 Texture2D t;
 
 float4 main(float4 pos : sv_position) : sv_target
@@ -69,11 +69,11 @@ if(sm>=6) probe (1, 0) f32(0.65, 0.35, 1.0, 1.0) 1
 format r32g32b32a32-float
 size (2dms, 4, 2, 2)
 
-[srv 0]
+[srv-0]
 format r32g32b32a32-float
 size (2dms, 4, 2, 2)
 
-[pixel shader]
+[pixel-shader]
 float4 main(uint id : sv_sampleindex) : sv_target
 {
     return float4(1u << id, 0.25f, 0.5f, 1.0f);

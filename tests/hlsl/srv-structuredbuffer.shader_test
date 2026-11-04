@@ -1,7 +1,7 @@
 [require]
 shader model >= 5.0
 
-[srv 0]
+[srv-0]
 stride 16
 size (buffer, 4)
 0.0 1.0 2.0 3.0
@@ -148,7 +148,7 @@ probe (0, 0) f32(12.0, 13.0, 14.0, 4.0)
 
 % Matrices
 
-[srv 0]
+[srv-0]
 stride 64
 size (buffer, 2)
  0.0  1.0  2.0  3.0
@@ -359,14 +359,14 @@ todo(msl) draw quad
 if(sm<6) probe (0, 0) f32(11.0, 12.0, 9.0, 1.0)
 if(sm>=6) probe (0, 0) f32(10.0, 12.0, 11.0, 1.0)
 
-[srv 0]
+[srv-0]
 stride 20
 size (buffer, 3)
  0.0  1.0  2.0  3.0  4.0
  5.0  6.0  7.0  8.0  9.0
 10.0 11.0 12.0 13.0 14.0
 
-[pixel shader]
+[pixel-shader]
 struct banana
 {
     float x[4];

@@ -1,16 +1,14 @@
 [require]
 shader model >= 4.0
 
-
-[srv 0]
+[srv-0]
 size (buffer, 4)
 0.0 1.0 2.0 3.0
 4.0 5.0 6.0 7.0
 8.0 9.0 10.0 11.0
 12.0 13.0 14.0 15.0
 
-
-[pixel shader]
+[pixel-shader]
 float4 a;
 Buffer<float4> buffer;
 float4 b;
@@ -205,7 +203,7 @@ float4 main() : sv_target
 draw quad
 probe (0, 0) u32(0x14, 0x13, 0x12, 0x11)
 
-[srv 0]
+[srv-0]
 size (2d, 1, 1)
 -1.0 -1.0 -1.0 -1.0
 
@@ -213,11 +211,11 @@ size (2d, 1, 1)
 filter linear linear linear
 address clamp clamp clamp
 
-[srv 1]
+[srv-1]
 size (buffer, 1)
 1.0 2.0 3.0 4.0
 
-[pixel shader]
+[pixel-shader]
 Texture2D tex;
 sampler sam;
 Buffer<float4> buffer;
@@ -229,18 +227,16 @@ float4 main() : sv_target
 
 [test]
 draw quad
-probe (0, 0) rgba (3.0, 4.0, -1.0, -1.0)
+probe (0, 0) f32(3.0, 4.0, -1.0, -1.0)
 
-
-[srv 0]
+[srv-0]
 size (buffer, 4)
 0.0 1.0 2.0 3.0
 4.0 5.0 6.0 7.0
 8.0 9.0 10.0 11.0
 12.0 13.0 14.0 15.0
 
-
-[pixel shader]
+[pixel-shader]
 Buffer buffer;
 
 float4 main() : sv_target
@@ -352,12 +348,12 @@ probe (0, 0) rgba (4.0, 4.0, 4.0, 4.0)
 shader model >= 6.2
 native-16-bit
 
-[srv 0]
+[srv-0]
 format r32g32b32a32-float
 size (buffer, 1)
 -100.0 -1.0 1.0 100.0
 
-[pixel shader]
+[pixel-shader]
 Buffer<half4> t : register(t0);
 
 float4 main() : sv_target
@@ -367,9 +363,9 @@ float4 main() : sv_target
 
 [test]
 draw quad
-probe (0, 0) rgba(-100.0, -1.0, 1.0, 100.0)
+probe (0, 0) f32(-100.0, -1.0, 1.0, 100.0)
 
-[srv 0]
+[srv-0]
 format r32g32b32a32-sint
 size (buffer, 1)
 -100 -1 1 100
@@ -390,7 +386,7 @@ int4 main() : sv_target
 draw quad
 probe (0, 0) i32(-100, -1, 1, 100)
 
-[srv 0]
+[srv-0]
 format r32g32b32a32-uint
 size (buffer, 1)
 0 1 10 100
