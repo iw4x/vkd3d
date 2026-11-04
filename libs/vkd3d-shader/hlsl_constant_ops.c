@@ -446,6 +446,16 @@ static bool fold_fract(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
     return true;
 }
 
+static bool fold_isnan(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst,
+        const struct hlsl_type *dst_type, const struct hlsl_ir_constant *src)
+{
+    unsigned int k;
+
+    for (k = 0; k < dst_type->e.numeric.dimx; ++k)
+        dst->u[k].u = 0u;
+    return true;
+}
+
 static bool fold_log2(struct hlsl_ctx *ctx, struct hlsl_constant_value *dst, const struct hlsl_type *dst_type,
         const struct hlsl_ir_constant *src, const struct vkd3d_shader_location *loc)
 {
@@ -1533,6 +1543,10 @@ struct hlsl_ir_node *hlsl_fold_constant_exprs(struct hlsl_ctx *ctx,
 
         case HLSL_OP1_FRACT:
             success = fold_fract(ctx, &res, instr->data_type, arg1);
+            break;
+
+        case HLSL_OP1_ISNAN:
+            success = fold_isnan(ctx, &res, instr->data_type, arg1);
             break;
 
         case HLSL_OP1_LOG2:

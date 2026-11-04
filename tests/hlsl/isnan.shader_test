@@ -196,7 +196,7 @@ float4 main() : sv_target
 [test]
 todo(sm<4) draw quad
 if(sm<4) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm>=4 & sm<6) todo probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+if(sm>=4 & sm<6) probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 if(sm>=6) probe (0, 0) f32(11.0, 11.0, 11.0, 11.0)
 
 % isnan(x) won't be false in shader model 4-5 if only some elements are runtime
