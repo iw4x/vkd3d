@@ -199,6 +199,27 @@ if(sm<4) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 if(sm>=4 & sm<6) todo probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 if(sm>=6) probe (0, 0) f32(11.0, 11.0, 11.0, 11.0)
 
+% isnan(x) won't be false in shader model 4-5 if only some elements are runtime
+% constants, which suggests that this happens because of constant folding.
+[pixel-shader todo(sm<4)]
+float4 a, b;
+
+float4 main() : sv_target
+{
+    float4 c = a / b;
+    c.zw = 0.0 / 0.0;
+
+    return 10 * isnan(c) + (c != c);
+}
+
+[test]
+write cbv-0 (0) f32(0.0, -0.0, 0.0, 0.0)
+write cbv-0 (4) f32(1.0, 0.0, 0.0, 0.0)
+todo(sm<4) draw quad
+if(sm<4) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+if(sm>=4 & sm<6) todo probe (0, 0) f32(0.0, 11.0, 0.0, 0.0)
+if(sm>=6) probe (0, 0) f32(0.0, 10.0, 11.0, 11.0)
+
 [pixel-shader]
 float4 a, b;
 
