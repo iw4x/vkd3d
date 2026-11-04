@@ -2573,6 +2573,7 @@ static bool shader_sm1_is_end(struct vkd3d_shader_sm1_parser *sm1)
 
 static void shader_sm1_cleanup(struct vkd3d_shader_sm1_parser *parser)
 {
+    vkd3d_free(parser->aL_ids);
     vkd3d_free(parser->defs);
 }
 
