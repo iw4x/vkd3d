@@ -374,7 +374,7 @@ format r32g32b32a32-sint
 size (buffer, 1)
 -100 -1 1 100
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-sint
 size (2d, 640, 480)
 
@@ -395,7 +395,7 @@ format r32g32b32a32-uint
 size (buffer, 1)
 0 1 10 100
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-uint
 size (2d, 640, 480)
 

@@ -2,7 +2,7 @@
 shader model >= 4.0
 rt-vp-array-index
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-float
 size (2d, 640, 480)
 

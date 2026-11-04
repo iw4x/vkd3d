@@ -7,7 +7,7 @@ shader model >= 4.0
 % undefined. The warnings emitted by the native validator suggest that it is
 % not an error to rely on these behaviours.
 
-[rtv 0]
+[rtv-0]
 % The default, but just to be explicit.
 format r32g32b32a32-float
 size (2d, 640, 480)
@@ -52,7 +52,7 @@ float2 main() : sv_target
 draw quad
 probe (0, 0) f32(22.0, -22.0)
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-uint
 size (2d, 640, 480)
 
@@ -96,7 +96,7 @@ float2 main() : sv_target
 todo(mvk & vulkan | msl) draw quad
 todo(mvk) probe (0, 0) f32(22.0, -22.0)
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-sint
 size (2d, 640, 480)
 
@@ -140,7 +140,7 @@ float2 main() : sv_target
 todo(mvk & vulkan | msl) draw quad
 todo(mvk) probe (0, 0) f32(22.0, -22.0)
 
-[rtv 0]
+[rtv-0]
 format r32-uint
 size (2d, 640, 480)
 

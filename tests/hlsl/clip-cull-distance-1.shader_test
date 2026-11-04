@@ -43,7 +43,7 @@ cull-distance
  0.54 0.50
  0.50 0.54
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-float
 size (2d, 640, 480)
 
@@ -254,7 +254,7 @@ shader model >= 4.0
 1.0
 1.0
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-float
 size (2d, 640, 480)
 

@@ -99,7 +99,7 @@ probe uav-2 (0, 0) f32(2.0, 1.0, 4.0, 3.0)
 % lower than the highest render target.
 % This ceases to be true with shader model 5.1.
 
-[rtv 1]
+[rtv-1]
 format r32g32b32a32-float
 size (2d, 640, 480)
 

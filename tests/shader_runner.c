@@ -3257,8 +3257,7 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 current_sampler->v_address = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
                 current_sampler->w_address = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
             }
-            else if (sscanf(line, "[rtv-%u]\n", &index)
-                    || sscanf(line, "[rtv %u]\n", &index))
+            else if (sscanf(line, "[rtv-%u]\n", &index))
             {
                 state = STATE_RESOURCE;
 

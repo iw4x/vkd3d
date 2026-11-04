@@ -2,7 +2,7 @@
 shader model >= 5.0
 format r32-uint uav-load
 
-[rtv 0]
+[rtv-0]
 format r32-uint
 size (2d, 640, 480)
 

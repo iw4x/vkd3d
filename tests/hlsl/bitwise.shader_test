@@ -253,7 +253,7 @@ float4 main() : SV_TARGET
 draw quad
 probe (0, 0) rgba (0.0, 1.0, 1.0, 0.0)
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-uint
 size (2d, 640, 480)
 
@@ -341,7 +341,7 @@ probe(1, 0) u32(2, 2, 2, 3)
 probe(2, 0) u32(3, 3, 3, 3)
 probe(3, 0) u32(3, 3, 3, 4)
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-float
 size (2d, 640, 480)
 

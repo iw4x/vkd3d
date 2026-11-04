@@ -32,7 +32,7 @@ clear dsv f32(0.5) u32(0)
 draw quad
 probe dsv (0,0) f32(0.5)
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-float
 size (2d, 640, 480)
 

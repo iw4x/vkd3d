@@ -2,7 +2,7 @@
 shader model >= 5.0
 depth-bounds
 
-[rtv 0]
+[rtv-0]
 size (2d, 640, 480)
 
 [uav 1]

@@ -6,7 +6,7 @@ shader model >= 5.0
 % lower than the highest render target.
 % This ceases to be true with shader model 5.1.
 
-[rtv 1]
+[rtv-1]
 format r32g32b32a32-float
 size (2d, 640, 480)
 
@@ -344,7 +344,7 @@ int4 main() : sv_target
 draw quad
 probe (0, 0) i32(-100, -1, 1, 100)
 
-[rtv 0]
+[rtv-0]
 format r32g32b32a32-uint
 size (2d, 640, 480)
 
