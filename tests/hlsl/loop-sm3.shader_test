@@ -488,7 +488,7 @@ options: backcompat
 shader model >= 3.0
 shader model < 6.0
 
-[sampler 0]
+[sampler-0]
 filter point point point
 address clamp clamp clamp
 

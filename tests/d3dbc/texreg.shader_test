@@ -1,22 +1,22 @@
 [require]
 shader model < 3.0
 
-[sampler 0]
+[sampler-0]
 filter point point point
 address clamp clamp clamp
 
-[sampler 1]
+[sampler-1]
 filter point point point
 address clamp clamp clamp
 
 % Only unsigned formats can be used as coords for texreg2ar and friends.
-[srv 0]
+[srv-0]
 format b8g8r8a8-unorm
 size (2d, 2, 2)
 0x01fe0180 0x808001fe
 0xfe018001 0x01fefe80
 
-[srv 1]
+[srv-1]
 size (2d, 3, 3)
 0.0 0.0 0.1 1.0     0.5 0.0 0.2 1.0      1.0 0.0 0.3 1.0
 0.0 0.5 0.4 1.0     0.5 0.5 0.5 1.0      1.0 0.5 0.6 1.0

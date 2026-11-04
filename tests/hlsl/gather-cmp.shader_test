@@ -1,12 +1,12 @@
 [require]
 shader model >= 5.0
 
-[sampler 0]
+[sampler-0]
 filter linear linear linear
 address clamp clamp clamp
 comparison equal
 
-[srv 0]
+[srv-0]
 format r32-float-shadow
 size (2d, 3, 3)
 

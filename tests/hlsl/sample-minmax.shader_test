@@ -29,7 +29,7 @@ float4 main(float2 p : TEXCOORD) : SV_Target
     return t.Sample(s, floor(p * 8.0) / 8.0);
 }
 
-[sampler 0]
+[sampler-0]
 filter linear linear point
 
 [test]
@@ -40,7 +40,7 @@ probe (36, 36) f32(.375, .375, 0, 1)
 probe (52, 36) f32(.625, .375, 0, 1)
 probe (36, 52) f32(.375, .625, 0, 1)
 
-[sampler 0]
+[sampler-0]
 filter minimum linear linear point
 
 [test]
@@ -51,7 +51,7 @@ todo(mvk) probe (36, 36) f32(.25, .25, 0, 1)
 todo(mvk) probe (52, 36) f32(.50, .25, 0, 1)
 todo(mvk) probe (36, 52) f32(.25, .50, 0, 1)
 
-[sampler 0]
+[sampler-0]
 filter maximum linear linear point
 
 [test]

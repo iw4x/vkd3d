@@ -3238,8 +3238,7 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 state = STATE_SHADER;
                 shader_type = SHADER_TYPE_PS;
             }
-            else if (sscanf(line, "[sampler-%u]\n", &index)
-                    || sscanf(line, "[sampler %u]\n", &index))
+            else if (sscanf(line, "[sampler-%u]\n", &index))
             {
                 state = STATE_SAMPLER;
 

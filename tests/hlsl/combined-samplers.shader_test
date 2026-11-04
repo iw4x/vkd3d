@@ -2,28 +2,27 @@
 shader model < 6.0
 options: backcompat
 
-
-[sampler 0]
+[sampler-0]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 1]
+[sampler-1]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 2]
+[sampler-2]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 3]
+[sampler-3]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 4]
+[sampler-4]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 5]
+[sampler-5]
 filter linear linear linear
 address clamp clamp clamp
 

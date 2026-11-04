@@ -1,4 +1,4 @@
-[sampler 0]
+[sampler-0]
 filter linear linear linear
 address clamp clamp clamp
 
@@ -50,7 +50,7 @@ float4 main() : sv_target
     return tex2D(s, float2(0.0, 0.0)) + tex3D(s, float3(0.0, 0.0, 0.0));
 }
 
-[sampler 0]
+[sampler-0]
 filter linear linear linear
 address clamp clamp clamp
 
@@ -198,27 +198,27 @@ uniform 0 float4 1.0 1.0 0.0 0.0
 draw quad
 probe (0, 0) rgba(2.0, 2.0, 0, 1.0)
 
-[sampler 0]
+[sampler-0]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 1]
+[sampler-1]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 2]
+[sampler-2]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 3]
+[sampler-3]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 4]
+[sampler-4]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 5]
+[sampler-5]
 filter linear linear linear
 address clamp clamp clamp
 

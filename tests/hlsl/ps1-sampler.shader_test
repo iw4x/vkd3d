@@ -1,20 +1,20 @@
 [require]
 shader model < 3.0
 
-[sampler 0]
+[sampler-0]
 filter point point point
 address wrap wrap wrap
 
-[sampler 1]
+[sampler-1]
 filter point point point
 address wrap wrap wrap
 
-[srv 0]
+[srv-0]
 size (2d, 2, 2)
 1.0 0.0 0.0 0.0     1.0 1.0 0.0 0.0
 1.0 0.0 1.0 0.0     1.0 1.0 1.0 0.0
 
-[srv 1]
+[srv-1]
 size (2d, 2, 2)
 0.25 0.5 0.75 1.0   0.25 0.5 0.75 1.0
 0.25 0.5 0.75 1.0   0.25 0.5 0.75 1.0

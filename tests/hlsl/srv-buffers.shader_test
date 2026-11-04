@@ -209,7 +209,7 @@ probe (0, 0) u32(0x14, 0x13, 0x12, 0x11)
 size (2d, 1, 1)
 -1.0 -1.0 -1.0 -1.0
 
-[sampler 0]
+[sampler-0]
 filter linear linear linear
 address clamp clamp clamp
 

@@ -331,11 +331,11 @@ size (2d, 2, 2)
 0.0 0.0 0.0 4.0     1.0 0.0 0.0 4.0
 0.0 1.0 0.0 4.0     1.0 1.0 0.0 4.0
 
-[sampler 0]
+[sampler-0]
 filter linear linear linear
 address clamp clamp clamp
 
-[pixel shader]
+[pixel-shader]
 Texture2D tex;
 sampler sam;
 float a;

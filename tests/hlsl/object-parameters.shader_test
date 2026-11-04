@@ -78,28 +78,27 @@ size (2d, 2, 2)
 6.0 6.0 6.0 1.0     0.0 0.0 0.0 1.0
 6.0 6.0 6.0 1.0     0.0 0.0 0.0 1.0
 
-[sampler 0]
+[sampler-0]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 1]
+[sampler-1]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 2]
+[sampler-2]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 3]
+[sampler-3]
 filter point point point
 address clamp clamp clamp
 
-[sampler 4]
+[sampler-4]
 filter linear linear linear
 address clamp clamp clamp
 
-
-[pixel shader todo fail(sm>=6)]
+[pixel-shader todo fail(sm>=6)]
 struct apple
 {
     Texture2D unused;   // must reserve t1
@@ -149,26 +148,25 @@ todo draw quad
 todo probe (0,0) rgba (1.0, 1.0, 0.5, 0.5)
 
 
-[sampler 0]
+[sampler-0]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 1]
+[sampler-1]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 2]
+[sampler-2]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 3]
+[sampler-3]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 4]
+[sampler-4]
 filter point point point
 address clamp clamp clamp
-
 
 % Fails in sm6 because it uses a uniform parameter.
 % Fails in sm5.1 apparently because of a compiler bug (different from the above!):

@@ -1,8 +1,8 @@
-[sampler 0]
+[sampler-0]
 filter linear linear linear
 address clamp clamp clamp
 
-[srv 0]
+[srv-0]
 size (2d, 2, 2)
 levels 2
 

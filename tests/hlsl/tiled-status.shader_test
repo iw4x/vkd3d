@@ -35,9 +35,9 @@ if(sm>=6) probe (1, 0) f32(0.5, 0.7, 1.0, 1.0)
 if(sm<6) probe (2, 0) f32(0.0, 0.0, 4294967300.0, 1.0)
 if(sm>=6) probe (2, 0) f32(0.0, 0.0, 1.0, 1.0)
 
-% Sample from a 2D texture
+% Sample from a 2D texture.
 
-[sampler 0]
+[sampler-0]
 filter linear linear linear
 address clamp clamp clamp
 

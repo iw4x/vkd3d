@@ -515,19 +515,19 @@ float4 main() : sv_target
 % Some versions of fxc's SM5.1 completely ignore bracket exprs for samplers and textures.
 % This was fixed (?) in later versions.
 
-[sampler 0]
+[sampler-0]
 filter linear linear linear
 address clamp clamp clamp
 
-[sampler 1]
+[sampler-1]
 filter point point point
 address clamp clamp clamp
 
-[srv 0]
+[srv-0]
 size (2d, 1, 2)
 0.0 0.0 0.0 0.0     1.0 1.0 1.0 1.0
 
-[srv 1]
+[srv-1]
 size (2d, 1, 2)
 1.0 1.0 1.0 1.0     2.0 2.0 2.0 2.0
 
