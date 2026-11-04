@@ -1,7 +1,7 @@
 [require]
 shader model >= 5.0
 
-[uav 1]
+[uav-1]
 size (counter_buffer, 1)
 0
 
@@ -18,7 +18,7 @@ void main()
 todo(sm<6 | msl) dispatch 3 1 1
 probe uav-1 (0) u32(12)
 
-[uav 1]
+[uav-1]
 size (counter_buffer, 1)
 0
 
@@ -39,7 +39,7 @@ probe uav-1 (0) i32(-12)
 shader model >= 5.0
 format r32-uint
 
-[uav 2]
+[uav-2]
 format r32-uint
 size (buffer, 1)
 0

@@ -3295,8 +3295,7 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                 current_resource.desc.level_count = 1;
                 current_resource.desc.swizzle = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
             }
-            else if (sscanf(line, "[uav-%u]\n", &index)
-                    || sscanf(line, "[uav %u]\n", &index))
+            else if (sscanf(line, "[uav-%u]\n", &index))
             {
                 state = STATE_RESOURCE;
 

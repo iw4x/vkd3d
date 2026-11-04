@@ -194,15 +194,13 @@ probe (0, 0) rgba (1, 2, 3, 4)
 shader model >= 5.0
 format r32-float uav-load
 
-
-[uav 1]
+[uav-1]
 format r32-float
 size (2d, 1, 1)
 
 0.5
 
-
-[pixel shader]
+[pixel-shader]
 // This is allowed in 10.0.10011.16384 but not in 9.29.952.3111
 static RWTexture2D<float> tex;
 

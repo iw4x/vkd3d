@@ -5,7 +5,7 @@ test-shader-models (4.0 5.0 6.0)
 format r32-sint uav-load
 format r32-uint uav-load
 
-[uav 1]
+[uav-1]
 format r32-uint
 size (buffer, 11)
 
@@ -62,7 +62,7 @@ probe uav-1 (8) u32(1)
 probe uav-1 (9) u32(3)
 probe uav-1 (10) u32(1)
 
-[uav 2]
+[uav-2]
 format r32-sint
 size (buffer, 2)
 
@@ -164,7 +164,7 @@ size (buffer, 3)
 
 1 1 1
 
-[uav 2]
+[uav-2]
 format r32-sint
 size (buffer, 3)
 
@@ -207,13 +207,13 @@ if(sm<6)  probe uav-2 (1) i32(1)
 if(sm>=6) probe uav-2 (1) i32(-1)
 probe uav-2 (2) u32(0x7fffffff)
 
-[uav 1]
+[uav-1]
 format r32-uint
 size (buffer, 5)
 
 0 0 0xffffffff 0 0xffffffff
 
-[uav 2]
+[uav-2]
 format r32-sint
 size (buffer, 5)
 
@@ -344,7 +344,7 @@ void main()
 
 % Interlocked operations on structured UAVs.
 
-[uav 1]
+[uav-1]
 stride 16
 size (buffer, 2)
 0 0 0 0

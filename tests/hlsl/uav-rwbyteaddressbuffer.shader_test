@@ -1,13 +1,13 @@
 [require]
 shader model >= 5.0
 
-[uav 1]
+[uav-1]
 format r32-typeless
 size (raw_buffer, 4)
 
 1 2 3 4
 
-[pixel shader]
+[pixel-shader]
 RWByteAddressBuffer u : register(u1);
 
 float4 main() : sv_target

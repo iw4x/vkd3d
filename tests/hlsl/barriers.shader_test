@@ -61,7 +61,7 @@ float4 main() : sv_target
 [require]
 shader model >= 5.0
 
-[uav 2]
+[uav-2]
 format r32g32b32a32-float
 size (buffer, 3)
 
@@ -95,7 +95,7 @@ probe uav-2 (0) f32(42.0, 42.0, 42.0, 42.0)
 shader model >= 5.0
 format r32-uint uav-load
 
-[uav 3]
+[uav-3]
 format r32-uint
 size (buffer, 1024)
 

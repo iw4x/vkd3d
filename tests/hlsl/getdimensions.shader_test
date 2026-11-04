@@ -198,7 +198,7 @@ float4 main() : sv_target
 shader model >= 6.2
 native-16-bit
 
-[uav 0]
+[uav-0]
 format r32-uint
 size (buffer, 4)
 0 0 0 0
@@ -218,7 +218,7 @@ void main()
 dispatch 1 1 1
 probe uav-0 (0) u32(4)
 
-[uav 0]
+[uav-0]
 stride 6
 size (buffer, 2)
 
@@ -248,7 +248,7 @@ dispatch 1 1 1
 probe uav-0 (0) u32(0x38000002)
 probe uav-0 (1) u32(6)
 
-[uav 0]
+[uav-0]
 stride 8
 size (buffer, 2)
 
@@ -278,7 +278,7 @@ dispatch 1 1 1
 probe uav-0 (0) u32(0x38000002)
 probe uav-0 (1) u32(8)
 
-[uav 0]
+[uav-0]
 stride 8
 size (buffer, 2)
 

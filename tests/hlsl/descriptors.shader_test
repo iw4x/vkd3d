@@ -81,25 +81,25 @@ shader model >= 5.0
 descriptors
 format r32-float uav-load
 
-[uav 1]
+[uav-1]
 format r32-float
 size (2d, 1, 1)
 
 1.0
 
-[uav 2]
+[uav-2]
 format r32-float
 size (2d, 1, 1)
 
 2.0
 
-[uav 3]
+[uav-3]
 format r32-float
 size (2d, 1, 1)
 
 3.0
 
-[pixel shader]
+[pixel-shader]
 RWTexture2D<float> u : register(u2);
 
 float4 main() : SV_Target

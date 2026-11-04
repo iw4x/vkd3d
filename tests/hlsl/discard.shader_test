@@ -109,7 +109,7 @@ probe (3, 1) f32(1, 0, 0, 1)
 shader model >= 5.0
 format r32-float uav-load
 
-[uav 1]
+[uav-1]
 format r32-float
 size (2d, 2, 1)
 

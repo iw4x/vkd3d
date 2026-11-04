@@ -18,20 +18,20 @@ float4 main(uint vid : SV_VertexID) : SV_Position
     return float4(pos == 1 ? 3 : -1, pos == 2 ? 3 : -1, 0, 1);
 }
 
-[uav 1]
+[uav-1]
 format r32-uint
 size (2d, 640, 480)
 
-[uav 2]
+[uav-2]
 format r32-uint
 % 640 * 480 == 307200
 size (buffer, 307200)
 
-[uav 3]
+[uav-3]
 format r32-typeless
 size (raw_buffer, 307200)
 
-[pixel shader]
+[pixel-shader]
 RWTexture2D<uint> uav2d : register(u1);
 RWBuffer<uint> uavbuf : register(u2);
 RWByteAddressBuffer uavraw : register(u3);

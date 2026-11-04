@@ -2,7 +2,7 @@
 shader model >= 5.0
 format r32-float uav-load
 
-[uav 0]
+[uav-0]
 format r32-float
 size (2d, 1, 1)
 
@@ -25,7 +25,7 @@ probe uav-0 (0, 0) f32(-123.0)
 shader model >= 5.0
 format r32g32b32a32-uint uav-load
 
-[uav 0]
+[uav-0]
 format r32g32b32a32-uint
 size (2d, 50, 50)
 

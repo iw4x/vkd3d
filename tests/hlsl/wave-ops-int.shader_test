@@ -3,7 +3,7 @@ shader model >= 6.0
 wave-ops
 format r32g32b32a32-sint uav-load
 
-[uav 0]
+[uav-0]
 format r32g32b32a32-sint
 size (buffer, 4)
 
@@ -12,7 +12,7 @@ size (buffer, 4)
  0 5 -3 2
 -1 1 -1 2
 
-[uav 1]
+[uav-1]
 format r32g32b32a32-sint
 size (buffer, 4)
 
@@ -167,7 +167,7 @@ wave-ops
 int64
 format r32g32b32a32-sint uav-load
 
-[uav 0]
+[uav-0]
 format r32g32b32a32-sint
 size (buffer, 4)
 
@@ -176,7 +176,7 @@ size (buffer, 4)
  0  5 -3 2
 -1 -1 -1 2
 
-[uav 1]
+[uav-1]
 format r32g32b32a32-sint
 size (buffer, 16)
 

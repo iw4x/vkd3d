@@ -25,21 +25,20 @@ float4 main() : sv_target
     return 0;
 }
 
-
-[uav 1]
+[uav-1]
 format r32-float
 size (2d, 2, 2)
 
 0.1 0.2
 0.3 0.4
 
-[uav 2]
+[uav-2]
 format r32g32b32a32-float
 size (2d, 1, 1)
 
 0.5 0.6 0.7 0.8
 
-[pixel shader]
+[pixel-shader]
 RWTexture2D<float> u;
 RWTexture2D<float4> v;
 
@@ -67,7 +66,7 @@ size (2d, 2, 2)
 0.1 0.2
 0.3 0.4
 
-[uav 2]
+[uav-2]
 format r32g32b32a32-float
 size (2d, 1, 1)
 
@@ -103,13 +102,13 @@ probe uav-2 (0, 0) f32(2.0, 1.0, 4.0, 3.0)
 format r32g32b32a32-float
 size (2d, 640, 480)
 
-[uav 2]
+[uav-2]
 format r32g32b32a32-float
 size (2d, 1, 1)
 
 0.1 0.2 0.3 0.4
 
-[pixel shader fail]
+[pixel-shader fail]
 RWTexture2D<float4> u : register(u0);
 
 float4 main() : sv_target1
@@ -140,13 +139,13 @@ float4 main() : sv_target1
 draw quad
 probe uav-2 (0, 0) f32(0.9, 0.8, 0.7, 0.6)
 
-[uav 3]
+[uav-3]
 format r32g32b32a32-float
 size (2d, 1, 1)
 
 0.1 0.2 0.3 0.4
 
-[pixel shader]
+[pixel-shader]
 RWTexture2D<float4> u : register(u3);
 
 float4 main() : sv_target1
@@ -175,19 +174,19 @@ probe uav-3 (0, 0) f32(0.9, 0.8, 0.7, 0.6)
 
 % Test that we can declare and use an array of UAVs.
 
-[uav 2]
+[uav-2]
 format r32g32b32a32-float
 size (2d, 1, 1)
 
 0.1 0.2 0.3 0.4
 
-[uav 3]
+[uav-3]
 format r32g32b32a32-float
 size (2d, 1, 1)
 
 0.5 0.6 0.7 0.8
 
-[pixel shader]
+[pixel-shader]
 RWTexture2D<float4> u[2] : register(u2);
 
 float4 main() : sv_target1

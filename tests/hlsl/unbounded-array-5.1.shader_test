@@ -68,27 +68,27 @@ format r32-uint
 size (buffer, 4)
 0x40
 
-[uav 0]
+[uav-0]
 format r32-uint
 size (buffer, 4)
 
-[uav 1]
+[uav-1]
 format r32-uint
 size (buffer, 4)
 
-[uav 2]
+[uav-2]
 format r32-uint
 size (buffer, 4)
 
-[uav 3]
+[uav-3]
 format r32-uint
 size (buffer, 4)
 
-[uav 4]
+[uav-4]
 format r32-uint
 size (buffer, 4)
 
-[uav 5]
+[uav-5]
 format r32-uint
 size (buffer, 4)
 

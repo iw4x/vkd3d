@@ -5,7 +5,7 @@ depth-bounds
 [rtv-0]
 size (2d, 640, 480)
 
-[uav 1]
+[uav-1]
 format r32-float
 size (buffer, 1)
 0.0
