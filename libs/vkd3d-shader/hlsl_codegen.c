@@ -2045,6 +2045,10 @@ static struct hlsl_ir_node *generate_interlocked_coords(struct hlsl_ctx *ctx,
     if (instr->type != HLSL_IR_INTERLOCKED)
         return NULL;
     interlocked = hlsl_ir_interlocked(instr);
+
+    if (interlocked->coords.node)
+        return NULL;
+
     deref = &interlocked->dst;
     tgsm = deref->var->is_tgsm;
 

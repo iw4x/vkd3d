@@ -5361,10 +5361,13 @@ static void check_interlocked_dst_type(struct hlsl_ctx *ctx, const char *name, c
     }
 }
 
-static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op op,
-        const struct parse_initializer *params, const struct vkd3d_shader_location *loc, const char *name)
+/* The object node is set for RWByteAddressBuffer methods, whose first
+ * argument (lhs) is a byte offset. */
+static bool intrinsic_interlocked(struct hlsl_ctx *ctx, struct hlsl_block *block, enum hlsl_interlocked_op op,
+        struct hlsl_ir_node *object, const struct parse_initializer *params,
+        const struct vkd3d_shader_location *loc, const char *name)
 {
-    struct hlsl_ir_node *interlocked, *lhs, *val, *cmp_val = NULL, *orig_val = NULL;
+    struct hlsl_ir_node *interlocked, *lhs, *val, *cmp_val = NULL, *orig_val = NULL, *coords = NULL;
     struct hlsl_type *lhs_type, *val_type, *ret_type = NULL;
     unsigned int writemask, component;
     struct hlsl_deref dst_deref;
@@ -5384,7 +5387,7 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
     }
 
     lhs = params->args[0];
-    lhs_type = lhs->data_type;
+    lhs_type = object ? hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT) : lhs->data_type;
 
     check_interlocked_dst_type(ctx, name, lhs_type, op, loc);
 
@@ -5404,17 +5407,21 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
 
     if (orig_val)
     {
-        /* Other than InterlockedExchange(), the original value is returned as int. */
+        /* Other than InterlockedExchange(), the original value is returned as
+         * uint for RWByteAddressBuffer methods, and as int otherwise. */
         if (op == HLSL_INTERLOCKED_EXCH)
             ret_type = get_interlocked_exchange_type(ctx, orig_val->data_type);
         else
-            ret_type = hlsl_get_scalar_type(ctx, HLSL_TYPE_INT);
+            ret_type = hlsl_get_scalar_type(ctx, object ? HLSL_TYPE_UINT : HLSL_TYPE_INT);
     }
 
     /* Interlocked*() functions always take uint for the value parameters,
      * except for InterlockedMax()/InterlockedMin(). */
     if (op == HLSL_INTERLOCKED_UMAX || op == HLSL_INTERLOCKED_UMIN)
     {
+        /* RWByteAddressBuffer destinations are treated as int. */
+        enum hlsl_base_type dst_base_type = object ? HLSL_TYPE_INT : lhs_type->e.numeric.type;
+
         if (val->data_type->e.numeric.type == HLSL_TYPE_UINT)
         {
             val_type = hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT);
@@ -5425,7 +5432,7 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
              * int first, but the interlocked operation itself is signed only if
              * the destination type is int as well. */
             val_type = hlsl_get_scalar_type(ctx, HLSL_TYPE_INT);
-            if (lhs_type->e.numeric.type == HLSL_TYPE_INT)
+            if (dst_base_type == HLSL_TYPE_INT)
                 op = op == HLSL_INTERLOCKED_UMAX ? HLSL_INTERLOCKED_IMAX : HLSL_INTERLOCKED_IMIN;
         }
     }
@@ -5438,12 +5445,23 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
         val_type = hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT);
     }
 
-    if (cmp_val && !(cmp_val = add_implicit_conversion(ctx, params->instrs, cmp_val, val_type, loc)))
+    if (cmp_val && !(cmp_val = add_implicit_conversion(ctx, block, cmp_val, val_type, loc)))
         return false;
-    if (!(val = add_implicit_conversion(ctx, params->instrs, val, val_type, loc)))
+    if (!(val = add_implicit_conversion(ctx, block, val, val_type, loc)))
         return false;
 
-    if (!(lhs = resolve_assignment_lhs(ctx, params->instrs, false, lhs,
+    if (object)
+    {
+        if (!(coords = add_implicit_conversion(ctx, block, lhs,
+                hlsl_get_scalar_type(ctx, HLSL_TYPE_UINT), loc)))
+            return false;
+        if (!hlsl_deref_init_from_index_chain(&dst_deref, object, ctx))
+            return false;
+
+        goto done;
+    }
+
+    if (!(lhs = resolve_assignment_lhs(ctx, block, false, lhs,
             &lhs_type, &val, &writemask, &matrix_writemask)))
         return false;
 
@@ -5463,8 +5481,8 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
 
         VKD3D_ASSERT(!matrix_writemask);
 
-        c = hlsl_block_add_uint_constant(ctx, params->instrs, component, &lhs->loc);
-        cell = hlsl_block_add_index(ctx, params->instrs, lhs, c, &lhs->loc);
+        c = hlsl_block_add_uint_constant(ctx, block, component, &lhs->loc);
+        cell = hlsl_block_add_index(ctx, block, lhs, c, &lhs->loc);
 
         if (!hlsl_deref_init_from_index_chain(&dst_deref, cell, ctx))
             return false;
@@ -5480,15 +5498,16 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
                 &dst_deref_prefix, component, &lhs->loc, ctx))
             return false;
 
-        hlsl_block_add_block(params->instrs, &component_path_block);
+        hlsl_block_add_block(block, &component_path_block);
         hlsl_deref_cleanup(&dst_deref_prefix);
     }
 
-    interlocked = hlsl_new_interlocked(ctx, op, ret_type, &dst_deref, NULL, cmp_val, val, loc);
+done:
+    interlocked = hlsl_new_interlocked(ctx, op, ret_type, &dst_deref, coords, cmp_val, val, loc);
     hlsl_deref_cleanup(&dst_deref);
     if (!interlocked)
         return false;
-    hlsl_block_add_instr(params->instrs, interlocked);
+    hlsl_block_add_instr(block, interlocked);
 
     if (orig_val)
     {
@@ -5496,66 +5515,68 @@ static bool intrinsic_interlocked(struct hlsl_ctx *ctx, enum hlsl_interlocked_op
             hlsl_error(ctx, &orig_val->loc, VKD3D_SHADER_ERROR_HLSL_MODIFIES_CONST,
                     "Output argument to '%s' is const.", name);
 
-        if (!add_assignment(ctx, params->instrs, orig_val, ASSIGN_OP_ASSIGN, interlocked, true))
+        if (!add_assignment(ctx, block, orig_val, ASSIGN_OP_ASSIGN, interlocked, true))
             return false;
     }
 
-    add_void_expr(ctx, params->instrs, loc);
+    add_void_expr(ctx, block, loc);
     return true;
 }
 
 static bool intrinsic_InterlockedAdd(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_ADD, params, loc, "InterlockedAdd");
+    return intrinsic_interlocked(ctx, params->instrs, HLSL_INTERLOCKED_ADD, NULL, params, loc, "InterlockedAdd");
 }
 
 static bool intrinsic_InterlockedAnd(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_AND, params, loc, "InterlockedAnd");
+    return intrinsic_interlocked(ctx, params->instrs, HLSL_INTERLOCKED_AND, NULL, params, loc, "InterlockedAnd");
 }
 
 static bool intrinsic_InterlockedCompareExchange(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_CMP_EXCH, params, loc, "InterlockedCompareExchange");
+    return intrinsic_interlocked(ctx, params->instrs, HLSL_INTERLOCKED_CMP_EXCH,
+            NULL, params, loc, "InterlockedCompareExchange");
 }
 
 static bool intrinsic_InterlockedCompareStore(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_CMP_EXCH, params, loc, "InterlockedCompareStore");
+    return intrinsic_interlocked(ctx, params->instrs, HLSL_INTERLOCKED_CMP_EXCH,
+            NULL, params, loc, "InterlockedCompareStore");
 }
 
 static bool intrinsic_InterlockedExchange(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_EXCH, params, loc, "InterlockedExchange");
+    return intrinsic_interlocked(ctx, params->instrs, HLSL_INTERLOCKED_EXCH, NULL, params, loc, "InterlockedExchange");
 }
 
 static bool intrinsic_InterlockedMax(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_UMAX, params, loc, "InterlockedMax");
+    return intrinsic_interlocked(ctx, params->instrs, HLSL_INTERLOCKED_UMAX, NULL, params, loc, "InterlockedMax");
 }
 
 static bool intrinsic_InterlockedMin(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_UMIN, params, loc, "InterlockedMin");
+    return intrinsic_interlocked(ctx, params->instrs, HLSL_INTERLOCKED_UMIN, NULL, params, loc, "InterlockedMin");
 }
 
 static bool intrinsic_InterlockedOr(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_OR, params, loc, "InterlockedOr");
+    return intrinsic_interlocked(ctx, params->instrs, HLSL_INTERLOCKED_OR, NULL, params, loc, "InterlockedOr");
 }
 
 static bool intrinsic_InterlockedXor(struct hlsl_ctx *ctx,
         const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
-    return intrinsic_interlocked(ctx, HLSL_INTERLOCKED_XOR, params, loc, "InterlockedXor");
+    return intrinsic_interlocked(ctx, params->instrs, HLSL_INTERLOCKED_XOR, NULL, params, loc, "InterlockedXor");
 }
 
 static bool intrinsic_AllMemoryBarrier(struct hlsl_ctx *ctx,
@@ -5837,6 +5858,30 @@ intrinsic_functions[] =
     {"trunc",                               1, true,  intrinsic_trunc},
 };
 
+static bool check_numeric_arguments(struct hlsl_ctx *ctx, const char *name,
+        const struct parse_initializer *args, const struct vkd3d_shader_location *loc)
+{
+    struct vkd3d_string_buffer *string;
+    bool all_numeric = true;
+    unsigned int i;
+
+    for (i = 0; i < args->args_count; ++i)
+    {
+        if (!hlsl_is_numeric_type(args->args[i]->data_type))
+        {
+            all_numeric = false;
+
+            if ((string = hlsl_type_to_string(ctx, args->args[i]->data_type)))
+                hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
+                        "Wrong type for argument %u of '%s': expected a numeric type, but got '%s'.",
+                        i, name, string->buffer);
+            hlsl_release_string_buffer(ctx, string);
+        }
+    }
+
+    return all_numeric;
+}
+
 static int intrinsic_function_name_compare(const void *a, const void *b)
 {
     const struct intrinsic_function *func = b;
@@ -5879,25 +5924,8 @@ static struct hlsl_block *add_call(struct hlsl_ctx *ctx, const struct hlsl_ident
             goto fail;
         }
 
-        if (intrinsic->check_numeric)
-        {
-            unsigned int i;
-
-            for (i = 0; i < args->args_count; ++i)
-            {
-                if (!hlsl_is_numeric_type(args->args[i]->data_type))
-                {
-                    struct vkd3d_string_buffer *string;
-
-                    if ((string = hlsl_type_to_string(ctx, args->args[i]->data_type)))
-                        hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_TYPE,
-                                "Wrong type for argument %u of '%s': expected a numeric type, but got '%s'.",
-                                i + 1, name, string->buffer);
-                    hlsl_release_string_buffer(ctx, string);
-                    goto fail;
-                }
-            }
-        }
+        if (intrinsic->check_numeric && !check_numeric_arguments(ctx, name, args, loc))
+            goto fail;
 
         if (!intrinsic->handler(ctx, args, loc))
             goto fail;
@@ -6788,6 +6816,53 @@ static bool add_sample_grad_method_call(struct hlsl_ctx *ctx, struct hlsl_block 
     return true;
 }
 
+static bool add_interlocked_method_call(struct hlsl_ctx *ctx, struct hlsl_block *block, struct hlsl_ir_node *object,
+        const char *name, const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
+{
+    static const struct
+    {
+        const char *name;
+        enum hlsl_interlocked_op op;
+        unsigned int min_args, max_args;
+    }
+    methods[] =
+    {
+        {"InterlockedAdd",             HLSL_INTERLOCKED_ADD,      2, 3},
+        {"InterlockedAnd",             HLSL_INTERLOCKED_AND,      2, 3},
+        {"InterlockedCompareExchange", HLSL_INTERLOCKED_CMP_EXCH, 4, 4},
+        {"InterlockedCompareStore",    HLSL_INTERLOCKED_CMP_EXCH, 3, 3},
+        {"InterlockedExchange",        HLSL_INTERLOCKED_EXCH,     3, 3},
+        {"InterlockedMax",             HLSL_INTERLOCKED_UMAX,     2, 3},
+        {"InterlockedMin",             HLSL_INTERLOCKED_UMIN,     2, 3},
+        {"InterlockedOr",              HLSL_INTERLOCKED_OR,       2, 3},
+        {"InterlockedXor",             HLSL_INTERLOCKED_XOR,      2, 3},
+    };
+    unsigned int i;
+
+    for (i = 0; i < ARRAY_SIZE(methods); ++i)
+    {
+        if (!strcmp(name, methods[i].name))
+            break;
+    }
+
+    if (params->args_count < methods[i].min_args || params->args_count > methods[i].max_args)
+    {
+        if (methods[i].min_args == methods[i].max_args)
+            hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_WRONG_PARAMETER_COUNT,
+                    "Wrong number of arguments to method '%s': expected %u.", name, methods[i].min_args);
+        else
+            hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_WRONG_PARAMETER_COUNT,
+                    "Wrong number of arguments to method '%s': expected %u or %u.",
+                    name, methods[i].min_args, methods[i].max_args);
+        return false;
+    }
+
+    if (!check_numeric_arguments(ctx, name, params, loc))
+        return false;
+
+    return intrinsic_interlocked(ctx, block, methods[i].op, object, params, loc, name);
+}
+
 static bool add_store_method_call(struct hlsl_ctx *ctx, struct hlsl_block *block, struct hlsl_ir_node *object,
         const char *name, const struct parse_initializer *params, const struct vkd3d_shader_location *loc)
 {
@@ -6911,12 +6986,22 @@ texture_methods[] =
 
 static const struct method_function uav_methods[] =
 {
-    { "GetDimensions", add_getdimensions_method_call, "00111011000000" },
+    { "GetDimensions",              add_getdimensions_method_call, "00111011000000" },
 
-    { "Store",         add_store_method_call,         "00000000000001" },
-    { "Store2",        add_store_method_call,         "00000000000001" },
-    { "Store3",        add_store_method_call,         "00000000000001" },
-    { "Store4",        add_store_method_call,         "00000000000001" },
+    { "InterlockedAdd",             add_interlocked_method_call,   "00000000000001" },
+    { "InterlockedAnd",             add_interlocked_method_call,   "00000000000001" },
+    { "InterlockedCompareExchange", add_interlocked_method_call,   "00000000000001" },
+    { "InterlockedCompareStore",    add_interlocked_method_call,   "00000000000001" },
+    { "InterlockedExchange",        add_interlocked_method_call,   "00000000000001" },
+    { "InterlockedMax",             add_interlocked_method_call,   "00000000000001" },
+    { "InterlockedMin",             add_interlocked_method_call,   "00000000000001" },
+    { "InterlockedOr",              add_interlocked_method_call,   "00000000000001" },
+    { "InterlockedXor",             add_interlocked_method_call,   "00000000000001" },
+
+    { "Store",                      add_store_method_call,         "00000000000001" },
+    { "Store2",                     add_store_method_call,         "00000000000001" },
+    { "Store3",                     add_store_method_call,         "00000000000001" },
+    { "Store4",                     add_store_method_call,         "00000000000001" },
 };
 
 static const struct method_function so_methods[] =
