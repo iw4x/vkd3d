@@ -58,8 +58,11 @@ float4 main() : sv_target
 }
 
 [test]
-draw quad
-probe (0, 0) f32(1, 1, 1, 1)
+% This intermittently crashes deep inside the NVIDIA driver on d3d9, in a
+% worker thread managed by the driver itself. Seemingly because of a
+% use-after-free bug. It totally looks like a bug in the driver itself.
+if(!nvidia | !windows | !d3d9) draw quad
+if(!nvidia | !windows | !d3d9) probe (0, 0) f32(1, 1, 1, 1)
 
 % PSIZE cannot be used as a pixel shader input in ps_2_0 nor ps_3_0.
 % On ps_4_0 and above, it behaves as a regular semantic, without sysval.
