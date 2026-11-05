@@ -4192,6 +4192,19 @@ static void tpf_simple_instruction(struct tpf_compiler *tpf, const struct vsir_i
     write_sm4_instruction(tpf, &instr);
 }
 
+static void tpf_isnan(struct tpf_compiler *tpf, const struct vsir_instruction *ins)
+{
+    struct vsir_src_operand src[2] = {ins->src[0], ins->src[0]};
+    struct vsir_instruction neu_ins;
+
+    neu_ins = *ins;
+    neu_ins.opcode = VSIR_OP_NEU;
+    neu_ins.src_count = 2;
+    neu_ins.src = src;
+
+    tpf_simple_instruction(tpf, &neu_ins);
+}
+
 static void tpf_handle_instruction(struct tpf_compiler *tpf, const struct vsir_instruction *ins)
 {
     tpf->location = ins->location;
@@ -4395,6 +4408,10 @@ static void tpf_handle_instruction(struct tpf_compiler *tpf, const struct vsir_i
         case VSIR_OP_UTOF:
         case VSIR_OP_XOR:
             tpf_simple_instruction(tpf, ins);
+            break;
+
+        case VSIR_OP_ISNAN:
+            tpf_isnan(tpf, ins);
             break;
 
         default:

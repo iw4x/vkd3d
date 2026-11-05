@@ -11,7 +11,7 @@
 
 % In shader model <6 uniform loads are assumed to never be NaN, unless precise
 % is used in shader model 4+.
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 a;
 
 float4 main() : sv_target
@@ -21,11 +21,11 @@ float4 main() : sv_target
 
 [test]
 write cbv-0 (0) f32(inf, nan, 1.0, 0.0)
-todo(sm>=4 & sm<6) draw quad
-if(sm<6) todo(mesa<26 & radv | sm>=4 & !mvk) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+draw quad
+if(sm<6) todo(mesa<26 & radv | sm>=4 & !mvk<1.4.0 & !msl) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 if(sm>=6) probe (0, 0) f32(0.0, 10.0, 0.0, 0.0)
 
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 a;
 
 float4 main() : sv_target
@@ -37,12 +37,12 @@ float4 main() : sv_target
 
 [test]
 write cbv-0 (0) f32(inf, nan, 1.0, 0.0)
-todo(sm>=4 & sm<6 | msl) draw quad
+todo(msl & sm>=6) draw quad
 % inf != inf for SM < 4.
 if(sm<4) todo(mesa>=26 | !radv) probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
-if(sm>=4) todo(sm<6 & mvk) probe (0, 0) f32(0.0, 11.0, 0.0, 0.0)
+if(sm>=4) todo(sm<6 & (mvk<1.4.0 | msl)) probe (0, 0) f32(0.0, 11.0, 0.0, 0.0)
 
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 a, b;
 
 float4 main() : sv_target
@@ -55,18 +55,18 @@ float4 main() : sv_target
 [test]
 write cbv-0 (0) f32(1.0, 1.0, -0.0, -0.0)
 write cbv-0 (4) f32(0.0, -0.0, 0.0, -0.0)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 if(sm<4) todo(mesa<26 & radv) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm>=4 & sm<6) todo(mvk) probe (0, 0) f32(0.0, 0.0, 11.0, 11.0)
+if(sm>=4 & sm<6) todo(mvk<1.4.0 | msl) probe (0, 0) f32(0.0, 0.0, 11.0, 11.0)
 if(sm>=6) probe (0, 0) f32(0.0, 0.0, 10.0, 10.0)
 write cbv-0 (0) f32(inf, nan, 1.0, 0.0)
 write cbv-0 (4) f32(inf, 1.0, nan, 1.0)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 if(sm<4) todo(mesa<26 & radv) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm>=4 & sm<6) todo(mvk) probe (0, 0) f32(11.0, 11.0, 11.0, 0.0)
+if(sm>=4 & sm<6) todo(mvk<1.4.0 | msl) probe (0, 0) f32(11.0, 11.0, 11.0, 0.0)
 if(sm>=6) probe (0, 0) f32(10.0, 10.0, 10.0, 0.0)
 
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 b;
 
 float4 main() : sv_target
@@ -78,14 +78,14 @@ float4 main() : sv_target
 
 [test]
 write cbv-0 (0) f32(1.0, 1.0, -0.0, 0.0)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 todo(sm<4 & mesa<26 & radv) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 write cbv-0 (0) f32(inf, -inf, nan, -nan)
-todo(sm>=4 & sm<6) draw quad
-if(sm<6) todo(sm<4 & mesa<26 & radv | sm>=4 & !mvk) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+draw quad
+if(sm<6) todo(sm<4 & mesa<26 & radv | sm>=4 & !mvk<1.4.0 & !msl) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 if(sm>=6) probe (0, 0) f32(0.0, 0.0, 10.0, 10.0)
 
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 b;
 
 float4 main() : sv_target
@@ -97,13 +97,13 @@ float4 main() : sv_target
 
 [test]
 write cbv-0 (0) f32(1.0, 1.0, -0.0, -0.0)
-todo(sm>=4 & sm<6) draw quad
-todo(sm>=4 & sm<6 & vulkan & !mvk & !llvmpipe | sm<6 & d3d12 & !mvk & !llvmpipe) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+draw quad
+todo(sm>=4 & sm<6 & vulkan & !mvk<1.4.0 & !llvmpipe | sm<6 & d3d12 & !mvk<1.4.0 & !llvmpipe) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 write cbv-0 (0) f32(inf, -inf, nan, -nan)
-todo(sm>=4 & sm<6) draw quad
-todo(sm>=4 & sm<6 & vulkan & !mvk & !llvmpipe | sm<6 & d3d12 & !mvk & !llvmpipe) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+draw quad
+todo(sm>=4 & sm<6 & vulkan & !mvk<1.4.0 & !llvmpipe | sm<6 & d3d12 & !mvk<1.4.0 & !llvmpipe) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 a, b;
 
 float4 main() : sv_target
@@ -116,12 +116,12 @@ float4 main() : sv_target
 [test]
 write cbv-0 (0) f32(1.0, 1.0, -0.0, -0.0)
 write cbv-0 (4) f32(0.0, -0.0, 0.0, -0.0)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 write cbv-0 (0) f32(inf, nan, 1.0, inf)
 write cbv-0 (4) f32(inf, 1.0, nan, -inf)
-todo(sm>=4 & sm<6) draw quad
-if(sm<6) todo(mesa<26 & radv | sm>=4 & !mvk) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+draw quad
+if(sm<6) todo(mesa<26 & radv | sm>=4 & !mvk<1.4.0 & !msl) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 if(sm>=6) probe (0, 0) f32(0.0, 10.0, 10.0, 10.0)
 
 [pixel-shader]
@@ -154,7 +154,7 @@ size (2d, 1, 1)
 % inf nan 1.0 0.0
 0x7f800000 0x7f800001 0x3f800000 0x00000000
 
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 Texture2D tex;
 sampler sam;
 
@@ -166,13 +166,13 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm>=4 & sm<6) draw quad
-if(sm<6) todo(mesa<26 & radv | sm>=4 & !mvk) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+draw quad
+if(sm<6) todo(mesa<26 & radv | sm>=4 & !mvk<1.4.0 & !msl) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 if(sm>=6) bug(llvmpipe) probe (0, 0) f32(0.0, 10.0, 0.0, 0.0)
 % ^ We get f32(10, 10, 0, 0) on llvmpipe.
 
 % Input semantics seem to also be assumed to not be NaN.
-[pixel-shader todo(sm<3 | sm>=4)]
+[pixel-shader todo(sm<3)]
 float4 main(float4 pos : SV_POSITION) : sv_target
 {
     return 10 * isnan(pos) + (pos != pos); // Simplified to false.
@@ -180,12 +180,12 @@ float4 main(float4 pos : SV_POSITION) : sv_target
 
 [test]
 write cbv-0 (0) f32(inf, nan, 1.0, 0.0)
-todo(sm<3 | sm>=4 & sm<6) draw quad
+todo(sm<3) draw quad
 probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
 % It seems that compile-time constants are always false by isnan().
 % This is a difference with NEQ.
-[pixel-shader todo]
+[pixel-shader todo(sm<4)]
 float4 main() : sv_target
 {
     float c = sin(1.0 / 0.0);
@@ -194,12 +194,12 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+todo(sm<4) draw quad
 if(sm<4) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 if(sm>=4 & sm<6) todo probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 if(sm>=6) probe (0, 0) f32(11.0, 11.0, 11.0, 11.0)
 
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 a, b;
 
 float4 main() : sv_target
@@ -213,15 +213,15 @@ float4 main() : sv_target
 [test]
 write cbv-0 (0) f32(0.0, -0.0, 1.0, -1.0)
 write cbv-0 (4) f32(1.0, 0.0, 0.0, 0.0)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 if(sm<4) todo(mesa<26 & radv) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm>=4 & sm<6) todo(mvk) probe (0, 0) f32(0.0, 11.0, 11.0, 11.0)
+if(sm>=4 & sm<6) todo(mvk<1.4.0 | msl) probe (0, 0) f32(0.0, 11.0, 11.0, 11.0)
 if(sm>=6) bug(mvk) probe (0, 0) f32(0.0, 10.0, 10.0, 10.0)
 % ^ We get f32(0, 0, 0, 0) in mvk.
 
 % It is not expected for trigonometry functions to result in NaN, despite the
 % possibility of having an inf argument.
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 a;
 
 float4 main() : sv_target
@@ -233,12 +233,12 @@ float4 main() : sv_target
 
 [test]
 write cbv-0 (0) f32(0.0, -0.0, 1.0, -1.0)
-todo(sm>=4 & sm<6) draw quad
-if(sm<6) todo(mesa<26 & radv | sm>=4 & !mvk) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
+draw quad
+if(sm<6) todo(mesa<26 & radv | sm>=4 & !mvk<1.4.0 & !msl) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 if(sm>=6) bug(mvk) probe (0, 0) f32(10.0, 10.0, 0.0, 0.0)
 % ^ We get f32(0, 0, 0, 0) in mvk.
 
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 a, b;
 
 float4 main() : sv_target
@@ -253,12 +253,12 @@ float4 main() : sv_target
 [test]
 write cbv-0 (0) f32(1.0, 0.0, 0.0, 0.0)
 write cbv-0 (4) f32(0.0, 1.0, 0.0, -0.0)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 if(sm<4) todo(mesa<26 & radv) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm>=4 & sm<6) todo(mvk) probe (0, 0) f32(0.0, 0.0, 0.0, 11.0)
+if(sm>=4 & sm<6) todo(mvk<1.4.0 | msl) probe (0, 0) f32(0.0, 0.0, 0.0, 11.0)
 if(sm>=6) probe (0, 0) f32(0.0, 0.0, 0.0, 10.0)
 
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 a;
 
 float4 main() : sv_target
@@ -270,12 +270,12 @@ float4 main() : sv_target
 
 [test]
 write cbv-0 (0) f32(1.0, -1.0, -inf, nan)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 if(sm<4) todo(mesa<26 & radv) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm>=4 & sm<6) todo(mvk) probe (0, 0) f32(0.0, 11.0, 11.0, 11.0)
+if(sm>=4 & sm<6) todo(mvk<1.4.0 | msl) probe (0, 0) f32(0.0, 11.0, 11.0, 11.0)
 if(sm>=6) probe (0, 0) f32(0.0, 10.0, 10.0, 10.0)
 
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 a, b;
 
 float4 main() : sv_target
@@ -288,12 +288,12 @@ float4 main() : sv_target
 [test]
 write cbv-0 (0) f32(2.0, -2.0, 0.0, nan)
 write cbv-0 (4) f32(0.5, 0.5, 0.5, 0.5)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 if(sm<4) todo(mesa<26 & radv) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm>=4 & sm<6) todo(mvk) probe (0, 0) f32(0.0, 11.0, 0.0, 11.0)
+if(sm>=4 & sm<6) todo(mvk<1.4.0 | msl) probe (0, 0) f32(0.0, 11.0, 0.0, 11.0)
 if(sm>=6) probe (0, 0) f32(0.0, 10.0, 0.0, 10.0)
 
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 float4 a;
 
 float4 main() : sv_target
@@ -305,13 +305,13 @@ float4 main() : sv_target
 
 [test]
 write cbv-0 (0) f32(2.0, -2.0, 0.0, nan)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 if(sm<4) todo(mesa<26 & radv) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm>=4 & sm<6) todo(mvk) probe (0, 0) f32(0.0, 11.0, 0.0, 11.0)
+if(sm>=4 & sm<6) todo(mvk<1.4.0 | msl) probe (0, 0) f32(0.0, 11.0, 0.0, 11.0)
 if(sm>=6) probe (0, 0) f32(0.0, 10.0, 0.0, 10.0)
 
 % Loads with relative addressing are not simplified.
-[pixel-shader todo(sm>=4)]
+[pixel-shader]
 unsigned int i;
 
 float4 main() : sv_target
@@ -324,10 +324,10 @@ float4 main() : sv_target
 [test]
 if(sm<4) write cbv-f32 (0) f32(2.0)
 if(sm>=4) write cbv-0 (0) i32(2)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
-[pixel-shader fail(sm<4) todo(sm>=4)]
+[pixel-shader fail(sm<4)]
 unsigned int i;
 
 float4 main() : sv_target
@@ -339,12 +339,12 @@ float4 main() : sv_target
 
 [test]
 write cbv-0 (0) i32(2)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 if(sm<4) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm>=4 & sm<6) todo(mvk) probe (0, 0) f32(11.0, 11.0, 11.0, 11.0)
+if(sm>=4 & sm<6) todo(mvk<1.4.0 | msl) probe (0, 0) f32(11.0, 11.0, 11.0, 11.0)
 if(sm>=6) probe (0, 0) f32(10.0, 10.0, 10.0, 10.0)
 write cbv-0 (0) i32(1)
-todo(sm>=4 & sm<6) draw quad
+draw quad
 probe (0, 0) f32(0.0, 0.0, 0.0, 0.0)
 
 % isnan() on an indirectly addressed uniform array fails with an internal
@@ -359,7 +359,7 @@ float4 main() : sv_target
 }
 
 % A temp load (that can't be copy-propagated) is assumed to never be NaN.
-[pixel-shader todo(sm<3 | sm>=4)]
+[pixel-shader todo(sm<3)]
 float a[4];
 float aa, bb;
 float k;
@@ -381,6 +381,6 @@ write cbv-0 (12) f32(0.0, 0.0, 0.0, 0.0)
 write cbv-0 (16) f32(0.0, 0.0, 0.0, 0.0)
 write cbv-0 (20) f32(0.0, 0.0, 0.0, 0.0)
 write cbv-0 (24) f32(0.0, 0.0, 0.0, 0.0)
-todo(sm<3 | sm>=4 & sm<6) draw quad
-if(sm<6) todo(sm>=4 & !mvk) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0);
+todo(sm<3) draw quad
+if(sm<6) todo(sm>=4 & !mvk<1.4.0 & !msl) probe (0, 0) f32(0.0, 0.0, 0.0, 0.0);
 if(sm>=6) probe (0, 0) f32(10.0, 10.0, 10.0, 10.0);
