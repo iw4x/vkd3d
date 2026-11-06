@@ -1295,6 +1295,7 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
         bool using_dxcompiler)
 {
     ID3D12Device *device = runner->test_context.device;
+    D3D12_FEATURE_DATA_D3D12_OPTIONS9 options9;
     D3D12_FEATURE_DATA_D3D12_OPTIONS7 options7;
     D3D12_FEATURE_DATA_D3D12_OPTIONS4 options4;
     D3D12_FEATURE_DATA_D3D12_OPTIONS3 options3;
@@ -1337,7 +1338,9 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     hr = ID3D12Device_CheckFeatureSupport(device, D3D12_FEATURE_D3D12_OPTIONS4, &options4, sizeof(options4));
     ok(hr == S_OK, "Failed to check feature options4 support, hr %#x.\n", hr);
     hr = ID3D12Device_CheckFeatureSupport(device, D3D12_FEATURE_D3D12_OPTIONS7, &options7, sizeof(options7));
-    ok(hr == S_OK, "Failed to check feature options4 support, hr %#x.\n", hr);
+    ok(hr == S_OK, "Failed to check feature options7 support, hr %#x.\n", hr);
+    hr = ID3D12Device_CheckFeatureSupport(device, D3D12_FEATURE_D3D12_OPTIONS9, &options9, sizeof(options9));
+    ok(hr == S_OK, "Failed to check feature options9 support, hr %#x.\n", hr);
 
 #ifdef VKD3D_CROSSTEST
     runner->caps.runner = "d3d12.dll";
@@ -1360,6 +1363,7 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
         runner->caps.shader_caps[SHADER_CAP_GEOMETRY_SHADER] = true;
     runner->caps.shader_caps[SHADER_CAP_INT64] = options1.Int64ShaderOps;
     runner->caps.shader_caps[SHADER_CAP_MESH_SHADER] = options7.MeshShaderTier >= D3D12_MESH_SHADER_TIER_1;
+    runner->caps.shader_caps[SHADER_CAP_DERIVATIVES_IN_MESH_SHADERS] = options9.DerivativesInMeshAndAmplificationShadersSupported;
     runner->caps.shader_caps[SHADER_CAP_MIN_LOD_CLAMP] = true;
     if (are_float_controls_supported(device))
         runner->caps.shader_caps[SHADER_CAP_NO_REFACTORING] = true;

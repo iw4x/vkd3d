@@ -1498,3 +1498,125 @@ void main(uint index : SV_GroupIndex)
     else
         DispatchMesh(1, 1, 1, p2);
 }
+
+[require]
+shader model >= 6.6
+mesh-shader
+derivatives-in-mesh-shaders
+
+[sampler-0]
+filter linear linear linear
+address clamp clamp clamp
+
+[srv-0]
+format r32g32b32a32-float
+size (2d, 4, 4)
+levels 3
+
+1.0 1.0 0.0 0.0  2.0 1.0 0.0 0.0  3.0 1.0 0.0 0.0  4.0 1.0 0.0 0.0
+1.0 2.0 0.0 0.0  2.0 2.0 0.0 0.0  3.0 2.0 0.0 0.0  4.0 2.0 0.0 0.0
+1.0 3.0 0.0 0.0  2.0 3.0 0.0 0.0  3.0 3.0 0.0 0.0  4.0 3.0 0.0 0.0
+1.0 4.0 0.0 0.0  2.0 4.0 0.0 0.0  3.0 4.0 0.0 0.0  4.0 4.0 0.0 0.0
+
+0.0 0.0 0.0 0.0  0.0 0.0 0.0 1.0
+0.0 0.0 1.0 0.0  0.0 0.0 1.0 1.0
+
+100.0 100.0 100.0 100.0
+
+[amplification-shader]
+
+[mesh-shader]
+sampler s;
+Texture2D<float4> t;
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+};
+
+struct primitive_out
+{
+    float4 color : COLOR;
+};
+
+    [outputtopology("triangle")]
+    [numthreads(4, 4, 1)]
+void main(out vertices vertex_out verts[64], out indices uint3 indices[32],
+        out primitives primitive_out primitives[32], uint3 id : SV_DispatchThreadID)
+{
+    SetMeshOutputCounts(64, 32);
+
+    float2 pos = (id.xy + 0.5) / 4.0;
+    float4 color = t.Sample(s, pos);
+
+    uint idx = id.x + 4 * id.y;
+
+    verts[4 * idx + 0].position = float4((id.xy + uint2(0, 0)) / 2.0f - 1.0f, 0.0f, 1.0f);
+    verts[4 * idx + 1].position = float4((id.xy + uint2(0, 1)) / 2.0f - 1.0f, 0.0f, 1.0f);
+    verts[4 * idx + 2].position = float4((id.xy + uint2(1, 1)) / 2.0f - 1.0f, 0.0f, 1.0f);
+    verts[4 * idx + 3].position = float4((id.xy + uint2(1, 0)) / 2.0f - 1.0f, 0.0f, 1.0f);
+
+    indices[2 * idx + 0] = uint3(4 * idx + 0, 4 * idx + 1, 4 * idx + 3);
+    indices[2 * idx + 1] = uint3(4 * idx + 1, 4 * idx + 2, 4 * idx + 3);
+
+    primitives[2 * idx + 0].color = color;
+    primitives[2 * idx + 1].color = color;
+}
+
+[pixel-shader]
+float4 main(float4 color : COLOR) : SV_Target
+{
+    return color;
+}
+
+[test]
+dispatch-mesh 1 1 1
+probe (80, 60) f32(1.0, 4.0, 0.0, 0.0)
+probe (240, 60) f32(2.0, 4.0, 0.0, 0.0)
+probe (240, 180) f32(2.0, 3.0, 0.0, 0.0)
+probe (560, 300) f32(4.0, 2.0, 0.0, 0.0)
+
+[mesh-shader]
+sampler s;
+Texture2D<float4> t;
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+};
+
+struct primitive_out
+{
+    float4 color : COLOR;
+};
+
+    [outputtopology("triangle")]
+    [numthreads(2, 2, 1)]
+void main(out vertices vertex_out verts[16], out indices uint3 indices[8],
+        out primitives primitive_out primitives[8], uint3 id : SV_DispatchThreadID)
+{
+    SetMeshOutputCounts(16, 8);
+
+    float2 pos = (id.xy + 0.5) / 2.0;
+    float4 color = t.Sample(s, pos);
+
+    uint idx = id.x + 2 * id.y;
+
+    verts[4 * idx + 0].position = float4((id.xy + uint2(0, 0)) - 1.0f, 0.0f, 1.0f);
+    verts[4 * idx + 1].position = float4((id.xy + uint2(0, 1)) - 1.0f, 0.0f, 1.0f);
+    verts[4 * idx + 2].position = float4((id.xy + uint2(1, 1)) - 1.0f, 0.0f, 1.0f);
+    verts[4 * idx + 3].position = float4((id.xy + uint2(1, 0)) - 1.0f, 0.0f, 1.0f);
+
+    indices[2 * idx + 0] = uint3(4 * idx + 0, 4 * idx + 1, 4 * idx + 3);
+    indices[2 * idx + 1] = uint3(4 * idx + 1, 4 * idx + 2, 4 * idx + 3);
+
+    primitives[2 * idx + 0].color = color;
+    primitives[2 * idx + 1].color = color;
+}
+
+[test]
+dispatch-mesh 1 1 1
+probe (80, 60) f32(0.0, 0.0, 1.0, 0.0)
+probe (400, 60) f32(0.0, 0.0, 1.0, 1.0)
+probe (80, 300) f32(0.0, 0.0, 0.0, 0.0)
+probe (400, 300) f32(0.0, 0.0, 0.0, 1.0)

@@ -592,28 +592,29 @@ static DXGI_FORMAT parse_format(const char *line, unsigned int *texel_size, bool
 
 static const char *const shader_cap_strings[] =
 {
-    [SHADER_CAP_BARYCENTRICS]        = "barycentrics",
-    [SHADER_CAP_CLIP_PLANES]         = "clip-planes",
-    [SHADER_CAP_CULL_DISTANCE]       = "cull-distance",
-    [SHADER_CAP_DEPTH_BOUNDS]        = "depth-bounds",
-    [SHADER_CAP_DESCRIPTOR_INDEXING] = "descriptor-indexing",
-    [SHADER_CAP_DESCRIPTORS]         = "descriptors",
-    [SHADER_CAP_FILTER_MINMAX]       = "filter-minmax",
-    [SHADER_CAP_FLOAT64]             = "float64",
-    [SHADER_CAP_FOG]                 = "fog",
-    [SHADER_CAP_GEOMETRY_SHADER]     = "geometry-shader",
-    [SHADER_CAP_INT64]               = "int64",
-    [SHADER_CAP_MESH_SHADER]         = "mesh-shader",
-    [SHADER_CAP_MIN_LOD_CLAMP]       = "min-lod-clamp",
-    [SHADER_CAP_NATIVE_16_BIT]       = "native-16-bit",
-    [SHADER_CAP_NO_REFACTORING]      = "no-refactoring",
-    [SHADER_CAP_POINT_SIZE]          = "point-size",
-    [SHADER_CAP_ROV]                 = "rov",
-    [SHADER_CAP_RT_VP_ARRAY_INDEX]   = "rt-vp-array-index",
-    [SHADER_CAP_STENCIL_EXPORT]      = "stencil-export",
-    [SHADER_CAP_TESSELLATION_SHADER] = "tessellation-shader",
-    [SHADER_CAP_TEXTURE_SWIZZLE]     = "texture-swizzle",
-    [SHADER_CAP_WAVE_OPS]            = "wave-ops",
+    [SHADER_CAP_BARYCENTRICS]                = "barycentrics",
+    [SHADER_CAP_CLIP_PLANES]                 = "clip-planes",
+    [SHADER_CAP_CULL_DISTANCE]               = "cull-distance",
+    [SHADER_CAP_DEPTH_BOUNDS]                = "depth-bounds",
+    [SHADER_CAP_DERIVATIVES_IN_MESH_SHADERS] = "derivatives-in-mesh-shaders",
+    [SHADER_CAP_DESCRIPTOR_INDEXING]         = "descriptor-indexing",
+    [SHADER_CAP_DESCRIPTORS]                 = "descriptors",
+    [SHADER_CAP_FILTER_MINMAX]               = "filter-minmax",
+    [SHADER_CAP_FLOAT64]                     = "float64",
+    [SHADER_CAP_FOG]                         = "fog",
+    [SHADER_CAP_GEOMETRY_SHADER]             = "geometry-shader",
+    [SHADER_CAP_INT64]                       = "int64",
+    [SHADER_CAP_MESH_SHADER]                 = "mesh-shader",
+    [SHADER_CAP_MIN_LOD_CLAMP]               = "min-lod-clamp",
+    [SHADER_CAP_NATIVE_16_BIT]               = "native-16-bit",
+    [SHADER_CAP_NO_REFACTORING]              = "no-refactoring",
+    [SHADER_CAP_POINT_SIZE]                  = "point-size",
+    [SHADER_CAP_ROV]                         = "rov",
+    [SHADER_CAP_RT_VP_ARRAY_INDEX]           = "rt-vp-array-index",
+    [SHADER_CAP_STENCIL_EXPORT]              = "stencil-export",
+    [SHADER_CAP_TESSELLATION_SHADER]         = "tessellation-shader",
+    [SHADER_CAP_TEXTURE_SWIZZLE]             = "texture-swizzle",
+    [SHADER_CAP_WAVE_OPS]                    = "wave-ops",
 };
 
 static bool match_shader_cap_string(const char *line, enum shader_cap *cap)
@@ -3136,6 +3137,13 @@ static void run_shader_tests_for_model(struct shader_runner *runner, FILE *f)
                     break;
 
                 case STATE_SHADER:
+                    if (!shader_source_len)
+                    {
+                        free(runner->shader_source[shader_type]);
+                        runner->shader_source[shader_type] = NULL;
+                        break;
+                    }
+
                     if (!should_skip_execution(runner, TEST_ACTION_COMPILE))
                         compile_shader(runner, shader_source, shader_source_len, shader_type, runner->shader_model);
 
