@@ -80,3 +80,159 @@ probe (10, 11) rgba (-0.420000076, -0.154999852, 0.104999900, 0.0) 32
 probe (11, 11) rgba (-0.574999928, -0.154999852, 0.114999890, 0.0) 32
 probe (12, 10) rgba (-0.874999881, -0.205000162, 0.124999881, 0.0) 24
 probe (150, 150) rgba (-7.52500916, -1.56500244, 1.50500488, 0.0) 128
+
+% Repeat the same tests for compute shaders.
+[require]
+shader model >= 6.6
+
+[uav-0]
+format r32g32b32a32-float
+size (2d, 640, 480)
+
+[compute-shader]
+RWTexture2D<float4> u;
+
+    [numthreads(8, 8, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    u[id.xy] = float4(ddx(id.x), ddx(id.y), ddy(id.x), ddy(id.y));
+}
+
+[test]
+todo dispatch 80 60 1
+probe uav-0 (0, 0, 640, 480) f32(1.0, 0.0, 0.0, 1.0)
+
+% When the threadgroup is 1D, quads are laid out differently.
+[compute-shader]
+RWTexture2D<float4> u;
+
+    [numthreads(8, 1, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    u[id.xy] = float4(ddx(id.x), ddx(id.y), ddy(id.x), ddy(id.y));
+}
+
+[test]
+todo dispatch 80 480 1
+probe uav-0 (0, 0, 640, 480) f32(1.0, 0.0, 2.0, 0.0)
+
+% When using derivatives, thread group must be a multiple of 2x2 or 4x1
+[compute-shader fail]
+RWTexture2D<float4> u;
+
+    [numthreads(3, 1, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    u[id.xy] = float4(ddx(id.x), ddx(id.y), ddy(id.x), ddy(id.y));
+}
+
+[compute-shader fail]
+RWTexture2D<float4> u;
+
+    [numthreads(3, 2, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    u[id.xy] = float4(ddx(id.x), ddx(id.y), ddy(id.x), ddy(id.y));
+}
+
+[compute-shader fail]
+RWTexture2D<float4> u;
+
+    [numthreads(2, 3, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    u[id.xy] = float4(ddx(id.x), ddx(id.y), ddy(id.x), ddy(id.y));
+}
+
+[compute-shader fail]
+RWTexture2D<float4> u;
+
+    [numthreads(1, 4, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    u[id.xy] = float4(ddx(id.x), ddx(id.y), ddy(id.x), ddy(id.y));
+}
+
+[compute-shader fail]
+RWTexture2D<float4> u;
+
+    [numthreads(1, 1, 4)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    u[id.xy] = float4(ddx(id.x), ddx(id.y), ddy(id.x), ddy(id.y));
+}
+
+[compute-shader fail]
+RWTexture2D<float4> u;
+
+    [numthreads(1, 2, 2)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    u[id.xy] = float4(ddx(id.x), ddx(id.y), ddy(id.x), ddy(id.y));
+}
+
+[compute-shader]
+RWTexture2D<float4> u;
+
+    [numthreads(8, 8, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    float2 pos = (id.xy + 0.5) / 10.0;
+    float nonlinear = pos.x * pos.y - pos.x * (pos.x + 0.5);
+    float4 res = float4(nonlinear, ddx(nonlinear), ddy(nonlinear), 0.0);
+
+    u[id.xy] = round(30 * res);
+}
+
+[test]
+todo dispatch 80 60 1
+probe uav-0 (10, 10) f32(-16.0, -5.0, 3.0, 0.0)
+probe uav-0 (11, 10) f32(-21.0, -5.0, 3.0, 0.0)
+probe uav-0 (10, 11) f32(-13.0, -5.0, 3.0, 0.0)
+probe uav-0 (11, 11) f32(-17.0, -5.0, 3.0, 0.0)
+probe uav-0 (12, 10) f32(-26.0, -6.0, 4.0, 0.0)
+probe uav-0 (16, 16) f32(-25.0, -7.0, 5.0, 0.0)
+probe uav-0 (150, 150) f32(-226.0, -47.0, 45.0, 0.0)
+
+[compute-shader]
+RWTexture2D<float4> u;
+
+    [numthreads(8, 8, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    float2 pos = (id.xy + 0.5) / 10.0;
+    float nonlinear = pos.x * pos.y - pos.x * (pos.x + 0.5);
+    float4 res = float4(nonlinear, ddx_coarse(nonlinear), ddy_coarse(nonlinear), 0.0);
+
+    u[id.xy] = round(30 * res);
+}
+
+[test]
+todo dispatch 80 60 1
+probe uav-0 (10, 10) f32(-16.0, -5.0, 3.0, 0.0)
+probe uav-0 (11, 10) f32(-21.0, -5.0, 3.0, 0.0)
+probe uav-0 (10, 11) f32(-13.0, -5.0, 3.0, 0.0)
+probe uav-0 (11, 11) f32(-17.0, -5.0, 3.0, 0.0)
+probe uav-0 (12, 10) f32(-26.0, -6.0, 4.0, 0.0)
+probe uav-0 (16, 16) f32(-25.0, -7.0, 5.0, 0.0)
+probe uav-0 (150, 150) f32(-226.0, -47.0, 45.0, 0.0)
+
+[compute-shader]
+RWTexture2D<float4> u;
+
+    [numthreads(8, 8, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+    float2 pos = (id.xy + 0.5) / 10.0;
+    float nonlinear = pos.x * pos.y - pos.x * (pos.x + 0.5);
+    u[id.xy] = float4(nonlinear, ddx_fine(nonlinear), ddy_fine(nonlinear), 0.0);
+}
+
+[test]
+todo dispatch 80 60 1
+probe uav-0 (10, 10) f32(-0.524999976, -0.164999843, 0.104999900, 0.0) 16
+probe uav-0 (11, 10) f32(-0.689999819, -0.164999843, 0.114999890, 0.0) 32
+probe uav-0 (10, 11) f32(-0.420000076, -0.154999852, 0.104999900, 0.0) 32
+probe uav-0 (11, 11) f32(-0.574999928, -0.154999852, 0.114999890, 0.0) 32
+probe uav-0 (12, 10) f32(-0.874999881, -0.205000162, 0.124999881, 0.0) 24
+probe uav-0 (150, 150) f32(-7.52500916, -1.56500244, 1.50500488, 0.0) 128
