@@ -147,10 +147,10 @@ float4 main(float4 pos : SV_Position, float2 attr : ATTR, uint sample_idx : SV_S
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(msl & sm>=6) draw triangle list 3
-probe (  0,   0) f32(0.25, 0.25, 0.25, 0.25)
-probe (639,   0) f32(0.0, 0.0, 0.0, 0.0)
-probe (  0, 479) f32(0.25, 0.25, 0.25, 0.25)
-probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
+todo(mesa>=25.3.4 & radeonsi) probe (  0,   0) f32(0.25, 0.25, 0.25, 0.25)
+todo(mesa>=25.3.4 & radeonsi) probe (639,   0) f32(0.0, 0.0, 0.0, 0.0)
+todo(mesa>=25.3.4 & radeonsi) probe (  0, 479) f32(0.25, 0.25, 0.25, 0.25)
+todo(mesa>=25.3.4 & radeonsi) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % Centroid interpolation, which means the pixel center if all samples are
 % covered and the first covered sample if a least a sample is not covered (in
@@ -185,10 +185,10 @@ float4 main(float4 pos : SV_Position, centroid float2 attr : ATTR,
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(glsl | msl) draw triangle list 3
-todo(llvmpipe) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
-probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
-probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
-todo(llvmpipe) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
+todo(llvmpipe | mesa>=25.3.4 & radeonsi) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
+todo(mesa>=25.3.4 & radeonsi) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
+todo(mesa>=25.3.4 & radeonsi) probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
+todo(llvmpipe | mesa>=25.3.4 & radeonsi) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 [pixel shader]
 static const float2 positions[4] =
@@ -216,10 +216,10 @@ float4 main(float4 pos : SV_Position, float2 attr : ATTR_centRoid,
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 if(sm<6) todo(msl | glsl) draw triangle list 3
-if(sm<6) todo(llvmpipe) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
-if(sm<6) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm<6) probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
-if(sm<6) todo(llvmpipe) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
+if(sm<6) todo(llvmpipe | mesa>=25.3.4 & radeonsi) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
+if(sm<6) todo(mesa>=25.3.4 & radeonsi) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
+if(sm<6) todo(mesa>=25.3.4 & radeonsi) probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
+if(sm<6) todo(llvmpipe | mesa>=25.3.4 & radeonsi) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 % The "_centroid" semantic modifier can be specified together with the "centroid" prefix attribute.
 
@@ -249,10 +249,10 @@ float4 main(float4 pos : SV_Position, centroid float2 attr : ATTR_centRoid,
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 if(sm<6) todo(msl | glsl) draw triangle list 3
-if(sm<6) todo(llvmpipe) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
-if(sm<6) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm<6) probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
-if(sm<6) todo(llvmpipe) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
+if(sm<6) todo(llvmpipe | mesa>=25.3.4 & radeonsi) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
+if(sm<6) todo(mesa>=25.3.4 & radeonsi) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
+if(sm<6) todo(mesa>=25.3.4 & radeonsi) probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
+if(sm<6) todo(llvmpipe | mesa>=25.3.4 & radeonsi) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 [pixel shader]
 static const float2 positions[4] =
@@ -286,10 +286,10 @@ float4 main(ps_in data) : SV_Target
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 if(sm<6) todo(msl | glsl) draw triangle list 3
-if(sm<6) todo(llvmpipe) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
-if(sm<6) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
-if(sm<6) probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
-if(sm<6) todo(llvmpipe) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
+if(sm<6) todo(llvmpipe | mesa>=25.3.4 & radeonsi) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
+if(sm<6) todo(mesa>=25.3.4 & radeonsi) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
+if(sm<6) todo(mesa>=25.3.4 & radeonsi) probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
+if(sm<6) todo(llvmpipe | mesa>=25.3.4 & radeonsi) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 [pixel shader]
 float4 main(float4 pos : SV_Position, float2 attr : ATTR, float2 attr2 : ATTR_centroid0,
@@ -305,10 +305,10 @@ float4 main(float4 pos : SV_Position, float2 attr : ATTR, float2 attr2 : ATTR_ce
 [test]
 clear rtv-0 f32(1.0, 1.0, 1.0, 1.0)
 todo(msl & sm>=6) draw triangle list 3
-probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
-probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
-probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
-probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
+todo(mesa>=25.3.4 & radeonsi) probe (0, 0) f32(0.25, 0.25, 0.25, 0.25)
+todo(mesa>=25.3.4 & radeonsi) probe (638, 0) f32(0.0, 0.0, 0.0, 0.0)
+todo(mesa>=25.3.4 & radeonsi) probe (0, 478) f32(0.25, 0.25, 0.25, 0.25)
+todo(mesa>=25.3.4 & radeonsi) probe (639, 479) f32(0.0, 0.0, 0.0, 0.0)
 
 [pixel shader]
 float4 main(float4 pos : SV_Position, float2 attr : ATTR, float2 attr2 : ATTR_centroid_centroid,
