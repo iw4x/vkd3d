@@ -1361,6 +1361,8 @@ bool hlsl_types_are_equal(const struct hlsl_type *t1, const struct hlsl_type *t2
         case HLSL_CLASS_MATRIX:
             if (t1->e.numeric.type != t2->e.numeric.type)
                 return false;
+            if (t1->is_minimum_precision != t2->is_minimum_precision)
+                return false;
             if ((t1->modifiers & HLSL_MODIFIER_ROW_MAJOR)
                     != (t2->modifiers & HLSL_MODIFIER_ROW_MAJOR))
                 return false;
