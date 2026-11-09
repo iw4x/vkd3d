@@ -767,6 +767,11 @@ static void cleanup_parse_attribute_list(struct parse_attribute_list *attr_list)
     vkd3d_free(attr_list->attrs);
 }
 
+static void parse_colon_attributes_cleanup(struct parse_colon_attributes *a)
+{
+    hlsl_cleanup_semantic(&a->semantic);
+}
+
 static void parse_function_cleanup(struct parse_function *f)
 {
     hlsl_func_parameters_cleanup(&f->parameters);
@@ -7427,6 +7432,7 @@ static char *take_unqualified_identifier(struct hlsl_ctx *ctx, struct hlsl_ident
 %type <buffer_type> buffer_type
 
 %type <colon_attributes> colon_attributes
+%destructor { parse_colon_attributes_cleanup(&$$); } <colon_attributes>
 
 %type <fields> field
 %type <fields> fields_list
@@ -7640,6 +7646,7 @@ buffer_declaration:
             if (ctx->cur_scope->namespace)
             {
                 hlsl_fixme(ctx, &@3, "Buffers inside namespaces.");
+                parse_colon_attributes_cleanup(&$4);
                 YYABORT;
             }
 
@@ -7647,7 +7654,10 @@ buffer_declaration:
                 hlsl_error(ctx, &@4, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC, "Semantics are not allowed on buffers.");
 
             if (!(ctx->cur_buffer = hlsl_new_buffer(ctx, $2, $3, $1, &$4.reg_reservation, $5, &@3)))
+            {
+                parse_colon_attributes_cleanup(&$4);
                 YYABORT;
+            }
         }
 
 buffer_body:
@@ -7990,6 +8000,7 @@ func_prototype_no_attrs:
             if (hlsl_identifier_is_qualified(&$3))
             {
                 hlsl_fixme(ctx, &@3, "Qualified function definitions.");
+                parse_colon_attributes_cleanup(&$7);
                 YYABORT;
             }
             func_name = $3.qualified_name;
@@ -7997,6 +8008,7 @@ func_prototype_no_attrs:
             if (upper->namespace)
             {
                 hlsl_fixme(ctx, &@3, "Functions inside namespaces.");
+                parse_colon_attributes_cleanup(&$7);
                 YYABORT;
             }
 
@@ -8007,7 +8019,10 @@ func_prototype_no_attrs:
                 hlsl_error(ctx, &@1, VKD3D_SHADER_ERROR_HLSL_INVALID_MODIFIER,
                         "Unexpected modifier used on a function.");
             if (!(type = apply_type_modifiers(ctx, $2, &modifiers, true, &@1)))
+            {
+                parse_colon_attributes_cleanup(&$7);
                 YYABORT;
+            }
             if ((var = hlsl_get_var(ctx->globals, func_name)))
             {
                 hlsl_error(ctx, &@3, VKD3D_SHADER_ERROR_HLSL_REDEFINED,
@@ -8104,7 +8119,10 @@ func_prototype_no_attrs:
                     list_add_tail(&ctx->dummy_scope->vars, &new_param->scope_entry);
 
                     if (!(new_name = hlsl_strdup(ctx, new_param->name)))
+                    {
+                        parse_colon_attributes_cleanup(&$7);
                         YYABORT;
+                    }
                     vkd3d_free((void *)orig_param->name);
                     orig_param->name = new_name;
                 }
@@ -8116,7 +8134,10 @@ func_prototype_no_attrs:
             else
             {
                 if (!($$.decl = hlsl_new_func_decl(ctx, modifiers, type, &$5, &$7.semantic, &@3)))
+                {
+                    parse_colon_attributes_cleanup(&$7);
                     YYABORT;
+                }
 
                 hlsl_add_function(ctx, func_name, $$.decl);
 
@@ -8210,11 +8231,13 @@ colon_attributes:
         }
     | colon_attributes semantic
         {
+            $$ = $1;
             hlsl_cleanup_semantic(&$$.semantic);
             $$.semantic = $2;
         }
     | colon_attributes register_reservation
         {
+            $$ = $1;
             if ($$.reg_reservation.reg_type)
                 hlsl_fixme(ctx, &@2, "Multiple register() reservations.");
 
@@ -8224,6 +8247,7 @@ colon_attributes:
         }
     | colon_attributes packoffset_reservation
         {
+            $$ = $1;
             if (ctx->cur_buffer == ctx->globals_buffer)
             {
                 hlsl_error(ctx, &@2, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
