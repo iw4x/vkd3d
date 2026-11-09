@@ -7647,6 +7647,7 @@ buffer_declaration:
             {
                 hlsl_fixme(ctx, &@3, "Buffers inside namespaces.");
                 parse_colon_attributes_cleanup(&$4);
+                vkd3d_free($3);
                 YYABORT;
             }
 
@@ -7656,6 +7657,7 @@ buffer_declaration:
             if (!(ctx->cur_buffer = hlsl_new_buffer(ctx, $2, $3, $1, &$4.reg_reservation, $5, &@3)))
             {
                 parse_colon_attributes_cleanup(&$4);
+                vkd3d_free($3);
                 YYABORT;
             }
         }
@@ -8001,6 +8003,7 @@ func_prototype_no_attrs:
             {
                 hlsl_fixme(ctx, &@3, "Qualified function definitions.");
                 parse_colon_attributes_cleanup(&$7);
+                hlsl_identifier_cleanup(&$3);
                 YYABORT;
             }
             func_name = $3.qualified_name;
@@ -8009,6 +8012,7 @@ func_prototype_no_attrs:
             {
                 hlsl_fixme(ctx, &@3, "Functions inside namespaces.");
                 parse_colon_attributes_cleanup(&$7);
+                hlsl_identifier_cleanup(&$3);
                 YYABORT;
             }
 
@@ -8021,6 +8025,7 @@ func_prototype_no_attrs:
             if (!(type = apply_type_modifiers(ctx, $2, &modifiers, true, &@1)))
             {
                 parse_colon_attributes_cleanup(&$7);
+                hlsl_identifier_cleanup(&$3);
                 YYABORT;
             }
             if ((var = hlsl_get_var(ctx->globals, func_name)))
@@ -8070,7 +8075,7 @@ func_prototype_no_attrs:
                             "\"%s\" was previously declared here.", func_name);
                 }
 
-                vkd3d_free(func_name);
+                hlsl_identifier_cleanup(&$3);
 
                 /* We implement function invocation by copying to input
                  * parameters, emitting a HLSL_IR_CALL instruction, then copying
@@ -8121,6 +8126,7 @@ func_prototype_no_attrs:
                     if (!(new_name = hlsl_strdup(ctx, new_param->name)))
                     {
                         parse_colon_attributes_cleanup(&$7);
+                        hlsl_identifier_cleanup(&$3);
                         YYABORT;
                     }
                     vkd3d_free((void *)orig_param->name);
@@ -8136,6 +8142,7 @@ func_prototype_no_attrs:
                 if (!($$.decl = hlsl_new_func_decl(ctx, modifiers, type, &$5, &$7.semantic, &@3)))
                 {
                     parse_colon_attributes_cleanup(&$7);
+                    hlsl_identifier_cleanup(&$3);
                     YYABORT;
                 }
 
