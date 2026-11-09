@@ -8003,6 +8003,7 @@ func_prototype_no_attrs:
             {
                 hlsl_fixme(ctx, &@3, "Qualified function definitions.");
                 parse_colon_attributes_cleanup(&$7);
+                hlsl_func_parameters_cleanup(&$5);
                 hlsl_identifier_cleanup(&$3);
                 YYABORT;
             }
@@ -8012,6 +8013,7 @@ func_prototype_no_attrs:
             {
                 hlsl_fixme(ctx, &@3, "Functions inside namespaces.");
                 parse_colon_attributes_cleanup(&$7);
+                hlsl_func_parameters_cleanup(&$5);
                 hlsl_identifier_cleanup(&$3);
                 YYABORT;
             }
@@ -8025,6 +8027,7 @@ func_prototype_no_attrs:
             if (!(type = apply_type_modifiers(ctx, $2, &modifiers, true, &@1)))
             {
                 parse_colon_attributes_cleanup(&$7);
+                hlsl_func_parameters_cleanup(&$5);
                 hlsl_identifier_cleanup(&$3);
                 YYABORT;
             }
@@ -8126,6 +8129,7 @@ func_prototype_no_attrs:
                     if (!(new_name = hlsl_strdup(ctx, new_param->name)))
                     {
                         parse_colon_attributes_cleanup(&$7);
+                        hlsl_func_parameters_cleanup(&$5);
                         hlsl_identifier_cleanup(&$3);
                         YYABORT;
                     }
@@ -8142,6 +8146,7 @@ func_prototype_no_attrs:
                 if (!($$.decl = hlsl_new_func_decl(ctx, modifiers, type, &$5, &$7.semantic, &@3)))
                 {
                     parse_colon_attributes_cleanup(&$7);
+                    hlsl_func_parameters_cleanup(&$5);
                     hlsl_identifier_cleanup(&$3);
                     YYABORT;
                 }
