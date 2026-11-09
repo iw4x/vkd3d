@@ -337,6 +337,9 @@ static void resource_init_buffer(struct vulkan_shader_runner *runner, struct vul
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &resource->memory);
     resource->buffer_view = create_vulkan_buffer_view(context, resource->buffer, format, 0);
 
+    if (!params->data)
+        return;
+
     VK_CALL(vkMapMemory(device, resource->memory, 0, VK_WHOLE_SIZE, 0, &data));
     memcpy(data, params->data, params->data_size);
     VK_CALL(vkUnmapMemory(device, resource->memory));
