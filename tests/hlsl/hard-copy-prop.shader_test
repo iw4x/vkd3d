@@ -221,6 +221,243 @@ write cbv-0 (0) f32(11.0)
 draw quad
 probe (0, 0) f32(1, 2, 3, 5)
 
+% Copy-prop should not propagate a non-constant index into a vector,
+% as the latter may be lowered to a dot product, which reads the other
+% components such as inf or nan.
+
+[pixel-shader]
+float4 v;
+uint i;
+
+float4 main() : sv_target
+{
+    float a[2] = {v[0], v[1]};
+    return a[i];
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 2.0, inf, 0.0)
+if(sm<4)  write cbv-0 (4) f32(0)
+if(sm>=4) write cbv-0 (4) u32(0)
+draw quad
+todo(sm>=4 & sm<6) probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+if(sm<4)  write cbv-0 (4) f32(1)
+if(sm>=4) write cbv-0 (4) u32(1)
+draw quad
+todo(sm>=4 & sm<6) probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
+
+[pixel-shader]
+row_major float2x3 m;
+uint i;
+
+float4 main() : sv_target
+{
+    float a[2] = {m[0][0], m[1][0]};
+    float b[2] = {m[0][0], m[0][1]};
+    return float4(a[i], b[i], 0, 0);
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 2.0, inf, 0.0)
+write cbv-0 (4) f32(3.0, 4.0, inf, 0.0)
+if(sm<4)  write cbv-0 (8) f32(0)
+if(sm>=4) write cbv-0 (7) u32(0)
+draw quad
+todo(sm>=4 & sm<6 & vulkan | sm>=4 & sm<6 & d3d12 | sm>=4 & sm<6 & radeonsi & mesa<26.2 | sm>=4 & sm<6 & llvmpipe) probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
+if(sm<4)  write cbv-0 (8) f32(1)
+if(sm>=4) write cbv-0 (7) u32(1)
+draw quad
+todo(sm>=4 & sm<6 & vulkan | sm>=4 & sm<6 & d3d12 | sm>=4 & sm<6 & radeonsi & mesa<26.2 | sm>=4 & sm<6 & llvmpipe) probe (0, 0) f32(3.0, 2.0, 0.0, 0.0)
+
+[pixel-shader]
+column_major float3x2 m;
+uint i;
+
+float4 main() : sv_target
+{
+    float a[2] = {m[0][0], m[1][0]};
+    float b[2] = {m[0][0], m[0][1]};
+    return float4(a[i], b[i], 0, 0);
+}
+
+[test]
+write cbv-0 (0) f32(1.0, 3.0, inf, 0.0)
+write cbv-0 (4) f32(2.0, 4.0, inf, 0.0)
+if(sm<4)  write cbv-0 (8) f32(0)
+if(sm>=4) write cbv-0 (7) u32(0)
+draw quad
+todo(sm>=4 & sm<6 & vulkan | sm>=4 & sm<6 & d3d12 | sm>=4 & sm<6 & radeonsi & mesa<26.2 | sm>=4 & sm<6 & llvmpipe) probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
+if(sm<4)  write cbv-0 (8) f32(1)
+if(sm>=4) write cbv-0 (7) u32(1)
+draw quad
+todo(sm>=4 & sm<6 & vulkan | sm>=4 & sm<6 & d3d12 | sm>=4 & sm<6 & radeonsi & mesa<26.2 | sm>=4 & sm<6 & llvmpipe) probe (0, 0) f32(3.0, 2.0, 0.0, 0.0)
+
+% Write to the source between a load and a later swizzle of the load.
+[pixel-shader fail(sm<4) todo(sm<4)]
+uint i;
+
+float4 main() : sv_target
+{
+    float x[2] = {0, 0};
+    x[i] = 1;
+    float2 a[2] = {{x[0], 0}, {x[1], 0}};
+
+    float2 r = a[i];
+    x[i] = 5;
+
+    return float4(r.x, x[0], x[1], 0);
+}
+
+[test]
+write cbv-0 (0) u32(0)
+draw quad
+todo(sm<6) probe (0, 0) f32(1.0, 5.0, 0.0, 0.0)
+write cbv-0 (0) u32(1)
+draw quad
+todo(sm<6) probe (0, 0) f32(1.0, 0.0, 5.0, 0.0)
+
+% The following tests currently cause the vkd3d HLSL compiler to hang.
+[require]
+shader model >= 6.0
+
+% Copy-prop of non-constant derefs must not create a load from a variable that
+% has been written since the propagated value was read.
+
+[pixel-shader fail(sm<4) todo(sm<4)]
+float x[2];
+uint i;
+
+float4 main() : sv_target
+{
+    float a[2] = x;
+    a[i]++;
+    a = a;
+    return a[i];
+}
+
+[test]
+write cbv-0 (0) f32(1.0)
+write cbv-0 (4) f32(5.0)
+write cbv-0 (5) u32(0)
+draw quad
+probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
+write cbv-0 (5) u32(1)
+draw quad
+probe (0, 0) f32(6.0, 6.0, 6.0, 6.0)
+
+% Calling f(inout b) twice creates a self-copy for b after folding.
+[pixel-shader fail(sm<4) todo(sm<4)]
+float x[2];
+uint i;
+
+void f(inout float b[2])
+{
+    b[i]++;
+}
+
+float4 main() : sv_target
+{
+    float a[2] = x;
+    f(a);
+    f(a);
+    return a[i];
+}
+
+[test]
+write cbv-0 (0) f32(1.0)
+write cbv-0 (4) f32(5.0)
+write cbv-0 (5) u32(0)
+draw quad
+probe (0, 0) f32(3.0, 3.0, 3.0, 3.0)
+write cbv-0 (5) u32(1)
+draw quad
+probe (0, 0) f32(7.0, 7.0, 7.0, 7.0)
+
+[pixel-shader fail(sm<4) todo(sm<4)]
+float x[2];
+uint i;
+
+float4 main() : sv_target
+{
+    float a[2] = x;
+    a[i]++;
+
+    float t = a[0];
+    a[0] = a[1];
+    a[1] = t;
+
+    return a[i];
+}
+
+[test]
+write cbv-0 (0) f32(1.0)
+write cbv-0 (4) f32(5.0)
+write cbv-0 (5) u32(0)
+draw quad
+probe (0, 0) f32(5.0, 5.0, 5.0, 5.0)
+write cbv-0 (5) u32(1)
+draw quad
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+
+[pixel-shader fail(sm<4) todo(sm<4)]
+float x[2], y[2];
+uint i;
+
+float4 main() : sv_target
+{
+    float a[2] = x;
+    float b[2] = y;
+    a[i]++;
+    b[i]++;
+
+    float t[2] = a;
+    a = b;
+    b = t;
+
+    return a[i];
+}
+
+[test]
+write cbv-0  (0) f32(1.0)
+write cbv-0  (4) f32(5.0)
+write cbv-0  (8) f32(10.0)
+write cbv-0 (12) f32(20.0)
+write cbv-0 (13) u32(0)
+draw quad
+probe (0, 0) f32(11.0, 11.0, 11.0, 11.0)
+write cbv-0 (13) u32(1)
+draw quad
+probe (0, 0) f32(21.0, 21.0, 21.0, 21.0)
+
+[pixel-shader fail(sm<4) todo(sm<4)]
+float x[2][2];
+uint i;
+
+float4 main() : sv_target
+{
+    float a[2][2] = x;
+    a[i][i]++;
+
+    a[0][0] = a[0][0];
+    float t = a[0][1];
+    a[0][1] = a[1][0];
+    a[1][0] = t;
+
+    return a[i][0];
+}
+
+[test]
+write cbv-0  (0) f32(1.0)
+write cbv-0  (4) f32(5.0)
+write cbv-0  (8) f32(7.0)
+write cbv-0 (12) f32(9.0)
+write cbv-0 (13) u32(0)
+draw quad
+probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
+write cbv-0 (13) u32(1)
+draw quad
+probe (0, 0) f32(5.0, 5.0, 5.0, 5.0)
+
 [require]
 shader model < 5.1
 options: backcompat
