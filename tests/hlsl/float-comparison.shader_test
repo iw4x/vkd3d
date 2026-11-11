@@ -63,7 +63,7 @@ if(sm>=4 & sm<6) todo probe (0,0) rgba (1010101.0, 0.0, 1101001.0, 1.0)
 % However the Windows NVIDIA driver incorrectly evalutes ord(NaN, ...),
 % and the Windows AMD driver incorrectly simplifies the negation before the comparison anyway.
 % Fortunately at least WARP seems to get this right.
-if(sm>=6 & !windows | sm>=6 & warp) probe (0,0) f32(1010101.0, 11110000.0, 1101001.0, 1.0)
+if(sm>=6 & (!windows | warp)) probe (0,0) f32(1010101.0, 11110000.0, 1101001.0, 1.0)
 
 % In shader model 2.0, native compares two numbers for equality checking if (a - b)*(a - b) is
 % positive instead of |a - b|. We check if this causes some changes in behavior for very small and
