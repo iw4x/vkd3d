@@ -311,14 +311,10 @@ float4 main() : sv_target
 [test]
 write cbv-0 (0) u32(0)
 draw quad
-todo(sm<6) probe (0, 0) f32(1.0, 5.0, 0.0, 0.0)
+probe (0, 0) f32(1.0, 5.0, 0.0, 0.0)
 write cbv-0 (0) u32(1)
 draw quad
-todo(sm<6) probe (0, 0) f32(1.0, 0.0, 5.0, 0.0)
-
-% The following tests currently cause the vkd3d HLSL compiler to hang.
-[require]
-shader model >= 6.0
+probe (0, 0) f32(1.0, 0.0, 5.0, 0.0)
 
 % Copy-prop of non-constant derefs must not create a load from a variable that
 % has been written since the propagated value was read.

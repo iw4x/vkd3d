@@ -2904,6 +2904,26 @@ static struct copy_propagation_value *copy_propagation_get_value(const struct co
     return NULL;
 }
 
+/* Checks whether the given component of var is written to after start and before end. */
+static bool copy_propagation_is_written_between(const struct copy_propagation_state *state,
+        const struct hlsl_ir_var *var, unsigned int component, unsigned int start, unsigned int end)
+{
+    for (size_t i = state->scope_count - 1; i < state->scope_count; i--)
+    {
+        struct rb_entry *entry = rb_get(&state->scope_var_defs[i], var);
+        struct copy_propagation_var_def *var_def;
+        struct copy_propagation_value *value;
+
+        if (!entry)
+            continue;
+        var_def = RB_ENTRY_VALUE(entry, struct copy_propagation_var_def, entry);
+        if ((value = copy_propagation_get_value_at_time(&var_def->traces[component], end)))
+            return value->timestamp > start;
+    }
+
+    return false;
+}
+
 static struct copy_propagation_var_def *copy_propagation_create_var_def(struct hlsl_ctx *ctx,
         struct copy_propagation_state *state, struct hlsl_ir_var *var)
 {
@@ -3303,6 +3323,7 @@ static bool copy_propagation_replace_with_deref(struct hlsl_ctx *ctx,
     {
         unsigned int start = base + scale * i;
         struct copy_propagation_value *value;
+        unsigned int x_start, x_count;
         struct hlsl_ir_load *idx;
         uint32_t cur_swizzle = 0;
 
@@ -3383,6 +3404,12 @@ static bool copy_propagation_replace_with_deref(struct hlsl_ctx *ctx,
             }
         }
 
+        if (!hlsl_component_index_range_from_deref(ctx, &idx->src, &x_start, &x_count))
+            goto done;
+
+        if (copy_propagation_is_written_between(state, x, x_start + value->component, idx->node.index, instr->index))
+            goto done;
+
         hlsl_swizzle_set_component(&cur_swizzle, 0, value->component);
 
         for (j = 1; j < instr_component_count; ++j)
@@ -3393,6 +3420,8 @@ static bool copy_propagation_replace_with_deref(struct hlsl_ctx *ctx,
                     start + hlsl_swizzle_get_component(swizzle, j), time)))
                 goto done;
             if (val->node != &idx->node)
+                goto done;
+            if (copy_propagation_is_written_between(state, x, x_start + val->component, idx->node.index, instr->index))
                 goto done;
 
             hlsl_swizzle_set_component(&cur_swizzle, j, val->component);
