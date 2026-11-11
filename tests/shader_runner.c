@@ -377,79 +377,113 @@ static bool check_required_tags(struct shader_runner *runner, const char *line, 
     return true;
 }
 
-static bool check_qualifier_args_conjunction(struct shader_runner *runner,
-        const char *line, const char **const rest, uint32_t *model_mask)
+/* The conditions parsed here use the following grammar:
+ *
+ *     expr    := and ('|' and)*
+ *     and     := unary ('&' unary)*
+ *     unary   := '!' unary | '(' expr ')' | sm-cmp | tag
+ *     sm-cmp  := sm<=V | sm>=V | sm<V | sm=V | sm>V
+ *
+ * This grammar is parsed with a recursive descent parser.
+ */
+
+static bool parse_condition_match(const char **line, const char *token)
 {
-    bool holds = true;
+    size_t len = strlen(token);
 
-    *model_mask = ~0u;
+    while (isspace(**line))
+        ++*line;
 
-    while (*line != ')' && *line != '|')
-    {
-        enum shader_model model;
-        bool match = false;
+    if (strncmp(*line, token, len))
+        return false;
+    *line += len;
 
-        while (isspace(*line))
-            ++line;
+    while (isspace(**line))
+        ++*line;
 
-        if (!strncmp(line, "sm>=", 4))
-        {
-            match = true;
-            line += 4;
-            model = match_shader_model_string(line, &line);
-            *model_mask &= ~((1u << model) - 1);
-            if (runner->shader_model < model)
-                holds = false;
-        }
-        else if (!strncmp(line, "sm<", 3))
-        {
-            match = true;
-            line += 3;
-            model = match_shader_model_string(line, &line);
-            *model_mask &= ((1u << model) - 1);
-            if (runner->shader_model >= model)
-                holds = false;
-        }
-        else if (!strncmp(line, "sm=", 3))
-        {
-            match = true;
-            line += 3;
-            model = match_shader_model_string(line, &line);
-            *model_mask &= 1u << model;
-            if (runner->shader_model != model)
-                holds = false;
-        }
-        else
-        {
-            match = match_shader_runner_tag(runner, line, &line, &holds);
-        }
-
-        while (isspace(*line))
-            ++line;
-
-        if (match && *line == '&')
-        {
-            ++line;
-        }
-        else if (*line != ')' && *line != '|')
-        {
-            fatal_error("Invalid qualifier argument '%s'.\n", line);
-        }
-    }
-
-    assert(*line == ')' || *line == '|');
-    if (rest)
-        *rest = line;
-
-    return holds;
+    return true;
 }
 
-static bool check_qualifier_args(struct shader_runner *runner,
-        const char *line, const char **const rest, uint32_t *model_mask)
+static void parse_condition_expect(const char **line, const char *token)
 {
-    bool first = true;
-    bool holds = false;
+    if (!parse_condition_match(line, token))
+        fatal_error("Expected '%s'.\n", token);
+}
 
+static uint32_t parse_condition_expr(struct shader_runner *runner, const char **line);
+
+static uint32_t parse_condition_shader_model(const char **line)
+{
+    static const char *ops[] = {"<=", ">=", "<", "=", ">"};
+    enum shader_model model;
+    const char *op = NULL;
+
+    for (unsigned int i = 0; i < ARRAY_SIZE(ops); ++i)
+    {
+        if (parse_condition_match(line, ops[i]))
+        {
+            op = ops[i];
+            break;
+        }
+    }
+    if (!op)
+        fatal_error("Expected one of '<=', '>=', '<', '=', or '>' after 'sm'.\n");
+
+    model = match_shader_model_string(*line, line);
+
+    if (!strcmp(op, "<=") || !strcmp(op, ">"))
+        ++model;
+
+    if (op[0] == '<')
+        return (1u << model) - 1;
+    else if (op[0] == '=')
+        return 1u << model;
+    else /* '>' */
+        return ~((1u << model) - 1);
+}
+
+static uint32_t parse_condition_unary(struct shader_runner *runner, const char **line)
+{
+    bool holds = true;
+    uint32_t mask;
+
+    if (parse_condition_match(line, "!"))
+        return ~parse_condition_unary(runner, line);
+    if (parse_condition_match(line, "("))
+    {
+        mask = parse_condition_expr(runner, line);
+        parse_condition_expect(line, ")");
+        return mask;
+    }
+    if (parse_condition_match(line, "sm"))
+        return parse_condition_shader_model(line);
+    if (match_shader_runner_tag(runner, *line, line, &holds))
+        return holds ? ~0u : 0;
+
+    fatal_error("Invalid condition '%s'.\n", *line);
+}
+
+static uint32_t parse_condition_and(struct shader_runner *runner, const char **line)
+{
+    uint32_t mask = parse_condition_unary(runner, line);
+
+    while (parse_condition_match(line, "&"))
+        mask &= parse_condition_unary(runner, line);
+    return mask;
+}
+
+static uint32_t parse_condition_expr(struct shader_runner *runner, const char **line)
+{
+    uint32_t mask = parse_condition_and(runner, line);
+
+    while (parse_condition_match(line, "|"))
+        mask |= parse_condition_and(runner, line);
+    return mask;
+}
+
+static bool check_qualifier_args(struct shader_runner *runner, const char *line,
+        const char **const rest, uint32_t *model_mask)
+{
     if (*line != '(')
     {
         *model_mask = ~0u;
@@ -457,25 +491,13 @@ static bool check_qualifier_args(struct shader_runner *runner,
     }
     ++line;
 
-    *model_mask = 0;
+    *model_mask = parse_condition_expr(runner, &line);
+    parse_condition_expect(&line, ")");
 
-    while (*line != ')')
-    {
-        uint32_t sub_mask;
-
-        if (!first && *line == '|')
-            ++line;
-        first = false;
-
-        holds = check_qualifier_args_conjunction(runner, line, &line, &sub_mask) || holds;
-        *model_mask |= sub_mask;
-    }
-
-    assert(*line == ')');
     if (rest)
-        *rest = line + 1;
+        *rest = line;
 
-    return holds;
+    return *model_mask & (1u << runner->shader_model);
 }
 
 static bool match_string_generic(struct shader_runner *runner, const char *line,
