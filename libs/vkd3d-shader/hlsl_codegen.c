@@ -3362,7 +3362,7 @@ static bool copy_propagation_replace_with_deref(struct hlsl_ctx *ctx,
                 c[k] = ix - d[k];
                 d[k] = ix - c[k] * i;
 
-                if (c[k] && type->class == HLSL_CLASS_STRUCT)
+                if (c[k] && (type->class == HLSL_CLASS_STRUCT || type->class == HLSL_CLASS_VECTOR))
                     goto done;
 
                 type = hlsl_get_element_type_from_path_index(ctx, type, idx->src.path[k].node);

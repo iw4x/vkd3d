@@ -240,11 +240,11 @@ write cbv-0 (0) f32(1.0, 2.0, inf, 0.0)
 if(sm<4)  write cbv-0 (4) f32(0)
 if(sm>=4) write cbv-0 (4) u32(0)
 draw quad
-todo(sm>=4 & sm<6) probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 if(sm<4)  write cbv-0 (4) f32(1)
 if(sm>=4) write cbv-0 (4) u32(1)
 draw quad
-todo(sm>=4 & sm<6) probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
+probe (0, 0) f32(2.0, 2.0, 2.0, 2.0)
 
 [pixel-shader]
 row_major float2x3 m;
@@ -263,11 +263,11 @@ write cbv-0 (4) f32(3.0, 4.0, inf, 0.0)
 if(sm<4)  write cbv-0 (8) f32(0)
 if(sm>=4) write cbv-0 (7) u32(0)
 draw quad
-todo(sm>=4 & sm<6 & vulkan | sm>=4 & sm<6 & d3d12 | sm>=4 & sm<6 & radeonsi & mesa<26.2 | sm>=4 & sm<6 & llvmpipe) probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
+probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
 if(sm<4)  write cbv-0 (8) f32(1)
 if(sm>=4) write cbv-0 (7) u32(1)
 draw quad
-todo(sm>=4 & sm<6 & vulkan | sm>=4 & sm<6 & d3d12 | sm>=4 & sm<6 & radeonsi & mesa<26.2 | sm>=4 & sm<6 & llvmpipe) probe (0, 0) f32(3.0, 2.0, 0.0, 0.0)
+probe (0, 0) f32(3.0, 2.0, 0.0, 0.0)
 
 [pixel-shader]
 column_major float3x2 m;
@@ -286,11 +286,11 @@ write cbv-0 (4) f32(2.0, 4.0, inf, 0.0)
 if(sm<4)  write cbv-0 (8) f32(0)
 if(sm>=4) write cbv-0 (7) u32(0)
 draw quad
-todo(sm>=4 & sm<6 & vulkan | sm>=4 & sm<6 & d3d12 | sm>=4 & sm<6 & radeonsi & mesa<26.2 | sm>=4 & sm<6 & llvmpipe) probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
+probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
 if(sm<4)  write cbv-0 (8) f32(1)
 if(sm>=4) write cbv-0 (7) u32(1)
 draw quad
-todo(sm>=4 & sm<6 & vulkan | sm>=4 & sm<6 & d3d12 | sm>=4 & sm<6 & radeonsi & mesa<26.2 | sm>=4 & sm<6 & llvmpipe) probe (0, 0) f32(3.0, 2.0, 0.0, 0.0)
+probe (0, 0) f32(3.0, 2.0, 0.0, 0.0)
 
 % Write to the source between a load and a later swizzle of the load.
 [pixel-shader fail(sm<4) todo(sm<4)]
