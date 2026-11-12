@@ -3669,8 +3669,8 @@ static void write_fx_4_object_variable(struct hlsl_ir_var *var, struct fx_write_
     uint32_t name_offset, type_offset;
     struct hlsl_ctx *ctx = fx->ctx;
 
-    if (var->reg_reservation.reg_type)
-        bind_point = var->reg_reservation.reg_index;
+    if (var->reg_reservation.type)
+        bind_point = var->reg_reservation.index;
 
     type_offset = write_var_type(var, fx);
     name_offset = write_string(var->name, fx);
@@ -3767,8 +3767,8 @@ static void write_fx_4_buffer(struct hlsl_buffer *b, struct fx_write_context *fx
 
     shared = fx->child_effect && b->modifiers & HLSL_STORAGE_SHARED;
 
-    if (b->reservation.reg_type)
-        bind_point = b->reservation.reg_index;
+    if (b->reservation.type)
+        bind_point = b->reservation.index;
     if (b->type == HLSL_BUFFER_TEXTURE)
         flags |= IS_TBUFFER;
     if (ctx->profile->major_version == 5 && b->modifiers & HLSL_MODIFIER_SINGLE)

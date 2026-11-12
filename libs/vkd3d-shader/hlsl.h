@@ -463,17 +463,21 @@ struct hlsl_attribute
 
 #define HLSL_ARRAY_ELEMENTS_COUNT_IMPLICIT 0
 
-/* Reservation of a register and/or an offset for objects inside constant buffers, to be used as a
- *   starting point of their allocation. They are available through the register(·) and the
- *   packoffset(·) syntaxes, respectively.
- * The constant buffer offset is measured register components. */
+/* Reservation of a register, to be used as a starting point of their
+ * allocation, available through the register(·) syntax. */
 struct hlsl_reg_reservation
 {
-    char reg_type;
-    unsigned int reg_space, reg_index;
+    char type;
+    unsigned int space, index;
+};
 
-    char offset_type;
-    unsigned int offset_index;
+/* Reservation of an offset for objects inside constant buffers, to be used
+ * as a starting point of their allocation, available through the packoffset(·) syntax.
+ * The constant buffer offset is measured in register components. */
+struct hlsl_packoffset
+{
+    char type;
+    unsigned int index;
 };
 
 union hlsl_constant_value_component
@@ -494,8 +498,11 @@ struct hlsl_ir_var
     struct hlsl_buffer *buffer;
     /* Bitfield for storage modifiers (type modifiers are stored in data_type->modifiers). */
     uint32_t storage_modifiers;
-    /* Optional reservations of registers and/or offsets for variables within constant buffers. */
+    /* Optional reservations of registers. */
     struct hlsl_reg_reservation reg_reservation;
+
+    /* Optional reservation of offset for objects inside constant buffers. */
+    struct hlsl_packoffset offset;
 
     /* Item entry in hlsl_scope.vars. Specifically hlsl_ctx.globals.vars if the variable is global. */
     struct list scope_entry;
@@ -1144,6 +1151,7 @@ struct hlsl_buffer
      * If provided, it should be of type 'b' if type is HLSL_BUFFER_CONSTANT and 't' if type is
      *   HLSL_BUFFER_TEXTURE. */
     struct hlsl_reg_reservation reservation;
+
     /* Scope that contains annotations for this buffer. */
     struct hlsl_scope *annotations;
     /* Item entry for hlsl_ctx.buffers */
@@ -1598,7 +1606,7 @@ static inline unsigned int hlsl_sampler_dim_count(enum hlsl_sampler_dim dim)
 
 static inline bool hlsl_var_has_buffer_offset_register_reservation(struct hlsl_ctx *ctx, const struct hlsl_ir_var *var)
 {
-    return var->reg_reservation.reg_type == 'c' && var->buffer == ctx->globals_buffer;
+    return var->reg_reservation.type == 'c' && var->buffer == ctx->globals_buffer;
 }
 
 static inline bool hlsl_is_comparison_op(enum hlsl_ir_expr_op op)
@@ -1821,7 +1829,7 @@ struct hlsl_ir_node *hlsl_new_uint_constant(struct hlsl_ctx *ctx, unsigned int n
 struct hlsl_ir_node *hlsl_new_null_constant(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc);
 struct hlsl_ir_var *hlsl_new_var(struct hlsl_ctx *ctx, const char *name, struct hlsl_type *type,
         const struct vkd3d_shader_location *loc, const struct hlsl_semantic *semantic, uint32_t modifiers,
-        const struct hlsl_reg_reservation *reg_reservation);
+        const struct hlsl_packoffset *offset, const struct hlsl_reg_reservation *reg_reservation);
 struct hlsl_ir_switch_case *hlsl_new_switch_case(struct hlsl_ctx *ctx, unsigned int value, bool is_default,
         struct hlsl_block *body, const struct vkd3d_shader_location *loc);
 struct hlsl_ir_node *hlsl_new_switch(struct hlsl_ctx *ctx, struct hlsl_ir_node *selector,

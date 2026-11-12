@@ -49,6 +49,7 @@ struct parse_parameter
     const char *name;
     struct hlsl_semantic semantic;
     struct hlsl_reg_reservation reg_reservation;
+    struct hlsl_packoffset offset;
     uint32_t modifiers;
     struct parse_initializer initializer;
 };
@@ -57,6 +58,7 @@ struct parse_colon_attributes
 {
     struct hlsl_semantic semantic;
     struct hlsl_reg_reservation reg_reservation;
+    struct hlsl_packoffset offset;
 };
 
 struct parse_array_sizes
@@ -74,6 +76,7 @@ struct parse_variable_def
     struct parse_array_sizes arrays;
     struct hlsl_semantic semantic;
     struct hlsl_reg_reservation reg_reservation;
+    struct hlsl_packoffset offset;
     struct parse_initializer initializer;
     struct hlsl_scope *annotations;
 
@@ -1184,7 +1187,7 @@ static bool gen_struct_fields(struct hlsl_ctx *ctx, struct parse_fields *fields,
             hlsl_error(ctx, &v->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_SYNTAX, "Illegal initializer on a struct field.");
             cleanup_parse_initializer(&v->initializer);
         }
-        if (v->reg_reservation.offset_type)
+        if (v->offset.type)
             hlsl_error(ctx, &v->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                 "packoffset() is not allowed inside struct definitions.");
         vkd3d_free(v);
@@ -1331,7 +1334,7 @@ static bool add_func_parameter(struct hlsl_ctx *ctx, struct hlsl_func_parameters
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_MODIFIER,
                 "Parameter '%s' is declared as both \"out\" and \"const\".", param->name);
 
-    if (param->reg_reservation.offset_type)
+    if (param->offset.type)
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                 "packoffset() is not allowed on function parameters.");
 
@@ -1348,7 +1351,7 @@ static bool add_func_parameter(struct hlsl_ctx *ctx, struct hlsl_func_parameters
         check_invalid_stream_output_object(ctx, param->type, param->name, loc);
 
     if (!(var = hlsl_new_var(ctx, param->name, param->type, loc, &param->semantic, modifiers,
-            &param->reg_reservation)))
+            &param->offset, &param->reg_reservation)))
         return false;
     var->is_param = 1;
 
@@ -1399,7 +1402,7 @@ static void add_pass(struct hlsl_ctx *ctx, const char *name, struct hlsl_scope *
     struct hlsl_type *type;
 
     type = hlsl_get_type(ctx->globals, "pass", false, false);
-    if (!(var = hlsl_new_var(ctx, name, type, loc, NULL, 0, NULL)))
+    if (!(var = hlsl_new_var(ctx, name, type, loc, NULL, 0, NULL, NULL)))
         return;
     var->annotations = annotations;
 
@@ -1425,7 +1428,7 @@ static void add_technique(struct hlsl_ctx *ctx, const char *name, struct hlsl_sc
     }
 
     type = hlsl_get_type(ctx->globals, typename, false, false);
-    if (!(var = hlsl_new_var(ctx, name, type, loc, NULL, 0, NULL)))
+    if (!(var = hlsl_new_var(ctx, name, type, loc, NULL, 0, NULL, NULL)))
         return;
     var->scope = scope;
     var->annotations = annotations;
@@ -1447,7 +1450,7 @@ static void add_effect_group(struct hlsl_ctx *ctx, const char *name, struct hlsl
     }
 
     type = hlsl_get_type(ctx->globals, "fxgroup", false, false);
-    if (!(var = hlsl_new_var(ctx, name, type, loc, NULL, 0, NULL)))
+    if (!(var = hlsl_new_var(ctx, name, type, loc, NULL, 0, NULL, NULL)))
         return;
     var->scope = scope;
     var->annotations = annotations;
@@ -1460,29 +1463,29 @@ static bool parse_reservation_index(struct hlsl_ctx *ctx, const char *string, un
 {
     char *endptr;
 
-    reservation->reg_type = ascii_tolower(string[0]);
+    reservation->type = ascii_tolower(string[0]);
 
     /* Prior to SM5.1, fxc simply ignored bracket offsets for 'b' types. */
-    if (reservation->reg_type == 'b' && hlsl_version_lt(ctx, 5, 1))
+    if (reservation->type == 'b' && hlsl_version_lt(ctx, 5, 1))
     {
         bracket_offset = 0;
     }
 
     if (string[1] == '\0')
     {
-        reservation->reg_index = bracket_offset;
+        reservation->index = bracket_offset;
         return true;
     }
 
-    reservation->reg_index = strtoul(string + 1, &endptr, 10) + bracket_offset;
+    reservation->index = strtoul(string + 1, &endptr, 10) + bracket_offset;
 
     if (*endptr)
     {
         /* fxc for SM >= 4 treats all parse failures for 'b' types as successes,
          * setting index to -1. It will later fail while validating slot limits. */
-        if (reservation->reg_type == 'b' && hlsl_version_ge(ctx, 4, 0))
+        if (reservation->type == 'b' && hlsl_version_ge(ctx, 4, 0))
         {
-            reservation->reg_index = -1;
+            reservation->index = -1;
             return true;
         }
 
@@ -1499,16 +1502,16 @@ static bool parse_reservation_space(const char *string, uint32_t *space)
     return !ascii_strncasecmp(string, "space", 5) && sscanf(string + 5, "%u", space);
 }
 
-static struct hlsl_reg_reservation parse_packoffset(struct hlsl_ctx *ctx, const char *reg_string,
+static struct hlsl_packoffset parse_packoffset(struct hlsl_ctx *ctx, const char *reg_string,
         const char *swizzle, const struct vkd3d_shader_location *loc)
 {
-    struct hlsl_reg_reservation reservation = {0};
+    struct hlsl_packoffset reservation = {0};
     char *endptr;
 
     if (hlsl_version_lt(ctx, 4, 0))
         return reservation;
 
-    reservation.offset_index = strtoul(reg_string + 1, &endptr, 10);
+    reservation.index = strtoul(reg_string + 1, &endptr, 10);
     if (*endptr)
     {
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
@@ -1516,15 +1519,15 @@ static struct hlsl_reg_reservation parse_packoffset(struct hlsl_ctx *ctx, const 
         return reservation;
     }
 
-    reservation.offset_type = ascii_tolower(reg_string[0]);
-    if (reservation.offset_type != 'c')
+    reservation.type = ascii_tolower(reg_string[0]);
+    if (reservation.type != 'c')
     {
         hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                 "Only 'c' registers are allowed in packoffset().");
         return reservation;
     }
 
-    reservation.offset_index *= 4;
+    reservation.index *= 4;
 
     if (swizzle)
     {
@@ -1533,13 +1536,13 @@ static struct hlsl_reg_reservation parse_packoffset(struct hlsl_ctx *ctx, const 
                     "Invalid packoffset() component \"%s\".", swizzle);
 
         if (swizzle[0] == 'x' || swizzle[0] == 'r')
-            reservation.offset_index += 0;
+            reservation.index += 0;
         else if (swizzle[0] == 'y' || swizzle[0] == 'g')
-            reservation.offset_index += 1;
+            reservation.index += 1;
         else if (swizzle[0] == 'z' || swizzle[0] == 'b')
-            reservation.offset_index += 2;
+            reservation.index += 2;
         else if (swizzle[0] == 'w' || swizzle[0] == 'a')
-            reservation.offset_index += 3;
+            reservation.index += 3;
         else
             hlsl_error(ctx, loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                     "Invalid packoffset() component \"%s\".", swizzle);
@@ -2692,7 +2695,7 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
             && ctx->compile_info.const_global_uniforms)
         type = hlsl_type_clone(ctx, type, 0, HLSL_MODIFIER_CONST);
 
-    if (!(var = hlsl_new_var(ctx, var_name, type, &v->loc, &new_semantic, modifiers, &v->reg_reservation)))
+    if (!(var = hlsl_new_var(ctx, var_name, type, &v->loc, &new_semantic, modifiers, &v->offset, &v->reg_reservation)))
     {
         hlsl_cleanup_semantic(&new_semantic);
         vkd3d_free(var_name);
@@ -2714,7 +2717,7 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
 
     if (var->buffer == ctx->globals_buffer)
     {
-        if (var->reg_reservation.offset_type)
+        if (var->offset.type)
             hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                     "packoffset() is only allowed inside constant buffer declarations.");
     }
@@ -7373,6 +7376,7 @@ static char *take_unqualified_identifier(struct hlsl_ctx *ctx, struct hlsl_ident
     struct parse_if_body if_body;
     enum parse_assign_op assign_op;
     struct hlsl_reg_reservation reg_reservation;
+    struct hlsl_packoffset packoffset;
     struct parse_colon_attributes colon_attributes;
     struct hlsl_semantic semantic;
     enum hlsl_buffer_type buffer_type;
@@ -7626,7 +7630,7 @@ static char *take_unqualified_identifier(struct hlsl_ctx *ctx, struct hlsl_ident
 %destructor { hlsl_func_parameters_cleanup(&$$); } <parameters>
 
 %type <reg_reservation> register_reservation
-%type <reg_reservation> packoffset_reservation
+%type <packoffset> packoffset_reservation
 
 %type <sampler_dim> texture_type texture_ms_type uav_type rov_type
 %type <patch_type> patch_type
@@ -8208,9 +8212,9 @@ func_prototype_no_attrs:
                         "Semantics are not allowed on void functions.");
             }
 
-            if ($7.reg_reservation.reg_type)
+            if ($7.reg_reservation.type)
                 FIXME("Unexpected register reservation for a function.\n");
-            if ($7.reg_reservation.offset_type)
+            if ($7.offset.type)
                 hlsl_error(ctx, &@5, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "packoffset() is not allowed on functions.");
 
@@ -8395,8 +8399,8 @@ colon_attributes:
       %empty
         {
             $$.semantic = (struct hlsl_semantic){0};
-            $$.reg_reservation.reg_type = 0;
-            $$.reg_reservation.offset_type = 0;
+            $$.reg_reservation.type = 0;
+            $$.offset.type = 0;
         }
     | colon_attributes semantic
         {
@@ -8407,12 +8411,12 @@ colon_attributes:
     | colon_attributes register_reservation
         {
             $$ = $1;
-            if ($$.reg_reservation.reg_type)
+            if ($$.reg_reservation.type)
                 hlsl_fixme(ctx, &@2, "Multiple register() reservations.");
 
-            $$.reg_reservation.reg_type = $2.reg_type;
-            $$.reg_reservation.reg_index = $2.reg_index;
-            $$.reg_reservation.reg_space = $2.reg_space;
+            $$.reg_reservation.type = $2.type;
+            $$.reg_reservation.index = $2.index;
+            $$.reg_reservation.space = $2.space;
         }
     | colon_attributes packoffset_reservation
         {
@@ -8424,8 +8428,8 @@ colon_attributes:
             }
             else
             {
-                $$.reg_reservation.offset_type = $2.offset_type;
-                $$.reg_reservation.offset_index = $2.offset_index;
+                $$.offset.type = $2.type;
+                $$.offset.index = $2.index;
             }
         }
 
@@ -8490,7 +8494,7 @@ register_reservation:
             {
                 hlsl_fixme(ctx, &@4, "Reservation shader target %s.", $4);
             }
-            else if (parse_reservation_space($6, &$$.reg_space))
+            else if (parse_reservation_space($6, &$$.space))
             {
                 if (!parse_reservation_index(ctx, $4, 0, &$$))
                     hlsl_error(ctx, &@4, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
@@ -8509,7 +8513,7 @@ register_reservation:
         {
             memset(&$$, 0, sizeof($$));
 
-            if (!parse_reservation_space($9, &$$.reg_space))
+            if (!parse_reservation_space($9, &$$.space))
                 hlsl_error(ctx, &@9, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "Invalid register space reservation '%s'.", $9);
 
@@ -8547,7 +8551,7 @@ register_reservation:
                 hlsl_error(ctx, &@6, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "Invalid register reservation '%s'.", $6);
 
-            if (!parse_reservation_space($8, &$$.reg_space))
+            if (!parse_reservation_space($8, &$$.space))
                 hlsl_error(ctx, &@8, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "Invalid register space reservation '%s'.", $8);
 
@@ -8567,7 +8571,7 @@ register_reservation:
                         "Invalid register reservation '%s'.", $6);
             }
 
-            if (!parse_reservation_space($11, &$$.reg_space))
+            if (!parse_reservation_space($11, &$$.space))
                 hlsl_error(ctx, &@11, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "Invalid register space reservation '%s'.", $11);
 
@@ -8683,6 +8687,7 @@ parameter_decl:
 
             $$.name = $3;
             $$.semantic = $5.semantic;
+            $$.offset = $5.offset;
             $$.reg_reservation = $5.reg_reservation;
 
             memset(&$$.initializer, 0, sizeof($$.initializer));
@@ -9214,6 +9219,7 @@ variable_decl:
             $$->name = $1;
             $$->arrays = $2;
             $$->semantic = $3.semantic;
+            $$->offset = $3.offset;
             $$->reg_reservation = $3.reg_reservation;
             $$->annotations = $4;
         }

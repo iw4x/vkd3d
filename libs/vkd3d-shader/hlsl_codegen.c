@@ -339,7 +339,7 @@ static void prepend_uniform_copy(struct hlsl_ctx *ctx, struct hlsl_block *block,
             return;
 
         if (!(temp = hlsl_new_var(ctx, new_name, uniform->data_type,
-                &uniform->loc, NULL, uniform->storage_modifiers, NULL)))
+                &uniform->loc, NULL, uniform->storage_modifiers, NULL, NULL)))
         {
             vkd3d_free(new_name);
             return;
@@ -514,7 +514,7 @@ static struct hlsl_ir_var *add_semantic_var(struct hlsl_ctx *ctx, struct list *s
     }
     new_semantic.index = index;
     new_semantic.stream_index = stream_index;
-    if (!(ext_var = hlsl_new_var(ctx, new_name, type, loc, &new_semantic, modifiers, NULL)))
+    if (!(ext_var = hlsl_new_var(ctx, new_name, type, loc, &new_semantic, modifiers, NULL, NULL)))
     {
         vkd3d_free(new_name);
         hlsl_cleanup_semantic(&new_semantic);
@@ -7312,13 +7312,13 @@ static void allocate_register_reservations(struct hlsl_ctx *ctx, struct list *ex
         const struct hlsl_reg_reservation *reservation = &var->reg_reservation;
         unsigned int r;
 
-        if (reservation->reg_type)
+        if (reservation->type)
         {
             for (r = 0; r <= HLSL_REGSET_LAST_OBJECT; ++r)
             {
                 if (var->regs[r].allocation_size > 0)
                 {
-                    if (reservation->reg_type != get_regset_name(r))
+                    if (reservation->type != get_regset_name(r))
                     {
                         struct vkd3d_string_buffer *type_string;
 
@@ -7334,8 +7334,8 @@ static void allocate_register_reservations(struct hlsl_ctx *ctx, struct list *ex
                     else
                     {
                         var->regs[r].allocated = true;
-                        var->regs[r].space = reservation->reg_space;
-                        var->regs[r].index = reservation->reg_index;
+                        var->regs[r].space = reservation->space;
+                        var->regs[r].index = reservation->index;
                     }
                 }
             }
@@ -8183,9 +8183,9 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
         if (!var->is_uniform || reg_size == 0)
             continue;
 
-        if (var->reg_reservation.reg_type == 'c')
+        if (var->reg_reservation.type == 'c')
         {
-            unsigned int reg_idx = var->reg_reservation.reg_index;
+            unsigned int reg_idx = var->reg_reservation.index;
             unsigned int i;
 
             VKD3D_ASSERT(reg_size % 4 == 0);
@@ -8709,8 +8709,8 @@ static const struct hlsl_buffer *get_reserved_buffer(struct hlsl_ctx *ctx,
 
     LIST_FOR_EACH_ENTRY(buffer, &ctx->buffers, const struct hlsl_buffer, entry)
     {
-        if (buffer->reservation.reg_type == 'b'
-                && buffer->reservation.reg_space == space && buffer->reservation.reg_index == index)
+        if (buffer->reservation.type == 'b'
+                && buffer->reservation.space == space && buffer->reservation.index == index)
         {
             if (allocated_only && !buffer->reg.allocated)
                 continue;
@@ -8729,14 +8729,14 @@ static void hlsl_calculate_buffer_offset(struct hlsl_ctx *ctx, struct hlsl_ir_va
 
     if (register_reservation)
     {
-        var->buffer_offset = 4 * var->reg_reservation.reg_index;
+        var->buffer_offset = 4 * var->reg_reservation.index;
         var->has_explicit_bind_point = 1;
     }
     else
     {
-        if (var->reg_reservation.offset_type == 'c')
+        if (var->offset.type == 'c')
         {
-            if (var->reg_reservation.offset_index % 4)
+            if (var->offset.index % 4)
             {
                 if (var_class == HLSL_CLASS_MATRIX)
                 {
@@ -8755,14 +8755,14 @@ static void hlsl_calculate_buffer_offset(struct hlsl_ctx *ctx, struct hlsl_ir_va
                 }
                 else if (var_class == HLSL_CLASS_VECTOR)
                 {
-                    unsigned int aligned_offset = hlsl_type_get_sm4_offset(var->data_type, var->reg_reservation.offset_index);
+                    unsigned int aligned_offset = hlsl_type_get_sm4_offset(var->data_type, var->offset.index);
 
-                    if (var->reg_reservation.offset_index != aligned_offset)
+                    if (var->offset.index != aligned_offset)
                         hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                                 "packoffset() reservations with vector types cannot span multiple registers.");
                 }
             }
-            var->buffer_offset = var->reg_reservation.offset_index;
+            var->buffer_offset = var->offset.index;
             var->has_explicit_bind_point = 1;
         }
         else
@@ -8825,10 +8825,10 @@ static void validate_buffer_offsets(struct hlsl_ctx *ctx)
         if (!buffer || buffer == ctx->globals_buffer)
             continue;
 
-        if (var1->reg_reservation.offset_type
-                || var1->reg_reservation.reg_type == 's'
-                || var1->reg_reservation.reg_type == 't'
-                || var1->reg_reservation.reg_type == 'u')
+        if (var1->offset.type
+                || var1->reg_reservation.type == 's'
+                || var1->reg_reservation.type == 't'
+                || var1->reg_reservation.type == 'u')
             buffer->manually_packed_elements = true;
         else
             buffer->automatically_packed_elements = true;
@@ -8904,29 +8904,29 @@ static void allocate_buffers(struct hlsl_ctx *ctx)
         {
             const struct hlsl_reg_reservation *reservation = &buffer->reservation;
 
-            if (reservation->reg_type == 'b')
+            if (reservation->type == 'b')
             {
                 const struct hlsl_buffer *allocated_buffer = get_reserved_buffer(ctx,
-                        reservation->reg_space, reservation->reg_index, true);
+                        reservation->space, reservation->index, true);
                 unsigned int max_index = get_max_cbuffer_reg_index(ctx);
 
-                if (buffer->reservation.reg_index > max_index)
+                if (buffer->reservation.index > max_index)
                     hlsl_error(ctx, &buffer->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                             "Buffer reservation cb%u exceeds target's maximum (cb%u).",
-                            buffer->reservation.reg_index, max_index);
+                            buffer->reservation.index, max_index);
 
                 if (allocated_buffer && allocated_buffer != buffer)
                 {
                     hlsl_error(ctx, &buffer->loc, VKD3D_SHADER_ERROR_HLSL_OVERLAPPING_RESERVATIONS,
                             "Multiple buffers bound to space %u, index %u.",
-                            reservation->reg_space, reservation->reg_index);
+                            reservation->space, reservation->index);
                     hlsl_note(ctx, &allocated_buffer->loc, VKD3D_SHADER_LOG_ERROR,
                             "Buffer %s is already bound to space %u, index %u.",
-                            allocated_buffer->name, reservation->reg_space, reservation->reg_index);
+                            allocated_buffer->name, reservation->space, reservation->index);
                 }
 
-                buffer->reg.space = reservation->reg_space;
-                buffer->reg.index = reservation->reg_index;
+                buffer->reg.space = reservation->space;
+                buffer->reg.index = reservation->index;
                 if (hlsl_version_ge(ctx, 5, 1))
                     buffer->reg.id = id++;
                 else
@@ -8936,7 +8936,7 @@ static void allocate_buffers(struct hlsl_ctx *ctx)
                 TRACE("Allocated reserved %s to space %u, index %u, id %u.\n",
                         buffer->name, buffer->reg.space, buffer->reg.index, buffer->reg.id);
             }
-            else if (!reservation->reg_type)
+            else if (!reservation->type)
             {
                 unsigned int max_index = get_max_cbuffer_reg_index(ctx);
                 while (get_reserved_buffer(ctx, 0, index, false))
@@ -8978,15 +8978,15 @@ static const struct hlsl_ir_var *get_allocated_object(struct hlsl_ctx *ctx, enum
 
     LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, const struct hlsl_ir_var, extern_entry)
     {
-        if (var->reg_reservation.reg_type == get_regset_name(regset)
+        if (var->reg_reservation.type == get_regset_name(regset)
                 && var->data_type->reg_size[regset])
         {
             /* Vars with a reservation prevent non-reserved vars from being
              * bound there even if the reserved vars aren't used. */
-            start = var->reg_reservation.reg_index;
+            start = var->reg_reservation.index;
             count = var->data_type->reg_size[regset];
 
-            if (var->reg_reservation.reg_space != space)
+            if (var->reg_reservation.space != space)
                 continue;
 
             if (!var->regs[regset].allocated && allocated_only)
@@ -14253,7 +14253,7 @@ static struct extern_resource *sm4_get_extern_resources(struct hlsl_ctx *ctx, un
                 extern_resources[*count].buffer = NULL;
 
                 extern_resources[*count].name = name;
-                extern_resources[*count].is_user_packed = !!var->reg_reservation.reg_type;
+                extern_resources[*count].is_user_packed = !!var->reg_reservation.type;
 
                 extern_resources[*count].component_type = component_type;
 
@@ -14301,7 +14301,7 @@ static struct extern_resource *sm4_get_extern_resources(struct hlsl_ctx *ctx, un
                 /* For some reason 5.1 resources aren't marked as
                  * user-packed, but cbuffers still are. */
                 extern_resources[*count].is_user_packed = hlsl_version_lt(ctx, 5, 1)
-                        && !!var->reg_reservation.reg_type;
+                        && !!var->reg_reservation.type;
 
                 extern_resources[*count].component_type = hlsl_type_get_component_type(ctx, var->data_type, 0);
 
@@ -14341,7 +14341,7 @@ static struct extern_resource *sm4_get_extern_resources(struct hlsl_ctx *ctx, un
         extern_resources[*count].buffer = buffer;
 
         extern_resources[*count].name = name;
-        extern_resources[*count].is_user_packed = !!buffer->reservation.reg_type;
+        extern_resources[*count].is_user_packed = !!buffer->reservation.type;
 
         extern_resources[*count].component_type = NULL;
 

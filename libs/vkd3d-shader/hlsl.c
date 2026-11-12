@@ -1585,7 +1585,7 @@ struct hlsl_ir_node *hlsl_new_copy(struct hlsl_ctx *ctx, struct hlsl_ir_node *no
 
 struct hlsl_ir_var *hlsl_new_var(struct hlsl_ctx *ctx, const char *name, struct hlsl_type *type,
         const struct vkd3d_shader_location *loc, const struct hlsl_semantic *semantic, uint32_t modifiers,
-        const struct hlsl_reg_reservation *reg_reservation)
+        const struct hlsl_packoffset *offset, const struct hlsl_reg_reservation *reg_reservation)
 {
     struct hlsl_ir_var *var;
     unsigned int k;
@@ -1596,6 +1596,8 @@ struct hlsl_ir_var *hlsl_new_var(struct hlsl_ctx *ctx, const char *name, struct 
     var->name = name;
     var->data_type = type;
     var->loc = *loc;
+    if (offset)
+        var->offset = *offset;
     if (semantic)
         var->semantic = *semantic;
     var->storage_modifiers = modifiers;
@@ -1643,7 +1645,7 @@ struct hlsl_ir_var *hlsl_new_synthetic_var_named(struct hlsl_ctx *ctx, const cha
 
     if (!(name_copy = hlsl_strdup(ctx, name)))
         return NULL;
-    var = hlsl_new_var(ctx, name_copy, type, loc, NULL, 0, NULL);
+    var = hlsl_new_var(ctx, name_copy, type, loc, NULL, 0, NULL, NULL);
     if (var)
     {
         if (dummy_scope)
