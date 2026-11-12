@@ -1876,7 +1876,7 @@ static enum vkd3d_result resource_access_from_deref(struct hlsl_ctx *ctx, struct
     }
     else
     {
-        for (unsigned int i = 0; i <= deref->path_len; ++i)
+        for (unsigned int i = 0; i < deref->path_len; ++i)
         {
             if (deref_types[i]->class == HLSL_CLASS_UAV || deref_types[i]->class == HLSL_CLASS_TEXTURE)
             {
@@ -1965,7 +1965,7 @@ static struct hlsl_ir_node *lower_resource_stores(struct hlsl_ctx *ctx,
     deref = &store->lhs;
     tgsm = deref->var->is_tgsm;
 
-    if (!tgsm && !(deref->var->is_uniform && deref->path_len))
+    if (!tgsm && !deref->path_len)
         return NULL;
 
     if (resource_access_from_deref(ctx, block, deref, &resource_deref, &resource_type,
