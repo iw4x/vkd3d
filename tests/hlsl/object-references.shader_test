@@ -227,3 +227,54 @@ float4 main(struct apple input) : sv_target
 [test]
 todo draw quad
 todo probe (0, 0) rgba (1.0, 2.0, 3.0, 4.0)
+
+% These tests currently fail with 'Unreachable code reached' in
+% copy-propagation, because these UAV stores are not lowered into resource
+% stores.
+[require]
+shader model >= 6.0
+format r32-float uav-load
+
+% Test stores to references to other UAVs.
+[uav-0]
+format r32-float
+size (buffer, 1)
+0.0
+
+[compute-shader]
+RWBuffer<float> a;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    RWBuffer<float> aa = a;
+
+    aa[0] = 22.0;
+}
+
+[test]
+dispatch 1 1 1
+probe uav-0 (0) f32(22.0)
+
+[compute-shader]
+RWBuffer<float> a;
+static RWBuffer<float> aa = a;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    aa[0] = 33.0;
+}
+
+[test]
+dispatch 1 1 1
+probe uav-0 (0) f32(33.0)
+
+[compute-shader fail]
+    [numthreads(1, 1, 1)]
+void main()
+{
+    RWBuffer<float> aa;
+
+    aa[0] = 33.0;
+}
