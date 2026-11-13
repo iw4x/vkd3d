@@ -292,6 +292,252 @@ probe (20, 10) f32(1.0, 0.0, 0.0, 1.0)
 probe (10, 20) f32(1000.0, 0.0, 0.0, 1.0)
 
 [require]
+% The next tests crash on a paravirtual Metal device.
+!metal-paravirtual
+
+% Test whether varyings are matched by physical layout or by semantic; the
+% result depends on the API:
+%  * for d3d11 matching is done by physical layout, semantics are ignored;
+%  * for d3d9 matching is done by semantic;
+%  * for d3d12 both criteria are required: pixel shader varyings must exist with
+%    the same semantic and in the same physical position in the vertex shader;
+%    however it is not required that all vertex shader varyings exist in the
+%    pixel shader.
+% In all cases, each individual varying in the pixel shader is allowed to be a
+% prefix of the corresponding varying in the vertex shader (i.e., if the VS has
+% float2 then the PS can have a float, but not a float3).
+[input-layout]
+0 r32g32-float SV_POSITION
+
+[vb-0]
+ 1.0  1.0
+-1.0  1.0
+ 1.0 -1.0
+-1.0 -1.0
+
+[vertex-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 data0 : TEXCOORD0;
+    float4 data1 : TEXCOORD1;
+    float2 data2 : TEXCOORD2;
+};
+
+void main(out struct vertex_out x, float4 position : SV_Position)
+{
+    x.position = position;
+    x.data0 = float4(1.0, 2.0, 3.0, 4.0);
+    x.data1 = float4(5.0, 6.0, 7.0, 8.0);
+    x.data2 = float2(9.0, 10.0);
+}
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 data1 : TEXCOORD1;
+    float4 data0 : TEXCOORD0;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return v.data1;
+}
+
+[test]
+todo(d3d9 | d3d12 | mvk & sm<4) fail(d3d12) draw triangle strip 4
+if(sm<4) todo probe (0, 0) f32(5.0, 6.0, 7.0, 8.0)
+if(sm>=4) probe (0, 0) f32(1.0, 2.0, 3.0, 4.0)
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 data0 : TEXCOORD0;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return v.data0;
+}
+
+[test]
+todo(mvk & sm<4) draw triangle strip 4
+todo(sm<4) probe (0, 0) f32(1.0, 2.0, 3.0, 4.0)
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float4 data1 : TEXCOORD1;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return v.data1;
+}
+
+[test]
+todo(d3d9 | d3d12 | mvk & sm<4) fail(d3d12) draw triangle strip 4
+if(sm<4) todo probe (0, 0) f32(5.0, 6.0, 7.0, 8.0)
+if(sm>=4) probe (0, 0) f32(1.0, 2.0, 3.0, 4.0)
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float data0 : TEXCOORD0;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return v.data0;
+}
+
+[test]
+todo(mvk & sm<4 | opengl & nvidia) draw triangle strip 4
+todo(sm<4) probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float1 data0 : TEXCOORD0;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return v.data0;
+}
+
+[test]
+todo(mvk & sm<4 | opengl & nvidia) draw triangle strip 4
+todo(sm<4) probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float2 data1 : TEXCOORD1;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return float4(v.data1, v.data1);
+}
+
+[test]
+todo(d3d12 | mvk & sm<4 | opengl & nvidia) fail(d3d12) draw triangle strip 4
+if(sm<4) todo probe (0, 0) f32(5.0, 6.0, 5.0, 6.0)
+if(sm>=4) probe (0, 0) f32(1.0, 2.0, 1.0, 2.0)
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float2 data0 : TEXCOORD0;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return float4(v.data0, v.data0);
+}
+
+[test]
+todo(mvk & sm<4 | opengl & nvidia) draw triangle strip 4
+todo(sm<4) probe (0, 0) f32(1.0, 2.0, 1.0, 2.0)
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float2 data0 : TEXCOORD0;
+    float2 data1 : TEXCOORD1;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return float4(v.data0, v.data1);
+}
+
+[test]
+todo(d3d12 | mvk & sm<4 | (mvk | msl) & !d3d12 & sm>=6) fail(d3d12) draw triangle strip 4
+if(sm<4) todo probe (0, 0) f32(1.0, 2.0, 5.0, 6.0)
+if(sm>=4) todo(mvk & sm>=6) probe (0, 0) f32(1.0, 2.0, 3.0, 4.0)
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float2 data0 : TEXCOORD0;
+    float3 data1 : TEXCOORD1;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return float4(v.data0, v.data1.xy);
+}
+
+[test]
+todo(mvk & sm<4 | opengl & nvidia) draw triangle strip 4
+todo(sm<4) probe (0, 0) f32(1.0, 2.0, 5.0, 6.0)
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float2 data0 : TEXCOORD0;
+    float data3 : TEXCOORD3;
+    float3 data1 : TEXCOORD1;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return float4(v.data0, v.data1.xy);
+}
+
+[test]
+todo(d3d12 | mvk & sm<4 | msl & sm>=6 | opengl & nvidia) fail(d3d12) draw triangle strip 4
+todo(sm<4) probe (0, 0) f32(1.0, 2.0, 5.0, 6.0)
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float2 data0 : TEXCOORD0;
+    float3 data1 : TEXCOORD1;
+    float3 data2 : TEXCOORD2;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return float4(v.data0, v.data1.xy);
+}
+
+[test]
+todo(d3d12 | mvk & sm<4 | opengl & nvidia) fail(d3d12) draw triangle strip 4
+todo(sm<4) probe (0, 0) f32(1.0, 2.0, 5.0, 6.0)
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float2 data0 : TEXCOORD0;
+    float3 data1 : TEXCOORD1;
+    float3 data2 : TEXCOORD2;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return float4(v.data0, v.data2.xy);
+}
+
+[test]
+todo(d3d12 | mvk | opengl & nvidia) fail(d3d12) draw triangle strip 4
+todo(sm<4 | mvk) probe (0, 0) f32(1.0, 2.0, 9.0, 10.0)
+
+[require]
 shader model >= 4.0
 
 [input-layout]

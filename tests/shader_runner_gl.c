@@ -411,6 +411,9 @@ static bool gl_runner_init(struct gl_runner *runner, enum shading_language langu
         if (strstr((const char *)glGetString(GL_RENDERER), "radeonsi"))
             runner->caps.tags[SHADER_RUNNER_TAG_RADEONSI].present = true;
 
+        if (strstr((const char *)glGetString(GL_RENDERER), "NVIDIA"))
+            runner->caps.tags[SHADER_RUNNER_TAG_NVIDIA].present = true;
+
         runner->caps.tags[SHADER_RUNNER_TAG_MESA].present = get_mesa_version(
             &runner->caps.tags[SHADER_RUNNER_TAG_MESA].major, &runner->caps.tags[SHADER_RUNNER_TAG_MESA].minor,
             &runner->caps.tags[SHADER_RUNNER_TAG_MESA].patch);
@@ -1323,7 +1326,6 @@ static GLuint compile_graphics_shader_program(struct gl_runner *runner, ID3D10Bl
         glAttachShader(program_id, gs_id);
     glLinkProgram(program_id);
     glGetProgramiv(program_id, GL_LINK_STATUS, &status);
-    ok(status, "Failed to link program.\n");
     trace_info_log(program_id, true);
 
     if (gs_id)
@@ -1334,6 +1336,12 @@ static GLuint compile_graphics_shader_program(struct gl_runner *runner, ID3D10Bl
         glDeleteShader(hs_id);
     glDeleteShader(fs_id);
     glDeleteShader(vs_id);
+
+    if (!status)
+    {
+        glDeleteProgram(program_id);
+        program_id = 0;
+    }
 
     return program_id;
 

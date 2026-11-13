@@ -202,25 +202,26 @@ static enum shader_model match_shader_model_string(const char *string, const cha
 
 static const char * const shader_runner_tag_names[SHADER_RUNNER_TAG_COUNT] =
 {
-    [SHADER_RUNNER_TAG_AMD]      = "amd",
-    [SHADER_RUNNER_TAG_D3D11]    = "d3d11",
-    [SHADER_RUNNER_TAG_D3D12]    = "d3d12",
-    [SHADER_RUNNER_TAG_D3D9]     = "d3d9",
-    [SHADER_RUNNER_TAG_GLSL]     = "glsl",
-    [SHADER_RUNNER_TAG_INTEL]    = "intel",
-    [SHADER_RUNNER_TAG_LLVM]     = "llvm",
-    [SHADER_RUNNER_TAG_LLVMPIPE] = "llvmpipe",
-    [SHADER_RUNNER_TAG_MESA]     = "mesa",
-    [SHADER_RUNNER_TAG_MSL]      = "msl",
-    [SHADER_RUNNER_TAG_MVK]      = "mvk",
-    [SHADER_RUNNER_TAG_NVIDIA]   = "nvidia",
-    [SHADER_RUNNER_TAG_OPENGL]   = "opengl",
-    [SHADER_RUNNER_TAG_RADEONSI] = "radeonsi",
-    [SHADER_RUNNER_TAG_RADV]     = "radv",
-    [SHADER_RUNNER_TAG_SPIRV]    = "spirv",
-    [SHADER_RUNNER_TAG_VULKAN]   = "vulkan",
-    [SHADER_RUNNER_TAG_WARP]     = "warp",
-    [SHADER_RUNNER_TAG_WINDOWS]  = "windows",
+    [SHADER_RUNNER_TAG_AMD]               = "amd",
+    [SHADER_RUNNER_TAG_D3D11]             = "d3d11",
+    [SHADER_RUNNER_TAG_D3D12]             = "d3d12",
+    [SHADER_RUNNER_TAG_D3D9]              = "d3d9",
+    [SHADER_RUNNER_TAG_GLSL]              = "glsl",
+    [SHADER_RUNNER_TAG_INTEL]             = "intel",
+    [SHADER_RUNNER_TAG_LLVM]              = "llvm",
+    [SHADER_RUNNER_TAG_LLVMPIPE]          = "llvmpipe",
+    [SHADER_RUNNER_TAG_MESA]              = "mesa",
+    [SHADER_RUNNER_TAG_METAL_PARAVIRTUAL] = "metal-paravirtual",
+    [SHADER_RUNNER_TAG_MSL]               = "msl",
+    [SHADER_RUNNER_TAG_MVK]               = "mvk",
+    [SHADER_RUNNER_TAG_NVIDIA]            = "nvidia",
+    [SHADER_RUNNER_TAG_OPENGL]            = "opengl",
+    [SHADER_RUNNER_TAG_RADEONSI]          = "radeonsi",
+    [SHADER_RUNNER_TAG_RADV]              = "radv",
+    [SHADER_RUNNER_TAG_SPIRV]             = "spirv",
+    [SHADER_RUNNER_TAG_VULKAN]            = "vulkan",
+    [SHADER_RUNNER_TAG_WARP]              = "warp",
+    [SHADER_RUNNER_TAG_WINDOWS]           = "windows",
 };
 
 static bool match_tag(struct shader_runner *runner, enum shader_runner_tag tag, const char **line)
@@ -1654,6 +1655,7 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
 
     runner->is_todo = false;
     runner->is_bug = false;
+    runner->is_fail = false;
 
     while (match)
     {
@@ -1668,6 +1670,12 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         if (match_string_with_args(runner, line, "bug", &line))
         {
             runner->is_bug = true;
+            match = true;
+        }
+
+        if (match_string_with_args(runner, line, "fail", &line))
+        {
+            runner->is_fail = true;
             match = true;
         }
 
@@ -1724,8 +1732,16 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         }
 
         runner->last_render_failed = !runner->ops->dispatch_mesh(runner, x, y, z);
-        todo_if(runner->is_todo) bug_if(runner->is_bug)
-        ok(!runner->last_render_failed, "Dispatch mesh failed.\n");
+        if (runner->is_fail)
+        {
+            todo_if(runner->is_todo) bug_if(runner->is_bug)
+            ok(runner->last_render_failed, "Dispatch mesh unexpectedly succeeded.\n");
+        }
+        else
+        {
+            todo_if(runner->is_todo) bug_if(runner->is_bug)
+            ok(!runner->last_render_failed, "Dispatch mesh failed.\n");
+        }
     }
     else if (match_string(line, "dispatch", &line))
     {
@@ -1736,8 +1752,16 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
             fatal_error("Malformed dispatch arguments '%s'.\n", line);
 
         runner->last_render_failed = !runner->ops->dispatch(runner, x, y, z);
-        todo_if(runner->is_todo) bug_if(runner->is_bug)
-        ok(!runner->last_render_failed, "Dispatch failed.\n");
+        if (runner->is_fail)
+        {
+            todo_if(runner->is_todo) bug_if(runner->is_bug)
+            ok(runner->last_render_failed, "Dispatch unexpectedly succeeded.\n");
+        }
+        else
+        {
+            todo_if(runner->is_todo) bug_if(runner->is_bug)
+            ok(!runner->last_render_failed, "Dispatch failed.\n");
+        }
     }
     else if (match_string(line, "clear", &line))
     {
@@ -1846,8 +1870,16 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         }
 
         runner->last_render_failed = !runner->ops->draw(runner, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST, 3, 1, 0, 0);
-        todo_if(runner->is_todo) bug_if(runner->is_bug)
-        ok(!runner->last_render_failed, "Draw failed.\n");
+        if (runner->is_fail)
+        {
+            todo_if(runner->is_todo) bug_if(runner->is_bug)
+            ok(runner->last_render_failed, "Draw unexpectedly succeeded.\n");
+        }
+        else
+        {
+            todo_if(runner->is_todo) bug_if(runner->is_bug)
+            ok(!runner->last_render_failed, "Draw failed.\n");
+        }
 
         runner->input = input_layout;
     }
@@ -1901,8 +1933,16 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
 
         runner->last_render_failed = !runner->ops->draw(runner, topology,
                 vertex_count, instance_count, first_vertex, first_instance);
-        todo_if(runner->is_todo) bug_if(runner->is_bug)
-        ok(!runner->last_render_failed, "Draw failed.\n");
+        if (runner->is_fail)
+        {
+            todo_if(runner->is_todo) bug_if(runner->is_bug)
+            ok(runner->last_render_failed, "Draw unexpectedly succeeded.\n");
+        }
+        else
+        {
+            todo_if(runner->is_todo) bug_if(runner->is_bug)
+            ok(!runner->last_render_failed, "Draw failed.\n");
+        }
     }
     else if (match_string(line, "copy", &line))
     {
@@ -1929,8 +1969,16 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
             fatal_error("Resource dimensions don't match.\n");
 
         ret = runner->ops->copy(runner, src, dst);
-        todo_if(runner->is_todo) bug_if(runner->is_bug)
-        ok(ret, "Failed to copy resource.\n");
+        if (runner->is_fail)
+        {
+            todo_if(runner->is_todo) bug_if(runner->is_bug)
+            ok(!ret, "Copy unexpectedly succeeded.\n");
+        }
+        else
+        {
+            todo_if(runner->is_todo) bug_if(runner->is_bug)
+            ok(ret, "Copy failed.\n");
+        }
     }
     else if (match_string(line, "probe", &line))
     {
@@ -1942,6 +1990,9 @@ static void parse_test_directive(struct shader_runner *runner, const char *line)
         D3D12_BOX box;
         RECT rect;
         int len;
+
+        if (runner->is_fail)
+            fatal_error("Invalid fail() modifier for a probe command.\n");
 
         if (runner->last_render_failed)
             return;

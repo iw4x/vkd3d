@@ -2256,6 +2256,9 @@ static bool init_vulkan_runner(struct vulkan_shader_runner *runner)
             &device_info.driver_properties, &runner->caps.tags[SHADER_RUNNER_TAG_MVK].major,
             &runner->caps.tags[SHADER_RUNNER_TAG_MVK].minor, &runner->caps.tags[SHADER_RUNNER_TAG_MVK].patch);
 
+    runner->caps.tags[SHADER_RUNNER_TAG_METAL_PARAVIRTUAL].present =
+            !strcmp(device_info.properties2.properties.deviceName, "Apple Paravirtual device");
+
     runner->caps.tags[SHADER_RUNNER_TAG_MESA].present = get_mesa_driver_version(&device_info.properties2.properties,
             &device_info.driver_properties, &runner->caps.tags[SHADER_RUNNER_TAG_MESA].major,
             &runner->caps.tags[SHADER_RUNNER_TAG_MESA].minor, &runner->caps.tags[SHADER_RUNNER_TAG_MESA].patch);

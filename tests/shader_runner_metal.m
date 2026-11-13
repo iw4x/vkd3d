@@ -1393,6 +1393,9 @@ static bool metal_runner_init(struct metal_runner *runner)
 
     runner->caps.tags[SHADER_RUNNER_TAG_MSL].present = true;
 
+    runner->caps.tags[SHADER_RUNNER_TAG_METAL_PARAVIRTUAL].present =
+            !strcmp([[device name] UTF8String], "Apple Paravirtual device");
+
     if (runner->device.readWriteTextureSupport >= MTLReadWriteTextureTier1)
     {
         runner->caps.format_caps[DXGI_FORMAT_R32_UINT] |= FORMAT_CAP_UAV_LOAD;

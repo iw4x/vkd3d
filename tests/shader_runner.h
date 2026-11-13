@@ -200,6 +200,7 @@ enum shader_runner_tag
     SHADER_RUNNER_TAG_LLVM,
     SHADER_RUNNER_TAG_LLVMPIPE,
     SHADER_RUNNER_TAG_MESA,
+    SHADER_RUNNER_TAG_METAL_PARAVIRTUAL,
     SHADER_RUNNER_TAG_MSL,
     SHADER_RUNNER_TAG_MVK,
     SHADER_RUNNER_TAG_NVIDIA,
@@ -291,6 +292,7 @@ struct shader_runner
 
     bool is_todo;
     bool is_bug;
+    bool is_fail;
     bool hlsl_todo[SHADER_MODEL_MAX + 1];
     HRESULT hlsl_hrs[SHADER_MODEL_MAX + 1];
 

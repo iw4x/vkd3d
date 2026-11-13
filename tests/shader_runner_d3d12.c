@@ -475,8 +475,6 @@ static ID3D12PipelineState *create_pipeline(struct d3d12_shader_runner *runner,
 
     hr = ID3D12Device_CreateGraphicsPipelineState(device, &pso_desc,
             &IID_ID3D12PipelineState, (void **)&pso);
-    todo_if(runner->r.is_todo) bug_if(runner->r.is_bug)
-    ok(hr == S_OK, "Failed to create state, hr %#x.\n", hr);
 
     free(input_element_descs);
 
@@ -653,8 +651,6 @@ static ID3D12PipelineState *create_pipeline_device2(struct d3d12_shader_runner *
     pipeline_desc.pPipelineStateSubobjectStream = &pipeline;
 
     hr = ID3D12Device2_CreatePipelineState(device2, &pipeline_desc, &IID_ID3D12PipelineState, (void **)&pso);
-    todo_if(runner->r.is_todo) bug_if(runner->r.is_bug)
-    ok(hr == S_OK, "Failed to create state, hr %#x.\n", hr);
 
     free(input_element_descs);
 
@@ -1381,6 +1377,7 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     runner->caps.tags[SHADER_RUNNER_TAG_MVK].present = get_mvk_device_version(device,
             &runner->caps.tags[SHADER_RUNNER_TAG_MVK].major, &runner->caps.tags[SHADER_RUNNER_TAG_MVK].minor,
             &runner->caps.tags[SHADER_RUNNER_TAG_MVK].patch);
+    runner->caps.tags[SHADER_RUNNER_TAG_METAL_PARAVIRTUAL].present = is_mvk_paravirtualized_device(device);
 
     if (is_llvmpipe_device(device))
         runner->caps.tags[SHADER_RUNNER_TAG_LLVMPIPE].present = true;
