@@ -223,6 +223,77 @@ winbug(amd & d3d12) probe (0, 0) f32(0.0, 1.0, 0.0, 1.0)
 [require]
 shader model >= 4.0
 
+% Test which is the provoking vertex.
+[input-layout]
+0 r32g32-float SV_POSITION
+1 r32-float TEXCOORD
+
+[vb-0]
+ 1.0  1.0
+-1.0  1.0
+ 1.0 -1.0
+-1.0 -1.0
+
+[vb-1]
+1.0
+10.0
+100.0
+1000.0
+
+[vertex-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    float data : TEXCOORD;
+};
+
+void main(inout struct vertex_out x)
+{
+}
+
+[pixel-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+    nointerpolation float data : TEXCOORD;
+};
+
+float4 main(struct vertex_out v) : SV_Target
+{
+    return float4(v.data, 0.0, 0.0, 1.0);
+}
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 1.0)
+draw triangle strip 4
+probe (20, 10) f32(1.0, 0.0, 0.0, 1.0)
+probe (10, 20) f32(10.0, 0.0, 0.0, 1.0)
+
+[vb-0]
+ 1.0  1.0
+-1.0  1.0
+ 1.0 -1.0
+-1.0  1.0
+ 1.0 -1.0
+-1.0 -1.0
+
+[vb-1]
+1.0
+10.0
+100.0
+1000.0
+10000.0
+100000.0
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 1.0)
+draw triangle list 6
+probe (20, 10) f32(1.0, 0.0, 0.0, 1.0)
+probe (10, 20) f32(1000.0, 0.0, 0.0, 1.0)
+
+[require]
+shader model >= 4.0
+
 [input-layout]
 0 r32g32-float SV_POSITION
 0 r32g32-float TEXCOORD 0
