@@ -79,7 +79,10 @@ AS_IF([test "x${GCC}" = "xyes"],
       VKD3D_CHECK_CFLAGS([-Wunused-but-set-parameter])
       VKD3D_CHECK_CFLAGS([-Wvla])
       VKD3D_CHECK_CFLAGS([-Wwrite-strings])
-      VKD3D_CHECK_CFLAGS([-Wl,--no-undefined], [VKD3D_LDFLAGS="$VKD3D_LDFLAGS -Wl,--no-undefined"])])
+      dnl OpenBSD deliberately doesn't link shared libraries with libc; using
+      dnl -Wl,--no-undefined would cause the build to fail in that case.
+      AS_IF([test "${host_os#openbsd}" = "$host_os"],
+            [VKD3D_CHECK_CFLAGS([-Wl,--no-undefined], [VKD3D_LDFLAGS="$VKD3D_LDFLAGS -Wl,--no-undefined"])])])
 
 dnl Avoid -Wimplicit-fallthrough on Clang. It doesn't recognise
 dnl /* fall through */ comments, resulting in a number of superfluous
