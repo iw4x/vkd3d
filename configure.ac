@@ -69,7 +69,6 @@ AS_IF([test "x${GCC}" = "xyes"],
       VKD3D_CHECK_CFLAGS([-Wdeclaration-after-statement])
       VKD3D_CHECK_CFLAGS([-Wempty-body])
       VKD3D_CHECK_CFLAGS([-Wenum-conversion])
-      VKD3D_CHECK_CFLAGS([-Wimplicit-fallthrough])
       VKD3D_CHECK_CFLAGS([-Winit-self])
       VKD3D_CHECK_CFLAGS([-Wmissing-prototypes])
       VKD3D_CHECK_CFLAGS([-Wpointer-arith])
@@ -80,6 +79,15 @@ AS_IF([test "x${GCC}" = "xyes"],
       VKD3D_CHECK_CFLAGS([-Wvla])
       VKD3D_CHECK_CFLAGS([-Wwrite-strings])
       VKD3D_CHECK_CFLAGS([-Wl,--no-undefined])])
+
+dnl Avoid -Wimplicit-fallthrough on Clang. It doesn't recognise
+dnl /* fall through */ comments, resulting in a number of superfluous
+dnl warnings.
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#ifndef __clang__
+                                    #error "Not Clang"
+                                    #endif])],
+                  [],
+                  [VKD3D_CHECK_CFLAGS([-Wimplicit-fallthrough])])
 
 dnl Check for cross compilers
 VKD3D_CHECK_MINGW32_PROG([CROSSCC32], [CROSSTARGET32], [no])
