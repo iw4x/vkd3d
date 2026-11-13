@@ -61,6 +61,7 @@ gl_LD_VERSION_SCRIPT
 
 dnl Check compiler specific flags
 AC_SUBST([VKD3D_CFLAGS])
+AC_SUBST([VKD3D_LDFLAGS])
 AS_IF([test "x${GCC}" = "xyes"],
       [VKD3D_CFLAGS="-Wall -pipe -D_WIN32_WINNT=0x0600"
       VKD3D_CHECK_CFLAGS([-std=c99])
@@ -78,7 +79,7 @@ AS_IF([test "x${GCC}" = "xyes"],
       VKD3D_CHECK_CFLAGS([-Wunused-but-set-parameter])
       VKD3D_CHECK_CFLAGS([-Wvla])
       VKD3D_CHECK_CFLAGS([-Wwrite-strings])
-      VKD3D_CHECK_CFLAGS([-Wl,--no-undefined])])
+      VKD3D_CHECK_CFLAGS([-Wl,--no-undefined], [VKD3D_LDFLAGS="$VKD3D_LDFLAGS -Wl,--no-undefined"])])
 
 dnl Avoid -Wimplicit-fallthrough on Clang. It doesn't recognise
 dnl /* fall through */ comments, resulting in a number of superfluous

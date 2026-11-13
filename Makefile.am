@@ -1,7 +1,7 @@
 ACLOCAL_AMFLAGS = -I m4
 AM_CFLAGS = @VKD3D_CFLAGS@
 AM_CPPFLAGS = -I$(srcdir)/include -I$(srcdir)/include/private -I$(builddir)/include/private
-AM_LDFLAGS = -no-undefined
+AM_LDFLAGS = @VKD3D_LDFLAGS@ -no-undefined
 VKD3D_PERL = $(PERL) -w
 
 objc_headers = \
