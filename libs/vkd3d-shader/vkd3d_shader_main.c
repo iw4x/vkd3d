@@ -31,7 +31,7 @@ float vkd3d_parse_float(const char *s, vkd3d_locale l)
 #elif HAVE__STRTOD_L
     return _strtod_l(s, NULL, l);
 #else
-#warning "Neither strtof_l() no strtod_l() is available, using strtof()."
+#warning "Neither strtof_l() nor strtod_l() is available, using strtof()."
     return strtof(s, NULL);
 #endif
 }
