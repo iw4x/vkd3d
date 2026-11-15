@@ -974,6 +974,7 @@ enum vkd3d_shader_type
     VKD3D_SHADER_TYPE_TEXTURE,
     VKD3D_SHADER_TYPE_LIBRARY,
     VKD3D_SHADER_TYPE_COUNT,
+    VKD3D_SHADER_TYPE_UNSPECIFIED = -1,
 };
 
 struct vkd3d_shader_message_context;

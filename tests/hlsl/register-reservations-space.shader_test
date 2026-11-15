@@ -55,8 +55,7 @@ float4 main() : sv_target
 draw quad
 probe (0, 0) rgba (1, 1, 1, 99)
 
-
-[pixel shader fail todo]
+[pixel-shader fail]
 Texture2D tex1 : register(space0, t1);
 
 float4 main() : sv_target
@@ -92,7 +91,7 @@ probe (0, 0) f32(0, 0, 0, 99)
 % Specifying a profile is just broken. The first reservation (or, with sm6, the
 % last) is taken regardless of whether it actually matches the current profile.
 
-[pixel shader todo]
+[pixel-shader]
 Texture2D tex1 : register(vs, t1, space0) : register(ps, t2, space0);
 
 float4 main() : sv_target
@@ -101,13 +100,13 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm>=6) probe (0,0) f32(2, 2, 2, 99)
 if(sm<6)  probe (0,0) f32(1, 1, 1, 99)
 
 % Same as above, but with bracket exprs, which are ignored in SM>=6.
 
-[pixel shader todo]
+[pixel-shader]
 Texture2D tex1 : register(vs, t[1], space0) : register(ps, t[2], space0);
 
 float4 main() : sv_target
@@ -116,13 +115,13 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm>=6) probe (0, 0) f32(0, 0, 0, 99)
 if(sm<6) probe (0, 0) f32(1, 1, 1, 99)
 
 % This actually inheres to 5.1+; it doesn't matter whether "space" is specified.
 
-[pixel shader todo]
+[pixel-shader]
 Texture2D tex1 : register(vs, t1) : register(ps, t2);
 
 float4 main() : sv_target
@@ -131,14 +130,14 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm>=6) probe (0,0) f32(2, 2, 2, 99)
 if(sm<6)  probe (0,0) f32(1, 1, 1, 99)
 
 % It's still illegal to specify multiple contradictory reservations with the
 % same profile...
 
-[pixel shader fail todo]
+[pixel-shader fail]
 Texture2D tex1 : register(vs, t1) : register(vs, t2);
 
 float4 main() : sv_target
@@ -149,7 +148,7 @@ float4 main() : sv_target
 
 % ...but it's not illegal to specify e.g. ps alongside ps_5_1.
 
-[pixel shader todo]
+[pixel-shader]
 Texture2D tex1 : register(ps, t1) : register(ps_5_1, t2);
 
 float4 main() : sv_target
@@ -158,7 +157,7 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm>=6) probe (0,0) f32(2, 2, 2, 99)
 if(sm<6)  probe (0,0) f32(1, 1, 1, 99)
 

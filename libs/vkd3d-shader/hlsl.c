@@ -226,6 +226,7 @@ void hlsl_free_var(struct hlsl_ir_var *decl)
     for (i = 0; i < decl->state_block_count; ++i)
         hlsl_free_state_block(decl->state_blocks[i]);
     vkd3d_free(decl->state_blocks);
+    vkd3d_free(decl->reservations.list);
 
     vkd3d_free(decl);
 }
@@ -1585,7 +1586,7 @@ struct hlsl_ir_node *hlsl_new_copy(struct hlsl_ctx *ctx, struct hlsl_ir_node *no
 
 struct hlsl_ir_var *hlsl_new_var(struct hlsl_ctx *ctx, const char *name, struct hlsl_type *type,
         const struct vkd3d_shader_location *loc, const struct hlsl_semantic *semantic, uint32_t modifiers,
-        const struct hlsl_packoffset *offset, const struct hlsl_reg_reservation *reg_reservation)
+        const struct hlsl_packoffset *offset, struct hlsl_reg_reservation_list *reservations)
 {
     struct hlsl_ir_var *var;
     unsigned int k;
@@ -1601,8 +1602,8 @@ struct hlsl_ir_var *hlsl_new_var(struct hlsl_ctx *ctx, const char *name, struct 
     if (semantic)
         var->semantic = *semantic;
     var->storage_modifiers = modifiers;
-    if (reg_reservation)
-        var->reg_reservation = *reg_reservation;
+    if (reservations)
+        var->reservations = *reservations;
 
     for (k = 0; k <= HLSL_REGSET_LAST_OBJECT; ++k)
     {
@@ -1615,6 +1616,7 @@ struct hlsl_ir_var *hlsl_new_var(struct hlsl_ctx *ctx, const char *name, struct 
         {
             for (i = 0; i < k; ++i)
                 vkd3d_free(var->objects_usage[i]);
+            vkd3d_free(var->reservations.list);
             vkd3d_free(var);
             return NULL;
         }
@@ -5711,4 +5713,36 @@ struct hlsl_ir_function_decl *hlsl_compile_internal_function(struct hlsl_ctx *ct
     func = hlsl_get_first_func_decl(ctx, internal_name->buffer);
     hlsl_release_string_buffer(ctx, internal_name);
     return func;
+}
+
+const struct hlsl_reg_reservation *hlsl_ir_var_get_current_reservation(const struct hlsl_ir_var *var,
+        struct hlsl_ctx *ctx)
+{
+    const struct hlsl_reg_reservation *reservation, *ret = NULL;
+
+    for (size_t i = 0; i < var->reservations.count; ++i)
+    {
+        reservation = &var->reservations.list[i];
+
+        if (hlsl_version_ge(ctx, 5, 1))
+            return reservation;
+
+        if (reservation->shader_type != VKD3D_SHADER_TYPE_UNSPECIFIED && reservation->shader_type != ctx->profile->type)
+            continue;
+
+        if (reservation->profile && reservation->profile != ctx->profile)
+            continue;
+
+        if (ret)
+        {
+            hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
+                    "Conflicting register reservations: '%c%u' '%c%u'.",
+                    reservation->type, reservation->index, ret->type, ret->index);
+            return NULL;
+        }
+
+        ret = reservation;
+    }
+
+    return ret;
 }

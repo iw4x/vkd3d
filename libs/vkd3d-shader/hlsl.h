@@ -465,10 +465,17 @@ struct hlsl_attribute
 
 /* Reservation of a register, to be used as a starting point of their
  * allocation, available through the register(·) syntax. */
-struct hlsl_reg_reservation
+struct hlsl_reg_reservation_list
 {
-    char type;
-    unsigned int space, index;
+    struct hlsl_reg_reservation
+    {
+        enum vkd3d_shader_type shader_type;
+        const struct hlsl_profile_info *profile;
+
+        char type;
+        unsigned int space, index;
+    } *list;
+    size_t count;
 };
 
 /* Reservation of an offset for objects inside constant buffers, to be used
@@ -499,7 +506,7 @@ struct hlsl_ir_var
     /* Bitfield for storage modifiers (type modifiers are stored in data_type->modifiers). */
     uint32_t storage_modifiers;
     /* Optional reservations of registers. */
-    struct hlsl_reg_reservation reg_reservation;
+    struct hlsl_reg_reservation_list reservations;
 
     /* Optional reservation of offset for objects inside constant buffers. */
     struct hlsl_packoffset offset;
@@ -1604,10 +1611,8 @@ static inline unsigned int hlsl_sampler_dim_count(enum hlsl_sampler_dim dim)
     }
 }
 
-static inline bool hlsl_var_has_buffer_offset_register_reservation(struct hlsl_ctx *ctx, const struct hlsl_ir_var *var)
-{
-    return var->reg_reservation.type == 'c' && var->buffer == ctx->globals_buffer;
-}
+const struct hlsl_reg_reservation *hlsl_ir_var_get_current_reservation(const struct hlsl_ir_var *var,
+        struct hlsl_ctx *ctx);
 
 static inline bool hlsl_is_comparison_op(enum hlsl_ir_expr_op op)
 {
@@ -1829,7 +1834,7 @@ struct hlsl_ir_node *hlsl_new_uint_constant(struct hlsl_ctx *ctx, unsigned int n
 struct hlsl_ir_node *hlsl_new_null_constant(struct hlsl_ctx *ctx, const struct vkd3d_shader_location *loc);
 struct hlsl_ir_var *hlsl_new_var(struct hlsl_ctx *ctx, const char *name, struct hlsl_type *type,
         const struct vkd3d_shader_location *loc, const struct hlsl_semantic *semantic, uint32_t modifiers,
-        const struct hlsl_packoffset *offset, const struct hlsl_reg_reservation *reg_reservation);
+        const struct hlsl_packoffset *offset, struct hlsl_reg_reservation_list *reservations);
 struct hlsl_ir_switch_case *hlsl_new_switch_case(struct hlsl_ctx *ctx, unsigned int value, bool is_default,
         struct hlsl_block *body, const struct vkd3d_shader_location *loc);
 struct hlsl_ir_node *hlsl_new_switch(struct hlsl_ctx *ctx, struct hlsl_ir_node *selector,

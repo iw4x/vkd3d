@@ -18,7 +18,7 @@ size (2d, 1, 1)
 size (2d, 1, 1)
 2.0 2.0 2.0 99.0
 
-[pixel-shader todo]
+[pixel-shader]
 Texture2D tex1 : register(vs, t1);
 
 float4 main() : sv_target
@@ -27,12 +27,12 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 % sm5.1 and sm6 seem to ignore profile qualifiers entirely.
 if(sm>=5.1) probe (0,0) f32(1, 1, 1, 99)
 if(sm<5.1)  probe (0,0) f32(0, 0, 0, 99)
 
-[pixel-shader todo]
+[pixel-shader]
 Texture2D tex1 : register(cs, t1);
 
 float4 main() : sv_target
@@ -41,11 +41,11 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm>=5.1) probe (0,0) f32(1, 1, 1, 99)
 if(sm<5.1)  probe (0,0) f32(0, 0, 0, 99)
 
-[pixel-shader todo]
+[pixel-shader]
 Texture2D tex1 : register(ps, t1);
 
 float4 main() : sv_target
@@ -54,10 +54,10 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 probe (0, 0) f32(1, 1, 1, 99)
 
-[pixel-shader fail todo]
+[pixel-shader fail]
 Texture2D tex1 : register(PS, t1);
 
 float4 main() : sv_target
@@ -65,7 +65,7 @@ float4 main() : sv_target
     return tex1.Load(int3(0, 0, 0));
 }
 
-[pixel-shader fail todo]
+[pixel-shader fail]
 Texture2D tex1 : register(qs, t1);
 
 float4 main() : sv_target
@@ -81,7 +81,7 @@ float4 main() : sv_target
     return tex1.Load(int3(0, 0, 0));
 }
 
-[pixel-shader fail(sm<6) todo]
+[pixel-shader fail(sm<6)]
 Texture2D tex1 : register(ps_4, t1);
 
 float4 main() : sv_target
@@ -93,7 +93,7 @@ float4 main() : sv_target
 draw quad
 probe (0, 0) f32(1, 1, 1, 99)
 
-[pixel-shader todo]
+[pixel-shader]
 Texture2D tex1 : register(ps_4_0, t1);
 
 float4 main() : sv_target
@@ -102,7 +102,7 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm=4.0 | sm>=5.1) probe (0, 0) f32(1, 1, 1, 99)
 if(sm>=4.1 & sm<5.1) probe (0, 0) f32(0, 0, 0, 99)
 
@@ -114,7 +114,7 @@ float4 main() : sv_target
     return tex1.Load(int3(0, 0, 0));
 }
 
-[pixel-shader todo]
+[pixel-shader]
 Texture2D tex1 : register(ps_4_1, t1);
 
 float4 main() : sv_target
@@ -123,12 +123,12 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm=4.1 | sm>=5.1) probe (0,0) f32(1, 1, 1, 99)
 if(sm=4.0 | sm=5.0)  probe (0,0) f32(0, 0, 0, 99)
 
 % sm5.1 seems to accept the first reservation, and sm6 the last.
-[pixel-shader todo]
+[pixel-shader]
 Texture2D tex1 : register(ps_4_1, t1) : register(ps_4_0, t2);
 
 float4 main() : sv_target
@@ -137,7 +137,7 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm=4.0 | sm>=6.0) probe (0, 0) f32(2, 2, 2, 99)
 if(sm=4.1 | sm=5.1) probe (0, 0) f32(1, 1, 1, 99)
 if(sm=5.0) probe (0, 0) f32(0, 0, 0, 99)
@@ -151,7 +151,7 @@ if(sm=5.0) probe (0, 0) f32(0, 0, 0, 99)
 % reservation is given, but if two different reservations are given it instead
 % just picks the last one, without regard to version.
 
-[pixel-shader fail(sm>=5.0 & sm<5.1) todo]
+[pixel-shader fail(sm>=5.0 & sm<5.1)]
 Texture2D tex1 : register(ps, t1) : register(ps_5_0, t2);
 
 float4 main() : sv_target
@@ -160,11 +160,11 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm>=6) probe (0,0) f32(2, 2, 2, 99)
 if(sm<6)  probe (0,0) f32(1, 1, 1, 99)
 
-[pixel-shader fail(sm<4.1) todo]
+[pixel-shader fail(sm<4.1)]
 Texture2D tex1 : register(ps, t1) : register(ps_4_0, t2);
 
 float4 main() : sv_target
@@ -173,11 +173,11 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm>=6) probe (0,0) f32(2, 2, 2, 99)
 if(sm<6)  probe (0,0) f32(1, 1, 1, 99)
 
-[pixel-shader fail(sm<4.1) todo]
+[pixel-shader fail(sm<4.1)]
 Texture2D tex1 : register(ps_4_0, t1) : register(ps, t2);
 
 float4 main() : sv_target
@@ -186,11 +186,11 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm=5.1) probe (0, 0) f32(1, 1, 1, 99)
 if(sm<5.1 | sm>=6.0) probe (0, 0) f32(2, 2, 2, 99)
 
-[pixel-shader fail(sm<6) todo]
+[pixel-shader fail(sm<6)]
 Texture2D tex1 : register(ps_6_0, t1) : register(ps, t2);
 
 float4 main() : sv_target
@@ -202,7 +202,7 @@ float4 main() : sv_target
 draw quad
 probe (0, 0) f32(2, 2, 2, 99)
 
-[pixel-shader fail(sm<4.1 | sm>=6) todo]
+[pixel-shader fail(sm<4.1 | sm>=6)]
 Texture2D tex1 : register(ps_4_0, t1) : register(t2);
 
 float4 main() : sv_target
@@ -222,7 +222,7 @@ float4 main() : sv_target
 % It's also illegal to specify contradictory register reservations with the
 % *same* profile, even if they aren't the current one.
 
-[pixel-shader fail todo]
+[pixel-shader fail]
 Texture2D tex1 : register(vs_4_0, t1) : register(vs_4_0, t2);
 
 float4 main() : sv_target
@@ -230,7 +230,7 @@ float4 main() : sv_target
     return tex1.Load(int3(0, 0, 0));
 }
 
-[pixel-shader fail todo]
+[pixel-shader fail]
 Texture2D tex1 : register(vs, t1) : register(vs, t2);
 
 float4 main() : sv_target
@@ -241,7 +241,7 @@ float4 main() : sv_target
 
 % Specifying the same reservation twice is fine, though.
 
-[pixel-shader todo]
+[pixel-shader]
 Texture2D tex1 : register(ps, t1) : register(ps, t1);
 
 float4 main() : sv_target
@@ -250,12 +250,12 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 probe (0, 0) f32(1, 1, 1, 99)
 
 % Bracket exprs should still parse correctly.
 
-[pixel-shader todo]
+[pixel-shader]
 Texture2D tex1 : register(ps, t[1]);
 
 float4 main() : sv_target
@@ -264,7 +264,7 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm>=6) probe (0, 0) f32(0, 0, 0, 99)
 if(sm<6) probe (0, 0) f32(1, 1, 1, 99)
 
@@ -284,7 +284,7 @@ todo draw quad
 probe (0, 0) f32(1.0, 1.0, 1.0, 1.0)
 
 % Almost any profile with or without version is valid.
-[pixel-shader todo]
+[pixel-shader]
 Texture2D tex : register(ps_3_0, t1) : register(ps_4_0, t1)
         : register(ps_5_1, t1) : register(ds_5_1, t1)
         : register(cs_4_0, t1) : register(cs, t1)
@@ -297,11 +297,11 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 if(sm=4.0 | sm=5.1) probe (0, 0) f32(1, 1, 1, 99)
 if(sm=4.1 | sm=5.0 | sm>=6.0) probe (0, 0) f32(0, 0, 0, 99)
 
-[vertex-shader todo(sm<6)]
+[vertex-shader]
 Texture2D tex : register(vs_4_0, t1) : register(ps_4_0, t2);
 
 void main(float4 p : POSITION, out float4 res : TEXCOORD, out float4 out_p : SV_POSITION)
@@ -317,7 +317,7 @@ float4 main(float4 res : TEXCOORD, float4 pos : SV_POSITION) : SV_TARGET
 }
 
 [test]
-todo(sm<6) draw quad
+draw quad
 % For some reason, when executing with d3d11, the result here is f32(0, 0, 0, 0).
 if(sm=4.1 | sm=5.0) winbug(d3d11) probe (0, 0) f32(0, 0, 0, 99)
 if(sm=4.0 | sm=5.1) winbug(d3d11) probe (0, 0) f32(1, 1, 1, 99)

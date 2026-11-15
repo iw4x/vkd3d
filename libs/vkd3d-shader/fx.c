@@ -3665,12 +3665,13 @@ static void write_fx_4_object_variable(struct hlsl_ir_var *var, struct fx_write_
     const struct hlsl_type *type = hlsl_get_multiarray_element_type(var->data_type);
     uint32_t elements_count = hlsl_get_multiarray_size(var->data_type);
     struct vkd3d_bytecode_buffer *buffer = &fx->structured;
+    const struct hlsl_reg_reservation *reservation;
     uint32_t semantic_offset, bind_point = ~0u;
     uint32_t name_offset, type_offset;
     struct hlsl_ctx *ctx = fx->ctx;
 
-    if (var->reg_reservation.type)
-        bind_point = var->reg_reservation.index;
+    if ((reservation = hlsl_ir_var_get_current_reservation(var, ctx)))
+        bind_point = reservation->index;
 
     type_offset = write_var_type(var, fx);
     name_offset = write_string(var->name, fx);

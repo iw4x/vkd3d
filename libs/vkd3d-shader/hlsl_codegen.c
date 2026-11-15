@@ -7309,36 +7309,35 @@ static void allocate_register_reservations(struct hlsl_ctx *ctx, struct list *ex
 
     LIST_FOR_EACH_ENTRY(var, extern_vars, struct hlsl_ir_var, extern_entry)
     {
-        const struct hlsl_reg_reservation *reservation = &var->reg_reservation;
+        const struct hlsl_reg_reservation *reservation;
         unsigned int r;
 
-        if (reservation->type)
-        {
-            for (r = 0; r <= HLSL_REGSET_LAST_OBJECT; ++r)
-            {
-                if (var->regs[r].allocation_size > 0)
-                {
-                    if (reservation->type != get_regset_name(r))
-                    {
-                        struct vkd3d_string_buffer *type_string;
+        if (!(reservation = hlsl_ir_var_get_current_reservation(var, ctx)))
+            continue;
 
-                        /* We can throw this error because resources can only span across a single
-                         * regset, but we have to check for multiple regsets if we support register
-                         * reservations for structs for SM5. */
-                        type_string = hlsl_type_to_string(ctx, var->data_type);
-                        hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
-                                "Object of type '%s' must be bound to register type '%c'.",
-                                type_string->buffer, get_regset_name(r));
-                        hlsl_release_string_buffer(ctx, type_string);
-                    }
-                    else
-                    {
-                        var->regs[r].allocated = true;
-                        var->regs[r].space = reservation->space;
-                        var->regs[r].index = reservation->index;
-                    }
-                }
+        for (r = 0; r <= HLSL_REGSET_LAST_OBJECT; ++r)
+        {
+            if (!var->regs[r].allocation_size)
+                continue;
+
+            if (reservation->type != get_regset_name(r))
+            {
+                struct vkd3d_string_buffer *type_string;
+
+                /* We can throw this error because resources can only span across a single
+                 * regset, but we have to check for multiple regsets if we support register
+                 * reservations for structs for SM5. */
+                type_string = hlsl_type_to_string(ctx, var->data_type);
+                hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
+                        "Object of type '%s' must be bound to register type '%c'.",
+                        type_string->buffer, get_regset_name(r));
+                hlsl_release_string_buffer(ctx, type_string);
+                continue;
             }
+
+            var->regs[r].allocated = true;
+            var->regs[r].space = reservation->space;
+            var->regs[r].index = reservation->index;
         }
     }
 }
@@ -8179,38 +8178,38 @@ static void allocate_const_registers(struct hlsl_ctx *ctx, struct hlsl_block *bo
     {
         unsigned int reg_size = var->data_type->reg_size[HLSL_REGSET_NUMERIC];
         unsigned int bind_count = var->bind_count[HLSL_REGSET_NUMERIC];
+        const struct hlsl_reg_reservation *reservation;
+        unsigned int i, reg_idx;
 
         if (!var->is_uniform || reg_size == 0)
             continue;
 
-        if (var->reg_reservation.type == 'c')
+        if (!(reservation = hlsl_ir_var_get_current_reservation(var, ctx)) || reservation->type != 'c')
+            continue;
+
+        reg_idx = reservation->index;
+        VKD3D_ASSERT(reg_size % 4 == 0);
+        for (i = 0; i < reg_size / 4; ++i)
         {
-            unsigned int reg_idx = var->reg_reservation.index;
-            unsigned int i;
-
-            VKD3D_ASSERT(reg_size % 4 == 0);
-            for (i = 0; i < reg_size / 4; ++i)
+            if (i < bind_count)
             {
-                if (i < bind_count)
+                if (get_available_writemask(&allocator_used, reg_idx + i, 0, false, false) != VKD3DSP_WRITEMASK_ALL)
                 {
-                    if (get_available_writemask(&allocator_used, reg_idx + i, 0, false, false) != VKD3DSP_WRITEMASK_ALL)
-                    {
-                        hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
-                                "Overlapping register() reservations on 'c%u'.", reg_idx + i);
-                    }
-                    record_allocation(ctx, &allocator_used, reg_idx + i, VKD3DSP_WRITEMASK_ALL, 0, false, false);
+                    hlsl_error(ctx, &var->loc, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
+                            "Overlapping register() reservations on 'c%u'.", reg_idx + i);
                 }
-                record_allocation(ctx, &allocator, reg_idx + i, VKD3DSP_WRITEMASK_ALL, 0, false, false);
+                record_allocation(ctx, &allocator_used, reg_idx + i, VKD3DSP_WRITEMASK_ALL, 0, false, false);
             }
-
-            var->regs[HLSL_REGSET_NUMERIC].type = VSIR_REGISTER_CONSTBUFFER;
-            var->regs[HLSL_REGSET_NUMERIC].id = reg_idx;
-            var->regs[HLSL_REGSET_NUMERIC].allocation_size = reg_size / 4;
-            var->regs[HLSL_REGSET_NUMERIC].writemask = VKD3DSP_WRITEMASK_ALL;
-            var->regs[HLSL_REGSET_NUMERIC].allocated = true;
-            TRACE("Allocated reserved %s to %s.\n", var->name,
-                    debug_register(var->regs[HLSL_REGSET_NUMERIC], var->data_type));
+            record_allocation(ctx, &allocator, reg_idx + i, VKD3DSP_WRITEMASK_ALL, 0, false, false);
         }
+
+        var->regs[HLSL_REGSET_NUMERIC].type = VSIR_REGISTER_CONSTBUFFER;
+        var->regs[HLSL_REGSET_NUMERIC].id = reg_idx;
+        var->regs[HLSL_REGSET_NUMERIC].allocation_size = reg_size / 4;
+        var->regs[HLSL_REGSET_NUMERIC].writemask = VKD3DSP_WRITEMASK_ALL;
+        var->regs[HLSL_REGSET_NUMERIC].allocated = true;
+        TRACE("Allocated reserved %s to %s.\n", var->name,
+                debug_register(var->regs[HLSL_REGSET_NUMERIC], var->data_type));
     }
 
     vkd3d_free(allocator_used.allocations);
@@ -8721,15 +8720,16 @@ static const struct hlsl_buffer *get_reserved_buffer(struct hlsl_ctx *ctx,
     return NULL;
 }
 
-static void hlsl_calculate_buffer_offset(struct hlsl_ctx *ctx, struct hlsl_ir_var *var, bool register_reservation)
+static void hlsl_ir_var_calculate_buffer_offset(struct hlsl_ir_var *var,
+        struct hlsl_ctx *ctx, const struct hlsl_reg_reservation *reservation)
 {
     unsigned int var_reg_size = var->data_type->reg_size[HLSL_REGSET_NUMERIC];
     enum hlsl_type_class var_class = var->data_type->class;
     struct hlsl_buffer *buffer = var->buffer;
 
-    if (register_reservation)
+    if (reservation)
     {
-        var->buffer_offset = 4 * var->reg_reservation.index;
+        var->buffer_offset = 4 * reservation->index;
         var->has_explicit_bind_point = 1;
     }
     else
@@ -8779,6 +8779,7 @@ static void hlsl_calculate_buffer_offset(struct hlsl_ctx *ctx, struct hlsl_ir_va
 
 static void validate_buffer_offsets(struct hlsl_ctx *ctx)
 {
+    const struct hlsl_reg_reservation *reservation;
     struct hlsl_ir_var *var1, *var2;
     struct hlsl_buffer *buffer;
 
@@ -8825,10 +8826,8 @@ static void validate_buffer_offsets(struct hlsl_ctx *ctx)
         if (!buffer || buffer == ctx->globals_buffer)
             continue;
 
-        if (var1->offset.type
-                || var1->reg_reservation.type == 's'
-                || var1->reg_reservation.type == 't'
-                || var1->reg_reservation.type == 'u')
+        if (var1->offset.type || ((reservation = hlsl_ir_var_get_current_reservation(var1, ctx))
+                && (reservation->type == 's' || reservation->type == 't' || reservation->type == 'u')))
             buffer->manually_packed_elements = true;
         else
             buffer->automatically_packed_elements = true;
@@ -8842,8 +8841,22 @@ static void validate_buffer_offsets(struct hlsl_ctx *ctx)
     }
 }
 
+static const struct hlsl_reg_reservation *hlsl_ir_var_get_buffer_offset_register_reservation(
+        const struct hlsl_ir_var *var, struct hlsl_ctx *ctx)
+{
+    const struct hlsl_reg_reservation *reservation;
+
+    if (var->buffer != ctx->globals_buffer)
+        return NULL;
+    if (!(reservation = hlsl_ir_var_get_current_reservation(var, ctx)) || reservation->type != 'c')
+        return NULL;
+
+    return reservation;
+}
+
 void hlsl_calculate_buffer_offsets(struct hlsl_ctx *ctx)
 {
+    const struct hlsl_reg_reservation *reservation;
     struct hlsl_ir_var *var;
 
     LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
@@ -8851,8 +8864,8 @@ void hlsl_calculate_buffer_offsets(struct hlsl_ctx *ctx)
         if (!var->is_uniform || hlsl_type_is_resource(var->data_type))
             continue;
 
-        if (hlsl_var_has_buffer_offset_register_reservation(ctx, var))
-            hlsl_calculate_buffer_offset(ctx, var, true);
+        if ((reservation = hlsl_ir_var_get_buffer_offset_register_reservation(var, ctx)))
+            hlsl_ir_var_calculate_buffer_offset(var, ctx, reservation);
     }
 
     LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
@@ -8860,8 +8873,8 @@ void hlsl_calculate_buffer_offsets(struct hlsl_ctx *ctx)
         if (!var->is_uniform || hlsl_type_is_resource(var->data_type))
             continue;
 
-        if (!hlsl_var_has_buffer_offset_register_reservation(ctx, var))
-            hlsl_calculate_buffer_offset(ctx, var, false);
+        if (!(reservation = hlsl_ir_var_get_buffer_offset_register_reservation(var, ctx)))
+            hlsl_ir_var_calculate_buffer_offset(var, ctx, NULL);
     }
 }
 
@@ -8973,20 +8986,21 @@ static void allocate_buffers(struct hlsl_ctx *ctx)
 static const struct hlsl_ir_var *get_allocated_object(struct hlsl_ctx *ctx, enum hlsl_regset regset,
         uint32_t space, uint32_t index, bool allocated_only)
 {
+    const struct hlsl_reg_reservation *reservation;
     const struct hlsl_ir_var *var;
     unsigned int start, count;
 
     LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, const struct hlsl_ir_var, extern_entry)
     {
-        if (var->reg_reservation.type == get_regset_name(regset)
-                && var->data_type->reg_size[regset])
+        if ((reservation = hlsl_ir_var_get_current_reservation(var, ctx))
+                && reservation->type == get_regset_name(regset) && var->data_type->reg_size[regset])
         {
             /* Vars with a reservation prevent non-reserved vars from being
              * bound there even if the reserved vars aren't used. */
-            start = var->reg_reservation.index;
+            start = reservation->index;
             count = var->data_type->reg_size[regset];
 
-            if (var->reg_reservation.space != space)
+            if (reservation->space != space)
                 continue;
 
             if (!var->regs[regset].allocated && allocated_only)
@@ -14196,6 +14210,7 @@ static struct extern_resource *sm4_get_extern_resources(struct hlsl_ctx *ctx, un
 {
     bool separate_components = ctx->profile->major_version == 5 && ctx->profile->minor_version == 0;
     struct extern_resource *extern_resources = NULL;
+    const struct hlsl_reg_reservation *reservation;
     const struct hlsl_ir_var *var;
     struct hlsl_buffer *buffer;
     enum hlsl_regset regset;
@@ -14206,6 +14221,8 @@ static struct extern_resource *sm4_get_extern_resources(struct hlsl_ctx *ctx, un
 
     LIST_FOR_EACH_ENTRY(var, &ctx->extern_vars, struct hlsl_ir_var, extern_entry)
     {
+        reservation = hlsl_ir_var_get_current_reservation(var, ctx);
+
         if (separate_components)
         {
             unsigned int component_count = hlsl_type_component_count(var->data_type);
@@ -14253,7 +14270,7 @@ static struct extern_resource *sm4_get_extern_resources(struct hlsl_ctx *ctx, un
                 extern_resources[*count].buffer = NULL;
 
                 extern_resources[*count].name = name;
-                extern_resources[*count].is_user_packed = !!var->reg_reservation.type;
+                extern_resources[*count].is_user_packed = !!reservation;
 
                 extern_resources[*count].component_type = component_type;
 
@@ -14300,8 +14317,7 @@ static struct extern_resource *sm4_get_extern_resources(struct hlsl_ctx *ctx, un
                 extern_resources[*count].name = name;
                 /* For some reason 5.1 resources aren't marked as
                  * user-packed, but cbuffers still are. */
-                extern_resources[*count].is_user_packed = hlsl_version_lt(ctx, 5, 1)
-                        && !!var->reg_reservation.type;
+                extern_resources[*count].is_user_packed = hlsl_version_lt(ctx, 5, 1) && reservation;
 
                 extern_resources[*count].component_type = hlsl_type_get_component_type(ctx, var->data_type, 0);
 

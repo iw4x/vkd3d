@@ -48,7 +48,7 @@ struct parse_parameter
     struct hlsl_type *type;
     const char *name;
     struct hlsl_semantic semantic;
-    struct hlsl_reg_reservation reg_reservation;
+    struct hlsl_reg_reservation_list reservations;
     struct hlsl_packoffset offset;
     uint32_t modifiers;
     struct parse_initializer initializer;
@@ -57,7 +57,8 @@ struct parse_parameter
 struct parse_colon_attributes
 {
     struct hlsl_semantic semantic;
-    struct hlsl_reg_reservation reg_reservation;
+    struct hlsl_reg_reservation_list reservations;
+    size_t reservation_capacity;
     struct hlsl_packoffset offset;
 };
 
@@ -75,7 +76,7 @@ struct parse_variable_def
     char *name;
     struct parse_array_sizes arrays;
     struct hlsl_semantic semantic;
-    struct hlsl_reg_reservation reg_reservation;
+    struct hlsl_reg_reservation_list reservations;
     struct hlsl_packoffset offset;
     struct parse_initializer initializer;
     struct hlsl_scope *annotations;
@@ -773,6 +774,7 @@ static void cleanup_parse_attribute_list(struct parse_attribute_list *attr_list)
 static void parse_colon_attributes_cleanup(struct parse_colon_attributes *a)
 {
     hlsl_cleanup_semantic(&a->semantic);
+    vkd3d_free(a->reservations.list);
 }
 
 static void parse_function_cleanup(struct parse_function *f)
@@ -1350,9 +1352,12 @@ static bool add_func_parameter(struct hlsl_ctx *ctx, struct hlsl_func_parameters
     if (hlsl_get_stream_output_type(param->type))
         check_invalid_stream_output_object(ctx, param->type, param->name, loc);
 
-    if (!(var = hlsl_new_var(ctx, param->name, param->type, loc, &param->semantic, modifiers,
-            &param->offset, &param->reg_reservation)))
+    if (!(var = hlsl_new_var(ctx, param->name, param->type, loc,
+            &param->semantic, modifiers, &param->offset, &param->reservations)))
+    {
+        vkd3d_free(param->reservations.list);
         return false;
+    }
     var->is_param = 1;
 
     if (param->initializer.args_count)
@@ -1458,10 +1463,35 @@ static void add_effect_group(struct hlsl_ctx *ctx, const char *name, struct hlsl
     hlsl_add_var(ctx, var);
 }
 
-static bool parse_reservation_index(struct hlsl_ctx *ctx, const char *string, unsigned int bracket_offset,
-        struct hlsl_reg_reservation *reservation)
+static bool parse_reservation_index(struct hlsl_ctx *ctx, const char *string, const char *profile,
+        unsigned int bracket_offset, struct hlsl_reg_reservation *reservation)
 {
     char *endptr;
+
+    reservation->shader_type = VKD3D_SHADER_TYPE_UNSPECIFIED;
+    if (profile)
+    {
+        if ((reservation->profile = hlsl_get_target_info(profile)))
+            reservation->shader_type = reservation->profile->type;
+        else if (!strcmp(profile, "vs"))
+            reservation->shader_type = VKD3D_SHADER_TYPE_VERTEX;
+        else if (!strcmp(profile, "ps"))
+            reservation->shader_type = VKD3D_SHADER_TYPE_PIXEL;
+        else if (!strcmp(profile, "hs"))
+            reservation->shader_type = VKD3D_SHADER_TYPE_HULL;
+        else if (!strcmp(profile, "ds"))
+            reservation->shader_type = VKD3D_SHADER_TYPE_DOMAIN;
+        else if (!strcmp(profile, "gs"))
+            reservation->shader_type = VKD3D_SHADER_TYPE_GEOMETRY;
+        else if (!strcmp(profile, "cs"))
+            reservation->shader_type = VKD3D_SHADER_TYPE_COMPUTE;
+        else if (!strcmp(profile, "fx"))
+            reservation->shader_type = VKD3D_SHADER_TYPE_EFFECT;
+        else if (!strcmp(profile, "tx"))
+            reservation->shader_type = VKD3D_SHADER_TYPE_TEXTURE;
+        else
+            return false;
+    }
 
     reservation->type = ascii_tolower(string[0]);
 
@@ -2695,9 +2725,10 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
             && ctx->compile_info.const_global_uniforms)
         type = hlsl_type_clone(ctx, type, 0, HLSL_MODIFIER_CONST);
 
-    if (!(var = hlsl_new_var(ctx, var_name, type, &v->loc, &new_semantic, modifiers, &v->offset, &v->reg_reservation)))
+    if (!(var = hlsl_new_var(ctx, var_name, type, &v->loc, &new_semantic, modifiers, &v->offset, &v->reservations)))
     {
         hlsl_cleanup_semantic(&new_semantic);
+        vkd3d_free(v->reservations.list);
         vkd3d_free(var_name);
         return;
     }
@@ -2706,9 +2737,14 @@ static void declare_var(struct hlsl_ctx *ctx, struct parse_variable_def *v)
 
     if (constant_buffer && ctx->cur_scope == ctx->globals)
     {
+        struct hlsl_reg_reservation *reservation = NULL;
+
         if (!(var_name = vkd3d_strdup(v->name)))
             return;
-        var->buffer = hlsl_new_buffer(ctx, HLSL_BUFFER_CONSTANT, var_name, modifiers, &v->reg_reservation, NULL, &v->loc);
+        if (var->reservations.count)
+            reservation = &var->reservations.list[var->reservations.count - 1];
+
+        var->buffer = hlsl_new_buffer(ctx, HLSL_BUFFER_CONSTANT, var_name, modifiers, reservation, NULL, &v->loc);
     }
     else
     {
@@ -7804,6 +7840,8 @@ effect_group:
 buffer_declaration:
       var_modifiers buffer_type unqualified_identifier colon_attributes annotations_opt
         {
+            struct hlsl_reg_reservation *reservation = NULL;
+
             if (ctx->cur_scope->namespace)
             {
                 hlsl_fixme(ctx, &@3, "Buffers inside namespaces.");
@@ -7815,9 +7853,22 @@ buffer_declaration:
             if ($4.semantic.name)
                 hlsl_error(ctx, &@4, VKD3D_SHADER_ERROR_HLSL_INVALID_SEMANTIC, "Semantics are not allowed on buffers.");
 
-            if (!(ctx->cur_buffer = hlsl_new_buffer(ctx, $2, $3, $1, &$4.reg_reservation, $5, &@3)))
+            if ($4.reservations.count == 1)
             {
-                parse_colon_attributes_cleanup(&$4);
+                reservation = &$4.reservations.list[0];
+                if (reservation->shader_type != VKD3D_SHADER_TYPE_UNSPECIFIED)
+                    hlsl_error(ctx, &@4, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
+                            "Constant buffer slots cannot be target specific.");
+            }
+            else if ($4.reservations.count > 1)
+                hlsl_error(ctx, &@4, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
+                        "Buffers can only be bound to one slot.");
+
+            ctx->cur_buffer = hlsl_new_buffer(ctx, $2, $3, $1, reservation, $5, &@3);
+            parse_colon_attributes_cleanup(&$4);
+
+            if (!ctx->cur_buffer)
+            {
                 vkd3d_free($3);
                 YYABORT;
             }
@@ -8212,8 +8263,11 @@ func_prototype_no_attrs:
                         "Semantics are not allowed on void functions.");
             }
 
-            if ($7.reg_reservation.type)
+            if ($7.reservations.count)
+            {
                 FIXME("Unexpected register reservation for a function.\n");
+                vkd3d_free($7.reservations.list);
+            }
             if ($7.offset.type)
                 hlsl_error(ctx, &@5, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "packoffset() is not allowed on functions.");
@@ -8398,9 +8452,7 @@ var_modifier_identifier:
 colon_attributes:
       %empty
         {
-            $$.semantic = (struct hlsl_semantic){0};
-            $$.reg_reservation.type = 0;
-            $$.offset.type = 0;
+            $$ = (struct parse_colon_attributes){0};
         }
     | colon_attributes semantic
         {
@@ -8410,13 +8462,32 @@ colon_attributes:
         }
     | colon_attributes register_reservation
         {
-            $$ = $1;
-            if ($$.reg_reservation.type)
-                hlsl_fixme(ctx, &@2, "Multiple register() reservations.");
+            bool unique = true;
 
-            $$.reg_reservation.type = $2.type;
-            $$.reg_reservation.index = $2.index;
-            $$.reg_reservation.space = $2.space;
+            $$ = $1;
+
+            for (size_t i = 0; i < $$.reservations.count; ++i)
+            {
+                struct hlsl_reg_reservation *reservation = &$$.reservations.list[i];
+
+                if (reservation->shader_type == $2.shader_type && reservation->profile == $2.profile)
+                {
+                    if (reservation->type != $2.type || reservation->index != $2.index
+                            || reservation->space != $2.space)
+                        hlsl_error(ctx, &@2, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
+                                "Conflicting register reservations: '%c%u' and '%c%u'.",
+                                reservation->type, reservation->index, $2.type, $2.index);
+                    unique = false;
+                }
+            }
+
+            if (unique)
+            {
+                if (!(vkd3d_array_reserve((void **)&$$.reservations.list,
+                         &$$.reservation_capacity, $$.reservations.count + 1, sizeof($2))))
+                    YYABORT;
+                $$.reservations.list[$$.reservations.count++] = $2;
+            }
         }
     | colon_attributes packoffset_reservation
         {
@@ -8469,7 +8540,7 @@ register_reservation:
       ':' KW_REGISTER '(' unqualified_identifier ')'
         {
             memset(&$$, 0, sizeof($$));
-            if (!parse_reservation_index(ctx, $4, 0, &$$))
+            if (!parse_reservation_index(ctx, $4, NULL, 0, &$$))
                 hlsl_error(ctx, &@4, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "Invalid register reservation '%s'.", $4);
 
@@ -8478,7 +8549,7 @@ register_reservation:
     | ':' KW_REGISTER '(' unqualified_identifier '[' expr ']' ')'
         {
             memset(&$$, 0, sizeof($$));
-            if (!parse_reservation_index(ctx, $4, evaluate_static_expression_as_uint(ctx, $6, &@6), &$$))
+            if (!parse_reservation_index(ctx, $4, NULL, evaluate_static_expression_as_uint(ctx, $6, &@6), &$$))
             {
                 hlsl_error(ctx, &@4, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "Invalid register reservation '%s'.", $4);
@@ -8489,21 +8560,19 @@ register_reservation:
         }
     | ':' KW_REGISTER '(' unqualified_identifier ',' unqualified_identifier ')'
         {
+            const char *reservation = $4, *profile = NULL;
+
             memset(&$$, 0, sizeof($$));
-            if (parse_reservation_index(ctx, $6, 0, &$$))
+            if (!parse_reservation_space($6, &$$.space))
             {
-                hlsl_fixme(ctx, &@4, "Reservation shader target %s.", $4);
+                profile = $4;
+                reservation = $6;
             }
-            else if (parse_reservation_space($6, &$$.space))
-            {
-                if (!parse_reservation_index(ctx, $4, 0, &$$))
-                    hlsl_error(ctx, &@4, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
-                            "Invalid register reservation '%s'.", $4);
-            }
-            else
+
+            if (!parse_reservation_index(ctx, reservation, profile, 0, &$$))
             {
                 hlsl_error(ctx, &@6, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
-                        "Invalid register or space reservation '%s'.", $6);
+                        "Invalid register or space reservation '%s, %s'.", $4, $6);
             }
 
             vkd3d_free($4);
@@ -8517,7 +8586,7 @@ register_reservation:
                 hlsl_error(ctx, &@9, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "Invalid register space reservation '%s'.", $9);
 
-            if (!parse_reservation_index(ctx, $4, evaluate_static_expression_as_uint(ctx, $6, &@6), &$$))
+            if (!parse_reservation_index(ctx, $4, NULL, evaluate_static_expression_as_uint(ctx, $6, &@6), &$$))
             {
                 hlsl_error(ctx, &@4, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "Invalid register reservation '%s'.", $4);
@@ -8529,10 +8598,8 @@ register_reservation:
         }
     | ':' KW_REGISTER '(' unqualified_identifier ',' unqualified_identifier '[' expr ']' ')'
         {
-            hlsl_fixme(ctx, &@4, "Reservation shader target %s.", $4);
-
             memset(&$$, 0, sizeof($$));
-            if (!parse_reservation_index(ctx, $6, evaluate_static_expression_as_uint(ctx, $8, &@8), &$$))
+            if (!parse_reservation_index(ctx, $6, $4, evaluate_static_expression_as_uint(ctx, $8, &@8), &$$))
             {
                 hlsl_error(ctx, &@6, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "Invalid register reservation '%s'.", $6);
@@ -8544,10 +8611,8 @@ register_reservation:
         }
     | ':' KW_REGISTER '(' unqualified_identifier ',' unqualified_identifier ',' unqualified_identifier ')'
         {
-            hlsl_fixme(ctx, &@4, "Reservation shader target %s.", $4);
-
             memset(&$$, 0, sizeof($$));
-            if (!parse_reservation_index(ctx, $6, 0, &$$))
+            if (!parse_reservation_index(ctx, $6, $4, 0, &$$))
                 hlsl_error(ctx, &@6, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "Invalid register reservation '%s'.", $6);
 
@@ -8562,10 +8627,8 @@ register_reservation:
     | ':' KW_REGISTER '(' unqualified_identifier ',' unqualified_identifier '[' expr ']'
             ',' unqualified_identifier ')'
         {
-            hlsl_fixme(ctx, &@4, "Reservation shader target %s.", $4);
-
             memset(&$$, 0, sizeof($$));
-            if (!parse_reservation_index(ctx, $6, evaluate_static_expression_as_uint(ctx, $8, &@8), &$$))
+            if (!parse_reservation_index(ctx, $6, $4, evaluate_static_expression_as_uint(ctx, $8, &@8), &$$))
             {
                 hlsl_error(ctx, &@6, VKD3D_SHADER_ERROR_HLSL_INVALID_RESERVATION,
                         "Invalid register reservation '%s'.", $6);
@@ -8688,7 +8751,7 @@ parameter_decl:
             $$.name = $3;
             $$.semantic = $5.semantic;
             $$.offset = $5.offset;
-            $$.reg_reservation = $5.reg_reservation;
+            $$.reservations = $5.reservations;
 
             memset(&$$.initializer, 0, sizeof($$.initializer));
         }
@@ -9220,7 +9283,7 @@ variable_decl:
             $$->arrays = $2;
             $$->semantic = $3.semantic;
             $$->offset = $3.offset;
-            $$->reg_reservation = $3.reg_reservation;
+            $$->reservations = $3.reservations;
             $$->annotations = $4;
         }
 
