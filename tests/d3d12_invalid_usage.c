@@ -289,6 +289,42 @@ static void test_invalid_unordered_access_views(void)
     ok(!refcount, "ID3D12Device has %u references left.\n", (unsigned int)refcount);
 }
 
+static void test_invalid_samplers(void)
+{
+    D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle;
+    ID3D12DescriptorHeap *heap;
+    ID3D12Device *device;
+    ULONG refcount;
+
+    static const D3D12_SAMPLER_DESC sampler_desc =
+    {
+        .Filter = D3D12_FILTER_ANISOTROPIC,
+        .AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+        .AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+        .AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+        .MaxAnisotropy = 0,
+        .MaxLOD = D3D12_FLOAT32_MAX,
+    };
+
+    if (!(device = create_device()))
+    {
+        skip("Failed to create device.\n");
+        return;
+    }
+
+    /* Zero is not a valid value for .MaxAnisotropy when .Filter is
+     * D3D12_FILTER_ANISOTROPIC; it's not a meaningful combination.
+     * Nevertheless, such samplers can be successfully created. */
+    heap = create_gpu_descriptor_heap(device, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 16);
+    cpu_handle = ID3D12DescriptorHeap_GetCPUDescriptorHandleForHeapStart(heap);
+    ID3D12Device_CreateSampler(device, &sampler_desc, cpu_handle);
+
+    refcount = ID3D12DescriptorHeap_Release(heap);
+    ok(!refcount, "ID3D12DescriptorHeap has %u references left.\n", (unsigned int)refcount);
+    refcount = ID3D12Device_Release(device);
+    ok(!refcount, "ID3D12Device has %u references left.\n", (unsigned int)refcount);
+}
+
 START_TEST(d3d12_invalid_usage)
 {
     parse_args(argc, argv);
@@ -298,4 +334,5 @@ START_TEST(d3d12_invalid_usage)
     run_test(test_invalid_resource_barriers);
     run_test(test_invalid_copy_texture_region);
     run_test(test_invalid_unordered_access_views);
+    run_test(test_invalid_samplers);
 }
