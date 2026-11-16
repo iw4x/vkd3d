@@ -1614,7 +1614,7 @@ static bool gl_runner_draw(struct shader_runner *r, D3D_PRIMITIVE_TOPOLOGY topol
             glVertexAttribPointer(attribute_idx, format->component_count, format->type,
                     GL_FALSE, vbo_info[element->slot].stride, attribute_offsets[i]);
         glEnableVertexAttribArray(attribute_idx);
-        runner->attribute_map |= attribute_idx;
+        runner->attribute_map |= 1u << attribute_idx;
     }
     vkd3d_shader_free_shader_signature(&vs_input_signature);
 
