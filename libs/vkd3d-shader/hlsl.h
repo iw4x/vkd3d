@@ -724,9 +724,14 @@ struct hlsl_ir_if
 
 enum hlsl_loop_unroll_type
 {
+    /* Skip unroll and don't even check for a limiter. */
+    HLSL_LOOP_FASTOPT,
+    /* Prefer not to unroll, and also check for a limiter variable in SM3. */
+    HLSL_LOOP_FORCE_LOOP,
+    /* Attempt to unroll, but use a loop if that fails. */
     HLSL_LOOP_UNROLL,
+    /* Force an unroll, emit an error if that fails. */
     HLSL_LOOP_FORCE_UNROLL,
-    HLSL_LOOP_FORCE_LOOP
 };
 
 enum hlsl_loop_type

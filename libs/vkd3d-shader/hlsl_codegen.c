@@ -15946,7 +15946,7 @@ static struct hlsl_ir_if *identify_limiter_uniform(struct hlsl_ctx *ctx,
     struct hlsl_ir_var *var;
     bool negated;
 
-    VKD3D_ASSERT(loop->unroll_type == HLSL_LOOP_FORCE_LOOP);
+    VKD3D_ASSERT(loop->unroll_type == HLSL_LOOP_FORCE_LOOP || loop->unroll_type == HLSL_LOOP_UNROLL);
     VKD3D_ASSERT(loop->type != HLSL_LOOP_DO_WHILE);
 
     /* If we don't find the loop conditional, this means that either this
@@ -16133,7 +16133,7 @@ static bool unroll_loops(struct hlsl_ctx *ctx, struct hlsl_ir_node *node, void *
 
     loop = hlsl_ir_loop(node);
 
-    if (loop->unroll_type == HLSL_LOOP_FORCE_LOOP)
+    if (loop->unroll_type == HLSL_LOOP_FORCE_LOOP || loop->unroll_type == HLSL_LOOP_FASTOPT)
         return false;
 
     if (loop->unroll_limit.node)
@@ -16170,8 +16170,9 @@ static bool identify_loop_limiters(struct hlsl_ctx *ctx, struct hlsl_ir_node *no
 
     if (loop->type == HLSL_LOOP_DO_WHILE)
         return false;
-    if (loop->unroll_type == HLSL_LOOP_FORCE_LOOP)
-        loop_unrolling_unroll_loop(ctx, program, loop, 255, true);
+    if (loop->unroll_type == HLSL_LOOP_FORCE_UNROLL || loop->unroll_type == HLSL_LOOP_FASTOPT)
+        return false;
+    loop_unrolling_unroll_loop(ctx, program, loop, 255, true);
 
     return false;
 }

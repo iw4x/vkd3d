@@ -269,7 +269,7 @@ float4 main() : sv_target
 draw quad
 probe (0, 0) f32(42.0, 42.0, 42.0, 42.0)
 
-[pixel-shader todo]
+[pixel-shader todo(sm<3)]
 float4 main() : sv_target
 {
     float4 sum = 0;
@@ -281,5 +281,5 @@ float4 main() : sv_target
 }
 
 [test]
-todo(sm<6) draw quad
+todo(sm<3) draw quad
 probe (0, 0) f32(190.0, 190.0, 190.0, 190.0)

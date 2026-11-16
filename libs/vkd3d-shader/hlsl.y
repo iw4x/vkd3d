@@ -710,10 +710,15 @@ static struct hlsl_block *create_loop(struct hlsl_ctx *ctx, enum hlsl_loop_type 
         }
         else if (!strcmp(attr->name, "loop"))
         {
-            unroll_type = HLSL_LOOP_FORCE_LOOP;
+            /* [loop] doesn't override fastopt. */
+            if (unroll_type == HLSL_LOOP_UNROLL)
+                unroll_type = HLSL_LOOP_FORCE_LOOP;
         }
-        else if (!strcmp(attr->name, "fastopt")
-                || !strcmp(attr->name, "allow_uav_condition"))
+        else if (!strcmp(attr->name, "fastopt"))
+        {
+            unroll_type = HLSL_LOOP_FASTOPT;
+        }
+        else if (!strcmp(attr->name, "allow_uav_condition"))
         {
             hlsl_fixme(ctx, loc, "Unhandled attribute '%s'.", attr->name);
         }

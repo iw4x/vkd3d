@@ -696,7 +696,7 @@ todo(sm<4) draw quad
 probe (0, 0) f32(4190, 4190, 4190, 20)
 
 % If the fastopt attribute is used, a limiter is never detected.
-[pixel-shader todo]
+[pixel-shader]
 int lim; // gets c0 because its use is not identified as limiter.
 float b; // gets c1.
 
@@ -716,7 +716,7 @@ if(sm<4) write cbv-f32 (4) f32(3000.0)
 if(sm<4) write cbv-i32 (0) i32(0)
 if(sm>=4) write cbv-0 (0) i32(28)
 if(sm>=4) write cbv-0 (1) f32(3000.0)
-todo draw quad
+draw quad
 winbug(sm<4) probe (0, 0) f32(3378, 3378, 3378, 3378)
 
 [require]
