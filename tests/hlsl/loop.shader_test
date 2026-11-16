@@ -225,7 +225,7 @@ float4 main() : sv_target
     {
         ret += 1.0;
         i++;
-    } while (i < 10)
+    } while (i < 10);
 
     return ret;
 }
@@ -240,7 +240,7 @@ float4 main() : sv_target
     {
         ret += 1.0;
         i++;
-    } while (i < 10)
+    } while (i < 10);
 
     return ret;
 }
