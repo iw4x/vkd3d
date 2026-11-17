@@ -144,4 +144,4 @@ uint4 main(float4 pos : SV_Position, uint id : SV_PrimitiveID) : SV_Target
 [test]
 todo(sm<6) draw triangle list 93
 probe (0, 0) u32(0x6aaaaaaa)
-probe uav-3 (0, 0, 307200, 1) u32(0x2aaaaaaa)
+winbug(amd) probe uav-3 (0, 0, 307200, 1) u32(0x2aaaaaaa)
