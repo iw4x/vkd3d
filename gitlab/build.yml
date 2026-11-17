@@ -123,7 +123,7 @@ build-mingw-32:
 build-mac:
   stage: build
   # The macOS runner sometimes gets stuck when running this job (we don't know
-  # why, but the Metal paravirtualized driver is not very reliable in general).
+  # why, but the Metal paravirtual driver is not very reliable in general).
   # We use a shorter timeout to prevent the runner from being unavailable for a
   # full hour.
   timeout: 15 minutes

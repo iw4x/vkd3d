@@ -1377,7 +1377,7 @@ static void d3d12_runner_init_caps(struct d3d12_shader_runner *runner,
     runner->caps.tags[SHADER_RUNNER_TAG_MVK].present = get_mvk_device_version(device,
             &runner->caps.tags[SHADER_RUNNER_TAG_MVK].major, &runner->caps.tags[SHADER_RUNNER_TAG_MVK].minor,
             &runner->caps.tags[SHADER_RUNNER_TAG_MVK].patch);
-    runner->caps.tags[SHADER_RUNNER_TAG_METAL_PARAVIRTUAL].present = is_mvk_paravirtualized_device(device);
+    runner->caps.tags[SHADER_RUNNER_TAG_METAL_PARAVIRTUAL].present = is_mvk_paravirtual_device(device);
 
     if (is_llvmpipe_device(device))
         runner->caps.tags[SHADER_RUNNER_TAG_LLVMPIPE].present = true;

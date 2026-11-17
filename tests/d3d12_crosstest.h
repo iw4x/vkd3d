@@ -706,7 +706,7 @@ static inline bool is_mvk_device(ID3D12Device *device)
     return false;
 }
 
-static inline bool is_mvk_paravirtualized_device(ID3D12Device *device)
+static inline bool is_mvk_paravirtual_device(ID3D12Device *device)
 {
     return false;
 }
@@ -1080,7 +1080,7 @@ static inline bool is_mvk_device(ID3D12Device *device)
     return properties.driverID == VK_DRIVER_ID_MOLTENVK;
 }
 
-static inline bool is_mvk_paravirtualized_device(ID3D12Device *device)
+static inline bool is_mvk_paravirtual_device(ID3D12Device *device)
 {
     VkPhysicalDeviceDriverPropertiesKHR properties;
     VkPhysicalDeviceProperties device_properties;

@@ -35636,9 +35636,9 @@ static void test_graphics_compute_queue_synchronization(void)
     device = context.device;
     queue = context.queue;
 
-    if (is_mvk_paravirtualized_device(device))
+    if (is_mvk_paravirtual_device(device))
     {
-        skip("GPU hangs on paravirtualized MVK.\n");
+        skip("GPU hangs on paravirtual MVK.\n");
         destroy_test_context(&context);
         return;
     }
