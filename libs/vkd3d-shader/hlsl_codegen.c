@@ -15378,6 +15378,8 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ou
         if (resource->regset == HLSL_REGSET_TEXTURES || resource->regset == HLSL_REGSET_UAVS)
         {
             bool structured = resource->component_type->sampler_dim == HLSL_SAMPLER_DIM_STRUCTURED_BUFFER;
+            bool multisampled = resource->component_type->sampler_dim == HLSL_SAMPLER_DIM_2DMS
+                    || resource->component_type->sampler_dim == HLSL_SAMPLER_DIM_2DMSARRAY;
             unsigned int dimx = resource->component_type->e.resource.format->e.numeric.dimx;
 
             put_u32(buffer, sm4_data_type(resource->component_type));
@@ -15385,8 +15387,10 @@ static void sm4_generate_rdef(struct hlsl_ctx *ctx, struct vkd3d_shader_code *ou
 
             if (structured)
                 put_u32(buffer, hlsl_type_get_packed_size(resource->component_type->e.resource.format));
+            else if (multisampled)
+                put_u32(buffer, resource->component_type->sample_count);
             else
-                put_u32(buffer, ~0u); /* FIXME: multisample count */
+                put_u32(buffer, ~0u);
 
             if (!structured)
                 flags |= (dimx - 1) << VKD3D_SM4_SIF_TEXTURE_COMPONENTS_SHIFT;
