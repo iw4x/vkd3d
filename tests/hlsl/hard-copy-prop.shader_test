@@ -454,6 +454,23 @@ write cbv-0 (13) u32(1)
 draw quad
 probe (0, 0) f32(5.0, 5.0, 5.0, 5.0)
 
+[pixel-shader fail todo(sm>=3)]
+RWBuffer<float> a, b;
+uint i;
+
+    [numthreads(1, 1, 1)]
+void main()
+{
+    RWBuffer<float> aa = a;
+
+    if (i)
+    {
+        aa = b;
+        aa[0] = 1;
+    }
+    aa[1] = 2;
+}
+
 [require]
 shader model < 5.1
 options: backcompat
