@@ -2975,6 +2975,7 @@ static void copy_propagation_invalidate_variable(struct hlsl_ctx *ctx, struct co
 
     TRACE_(copyprop)("Invalidate variable %s[%u]%s.\n", var_def->var->name, comp, debug_hlsl_writemask(writemask));
 
+    VKD3D_ASSERT(writemask);
     for (i = 0; i < 4; ++i)
     {
         if (writemask & (1u << i))
@@ -3664,29 +3665,26 @@ static void copy_propagation_record_store(struct hlsl_ctx *ctx, struct hlsl_ir_s
     struct hlsl_deref *lhs = &store->lhs;
     struct hlsl_ir_var *var = lhs->var;
     unsigned int start, count;
+    uint32_t writemask;
 
     if (!(var_def = copy_propagation_create_var_def(ctx, state, var)))
         return;
 
-    if (hlsl_component_index_range_from_deref(ctx, lhs, &start, &count))
-    {
-        unsigned int writemask = store->writemask;
+    writemask = store->writemask;
+    if (!hlsl_is_numeric_type(store->rhs.node->data_type))
+        writemask = VKD3DSP_WRITEMASK_0;
 
-        if (!hlsl_is_numeric_type(store->rhs.node->data_type))
-            writemask = VKD3DSP_WRITEMASK_0;
+    if (hlsl_component_index_range_from_deref(ctx, lhs, &start, &count))
         copy_propagation_set_value(ctx, var_def, start, writemask, store->rhs.node, store->node.index);
-    }
     else
-    {
-        copy_propagation_invalidate_variable_from_deref(ctx, var_def, lhs, store->writemask,
-                store->node.index);
-    }
+        copy_propagation_invalidate_variable_from_deref(ctx, var_def, lhs, writemask, store->node.index);
 }
 
 static void copy_propagation_invalidate_from_block(struct hlsl_ctx *ctx, struct copy_propagation_state *state,
         struct hlsl_block *block, unsigned int time)
 {
     struct hlsl_ir_node *instr;
+    uint32_t writemask;
 
     LIST_FOR_EACH_ENTRY(instr, &block->instrs, struct hlsl_ir_node, entry)
     {
@@ -3702,7 +3700,11 @@ static void copy_propagation_invalidate_from_block(struct hlsl_ctx *ctx, struct 
                 if (!(var_def = copy_propagation_create_var_def(ctx, state, var)))
                     continue;
 
-                copy_propagation_invalidate_variable_from_deref(ctx, var_def, lhs, store->writemask, time);
+                writemask = store->writemask;
+                if (!hlsl_is_numeric_type(store->rhs.node->data_type))
+                    writemask = VKD3DSP_WRITEMASK_0;
+
+                copy_propagation_invalidate_variable_from_deref(ctx, var_def, lhs, writemask, time);
 
                 break;
             }
