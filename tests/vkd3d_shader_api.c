@@ -2883,11 +2883,11 @@ static void test_fx_non_uniform_vars(void)
         ok(p, "Got p %p.\n", p);
 
         p = strstr(fx_asm.code, "gTexelSize");
-        todo ok(!p, "Got p %p.\n", p);
+        ok(!p, "Got p %p.\n", p);
         p = strstr(fx_asm.code, "gShared");
-        todo ok(!p, "Got p %p.\n", p);
+        ok(!p, "Got p %p.\n", p);
         p = strstr(fx_asm.code, "gCbShared");
-        todo ok(!p, "Got p %p.\n", p);
+        ok(!p, "Got p %p.\n", p);
 
         vkd3d_shader_free_shader_code(&fx_asm);
 

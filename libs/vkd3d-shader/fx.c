@@ -3804,6 +3804,9 @@ static void write_fx_4_buffer(struct hlsl_buffer *b, struct fx_write_context *fx
         if (var->buffer != b)
             continue;
 
+        if (!var->is_uniform)
+            continue;
+
         write_fx_4_numeric_variable(var, shared, fx);
 
         unpacked_size = var->data_type->reg_size[HLSL_REGSET_NUMERIC] * sizeof(float);
