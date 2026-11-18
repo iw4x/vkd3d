@@ -2826,6 +2826,75 @@ static void test_hlsl_locale(void)
 #endif
 }
 
+static void test_fx_non_uniform_vars(void)
+{
+    static const char *const profiles[] = {"fx_4_0", "fx_4_1", "fx_5_0"};
+    static const char fx_code[] =
+        "float2 gScreenSize : ViewportPixelSize;\n"
+        "static float2 gTexelSize = 1.0f / gScreenSize;\n"
+        "groupshared float gShared;\n"
+        "float gExposureValue = 0.0f;\n"
+        "cbuffer MyCB {\n"
+        "    groupshared float gCbShared;\n"
+        "    float gNamed = 1.0f;\n"
+        "};\n";
+    struct vkd3d_shader_hlsl_source_info hlsl_info =
+    {
+        .type = VKD3D_SHADER_STRUCTURE_TYPE_HLSL_SOURCE_INFO,
+    };
+    struct vkd3d_shader_compile_info compile_info =
+    {
+        .type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO,
+        .next = &hlsl_info,
+        .source = {.code = fx_code, .size = sizeof(fx_code) - 1},
+        .source_type = VKD3D_SHADER_SOURCE_HLSL,
+        .target_type = VKD3D_SHADER_TARGET_FX,
+    };
+    struct vkd3d_shader_compile_info disassemble_info =
+    {
+        .type = VKD3D_SHADER_STRUCTURE_TYPE_COMPILE_INFO,
+        .source_type = VKD3D_SHADER_SOURCE_FX,
+        .target_type = VKD3D_SHADER_TARGET_D3D_ASM,
+    };
+    unsigned int i;
+
+    for (i = 0; i < ARRAY_SIZE(profiles); ++i)
+    {
+        struct vkd3d_shader_code fx_blob, fx_asm;
+        const char *p;
+        int ret;
+
+        vkd3d_test_push_context("profile %s", profiles[i]);
+
+        hlsl_info.profile = profiles[i];
+        ret = vkd3d_shader_compile(&compile_info, &fx_blob, NULL);
+        ok(!ret, "Got ret %d.\n", ret);
+
+        disassemble_info.source = fx_blob;
+        ret = vkd3d_shader_compile(&disassemble_info, &fx_asm, NULL);
+        ok(!ret, "Got ret %d.\n", ret);
+        vkd3d_shader_free_shader_code(&fx_blob);
+
+        p = strstr(fx_asm.code, "gScreenSize");
+        ok(p, "Got p %p.\n", p);
+        p = strstr(fx_asm.code, "gExposureValue");
+        ok(p, "Got p %p.\n", p);
+        p = strstr(fx_asm.code, "gNamed");
+        ok(p, "Got p %p.\n", p);
+
+        p = strstr(fx_asm.code, "gTexelSize");
+        todo ok(!p, "Got p %p.\n", p);
+        p = strstr(fx_asm.code, "gShared");
+        todo ok(!p, "Got p %p.\n", p);
+        p = strstr(fx_asm.code, "gCbShared");
+        todo ok(!p, "Got p %p.\n", p);
+
+        vkd3d_shader_free_shader_code(&fx_asm);
+
+        vkd3d_test_pop_context();
+    }
+}
+
 START_TEST(vkd3d_shader_api)
 {
     setlocale(LC_ALL, "");
@@ -2846,4 +2915,5 @@ START_TEST(vkd3d_shader_api)
     run_test(test_query_denormal_mode);
     run_test(test_scan_global_flags);
     run_test(test_hlsl_locale);
+    run_test(test_fx_non_uniform_vars);
 }
