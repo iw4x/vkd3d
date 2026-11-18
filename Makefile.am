@@ -61,6 +61,7 @@ vkd3d_shader_tests = \
 	tests/d3dbc/bool.shader_test \
 	tests/d3dbc/break-cmp.shader_test \
 	tests/d3dbc/bump.shader_test \
+	tests/d3dbc/cnd.shader_test \
 	tests/d3dbc/dp2add.shader_test \
 	tests/d3dbc/loop.shader_test \
 	tests/d3dbc/lrp.shader_test \

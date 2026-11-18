@@ -1716,6 +1716,33 @@ static enum vkd3d_result d3dbc_read_bem(struct vkd3d_shader_sm1_parser *parser,
     return VKD3D_OK;
 }
 
+static enum vkd3d_result d3dbc_read_cnd(struct vkd3d_shader_sm1_parser *parser,
+        const struct d3dbc_instruction *d3dbc_ins)
+{
+    uint32_t lt_id = parser->program->ssa_count++;
+    struct vsir_instruction *ins;
+
+    /* cnd DST, SRC0, SRC1, SRC2
+     *      ->
+     * lt srTMP, 0.5, SRC0
+     * movc DST, srTMP, SRC1, SRC2 */
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_LTO, 1, 2)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_operand_init_ssa(&ins->dst[0], lt_id, VSIR_DATA_BOOL, VSIR_DIMENSION_VEC4);
+    vsir_src_operand_init_const_f32(&ins->src[0], 0.5f);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[1], &d3dbc_ins->src[0], &d3dbc_ins->src_rel_addr[0]);
+
+    if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_MOVC, 1, 3)))
+        return VKD3D_ERROR_OUT_OF_MEMORY;
+    vsir_dst_operand_from_d3dbc(parser, &ins->dst[0], &d3dbc_ins->dst[0], &d3dbc_ins->dst_rel_addr[0]);
+    vsir_src_operand_init_ssa(&ins->src[0], lt_id, VSIR_DATA_BOOL, VSIR_DIMENSION_VEC4);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[1], &d3dbc_ins->src[1], &d3dbc_ins->src_rel_addr[1]);
+    vsir_src_operand_from_d3dbc(parser, &ins->src[2], &d3dbc_ins->src[2], &d3dbc_ins->src_rel_addr[2]);
+
+    return VKD3D_OK;
+}
+
 static bool is_texture_projected(struct vkd3d_shader_sm1_parser *parser, unsigned int index)
 {
     const struct vkd3d_shader_parameter1 *parameter;
@@ -2410,6 +2437,9 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
         case VKD3D_SM1_OP_BEM:
             return d3dbc_read_bem(parser, d3dbc_ins);
 
+        case VKD3D_SM1_OP_CND:
+            return d3dbc_read_cnd(parser, d3dbc_ins);
+
         case VKD3D_SM1_OP_DCL:
             if (!(ins = d3dbc_append_instruction(parser, VSIR_OP_DCL, 0, 0)))
                 return VKD3D_ERROR_OUT_OF_MEMORY;
@@ -2531,7 +2561,6 @@ static enum vkd3d_result shader_sm1_read_instruction(struct vkd3d_shader_sm1_par
 
         case VKD3D_SM1_OP_CALL:
         case VKD3D_SM1_OP_CALLNZ:
-        case VKD3D_SM1_OP_CND:
         case VKD3D_SM1_OP_CRS:
         case VKD3D_SM1_OP_DST:
         case VKD3D_SM1_OP_SETP:

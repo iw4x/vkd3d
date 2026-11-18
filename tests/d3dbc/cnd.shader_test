@@ -1,0 +1,56 @@
+[require]
+shader model = 2.0
+
+[rtv-0]
+format r32g32b32a32-float
+size (2d, 64, 64)
+
+[srv-0]
+format r32g32b32a32-float
+size (2d, 4, 1)
+0.000 -0.250  0.625  0.625
+0.500  0.750 -0.500  0.750
+0.875  0.375  0.875 -0.750
+1.000  1.000  0.250  0.125
+
+[sampler-0]
+filter point point point
+address clamp clamp clamp
+
+[vertex-shader]
+void main(float4 p : POSITION, out float4 t0 : TEXCOORD0, out float4 position : SV_Position)
+{
+    t0 = float4(p.x / 2 + 0.5, 0.5, 0.0, 1.0);
+    position = p;
+}
+
+[pixel-shader d3dbc-hex]
+ffff0104                                                % ps_1_4
+00000051 a00f0000 3e000000 3e800000 3ec00000 3f000000   % def c0, 0.125, 0.250, 0.375, 0.5
+00000051 a00f0001 3f200000 3f400000 3f600000 3f800000   % def c1, 0.625, 0.750, 0.875, 1.0
+00000042 800f0000 b0e40000                              % texld r0, t0
+00000050 800f0000 80e40000 a0e40000 a0e40001            % cnd r0, r0, c0, c1
+0000ffff                                                % end
+
+[test]
+draw quad
+probe ( 8, 24) f32(0.625, 0.750, 0.375, 0.5)
+probe (24, 24) f32(0.625, 0.250, 0.875, 0.5)
+probe (40, 24) f32(0.125, 0.750, 0.375, 1.0)
+probe (56, 24) f32(0.125, 0.250, 0.875, 1.0)
+
+[pixel-shader d3dbc-hex]
+ffff0101                                                % ps_1_1
+00000051 a00f0000 3e000000 3e800000 3ec00000 3f000000   % def c0, 0.125, 0.250, 0.375, 0.5
+00000051 a00f0001 3f200000 3f400000 3f600000 3f800000   % def c1, 0.625, 0.750, 0.875, 1.0
+00000042 b00f0000                                       % tex t0
+00000001 800f0000 b0e40000                              % mov r0, t0
+00000050 800f0000 80ff0000 a0e40000 a0e40001            % cnd r0, r0.w, c0, c1
+0000ffff                                                % end
+
+[test]
+draw quad
+probe ( 8, 24) f32(0.125, 0.250, 0.375, 0.5)
+probe (24, 24) f32(0.125, 0.250, 0.375, 0.5)
+probe (40, 24) f32(0.625, 0.750, 0.875, 1.0)
+probe (56, 24) f32(0.625, 0.750, 0.875, 1.0)
