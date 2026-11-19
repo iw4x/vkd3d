@@ -71,7 +71,7 @@ HRESULT WINAPI D3D12CreateDeviceVKD3D(IUnknown *adapter, D3D_FEATURE_LEVEL minim
     struct vkd3d_instance_create_info instance_create_info;
     struct vkd3d_device_create_info device_create_info;
 
-    static const char * const optional_instance_extensions[] =
+    static const char * const optional_instance_extensions_mvk[] =
     {
         VK_KHR_SURFACE_EXTENSION_NAME,
         "VK_KHR_android_surface",
@@ -82,6 +82,16 @@ HRESULT WINAPI D3D12CreateDeviceVKD3D(IUnknown *adapter, D3D_FEATURE_LEVEL minim
         "VK_EXT_metal_surface",
         "VK_MVK_macos_surface",
         "VK_MVK_ios_surface",
+    };
+    static const char * const optional_instance_extensions[] =
+    {
+        VK_KHR_SURFACE_EXTENSION_NAME,
+        "VK_KHR_android_surface",
+        "VK_KHR_wayland_surface",
+        "VK_KHR_win32_surface",
+        "VK_KHR_xcb_surface",
+        "VK_KHR_xlib_surface",
+        "VK_EXT_metal_surface",
     };
     static const char * const optional_device_extensions[] =
     {
@@ -102,8 +112,23 @@ HRESULT WINAPI D3D12CreateDeviceVKD3D(IUnknown *adapter, D3D_FEATURE_LEVEL minim
     memset(&optional_instance_extensions_info, 0, sizeof(optional_instance_extensions_info));
     optional_instance_extensions_info.type = VKD3D_STRUCTURE_TYPE_OPTIONAL_INSTANCE_EXTENSIONS_INFO;
     optional_instance_extensions_info.next = &application_info;
-    optional_instance_extensions_info.extensions = optional_instance_extensions;
-    optional_instance_extensions_info.extension_count = ARRAY_SIZE(optional_instance_extensions);
+    if (api_version <= VKD3D_API_VERSION_2_2)
+    {
+        optional_instance_extensions_info.extensions = optional_instance_extensions_mvk;
+        optional_instance_extensions_info.extension_count = ARRAY_SIZE(optional_instance_extensions_mvk);
+    }
+    else
+    {
+        /* A macOS system with both MoltenVK and KosmicKrisp installed will
+         * offer instance extension VK_MVK_macos_surface, but creating a
+         * KosmicKrisp device with that extension will fail because
+         * KosmicKrisp only supports VK_EXT_metal_surface. Since
+         * VK_MVK_macos_surface is now deprecated, and VK_EXT_metal_surface is
+         * the extension blessed by the specification that both MoltenVK and
+         * KosmicKrisp support, do not request VK_MVK_macos_surface any more. */
+        optional_instance_extensions_info.extensions = optional_instance_extensions;
+        optional_instance_extensions_info.extension_count = ARRAY_SIZE(optional_instance_extensions);
+    }
 
     memset(&instance_create_info, 0, sizeof(instance_create_info));
     instance_create_info.type = VKD3D_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;

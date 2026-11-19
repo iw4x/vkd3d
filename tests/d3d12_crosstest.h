@@ -67,7 +67,7 @@ typedef int HRESULT;
 #ifdef VKD3D_CROSSTEST
 # include "vkd3d_dxgi1_4.h"
 #else
-# define VKD3D_UTILS_API_VERSION VKD3D_API_VERSION_1_2
+# define VKD3D_UTILS_API_VERSION (VKD3D_API_VERSION_2_2 + 1)
 # include <pthread.h>
 # include <unistd.h>
 # include "vkd3d.h"
