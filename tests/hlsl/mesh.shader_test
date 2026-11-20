@@ -1645,8 +1645,9 @@ clear rtv-0 f32(1.0, 0.0, 0.0, 0.0)
 dispatch-mesh 1 1 1
 probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
 
-% DispatchMesh() must be called exactly once. That's nice, because otherwise
-% it might be complicated to know which variable is the real payload.
+% DispatchMesh() must be called exactly once and in uniform control flow.
+% That's nice, because otherwise it might be complicated to know which variable
+% is the real payload.
 [amplification-shader fail]
 struct payload_data
 {
@@ -1703,6 +1704,27 @@ void main(uint index : SV_GroupIndex)
         DispatchMesh(1, 1, 1, p1);
     else
         DispatchMesh(1, 1, 1, p2);
+}
+
+[amplification-shader fail]
+struct payload_data
+{
+    float4 color;
+};
+
+groupshared struct payload_data p1;
+groupshared struct payload_data p2;
+
+uniform uint idx;
+
+    [numthreads(1, 1, 1)]
+void main(uint index : SV_GroupIndex)
+{
+    p1.color = float4(1.0, 1.0, 1.0, 1.0);
+    p2.color = float4(0.5, 0.5, 0.5, 1.0);
+
+    if (idx == 0)
+        DispatchMesh(1, 1, 1, p1);
 }
 
 [require]
