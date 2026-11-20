@@ -527,6 +527,28 @@ clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
 dispatch-mesh 1 1 1
 probe (0, 0, 640, 480) f32(0.25, 0.5, 0.75, 1.0)
 
+% The documentation claims that DispatchMesh() "ends the amplification shader
+% group's execution", but that doesn't seem to be true. Later writes are honored.
+[amplification-shader]
+struct payload_data
+{
+    float4 color;
+};
+
+groupshared struct payload_data p;
+
+    [numthreads(1, 1, 1)]
+void main() {
+    p.color = float4(0.25, 0.5, 0.75, 1.0);
+    DispatchMesh(1, 1, 1, p);
+    p.color = float4(1.0, 2.0, 3.0, 4.0);
+}
+
+[test]
+clear rtv-0 f32(0.0, 0.0, 0.0, 0.0)
+dispatch-mesh 1 1 1
+probe (0, 0, 640, 480) f32(1.0, 2.0, 3.0, 4.0)
+
 % The DispatchMesh() call that counts is from the first active thread; it also
 % implies a groupshared barrier, so all writes on other threads are collected
 % together.
