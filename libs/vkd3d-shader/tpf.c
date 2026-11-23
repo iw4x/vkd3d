@@ -2026,13 +2026,30 @@ static bool shader_sm4_read_reg_idx(struct vkd3d_shader_sm4_parser *tpf, const u
         }
 
         if (addressing & VKD3D_SM4_ADDRESSING_OFFSET)
+        {
+            if (*ptr >= end)
+            {
+                WARN("Invalid ptr %p >= end %p.\n", *ptr, end);
+                return false;
+            }
+
             reg_idx->offset = *(*ptr)++;
+        }
         else
+        {
             reg_idx->offset = 0;
+        }
+
         tpf_read_src_operand(tpf, ptr, end, VSIR_DATA_I32, rel_addr);
     }
     else
     {
+        if (*ptr >= end)
+        {
+            WARN("Invalid ptr %p >= end %p.\n", *ptr, end);
+            return false;
+        }
+
         reg_idx->rel_addr = NULL;
         reg_idx->offset = *(*ptr)++;
     }
