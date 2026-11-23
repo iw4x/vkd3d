@@ -609,3 +609,229 @@ if(sm>=6.6) probe uav-1 (0, 1) u32(5, 6, 1, 2)
 if(sm>=6.6) probe uav-1 (1, 1) u32(6, 5, 2, 1)
 if(sm>=6.6) probe uav-1 (2, 1) u32(7, 8, 3, 4)
 if(sm>=6.6) probe uav-1 (3, 1) u32(8, 7, 4, 3)
+
+% These tests do not need derivatives and compile fine even without that capability.
+% However, assembling square quads pretty much makes sense only for computing
+% derivatives, so drivers that do not support derivatives in amplification and
+% mesh shaders (which is, at the time of writing, everything except WARP) do not
+% necessarily use square quads either, even at SM >= 6.6.
+[require]
+shader model >= 6.5
+mesh-shader
+derivatives-in-mesh-shaders
+
+[mesh-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+};
+
+RWTexture2D<uint4> u1 : register(u1);
+
+    [outputtopology("triangle")]
+    [numthreads(1, 1, 1)]
+void main(out vertices vertex_out verts[1], uint3 id : SV_DispatchThreadID)
+{
+    u1[id.xy] = float4(WaveGetLaneIndex() % 4, 0, 0, 0);
+
+    SetMeshOutputCounts(1, 0);
+
+    verts[0].position = float4(-1.0, -1.0, 0.0, 1.0);
+}
+
+[pixel-shader]
+float4 main() : SV_Target
+{
+    return float4(0.0, 1.0, 0.0, 1.0);
+}
+
+[test]
+dispatch-mesh 4 4 1
+probe uav-1 (0, 0) u32(0, 0, 0, 0)
+probe uav-1 (1, 0) u32(0, 0, 0, 0)
+probe uav-1 (2, 0) u32(0, 0, 0, 0)
+probe uav-1 (3, 0) u32(0, 0, 0, 0)
+probe uav-1 (0, 1) u32(0, 0, 0, 0)
+probe uav-1 (1, 1) u32(0, 0, 0, 0)
+probe uav-1 (2, 1) u32(0, 0, 0, 0)
+probe uav-1 (3, 1) u32(0, 0, 0, 0)
+
+[mesh-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+};
+
+RWTexture2D<uint4> u1 : register(u1);
+
+    [outputtopology("triangle")]
+    [numthreads(2, 2, 1)]
+void main(out vertices vertex_out verts[1], uint3 id : SV_DispatchThreadID)
+{
+    u1[id.xy] = float4(WaveGetLaneIndex() % 4, 0, 0, 0);
+
+    SetMeshOutputCounts(1, 0);
+
+    verts[0].position = float4(-1.0, -1.0, 0.0, 1.0);
+}
+
+[test]
+dispatch-mesh 2 2 1
+probe uav-1 (0, 0) u32(0, 0, 0, 0)
+probe uav-1 (1, 0) u32(1, 0, 0, 0)
+probe uav-1 (2, 0) u32(0, 0, 0, 0)
+probe uav-1 (3, 0) u32(1, 0, 0, 0)
+probe uav-1 (0, 1) u32(2, 0, 0, 0)
+probe uav-1 (1, 1) u32(3, 0, 0, 0)
+probe uav-1 (2, 1) u32(2, 0, 0, 0)
+probe uav-1 (3, 1) u32(3, 0, 0, 0)
+
+[mesh-shader]
+struct vertex_out
+{
+    float4 position : SV_Position;
+};
+
+RWTexture2D<uint4> u1 : register(u1);
+
+    [outputtopology("triangle")]
+    [numthreads(4, 2, 1)]
+void main(out vertices vertex_out verts[1], uint3 id : SV_DispatchThreadID)
+{
+    u1[id.xy] = float4(WaveGetLaneIndex() % 4, 0, 0, 0);
+
+    SetMeshOutputCounts(1, 0);
+
+    verts[0].position = float4(-1.0, -1.0, 0.0, 1.0);
+}
+
+[test]
+dispatch-mesh 1 2 1
+if(sm<6.6) probe uav-1 (0, 0) u32(0, 0, 0, 0)
+if(sm<6.6) probe uav-1 (1, 0) u32(1, 0, 0, 0)
+if(sm<6.6) probe uav-1 (2, 0) u32(2, 0, 0, 0)
+if(sm<6.6) probe uav-1 (3, 0) u32(3, 0, 0, 0)
+if(sm<6.6) probe uav-1 (0, 1) u32(0, 0, 0, 0)
+if(sm<6.6) probe uav-1 (1, 1) u32(1, 0, 0, 0)
+if(sm<6.6) probe uav-1 (2, 1) u32(2, 0, 0, 0)
+if(sm<6.6) probe uav-1 (3, 1) u32(3, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (0, 0) u32(0, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (1, 0) u32(1, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (2, 0) u32(0, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (3, 0) u32(1, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (0, 1) u32(2, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (1, 1) u32(3, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (2, 1) u32(2, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (3, 1) u32(3, 0, 0, 0)
+
+[amplification-shader]
+struct payload_data
+{
+    uint x;
+};
+
+RWTexture2D<uint4> u1 : register(u1);
+
+groupshared struct payload_data p;
+
+    [numthreads(1, 1, 1)]
+void main(uint3 id : SV_DispatchThreadID) {
+    u1[id.xy] = float4(WaveGetLaneIndex() % 4, 0, 0, 0);
+
+    DispatchMesh(1, 1, 1, p);
+}
+
+[mesh-shader]
+struct payload_data
+{
+    uint x;
+};
+
+struct vertex_out
+{
+    float4 position : SV_Position;
+};
+
+    [outputtopology("triangle")]
+    [numthreads(1, 1, 1)]
+void main(in payload payload_data p, out vertices vertex_out verts[1])
+{
+    SetMeshOutputCounts(1, 0);
+
+    verts[0].position = float4(-1.0, -1.0, 0.0, 1.0);
+}
+
+[test]
+dispatch-mesh 4 4 1
+probe uav-1 (0, 0) u32(0, 0, 0, 0)
+probe uav-1 (1, 0) u32(0, 0, 0, 0)
+probe uav-1 (2, 0) u32(0, 0, 0, 0)
+probe uav-1 (3, 0) u32(0, 0, 0, 0)
+probe uav-1 (0, 1) u32(0, 0, 0, 0)
+probe uav-1 (1, 1) u32(0, 0, 0, 0)
+probe uav-1 (2, 1) u32(0, 0, 0, 0)
+probe uav-1 (3, 1) u32(0, 0, 0, 0)
+
+[amplification-shader]
+struct payload_data
+{
+    uint x;
+};
+
+RWTexture2D<uint4> u1 : register(u1);
+
+groupshared struct payload_data p;
+
+    [numthreads(2, 2, 1)]
+void main(uint3 id : SV_DispatchThreadID) {
+    u1[id.xy] = float4(WaveGetLaneIndex() % 4, 0, 0, 0);
+
+    DispatchMesh(1, 1, 1, p);
+}
+
+[test]
+dispatch-mesh 2 2 1
+probe uav-1 (0, 0) u32(0, 0, 0, 0)
+probe uav-1 (1, 0) u32(1, 0, 0, 0)
+probe uav-1 (2, 0) u32(0, 0, 0, 0)
+probe uav-1 (3, 0) u32(1, 0, 0, 0)
+probe uav-1 (0, 1) u32(2, 0, 0, 0)
+probe uav-1 (1, 1) u32(3, 0, 0, 0)
+probe uav-1 (2, 1) u32(2, 0, 0, 0)
+probe uav-1 (3, 1) u32(3, 0, 0, 0)
+
+[amplification-shader]
+struct payload_data
+{
+    uint x;
+};
+
+RWTexture2D<uint4> u1 : register(u1);
+
+groupshared struct payload_data p;
+
+    [numthreads(4, 2, 1)]
+void main(uint3 id : SV_DispatchThreadID) {
+    u1[id.xy] = float4(WaveGetLaneIndex() % 4, 0, 0, 0);
+
+    DispatchMesh(1, 1, 1, p);
+}
+
+[test]
+dispatch-mesh 1 2 1
+if(sm<6.6) probe uav-1 (0, 0) u32(0, 0, 0, 0)
+if(sm<6.6) probe uav-1 (1, 0) u32(1, 0, 0, 0)
+if(sm<6.6) probe uav-1 (2, 0) u32(2, 0, 0, 0)
+if(sm<6.6) probe uav-1 (3, 0) u32(3, 0, 0, 0)
+if(sm<6.6) probe uav-1 (0, 1) u32(0, 0, 0, 0)
+if(sm<6.6) probe uav-1 (1, 1) u32(1, 0, 0, 0)
+if(sm<6.6) probe uav-1 (2, 1) u32(2, 0, 0, 0)
+if(sm<6.6) probe uav-1 (3, 1) u32(3, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (0, 0) u32(0, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (1, 0) u32(1, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (2, 0) u32(0, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (3, 0) u32(1, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (0, 1) u32(2, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (1, 1) u32(3, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (2, 1) u32(2, 0, 0, 0)
+if(sm>=6.6) probe uav-1 (3, 1) u32(3, 0, 0, 0)
