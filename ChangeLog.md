@@ -1,3 +1,92 @@
+# What's new in vkd3d 2.2 (23 November 2026)
+
+### libvkd3d
+
+  - The maximum supported shader model has been raised to version 6.2.
+
+  - When the VK_KHR_shader_float_controls extension is available, and exposes
+    the corresponding features, libvkd3d will use the floating-point denormal
+    modes specified by shaders.
+
+  - When the VK_KHR_shader_float_controls extension is available, and exposes
+    the shaderSignedZeroInfNanPreserveFloat16/32/64 features, libvkd3d will
+    respect the absence of the ‘refactoringAllowed’ global flag in shaders.
+
+  - Several new feature queries are supported:
+    - D3D12_FEATURE_D3D12_OPTIONS19
+    - D3D12_FEATURE_D3D12_OPTIONS20
+    - D3D12_FEATURE_D3D12_OPTIONS21
+    - D3D12_FEATURE_D3D12_TIGHT_ALIGNMENT
+
+### libvkd3d-shader
+
+  - New features and improvements for the HLSL source type:
+    - Support for integral expressions in attributes. For example, a shader may
+      specify an attribute like ‘[numthreads(x, y, z)]’ after defining
+      ‘static const int x = 4, y = 8, z = 1;’.
+    - A dot-product vectorisation pass. This allows expressions like
+      ‘a.x * b.x + a.y * b.y + a.z * b.z’ to be transformed into
+      ‘dot(a.xyz, b.xyz)’.
+    - Initial support for namespaces.
+    - The isfinite() intrinsic function.
+    - The GetDimensions() read/write texture object method.
+    - The ‘.mips[][]’ texture object operator.
+    - The ‘static’ modifier is ignored on ‘groupshared’ variables.
+    - Resource sample count information is recorded in the reflection metadata.
+
+  - The parser for the ‘Tokenized Program Format’ source type is able to parse
+    and disassemble ‘this’ operands.
+
+  - The legacy Direct3D byte-code source type supports the ‘texm3x2pad’,
+    ‘texm3x2tex’, ‘texm3x3’, ‘texm3x3pad’, and ‘texm3x3tex’ instructions.
+
+  - New interfaces:
+    - The vkd3d_shader_scan_global_flags_info structure extends the
+      vkd3d_shader_compile_info structure, and can be used to retrieve
+      information about the behaviour and/or requirements of a shader as a
+      whole.
+    - The VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_MASK and
+      VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_VALUE compile options
+      can be used together to override the flags returned by the
+      vkd3d_shader_scan_global_flags_info structure.
+    - The VKD3D_SHADER_COMPILE_OPTION_IEEE_754_FP compile option specifies
+      whether transformations violating IEEE 754 floating-point rules should be
+      allowed when compiling HLSL sources.
+    - The VKD3D_SHADER_COMPILE_OPTION_BACKCOMPAT_ALLOW_PACKOFFSET_OVERLAP flag
+      disables overlap checks for the ‘packoffset’ keyword.
+    - When targeting VKD3D_SHADER_API_2_2, compilation will fail when the source
+      shader doesn't specify the ‘refactoringAllowed’ global flag, and the
+      target shader is unable to respect that. For the SPIR-V target, this
+      requires the SPV_KHR_float_controls extension, as well as the
+      shaderSignedZeroInfNanPreserveFloat16/32/64 features. The earlier
+      mentioned VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_MASK and
+      VKD3D_SHADER_COMPILE_OPTION_GLOBAL_FLAGS0_OVERRIDE_VALUE compile options
+      allow overriding the ‘refactoringAllowed’ global flag specified by the
+      source shader.
+    - When targetting VKD3D_SHADER_API_2_2, specifying the
+      VKD3D_SHADER_SPIRV_EXTENSION_KHR_FLOAT_CONTROLS extension implies support
+      for the shaderSignedZeroInfNanPreserveFloat16/32/64 features.
+
+### libvkd3d-utils
+
+  - When the D3DCOMPILE_IEEE_STRICTNESS flag is specified, D3DCompile2VKD3D()
+    will disallow transformations violating IEEE 754 floating-point rules. This
+    also applies to D3DCompile() and D3DCompile2(), which behave like
+    D3DCompile2VKD3D() called with a ‘compiler_version’ of 47.
+
+  - When a ‘compiler_version’ less than 37 is specified, D3DCompile2VKD3D() will
+    disable overlap checks for the ‘packoffset’ keyword.
+
+  - The GetNumInterfaceSlots() method of the ID3D12ShaderReflection and
+    ID3D11ShaderReflection interfaces is implemented.
+
+  - vkd3d_wait_event() supports timed waits.
+
+### vkd3d-compiler
+
+  - The ‘--allow-packoffset-overlap’ option specifies that overlap checks for
+    the ‘packoffset’ keyword should be disabled.
+
 # What's new in vkd3d 2.1 (24 August 2026)
 
 ### libvkd3d-shader
