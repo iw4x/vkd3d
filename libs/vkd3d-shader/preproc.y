@@ -731,4 +731,5 @@ expr
     | expr '?' logicor_expr ':' logicor_expr
         {
             $$ = $1 ? $3 : $5;
+            (void)preproc_yynerrs;
         }

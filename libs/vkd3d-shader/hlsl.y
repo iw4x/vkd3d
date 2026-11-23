@@ -10525,4 +10525,5 @@ expr:
             $$ = $1;
             hlsl_block_add_block($$, $3);
             destroy_block($3);
+            (void)hlsl_yynerrs;
         }
