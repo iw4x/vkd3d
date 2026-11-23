@@ -376,6 +376,7 @@ static int vsir_signature_parse(struct vsir_signature *s, const struct vkd3d_sha
     struct vsir_signature_element *e;
     uint32_t count, header_size;
     const char *ptr = data;
+    size_t element_size;
     bool fail = false;
     unsigned int i;
 
@@ -400,7 +401,10 @@ static int vsir_signature_parse(struct vsir_signature *s, const struct vkd3d_sha
     }
     skip_dword_unknown(&ptr, i - 2);
 
-    if (!require_space(ptr - data, count, 6 * sizeof(uint32_t), section->data.size))
+    has_min_precision = section->tag == TAG_OSG1 || section->tag == TAG_PSG1 || section->tag == TAG_ISG1;
+    has_stream_index = section->tag == TAG_OSG5 || has_min_precision;
+    element_size = (6 + !!has_min_precision + !!has_stream_index) * sizeof(uint32_t);
+    if (!require_space(ptr - data, count, element_size, section->data.size))
     {
         WARN("Invalid count %#x (data size %#zx).\n", count, section->data.size);
         return VKD3D_ERROR_INVALID_ARGUMENT;
@@ -411,9 +415,6 @@ static int vsir_signature_parse(struct vsir_signature *s, const struct vkd3d_sha
         ERR("Failed to allocate input signature memory.\n");
         return VKD3D_ERROR_OUT_OF_MEMORY;
     }
-
-    has_min_precision = section->tag == TAG_OSG1 || section->tag == TAG_PSG1 || section->tag == TAG_ISG1;
-    has_stream_index = section->tag == TAG_OSG5 || has_min_precision;
 
     for (i = 0; i < count; ++i)
     {
