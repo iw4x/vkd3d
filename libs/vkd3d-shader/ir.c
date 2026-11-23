@@ -1503,7 +1503,7 @@ static bool vsir_opcode_from_rel_op(enum vsir_opcode *opcode,
             *requires_swap = false;
             if (data_type == VSIR_DATA_F32)
             {
-                *opcode = VSIR_OP_NEO;
+                *opcode = VSIR_OP_NEU;
                 return true;
             }
             break;
