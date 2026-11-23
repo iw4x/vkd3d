@@ -3,7 +3,7 @@ shader model >= 4.0
 
 [input-layout]
 0 r32g32b32a32-uint apple
-0 r32g32-sint sv_position
+0 r32g32-sint position
 
 [vb-0]
 format r32-uint
@@ -16,7 +16,7 @@ format r32-uint
 struct input
 {
     bool4 apple : apple;
-    int4 pos : sv_position;
+    int4 pos : position;
 };
 
 struct output

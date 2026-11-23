@@ -469,7 +469,7 @@ static D3DDECLUSAGE vertex_decl_usage_from_name(const char *name)
 {
     if (!strcasecmp(name, "color"))
         return D3DDECLUSAGE_COLOR;
-    if (!strcasecmp(name, "position") || !strcasecmp(name, "sv_position"))
+    if (!strcasecmp(name, "position"))
         return D3DDECLUSAGE_POSITION;
     if (!strcasecmp(name, "psize"))
         return D3DDECLUSAGE_PSIZE;
