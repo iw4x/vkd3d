@@ -178,7 +178,7 @@ static int parse_dxbc(const struct vkd3d_shader_code *dxbc, struct vkd3d_shader_
     const char *data = dxbc->code;
     size_t data_size = dxbc->size;
     const char *ptr = data;
-    uint32_t chunk_count;
+    uint32_t section_count;
     uint32_t total_size;
     uint32_t version;
     unsigned int i;
@@ -232,16 +232,22 @@ static int parse_dxbc(const struct vkd3d_shader_code *dxbc, struct vkd3d_shader_
     total_size = read_u32(&ptr);
     TRACE("total size: %#x\n", total_size);
 
-    chunk_count = read_u32(&ptr);
-    TRACE("chunk count: %#x\n", chunk_count);
+    section_count = read_u32(&ptr);
+    TRACE("section count: %#x\n", section_count);
+    if (!require_space(VKD3D_DXBC_HEADER_SIZE, section_count, sizeof(uint32_t), data_size))
+    {
+        vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_DXBC_INVALID_SECTION_COUNT,
+                "DXBC section count %u is too large for DXBC size %zu.", section_count, data_size);
+        return VKD3D_ERROR_INVALID_ARGUMENT;
+    }
 
-    if (!(sections = vkd3d_calloc(chunk_count, sizeof(*sections))))
+    if (!(sections = vkd3d_calloc(section_count, sizeof(*sections))))
     {
         vkd3d_shader_error(message_context, &location, VKD3D_SHADER_ERROR_DXBC_OUT_OF_MEMORY, "Out of memory.");
         return VKD3D_ERROR_OUT_OF_MEMORY;
     }
 
-    for (i = 0; i < chunk_count; ++i)
+    for (i = 0; i < section_count; ++i)
     {
         uint32_t chunk_tag, chunk_size;
         const char *chunk_ptr;
@@ -282,7 +288,7 @@ static int parse_dxbc(const struct vkd3d_shader_code *dxbc, struct vkd3d_shader_
     memcpy(desc->checksum, checksum, sizeof(checksum));
     desc->version = version;
     desc->size = total_size;
-    desc->section_count = chunk_count;
+    desc->section_count = section_count;
     desc->sections = sections;
 
     return VKD3D_OK;
