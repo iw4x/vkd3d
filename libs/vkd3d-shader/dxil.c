@@ -1063,13 +1063,16 @@ static uint32_t sm6_parser_read_bits(struct sm6_parser *sm6, unsigned int length
     if (l <= length)
     {
         ++sm6->ptr;
-        if (sm6_parser_is_end(sm6) && l < length)
-        {
-            sm6->p.status = VKD3D_ERROR_INVALID_SHADER;
-            return bits;
-        }
         sm6->bitpos = 0;
-        bits |= *sm6->ptr << l;
+        if (l < length)
+        {
+            if (sm6_parser_is_end(sm6))
+            {
+                sm6->p.status = VKD3D_ERROR_INVALID_SHADER;
+                return bits;
+            }
+            bits |= *sm6->ptr << l;
+        }
         prev_len = l;
     }
     if (length < 32)
