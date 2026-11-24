@@ -39,7 +39,7 @@ float4 main() : sv_target
 write cbv-0 (0) f32(inf, nan, 1.0, 0.0)
 todo(msl & sm>=6) draw quad
 % inf != inf for SM < 4.
-if(sm<4) todo(mesa>=26 | !radv) probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
+if(sm<4) todo(mesa>=26 | !radv) winbug(nvidia) probe (0, 0) f32(1.0, 1.0, 0.0, 0.0)
 if(sm>=4) todo(sm<6 & (mvk<1.4.0 | msl)) probe (0, 0) f32(0.0, 11.0, 0.0, 0.0)
 
 [pixel-shader]
