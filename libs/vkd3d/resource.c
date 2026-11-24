@@ -3967,7 +3967,7 @@ void d3d12_rtv_desc_create_rtv(struct d3d12_rtv_desc *rtv_desc, struct d3d12_dev
                 vkd3d_texture_view_desc_normalise(&vkd3d_desc, &resource->desc);
                 break;
             default:
-                FIXME("Unhandled view dimension %#x.\n", desc->ViewDimension);
+                FIXME("Unhandled view dimension %s.\n", debug_d3d12_rtv_dimension(desc->ViewDimension));
         }
     }
     else if (resource->desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)

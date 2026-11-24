@@ -913,6 +913,26 @@ const char *debug_d3d12_root_signature_flags(D3D12_ROOT_SIGNATURE_FLAGS flags)
     return debug_buffer_ret(&buffer, flags, "NONE");
 }
 
+const char *debug_d3d12_rtv_dimension(D3D12_RTV_DIMENSION d)
+{
+    switch (d)
+    {
+#define TO_STR(d) case D3D12_RTV_DIMENSION_##d: return #d;
+        TO_STR(UNKNOWN)
+        TO_STR(BUFFER)
+        TO_STR(TEXTURE1D)
+        TO_STR(TEXTURE1DARRAY)
+        TO_STR(TEXTURE2D)
+        TO_STR(TEXTURE2DARRAY)
+        TO_STR(TEXTURE2DMS)
+        TO_STR(TEXTURE2DMSARRAY)
+        TO_STR(TEXTURE3D)
+#undef TO_STR
+    }
+
+    return vkd3d_dbg_sprintf("UNKNOWN(%#x)", d);
+}
+
 static const char *debug_d3d12_shader_component(D3D12_SHADER_COMPONENT_MAPPING component)
 {
     switch (component)
