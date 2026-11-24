@@ -1801,6 +1801,7 @@ const char *debug_d3d12_root_signature_flags(D3D12_ROOT_SIGNATURE_FLAGS flags);
 const char *debug_d3d12_rtv_dimension(D3D12_RTV_DIMENSION d);
 const char *debug_d3d12_shader_component_mapping(unsigned int mapping);
 const char *debug_d3d12_shader_visibility(D3D12_SHADER_VISIBILITY v);
+const char *debug_d3d12_srv_dimension(D3D12_SRV_DIMENSION d);
 const char *debug_d3d12_static_border_color(D3D12_STATIC_BORDER_COLOR c);
 const char *debug_d3d12_texture_address_mode(D3D12_TEXTURE_ADDRESS_MODE m);
 const char *debug_denormal_mode(enum vkd3d_shader_denormal_mode m);

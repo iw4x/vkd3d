@@ -3254,12 +3254,12 @@ static void vkd3d_create_null_srv(struct d3d12_desc *descriptor,
                 vkd3d_desc.view_type = VK_IMAGE_VIEW_TYPE_2D;
                 break;
             }
-            FIXME("Unhandled view dimension %#x.\n", desc->ViewDimension);
+            FIXME("Unhandled view dimension %s.\n", debug_d3d12_srv_dimension(desc->ViewDimension));
             return;
     }
 
     if (!device->vk_info.EXT_robustness2)
-        WARN("Creating NULL SRV %#x.\n", desc->ViewDimension);
+        WARN("Creating NULL %s SRV.\n", debug_d3d12_srv_dimension(desc->ViewDimension));
 
     vkd3d_desc.format = vkd3d_get_format(device, VKD3D_NULL_VIEW_FORMAT, false);
     vkd3d_desc.miplevel_idx = 0;
@@ -3291,7 +3291,7 @@ static void vkd3d_create_buffer_srv(struct d3d12_desc *descriptor,
 
     if (desc->ViewDimension != D3D12_SRV_DIMENSION_BUFFER)
     {
-        WARN("Unexpected view dimension %#x.\n", desc->ViewDimension);
+        WARN("Unexpected view dimension %s.\n", debug_d3d12_srv_dimension(desc->ViewDimension));
         return;
     }
 
@@ -3424,7 +3424,7 @@ void d3d12_desc_create_srv(struct d3d12_desc *descriptor,
                 vkd3d_texture_view_desc_normalise(&vkd3d_desc, &resource->desc);
                 break;
             default:
-                FIXME("Unhandled view dimension %#x.\n", desc->ViewDimension);
+                FIXME("Unhandled view dimension %s.\n", debug_d3d12_srv_dimension(desc->ViewDimension));
         }
     }
 
