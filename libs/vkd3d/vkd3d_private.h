@@ -1804,6 +1804,7 @@ const char *debug_d3d12_shader_visibility(D3D12_SHADER_VISIBILITY v);
 const char *debug_d3d12_srv_dimension(D3D12_SRV_DIMENSION d);
 const char *debug_d3d12_static_border_color(D3D12_STATIC_BORDER_COLOR c);
 const char *debug_d3d12_texture_address_mode(D3D12_TEXTURE_ADDRESS_MODE m);
+const char *debug_d3d12_uav_dimension(D3D12_UAV_DIMENSION d);
 const char *debug_denormal_mode(enum vkd3d_shader_denormal_mode m);
 const char *debug_gpu_handle(D3D12_GPU_DESCRIPTOR_HANDLE handle);
 const char *debug_vk_extent_3d(VkExtent3D extent);

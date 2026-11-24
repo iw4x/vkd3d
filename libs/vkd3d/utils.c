@@ -1036,6 +1036,24 @@ const char *debug_d3d12_texture_address_mode(D3D12_TEXTURE_ADDRESS_MODE m)
     return vkd3d_dbg_sprintf("UNKNOWN(%#x)", m);
 }
 
+const char *debug_d3d12_uav_dimension(D3D12_UAV_DIMENSION d)
+{
+    switch (d)
+    {
+#define TO_STR(d) case D3D12_UAV_DIMENSION_##d: return #d;
+        TO_STR(UNKNOWN)
+        TO_STR(BUFFER)
+        TO_STR(TEXTURE1D)
+        TO_STR(TEXTURE1DARRAY)
+        TO_STR(TEXTURE2D)
+        TO_STR(TEXTURE2DARRAY)
+        TO_STR(TEXTURE3D)
+#undef TO_STR
+    }
+
+    return vkd3d_dbg_sprintf("UNKNOWN(%#x)", d);
+}
+
 const char *debug_denormal_mode(enum vkd3d_shader_denormal_mode m)
 {
     switch (m)
