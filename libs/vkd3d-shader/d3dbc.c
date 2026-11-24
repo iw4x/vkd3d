@@ -3540,14 +3540,6 @@ bool sm1_usage_from_semantic_name(const struct vkd3d_shader_version *version, co
     return false;
 }
 
-enum ctab_register_set
-{
-    CTAB_REGISTER_SET_BOOL,
-    CTAB_REGISTER_SET_INT4,
-    CTAB_REGISTER_SET_FLOAT4,
-    CTAB_REGISTER_SET_SAMPLER,
-};
-
 struct ctab_header
 {
     uint32_t header_size;

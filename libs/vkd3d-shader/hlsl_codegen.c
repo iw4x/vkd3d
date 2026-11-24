@@ -12168,12 +12168,12 @@ static void ctab_write_uniforms(struct ctab_ctx *ctab)
             put_u32(buffer, 0); /* name */
             if (r == HLSL_REGSET_NUMERIC)
             {
-                put_u32(buffer, vkd3d_make_u32(D3DXRS_FLOAT4, var->regs[r].id));
+                put_u32(buffer, vkd3d_make_u32(CTAB_REGISTER_SET_FLOAT4, var->regs[r].id));
                 put_u32(buffer, var->bind_count[r]);
             }
             else
             {
-                put_u32(buffer, vkd3d_make_u32(D3DXRS_SAMPLER, var->regs[r].index));
+                put_u32(buffer, vkd3d_make_u32(CTAB_REGISTER_SET_SAMPLER, var->regs[r].index));
                 put_u32(buffer, var->bind_count[r]);
             }
             put_u32(buffer, 0); /* type */

@@ -653,6 +653,14 @@ static inline bool vsir_opcode_is_imm_atomic(enum vsir_opcode op)
     return VSIR_OP_IMM_ATOMIC_ALLOC <= op && op <= VSIR_OP_IMM_ATOMIC_XOR;
 }
 
+enum ctab_register_set
+{
+    CTAB_REGISTER_SET_BOOL,
+    CTAB_REGISTER_SET_INT4,
+    CTAB_REGISTER_SET_FLOAT4,
+    CTAB_REGISTER_SET_SAMPLER,
+};
+
 enum vsir_register_type
 {
     VSIR_REGISTER_TEMP,
