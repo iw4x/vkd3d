@@ -768,6 +768,24 @@ const char *debug_d3d12_descriptor_range(const D3D12_DESCRIPTOR_RANGE *r)
             r->OffsetInDescriptorsFromTableStart);
 }
 
+const char *debug_d3d12_dsv_dimension(D3D12_DSV_DIMENSION d)
+{
+    switch (d)
+    {
+#define TO_STR(d) case D3D12_DSV_DIMENSION_##d: return #d;
+        TO_STR(UNKNOWN)
+        TO_STR(TEXTURE1D)
+        TO_STR(TEXTURE1DARRAY)
+        TO_STR(TEXTURE2D)
+        TO_STR(TEXTURE2DARRAY)
+        TO_STR(TEXTURE2DMS)
+        TO_STR(TEXTURE2DMSARRAY)
+#undef TO_STR
+    }
+
+    return vkd3d_dbg_sprintf("UNKNOWN(%#x)", d);
+}
+
 const char *debug_d3d12_feature(D3D12_FEATURE f)
 {
     switch (f)
