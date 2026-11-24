@@ -1797,6 +1797,7 @@ const char *debug_d3d12_descriptor_range(const D3D12_DESCRIPTOR_RANGE *r);
 const char *debug_d3d12_dsv_dimension(D3D12_DSV_DIMENSION d);
 const char *debug_d3d12_feature(D3D12_FEATURE f);
 const char *debug_d3d12_filter(D3D12_FILTER f);
+const char *debug_d3d12_resource_dimension(D3D12_RESOURCE_DIMENSION d);
 const char *debug_d3d12_root_signature_flags(D3D12_ROOT_SIGNATURE_FLAGS flags);
 const char *debug_d3d12_rtv_dimension(D3D12_RTV_DIMENSION d);
 const char *debug_d3d12_shader_component_mapping(unsigned int mapping);

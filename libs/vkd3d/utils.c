@@ -889,6 +889,22 @@ const char *debug_d3d12_filter(D3D12_FILTER f)
     return vkd3d_dbg_sprintf("UNKNOWN(%#x)", f);
 }
 
+const char *debug_d3d12_resource_dimension(D3D12_RESOURCE_DIMENSION d)
+{
+    switch (d)
+    {
+#define TO_STR(d) case D3D12_RESOURCE_DIMENSION_##d: return #d;
+        TO_STR(UNKNOWN)
+        TO_STR(BUFFER)
+        TO_STR(TEXTURE1D)
+        TO_STR(TEXTURE2D)
+        TO_STR(TEXTURE3D)
+#undef TO_STR
+    }
+
+    return vkd3d_dbg_sprintf("UNKNOWN(%#x)", d);
+}
+
 const char *debug_d3d12_root_signature_flags(D3D12_ROOT_SIGNATURE_FLAGS flags)
 {
     struct debug_buffer buffer;

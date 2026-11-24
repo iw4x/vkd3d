@@ -1922,7 +1922,7 @@ HRESULT d3d12_resource_validate_desc(const D3D12_RESOURCE_DESC1 *desc, struct d3
             break;
 
         default:
-            WARN("Invalid resource dimension %#x.\n", desc->Dimension);
+            WARN("Invalid resource dimension %s.\n", debug_d3d12_resource_dimension(desc->Dimension));
             return E_INVALIDARG;
     }
 
@@ -2048,7 +2048,7 @@ static HRESULT d3d12_resource_init(struct d3d12_resource *resource, struct d3d12
             break;
 
         default:
-            WARN("Invalid resource dimension %#x.\n", resource->desc.Dimension);
+            WARN("Invalid resource dimension %s.\n", debug_d3d12_resource_dimension(resource->desc.Dimension));
             return E_INVALIDARG;
     }
 
@@ -3058,7 +3058,7 @@ static bool init_default_texture_view_desc(struct vkd3d_texture_view_desc *desc,
             break;
 
         default:
-            FIXME("Resource dimension %#x not implemented.\n", resource->desc.Dimension);
+            FIXME("Unhandled resource dimension %s.\n", debug_d3d12_resource_dimension(resource->desc.Dimension));
             return false;
     }
 
