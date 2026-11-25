@@ -1031,6 +1031,15 @@ static void shader_sm4_read_dcl_index_range(struct vsir_instruction *ins, uint32
             return;
     }
 
+    /* register_idx < MAX_REG_OUTPUT was already validated when reading the
+     * destination operand. */
+    if (register_count > MAX_REG_OUTPUT - register_idx)
+    {
+        vkd3d_shader_parser_error(&priv->p, VKD3D_SHADER_ERROR_TPF_INVALID_INDEX_RANGE_DCL,
+                "Invalid register index range base %u, count %u.", register_idx, register_count);
+        return;
+    }
+
     for (i = 0; i < ranges->count; ++i)
     {
         struct sm4_index_range r = ranges->ranges[i];
