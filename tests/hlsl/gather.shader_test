@@ -111,3 +111,58 @@ float4 main() : sv_target
 [test]
 draw quad
 probe (0, 0) rgba (0.4, 0.0, 0.4, 0.0)
+
+% Gather operations always load from the most detailed mip, even when the
+% the corresponding sample operation would load from a less detailed one.
+[srv-0]
+format r32g32b32a32-float
+size (2d, 4, 4)
+levels 3
+
+1.0 1.0 6.0 7.0  2.0 1.0 6.0 7.0  3.0 1.0 6.0 7.0  4.0 1.0 6.0 7.0
+1.0 2.0 6.0 7.0  2.0 2.0 6.0 7.0  3.0 2.0 6.0 7.0  4.0 2.0 6.0 7.0
+1.0 3.0 6.0 7.0  2.0 3.0 6.0 7.0  3.0 3.0 6.0 7.0  4.0 3.0 6.0 7.0
+1.0 4.0 6.0 7.0  2.0 4.0 6.0 7.0  3.0 4.0 6.0 7.0  4.0 4.0 6.0 7.0
+
+0.0 0.0 1.0 0.0  0.0 0.0 3.0 0.0
+0.0 0.0 2.0 0.0  0.0 0.0 4.0 0.0
+
+0.0 0.0 0.0 5.0
+
+[pixel-shader]
+sampler s;
+Texture2D<float4> t;
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    float2 coord = (pos.xy + 0.125) / 4.0;
+    return t.GatherRed(s, coord, int2(0, 0))
+            + 10 * t.GatherGreen(s, coord, int2(0, 0))
+            + 100 * t.GatherBlue(s, coord, int2(0, 0))
+            + 1000 * t.GatherAlpha(s, coord, int2(0, 0));
+}
+
+[test]
+draw quad
+probe (0, 0) f32(7621.0, 7622.0, 7612.0, 7611.0)
+probe (1, 1) f32(7632.0, 7633.0, 7623.0, 7622.0)
+probe (2, 3) f32(7643.0, 7644.0, 7644.0, 7643.0)
+
+[pixel-shader]
+sampler s;
+Texture2D<float4> t;
+
+float4 main(float4 pos : SV_Position) : sv_target
+{
+    float2 coord = (pos.xy + 0.125) / 2.0;
+    return t.GatherRed(s, coord, int2(0, 0))
+            + 10 * t.GatherGreen(s, coord, int2(0, 0))
+            + 100 * t.GatherBlue(s, coord, int2(0, 0))
+            + 1000 * t.GatherAlpha(s, coord, int2(0, 0));
+}
+
+[test]
+draw quad
+probe (0, 0) f32(7621.0, 7622.0, 7612.0, 7611.0)
+probe (0, 1) f32(7641.0, 7642.0, 7632.0, 7631.0)
+probe (1, 1) f32(7643.0, 7644.0, 7634.0, 7633.0)
