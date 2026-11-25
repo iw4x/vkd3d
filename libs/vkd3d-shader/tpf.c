@@ -964,13 +964,19 @@ static void shader_sm4_read_dcl_index_range(struct vsir_instruction *ins, uint32
     struct vkd3d_shader_index_range *index_range = &ins->declaration.index_range;
     struct vsir_program *program = priv->program;
     unsigned int i, register_idx, register_count;
+    const uint32_t *end = &tokens[token_count];
     const struct vsir_signature *signature;
     struct sm4_index_range_array *ranges;
     enum vsir_register_type type;
     unsigned int *io_masks;
     uint32_t write_mask;
 
-    tpf_read_dst_operand(priv, &tokens, &tokens[token_count], VSIR_DATA_OPAQUE, &index_range->dst);
+    if (!tpf_read_dst_operand(priv, &tokens, end, VSIR_DATA_OPAQUE, &index_range->dst))
+    {
+        ins->opcode = VSIR_OP_INVALID;
+        return;
+    }
+
     index_range->register_count = *tokens;
 
     register_idx = index_range->dst.reg.idx[index_range->dst.reg.idx_count - 1].offset;
