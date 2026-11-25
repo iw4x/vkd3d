@@ -977,6 +977,13 @@ static void shader_sm4_read_dcl_index_range(struct vsir_instruction *ins, uint32
         return;
     }
 
+    if (tokens >= end)
+    {
+        WARN("Invalid ptr %p >= end %p.\n", tokens, end);
+        ins->opcode = VSIR_OP_INVALID;
+        return;
+    }
+
     index_range->register_count = *tokens;
 
     register_idx = index_range->dst.reg.idx[index_range->dst.reg.idx_count - 1].offset;
