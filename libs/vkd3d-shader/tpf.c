@@ -1059,6 +1059,14 @@ static void shader_sm4_read_dcl_index_range(struct vsir_instruction *ins, uint32
             return;
         }
     }
+
+    if (ranges->count >= ARRAY_SIZE(ranges->ranges))
+    {
+        vkd3d_shader_parser_error(&priv->p, VKD3D_SHADER_ERROR_TPF_INVALID_INDEX_RANGE_DCL,
+                "Unable to handle more than %zu dcl_index_range instructions.", ARRAY_SIZE(ranges->ranges));
+        return;
+    }
+
     ranges->ranges[ranges->count].index = register_idx;
     ranges->ranges[ranges->count].count = register_count;
     ranges->ranges[ranges->count++].mask = write_mask;
