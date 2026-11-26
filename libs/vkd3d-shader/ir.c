@@ -2515,6 +2515,7 @@ static enum vkd3d_result vsir_program_lower_texldd(struct vsir_program *program,
 static enum vkd3d_result vsir_program_lower_texldl(struct vsir_program *program, struct vsir_instruction *texldl)
 {
     unsigned int idx = texldl->src[1].reg.idx[0].offset;
+    const struct vsir_descriptor *sampler;
     struct vsir_src_operand *srcs;
 
     VKD3D_ASSERT(texldl->src[1].reg.idx_count == 1);
@@ -2526,6 +2527,23 @@ static enum vkd3d_result vsir_program_lower_texldl(struct vsir_program *program,
     srcs[0] = texldl->src[0];
     vsir_src_operand_init_resource(&srcs[1], idx, idx);
     vsir_src_operand_init_sampler(&srcs[2], idx, idx);
+
+    /* Shadow samplers compare with the z coordinate. Depth textures have a
+     * single level in practice, so sample the first. */
+    sampler = vkd3d_shader_find_descriptor(&program->descriptors, VKD3D_SHADER_DESCRIPTOR_TYPE_SAMPLER, idx);
+    if (sampler->flags & VKD3D_SHADER_DESCRIPTOR_INFO_FLAG_SAMPLER_COMPARISON_MODE)
+    {
+        texldl->opcode = VSIR_OP_SAMPLE_C_LZ;
+        texldl->src = srcs;
+        texldl->src_count = 4;
+
+        srcs[1].swizzle = VKD3D_SHADER_SWIZZLE(X, X, X, X);
+
+        srcs[3] = srcs[0];
+        vsir_src_operand_apply_swizzle(&srcs[3], VKD3D_SHADER_SWIZZLE(Z, Z, Z, Z));
+
+        return VKD3D_OK;
+    }
 
     texldl->opcode = VSIR_OP_SAMPLE_LOD;
     texldl->src = srcs;
